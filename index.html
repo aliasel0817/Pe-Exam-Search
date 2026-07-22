@@ -55,7 +55,7 @@
                     <option value="">전체</option>
                     <option value="공통">공통</option>
                     <option value="관리">관리</option>
-                    <option value="응용">컴퓨터시스템응용</option>
+                    <option value="컴시응">컴퓨터시스템응용</option>
                 </select>
             </div>
             <div>
@@ -127,6 +127,11 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- ★ 페이징(Pagination) 버튼 영역 추가 -->
+        <div id="pagination" class="flex justify-center items-center space-x-1 mt-6 mb-8">
+            <!-- 자바스크립트로 버튼이 생성됩니다. -->
+        </div>
     </div>
 
     <script>
@@ -136,9 +141,13 @@
         
         const EXCEL_FILE_URL = './list.xlsx'; 
 
-        // ★ 변경된 부분: 초기 정렬 조건 - 회차 기준 내림차순(최신순)
+        // 초기 정렬 조건: 회차 기준 내림차순(최신순)
         let currentSortColumn = '회차';
         let currentSortDirection = 'desc';
+
+        // ★ 페이징 설정 변수
+        let currentPage = 1;
+        const ITEMS_PER_PAGE = 500; // 한 페이지에 보여줄 데이터 수
 
         async function initApp() {
             try {
@@ -257,6 +266,8 @@
                     && (yearMonth === "" || rowYearMonth.includes(yearMonth));
             });
 
+            // 검색을 새로 하면 무조건 1페이지로 돌아가도록 설정
+            currentPage = 1;
             executeSortAndRender();
         }
 
@@ -266,8 +277,10 @@
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             } else {
                 currentSortColumn = columnName;
-                currentSortDirection = 'asc';
+                currentSortDirection = 'asc'; // 새 컬럼 누를땐 무조건 오름차순 먼저
             }
+            // 정렬 기준을 바꾸면 무조건 1페이지로 돌아가도록 설정
+            currentPage = 1;
             executeSortAndRender();
         }
 
@@ -305,7 +318,6 @@
             });
         }
 
-        // ★ 변경된 부분: 초기화 시 구분 = 기출, 회차 = 내림차순(최신순) 셋팅
         function resetFilters() {
             document.getElementById('keyword').value = '';
             document.getElementById('category').value = '기출';
@@ -315,23 +327,92 @@
             document.getElementById('year_month').value = '';
             
             currentSortColumn = '회차';
-            currentSortDirection = 'desc'; // 'asc'에서 'desc'로 변경됨
+            currentSortDirection = 'desc'; 
+            currentPage = 1; // 초기화 시 1페이지로
             
             applyFilters(); 
+        }
+
+        // ★ 페이지 이동 함수
+        function changePage(page) {
+            currentPage = page;
+            renderTable(currentFilteredData);
+            
+            // 페이지 이동 시 표의 맨 위로 부드럽게 스크롤
+            window.scrollTo({
+                top: document.querySelector('.max-w-7xl').offsetTop,
+                behavior: 'smooth'
+            });
+        }
+
+        // ★ 페이징 버튼 렌더링 함수
+        function renderPagination(totalItems) {
+            const paginationDiv = document.getElementById('pagination');
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+            if (totalPages <= 1) {
+                paginationDiv.innerHTML = ''; // 1페이지 이하면 버튼 숨김
+                return;
+            }
+
+            let html = '';
+
+            // 이전 버튼
+            if (currentPage > 1) {
+                html += `<button onclick="changePage(${currentPage - 1})" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium text-gray-700">이전</button>`;
+            } else {
+                html += `<button disabled class="px-3 py-1 bg-gray-50 border border-gray-200 rounded text-sm font-medium text-gray-400 cursor-not-allowed">이전</button>`;
+            }
+
+            // 페이지 번호 (현재 페이지 기준으로 앞뒤 2개씩 총 5개 버튼 표시)
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (endPage - startPage < 4) {
+                if (startPage === 1) endPage = Math.min(totalPages, 5);
+                else if (endPage === totalPages) startPage = Math.max(1, totalPages - 4);
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    html += `<button class="px-3 py-1 bg-blue-600 border border-blue-600 rounded text-sm font-medium text-white">${i}</button>`;
+                } else {
+                    html += `<button onclick="changePage(${i})" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium text-gray-700">${i}</button>`;
+                }
+            }
+
+            // 다음 버튼
+            if (currentPage < totalPages) {
+                html += `<button onclick="changePage(${currentPage + 1})" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium text-gray-700">다음</button>`;
+            } else {
+                html += `<button disabled class="px-3 py-1 bg-gray-50 border border-gray-200 rounded text-sm font-medium text-gray-400 cursor-not-allowed">다음</button>`;
+            }
+
+            paginationDiv.innerHTML = html;
         }
 
         function renderTable(dataArray) {
             const tbody = document.getElementById('table-body');
             const resultInfo = document.getElementById('result-info');
 
-            const MAX_DISPLAY = 500;
-            const displayData = dataArray.slice(0, MAX_DISPLAY);
+            const totalItems = dataArray.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
 
-            resultInfo.innerHTML = `검색 결과: 총 <span class="font-bold text-blue-600">${dataArray.length}</span>건 
-                                    ${dataArray.length > MAX_DISPLAY ? '(성능을 위해 최대 500건만 표시됩니다)' : ''}`;
+            // 페이지 검증 (비정상적인 페이지 접근 방지)
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            // ★ 현재 페이지에 해당하는 데이터만 잘라내기
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const displayData = dataArray.slice(startIndex, endIndex);
+
+            // 상단 안내 메시지 업데이트 (현재 페이지/전체 페이지 표시)
+            resultInfo.innerHTML = `검색 결과: 총 <span class="font-bold text-blue-600">${totalItems}</span>건 (현재 페이지: ${currentPage}/${totalPages})`;
 
             if (displayData.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-500">조건에 맞는 검색 결과가 없습니다.</td></tr>`;
+                renderPagination(0);
                 return;
             }
 
@@ -355,6 +436,9 @@
             });
 
             tbody.innerHTML = rowsHtml;
+            
+            // 표 아래에 페이징 버튼 그리기
+            renderPagination(totalItems);
         }
 
         window.onload = initApp;
