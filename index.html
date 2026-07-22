@@ -136,9 +136,9 @@
         
         const EXCEL_FILE_URL = './list.xlsx'; 
 
-        // ★ 변경된 부분: 초기 정렬 조건 - 회차 기준 오름차순(과거순)
+        // ★ 변경된 부분: 초기 정렬 조건 - 회차 기준 내림차순(최신순)
         let currentSortColumn = '회차';
-        let currentSortDirection = 'asc';
+        let currentSortDirection = 'desc';
 
         async function initApp() {
             try {
@@ -305,7 +305,7 @@
             });
         }
 
-        // ★ 변경된 부분: 초기화 시 구분 = 기출, 회차 = 오름차순(과거순) 셋팅
+        // ★ 변경된 부분: 초기화 시 구분 = 기출, 회차 = 내림차순(최신순) 셋팅
         function resetFilters() {
             document.getElementById('keyword').value = '';
             document.getElementById('category').value = '기출';
@@ -315,7 +315,7 @@
             document.getElementById('year_month').value = '';
             
             currentSortColumn = '회차';
-            currentSortDirection = 'asc'; // 'desc'에서 'asc'로 변경됨
+            currentSortDirection = 'desc'; 
             
             applyFilters(); 
         }
