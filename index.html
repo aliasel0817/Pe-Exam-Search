@@ -119,15 +119,14 @@
         let currentFilteredData = [];
         const DB_KEY = 'pe_exam_questions_db_auto';
         
-        // ★ 중요: 읽어올 엑셀 파일의 이름 (index.html과 같은 폴더에 있어야 함)
         const EXCEL_FILE_URL = './list.xlsx'; 
 
+        // ★ 초기 정렬 조건: 회차 기준 내림차순(최신순)
         let currentSortColumn = '회차';
         let currentSortDirection = 'desc';
 
         async function initApp() {
             try {
-                // 1. 먼저 로컬 캐시(IndexedDB)에 데이터가 있는지 확인 (빠른 로딩을 위해)
                 const savedData = await localforage.getItem(DB_KEY);
                 
                 if (savedData && savedData.length > 0) {
@@ -136,19 +135,16 @@
                     document.getElementById('db-status-badge').innerText = "✅ 로컬 캐시 사용됨";
                     resetFilters();
                     
-                    // 백그라운드에서 조용히 새 데이터를 가져와 업데이트 시도 (안정성)
                     fetchExcelData(false);
                 } else {
-                    // 2. 캐시가 없으면(최초 접속 시) 바로 서버(GitHub)에서 파일 다운로드
                     fetchExcelData(true);
                 }
             } catch (err) {
                 console.error("초기화 에러:", err);
-                fetchExcelData(true); // 에러 시에도 무조건 다운로드 시도
+                fetchExcelData(true); 
             }
         }
 
-        // [핵심 로직] 서버(GitHub)에서 엑셀 파일을 자동으로 가져오는 함수
         async function fetchExcelData(showLoadingUI = true) {
             if (showLoadingUI) {
                 document.getElementById('db-status-badge').className = "px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded";
@@ -156,8 +152,6 @@
             }
 
             try {
-                // Fetch API를 사용하여 엑셀 파일을 Binary(ArrayBuffer) 형태로 요청
-                // URL 끝에 타임스탬프를 붙여 브라우저 캐시를 방지하고 항상 최신 파일을 가져옵니다.
                 const response = await fetch(`${EXCEL_FILE_URL}?t=${new Date().getTime()}`);
                 
                 if (!response.ok) {
@@ -166,23 +160,20 @@
                 
                 const arrayBuffer = await response.arrayBuffer();
                 
-                // SheetJS를 이용해 ArrayBuffer 데이터를 엑셀로 파싱
                 const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // JSON 형태로 변환
                 const parsedData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
                 
                 if (parsedData.length > 0) {
                     globalData = parsedData;
-                    // 다음 접속을 위해 로컬 캐시(IndexedDB)에 저장
                     await localforage.setItem(DB_KEY, parsedData);
                     
                     if (showLoadingUI) {
                         document.getElementById('db-status-badge').className = "px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded";
                         document.getElementById('db-status-badge').innerText = "✅ 최신 동기화 완료";
-                        resetFilters(); // 데이터 로드 후 화면에 뿌리기
+                        resetFilters();
                     }
                 }
             } catch (error) {
@@ -195,7 +186,6 @@
             }
         }
 
-        // 엔터키 이벤트
         const inputs = document.querySelectorAll('input[type="text"]');
         inputs.forEach(input => {
             input.addEventListener('keypress', function(e) {
@@ -203,7 +193,6 @@
             });
         });
 
-        // 필터링 적용 함수 (변경 없음)
         function applyFilters() {
             if (globalData.length === 0) return;
 
@@ -245,7 +234,6 @@
             executeSortAndRender();
         }
 
-        // 정렬 클릭 이벤트
         function sortTable(columnName) {
             if (currentFilteredData.length === 0) return;
             if (currentSortColumn === columnName) {
@@ -257,7 +245,6 @@
             executeSortAndRender();
         }
 
-        // 데이터 정렬
         function executeSortAndRender() {
             updateSortIcons();
             currentFilteredData.sort((a, b) => {
@@ -276,7 +263,6 @@
             renderTable(currentFilteredData);
         }
 
-        // 정렬 아이콘 업데이트
         function updateSortIcons() {
             const columns = ['구분', '회차', '종목', '유형', '문제', '년월'];
             columns.forEach(col => {
@@ -293,22 +279,21 @@
             });
         }
 
-        // 필터 초기화
+        // ★ 수정된 부분: 초기화 시 구분 컬럼에 '기출'을 기본값으로 세팅하고 검색 실행
         function resetFilters() {
             document.getElementById('keyword').value = '';
-            document.getElementById('category').value = '';
+            document.getElementById('category').value = '기출'; // 기본값 '기출' 세팅
             document.getElementById('session').value = '';
             document.getElementById('track').value = '';
             document.getElementById('q_type').value = '';
             document.getElementById('year_month').value = '';
             
-            currentSortColumn = '회차'; 
-            currentSortDirection = 'desc';
+            currentSortColumn = '회차'; // 기본 정렬 기준 (회차)
+            currentSortDirection = 'desc'; // 기본 정렬 방향 (내림차순)
             
             applyFilters(); 
         }
 
-        // 화면 렌더링
         function renderTable(dataArray) {
             const tbody = document.getElementById('table-body');
             const resultInfo = document.getElementById('result-info');
