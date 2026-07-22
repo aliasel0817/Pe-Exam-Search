@@ -33,7 +33,6 @@
             
             <div>
                 <label class="block text-sm font-medium text-gray-700">구분</label>
-                <!-- 오류 수정: input 태그를 select 태그로 변경 -->
                 <select id="category" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                     <option value="">전체</option>
                     <option value="기출">기출</option>
@@ -44,10 +43,12 @@
                     <option value="LYZU">라이지움</option>
                 </select>
             </div>
+            
             <div>
-                <label class="block text-sm font-medium text-gray-700">회차</label>
-                <input type="text" id="session" placeholder="예: 139" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <label class="block text-sm font-medium text-gray-700">회차 (띄어쓰기 시 AND)</label>
+                <input type="text" id="session" placeholder="예: 13 9" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
             </div>
+            
             <div>
                 <label class="block text-sm font-medium text-gray-700">종목</label>
                 <select id="track" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
@@ -135,9 +136,9 @@
         
         const EXCEL_FILE_URL = './list.xlsx'; 
 
-        // ★ 초기 정렬 조건: 회차 기준 내림차순(최신순)
+        // ★ 변경된 부분: 초기 정렬 조건 - 회차 기준 오름차순(과거순)
         let currentSortColumn = '회차';
-        let currentSortDirection = 'desc';
+        let currentSortDirection = 'asc';
 
         async function initApp() {
             try {
@@ -212,17 +213,18 @@
 
             const keywordStr = document.getElementById('keyword').value.trim();
             const category = document.getElementById('category').value.trim();
-            const session = document.getElementById('session').value.trim();
+            const sessionStr = document.getElementById('session').value.trim();
             const track = document.getElementById('track').value;
             const qType = document.getElementById('q_type').value;
             const yearMonth = document.getElementById('year_month').value.trim();
 
             const keywords = keywordStr ? keywordStr.split(/\s+/) : [];
+            const sessionKeywords = sessionStr ? sessionStr.split(/\s+/) : [];
 
             currentFilteredData = globalData.filter(row => {
                 const rowProblem = String(row['문제'] || '').toLowerCase();
                 const rowCategory = String(row['구분'] || '');
-                const rowSession = String(row['회차'] || '');
+                const rowSession = String(row['회차'] || '').toLowerCase();
                 const rowTrack = String(row['종목'] || '');
                 const rowType = String(row['유형'] || '');
                 const rowYearMonth = String(row['년월'] || '');
@@ -237,9 +239,19 @@
                     }
                 }
 
+                let sessionMatch = true;
+                if (sessionKeywords.length > 0) {
+                    for (let skw of sessionKeywords) {
+                        if (!rowSession.includes(skw.toLowerCase())) {
+                            sessionMatch = false;
+                            break;
+                        }
+                    }
+                }
+
                 return keywordMatch 
+                    && sessionMatch 
                     && (category === "" || rowCategory.includes(category))
-                    && (session === "" || rowSession.includes(session))
                     && (track === "" || rowTrack.includes(track))
                     && (qType === "" || rowType === qType)
                     && (yearMonth === "" || rowYearMonth.includes(yearMonth));
@@ -293,17 +305,17 @@
             });
         }
 
-        // ★ 초기화 시 구분 = 기출, 회차 = 내림차순(최신순) 셋팅
+        // ★ 변경된 부분: 초기화 시 구분 = 기출, 회차 = 오름차순(과거순) 셋팅
         function resetFilters() {
             document.getElementById('keyword').value = '';
-            document.getElementById('category').value = '기출'; // 구분 기본값 '기출' 선택
+            document.getElementById('category').value = '기출';
             document.getElementById('session').value = '';
             document.getElementById('track').value = '';
             document.getElementById('q_type').value = '';
             document.getElementById('year_month').value = '';
             
-            currentSortColumn = '회차'; // 기본 정렬 기준: 회차
-            currentSortDirection = 'desc'; // 기본 정렬 방향: 최신순(내림차순)
+            currentSortColumn = '회차';
+            currentSortDirection = 'asc'; // 'desc'에서 'asc'로 변경됨
             
             applyFilters(); 
         }
