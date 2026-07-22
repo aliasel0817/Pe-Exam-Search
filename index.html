@@ -85,15 +85,15 @@
             </div>
         </div>
 
-        <!-- ★ 수정된 부분: 결과 안내 텍스트, 페이지 크기 선택기, 갱신 버튼 -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
             <p class="text-sm font-medium text-gray-600" id="result-info">데이터를 가져오는 중입니다...</p>
             
             <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <!-- ★ 수정된 부분: 기본 선택값을 50개로 변경 -->
                 <select id="page_size" onchange="changePageSize()" class="text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
-                    <option value="50">50개씩 보기</option>
+                    <option value="50" selected>50개씩 보기</option>
                     <option value="100">100개씩 보기</option>
-                    <option value="200" selected>200개씩 보기</option>
+                    <option value="200">200개씩 보기</option>
                     <option value="500">500개씩 보기</option>
                 </select>
                 <button onclick="fetchExcelData(true)" class="whitespace-nowrap text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-100 transition">
@@ -154,11 +154,17 @@
         let currentSortColumn = '회차';
         let currentSortDirection = 'desc';
 
-        // ★ 수정된 부분: 페이징 설정 변수 (기본 200개)
+        // ★ 수정된 부분: 페이징 기본 변수를 50으로 세팅
         let currentPage = 1;
-        let itemsPerPage = 200; 
+        let itemsPerPage = 50; 
 
         async function initApp() {
+            // ★ 수정된 부분: 앱 초기화 시점의 현재 연도와 월을 계산하여 Placeholder에 적용
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            document.getElementById('year_month').placeholder = `예: ${year}.${month}`;
+
             try {
                 const savedData = await localforage.getItem(DB_KEY);
                 
@@ -340,10 +346,9 @@
             applyFilters(); 
         }
 
-        // ★ 추가된 부분: 사용자가 콤보박스에서 출력 건수를 변경했을 때 실행되는 함수
         function changePageSize() {
             itemsPerPage = parseInt(document.getElementById('page_size').value);
-            currentPage = 1; // 갯수가 바뀌면 1페이지로 돌아감
+            currentPage = 1; 
             renderTable(currentFilteredData);
         }
 
