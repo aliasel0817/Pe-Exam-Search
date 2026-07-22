@@ -16,7 +16,7 @@
         .sort-active { color: #2563eb; font-weight: bold; }
     </style>
 </head>
-<body class="bg-slate-50 p-4 md:p-8 font-sans">
+<body class="bg-slate-50 p-4 md:p-8 font-sans relative">
     <div class="max-w-7xl mx-auto">
         <div class="flex justify-between items-end mb-2">
             <h1 class="text-2xl font-bold text-gray-800">📝 기술사 문제 검색</h1>
@@ -72,7 +72,7 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">년월</label>
-                <input type="text" id="year_month" placeholder="예: 2026.05" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <input type="text" id="year_month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
             </div>
 
             <div class="flex items-end space-x-2">
@@ -89,7 +89,6 @@
             <p class="text-sm font-medium text-gray-600" id="result-info">데이터를 가져오는 중입니다...</p>
             
             <div class="flex items-center space-x-2 w-full sm:w-auto">
-                <!-- ★ 수정된 부분: 기본 선택값을 50개로 변경 -->
                 <select id="page_size" onchange="changePageSize()" class="text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
                     <option value="50" selected>50개씩 보기</option>
                     <option value="100">100개씩 보기</option>
@@ -143,6 +142,22 @@
         </div>
     </div>
 
+    <!-- ★ 추가된 부분: 우측 하단 플로팅 위/아래 이동 버튼 -->
+    <div class="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
+        <!-- 위로 이동 버튼 -->
+        <button onclick="scrollToTop()" class="bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition opacity-80 hover:opacity-100" title="맨 위로 이동">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path>
+            </svg>
+        </button>
+        <!-- 아래로 이동 버튼 -->
+        <button onclick="scrollToBottom()" class="bg-slate-600 text-white p-3 rounded-full shadow-lg hover:bg-slate-700 transition opacity-80 hover:opacity-100" title="맨 아래로 이동">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </button>
+    </div>
+
     <script>
         let globalData = [];
         let currentFilteredData = [];
@@ -150,16 +165,14 @@
         
         const EXCEL_FILE_URL = './list.xlsx'; 
 
-        // 초기 정렬 조건: 회차 기준 내림차순(최신순)
         let currentSortColumn = '회차';
         let currentSortDirection = 'desc';
 
-        // ★ 수정된 부분: 페이징 기본 변수를 50으로 세팅
         let currentPage = 1;
         let itemsPerPage = 50; 
 
         async function initApp() {
-            // ★ 수정된 부분: 앱 초기화 시점의 현재 연도와 월을 계산하여 Placeholder에 적용
+            // 현재 연도와 월을 계산하여 Placeholder에 적용
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -448,6 +461,22 @@
             tbody.innerHTML = rowsHtml;
             
             renderPagination(totalItems);
+        }
+
+        // ★ 스크롤 이동 함수 추가
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function scrollToBottom() {
+            const paginationEl = document.getElementById('pagination');
+            if (paginationEl) {
+                // 페이지 버튼 영역으로 스크롤 이동
+                paginationEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            } else {
+                // 페이지 버튼이 없으면 문서 맨 아래로 이동
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
         }
 
         window.onload = initApp;
