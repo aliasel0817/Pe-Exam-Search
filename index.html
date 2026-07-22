@@ -85,12 +85,21 @@
             </div>
         </div>
 
-        <!-- 수동 업데이트 안내 및 상태 -->
-        <div class="flex justify-between items-center mb-4">
+        <!-- ★ 수정된 부분: 결과 안내 텍스트, 페이지 크기 선택기, 갱신 버튼 -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
             <p class="text-sm font-medium text-gray-600" id="result-info">데이터를 가져오는 중입니다...</p>
-            <button onclick="fetchExcelData(true)" class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1 rounded hover:bg-blue-100 transition">
-                🔄 최신 데이터 다시 불러오기
-            </button>
+            
+            <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <select id="page_size" onchange="changePageSize()" class="text-sm border border-gray-300 rounded-md py-1.5 px-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+                    <option value="50">50개씩 보기</option>
+                    <option value="100">100개씩 보기</option>
+                    <option value="200" selected>200개씩 보기</option>
+                    <option value="500">500개씩 보기</option>
+                </select>
+                <button onclick="fetchExcelData(true)" class="whitespace-nowrap text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-100 transition">
+                    🔄 최신 갱신
+                </button>
+            </div>
         </div>
 
         <!-- 데이터 테이블 영역 -->
@@ -128,8 +137,8 @@
             </table>
         </div>
         
-        <!-- ★ 페이징(Pagination) 버튼 영역 추가 -->
-        <div id="pagination" class="flex justify-center items-center space-x-1 mt-6 mb-8">
+        <!-- 페이징(Pagination) 버튼 영역 -->
+        <div id="pagination" class="flex justify-center items-center space-x-1 mt-6 mb-8 flex-wrap gap-y-2">
             <!-- 자바스크립트로 버튼이 생성됩니다. -->
         </div>
     </div>
@@ -145,9 +154,9 @@
         let currentSortColumn = '회차';
         let currentSortDirection = 'desc';
 
-        // ★ 페이징 설정 변수
+        // ★ 수정된 부분: 페이징 설정 변수 (기본 200개)
         let currentPage = 1;
-        const ITEMS_PER_PAGE = 500; // 한 페이지에 보여줄 데이터 수
+        let itemsPerPage = 200; 
 
         async function initApp() {
             try {
@@ -266,7 +275,6 @@
                     && (yearMonth === "" || rowYearMonth.includes(yearMonth));
             });
 
-            // 검색을 새로 하면 무조건 1페이지로 돌아가도록 설정
             currentPage = 1;
             executeSortAndRender();
         }
@@ -277,9 +285,8 @@
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             } else {
                 currentSortColumn = columnName;
-                currentSortDirection = 'asc'; // 새 컬럼 누를땐 무조건 오름차순 먼저
+                currentSortDirection = 'asc'; 
             }
-            // 정렬 기준을 바꾸면 무조건 1페이지로 돌아가도록 설정
             currentPage = 1;
             executeSortAndRender();
         }
@@ -328,43 +335,45 @@
             
             currentSortColumn = '회차';
             currentSortDirection = 'desc'; 
-            currentPage = 1; // 초기화 시 1페이지로
+            currentPage = 1; 
             
             applyFilters(); 
         }
 
-        // ★ 페이지 이동 함수
+        // ★ 추가된 부분: 사용자가 콤보박스에서 출력 건수를 변경했을 때 실행되는 함수
+        function changePageSize() {
+            itemsPerPage = parseInt(document.getElementById('page_size').value);
+            currentPage = 1; // 갯수가 바뀌면 1페이지로 돌아감
+            renderTable(currentFilteredData);
+        }
+
         function changePage(page) {
             currentPage = page;
             renderTable(currentFilteredData);
             
-            // 페이지 이동 시 표의 맨 위로 부드럽게 스크롤
             window.scrollTo({
                 top: document.querySelector('.max-w-7xl').offsetTop,
                 behavior: 'smooth'
             });
         }
 
-        // ★ 페이징 버튼 렌더링 함수
         function renderPagination(totalItems) {
             const paginationDiv = document.getElementById('pagination');
-            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
 
             if (totalPages <= 1) {
-                paginationDiv.innerHTML = ''; // 1페이지 이하면 버튼 숨김
+                paginationDiv.innerHTML = ''; 
                 return;
             }
 
             let html = '';
 
-            // 이전 버튼
             if (currentPage > 1) {
                 html += `<button onclick="changePage(${currentPage - 1})" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium text-gray-700">이전</button>`;
             } else {
                 html += `<button disabled class="px-3 py-1 bg-gray-50 border border-gray-200 rounded text-sm font-medium text-gray-400 cursor-not-allowed">이전</button>`;
             }
 
-            // 페이지 번호 (현재 페이지 기준으로 앞뒤 2개씩 총 5개 버튼 표시)
             let startPage = Math.max(1, currentPage - 2);
             let endPage = Math.min(totalPages, currentPage + 2);
             
@@ -381,7 +390,6 @@
                 }
             }
 
-            // 다음 버튼
             if (currentPage < totalPages) {
                 html += `<button onclick="changePage(${currentPage + 1})" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium text-gray-700">다음</button>`;
             } else {
@@ -396,18 +404,15 @@
             const resultInfo = document.getElementById('result-info');
 
             const totalItems = dataArray.length;
-            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+            const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
-            // 페이지 검증 (비정상적인 페이지 접근 방지)
             if (currentPage > totalPages) currentPage = totalPages;
             if (currentPage < 1) currentPage = 1;
 
-            // ★ 현재 페이지에 해당하는 데이터만 잘라내기
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
             const displayData = dataArray.slice(startIndex, endIndex);
 
-            // 상단 안내 메시지 업데이트 (현재 페이지/전체 페이지 표시)
             resultInfo.innerHTML = `검색 결과: 총 <span class="font-bold text-blue-600">${totalItems}</span>건 (현재 페이지: ${currentPage}/${totalPages})`;
 
             if (displayData.length === 0) {
@@ -437,7 +442,6 @@
 
             tbody.innerHTML = rowsHtml;
             
-            // 표 아래에 페이징 버튼 그리기
             renderPagination(totalItems);
         }
 
