@@ -33,7 +33,16 @@
             
             <div>
                 <label class="block text-sm font-medium text-gray-700">구분</label>
-                <input type="text" id="category" placeholder="예: 기출" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                <!-- 오류 수정: input 태그를 select 태그로 변경 -->
+                <select id="category" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">전체</option>
+                    <option value="기출">기출</option>
+                    <option value="ITPE">ITPE</option>
+                    <option value="ILIFO">아이리포</option>
+                    <option value="KPC">KPC</option>
+                    <option value="INFO">인포레버</option>
+                    <option value="LYZU">라이지움</option>
+                </select>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">회차</label>
@@ -43,8 +52,9 @@
                 <label class="block text-sm font-medium text-gray-700">종목</label>
                 <select id="track" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                     <option value="">전체</option>
-                    <option value="관리">정보관리</option>
-                    <option value="컴시">컴퓨터시스템응용</option>
+                    <option value="공통">공통</option>
+                    <option value="관리">관리</option>
+                    <option value="컴시응">컴퓨터시스템응용</option>
                 </select>
             </div>
             <div>
@@ -53,6 +63,10 @@
                     <option value="">전체</option>
                     <option value="1">1교시</option>
                     <option value="2">2교시</option>
+                    <option value="3">3교시</option>
+                    <option value="4">4교시</option>
+                    <option value="서술">서술</option>
+                    <option value="용어">용어</option>
                 </select>
             </div>
             <div>
@@ -279,17 +293,17 @@
             });
         }
 
-        // ★ 수정된 부분: 초기화 시 구분 컬럼에 '기출'을 기본값으로 세팅하고 검색 실행
+        // ★ 초기화 시 구분 = 기출, 회차 = 내림차순(최신순) 셋팅
         function resetFilters() {
             document.getElementById('keyword').value = '';
-            document.getElementById('category').value = '기출'; // 기본값 '기출' 세팅
+            document.getElementById('category').value = '기출'; // 구분 기본값 '기출' 선택
             document.getElementById('session').value = '';
             document.getElementById('track').value = '';
             document.getElementById('q_type').value = '';
             document.getElementById('year_month').value = '';
             
-            currentSortColumn = '회차'; // 기본 정렬 기준 (회차)
-            currentSortDirection = 'desc'; // 기본 정렬 방향 (내림차순)
+            currentSortColumn = '회차'; // 기본 정렬 기준: 회차
+            currentSortDirection = 'desc'; // 기본 정렬 방향: 최신순(내림차순)
             
             applyFilters(); 
         }
