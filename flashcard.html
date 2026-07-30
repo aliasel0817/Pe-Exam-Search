@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기술사 토픽 자동 암기장</title>
+    
+    <!-- Tailwind CSS (반응형 UI) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (엑셀 파일 읽기) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- localForage (브라우저 내장 IndexedDB) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    
+    <style>
+        /* 스크롤바 커스텀 스타일 (키워드 영역 가독성 향상) */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-left: 1px solid black; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border: 1px solid black; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-slate-50 p-2 md:p-8 font-sans">
+    <div class="max-w-5xl mx-auto">
+        
+        <!-- 상단 헤더 영역 -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 gap-2">
+            <h1 onclick="location.reload()" class="text-2xl font-extrabold text-gray-900 cursor-pointer hover:text-blue-600 transition tracking-tight" title="페이지 새로고침">
+                📖 기술사 토픽 암기장
+            </h1>
+            <div class="flex flex-col items-end">
+                <span id="db-status-badge" class="px-2 py-1 bg-black text-white text-xs font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    데이터 불러오는 중...
+                </span>
+                <button onclick="fetchExcelData(true)" class="mt-2 text-xs border-2 border-black bg-yellow-300 px-3 py-1 hover:bg-yellow-400 font-bold transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                    🔄 엑셀 파일 최신 갱신
+                </button>
+            </div>
+        </div>
+        
+        <!-- 검색 조건 패널 (이미지 레이아웃 반영) -->
+        <div class="flex w-full mb-6 items-stretch border-2 border-black bg-white p-3 md:p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
+            <!-- 좌측 '검색 조건' 라벨 -->
+            <div class="w-14 md:w-20 flex-shrink-0 flex items-center justify-center font-bold text-sm md:text-base mr-3 text-center leading-tight">
+                검색<br>조건
+            </div>
+            
+            <!-- 검색 입력 컨트롤 컨테이너 -->
+            <div class="flex-grow flex flex-col gap-3">
+                <!-- 상단: 토픽 검색 -->
+                <div class="flex border-2 border-black bg-white">
+                    <div class="w-16 md:w-20 border-r-2 border-black flex items-center justify-center font-bold text-sm bg-gray-100">토픽</div>
+                    <input type="text" id="keyword" placeholder="예: ITSM (띄어쓰기 시 AND 검색)" class="flex-grow p-2 focus:outline-none focus:bg-blue-50 text-sm md:text-base font-bold">
+                </div>
+                
+                <!-- 하단: 도메인, 중요도, 버튼 -->
+                <div class="flex flex-col md:flex-row gap-3 md:gap-4 md:items-end">
+                    <!-- 도메인 & 중요도 (모바일 환경 고려 flex 분할) -->
+                    <div class="flex gap-3 flex-grow md:flex-grow-0">
+                        <div class="flex flex-col flex-1 md:w-36">
+                            <label class="text-left font-bold text-xs md:text-sm mb-1 ml-1 text-gray-700">도메인</label>
+                            <select id="domain" class="border-2 border-black p-2 focus:outline-none text-sm font-bold bg-white text-center cursor-pointer">
+                                <option value="">전체</option>
+                                <option value="MG">MG (경영)</option>
+                                <option value="SW">SW (소프트웨어)</option>
+                                <option value="SV">SV (보안)</option>
+                                <option value="AI">AI (인공지능)</option>
+                                <option value="ST">ST (통계)</option>
+                                <option value="AL">AL (알고리즘)</option>
+                                <option value="DB">DB (데이터베이스)</option>
+                                <option value="NW">NW (네트워크)</option>
+                                <option value="SE">SE (시스템엔지니어링)</option>
+                                <option value="OS">OS (운영체제)</option>
+                                <option value="CA">CA (컴퓨터구조)</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col flex-1 md:w-32">
+                            <label class="text-left font-bold text-xs md:text-sm mb-1 ml-1 text-gray-700">중요도</label>
+                            <select id="importance" class="border-2 border-black p-2 focus:outline-none text-sm font-bold bg-white text-center cursor-pointer">
+                                <option value="">전체</option>
+                                <option value="상">상</option>
+                                <option value="중">중</option>
+                                <option value="하">하</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- 조회/초기화 버튼 -->
+                    <div class="flex gap-2 shrink-0 md:ml-auto h-[40px]">
+                        <button onclick="applyFilters()" class="border-2 border-black bg-white hover:bg-gray-100 font-bold px-5 md:px-6 text-sm h-full transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">조회</button>
+                        <button onclick="resetFilters()" class="border-2 border-black bg-white hover:bg-gray-100 font-bold px-5 md:px-6 text-sm h-full transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">초기화</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 메인 암기장 카드 영역 -->
+        <div class="flex flex-col md:flex-row items-center justify-center w-full gap-2 md:gap-4 mt-6">
+            
+            <!-- 좌측 화살표 (데스크탑 전용) -->
+            <button onclick="prevCard()" class="hidden md:block flex-shrink-0 hover:-translate-x-2 transition-transform cursor-pointer" title="이전 토픽 (왼쪽 방향키)">
+                <svg width="60" height="50" viewBox="0 0 100 60" fill="yellow" stroke="black" stroke-width="3" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M40 10 L10 30 L40 50 L40 40 L90 40 L90 20 L40 20 Z" />
+                </svg>
+            </button>
+            
+            <!-- 플래시 카드 본체 (CSS Grid 활용 완벽 매칭) -->
+            <div class="grid grid-cols-[70px_minmax(0,1fr)] md:grid-cols-[100px_minmax(0,1fr)] w-full max-w-3xl border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.2)]">
+                
+                <!-- [1행 & 2행] 토픽 영역 (좌측 라벨 세로 병합) -->
+                <div class="border-r-2 border-b-2 border-black flex items-center justify-center font-bold bg-gray-50 text-sm md:text-base row-span-2">토픽</div>
+                
+                <!-- 1행 우측: NO, 도메인, 중요도 -->
+                <div class="grid grid-cols-3 border-b-2 border-black text-center font-bold text-xs md:text-sm bg-white">
+                    <div class="border-r-2 border-black p-2 truncate">NO: <span id="card-no" class="font-normal"></span></div>
+                    <div class="border-r-2 border-black p-2 truncate">도메인: <span id="card-domain" class="font-normal text-blue-600"></span></div>
+                    <div class="p-2 truncate">중요도: <span id="card-importance" class="font-normal text-red-600"></span></div>
+                </div>
+                
+                <!-- 2행 우측: 토픽명 -->
+                <div class="border-b-2 border-black p-4 text-lg md:text-2xl font-extrabold min-h-[70px] flex items-center bg-white" id="card-topic">
+                    <!-- 토픽 내용 바인딩 -->
+                </div>
+                
+                <!-- [3행] 키워드 영역 (스크롤 적용) -->
+                <div class="border-r-2 border-b-2 border-black flex items-center justify-center font-bold bg-gray-50 text-sm md:text-base">키워드</div>
+                <div class="border-b-2 border-black p-4 h-64 md:h-[320px] overflow-y-auto leading-relaxed text-sm md:text-base bg-white custom-scrollbar whitespace-normal" id="card-keyword">
+                    <!-- 키워드 내용 바인딩 -->
+                </div>
+                
+                <!-- [4행] 연관 토픽 영역 -->
+                <div class="border-r-2 border-b-2 border-black flex items-center justify-center font-bold text-center bg-gray-50 text-sm md:text-base">연관<br>토픽</div>
+                <div class="border-b-2 border-black p-4 flex items-center justify-center font-bold text-sm md:text-base text-center bg-white" id="card-related">
+                    <!-- 연관토픽 내용 바인딩 -->
+                </div>
+                
+                <!-- [5행] 암기법 영역 -->
+                <div class="border-r-2 border-black flex items-center justify-center font-bold bg-gray-50 text-sm md:text-base">암기법</div>
+                <div class="p-4 flex items-center justify-center font-extrabold text-lg md:text-xl text-center bg-yellow-50 text-indigo-900" id="card-memo">
+                    <!-- 암기법 내용 바인딩 -->
+                </div>
+            </div>
+
+            <!-- 우측 화살표 (데스크탑 전용) -->
+            <button onclick="nextCard()" class="hidden md:block flex-shrink-0 hover:translate-x-2 transition-transform cursor-pointer" title="다음 토픽 (오른쪽 방향키)">
+                <svg width="60" height="50" viewBox="0 0 100 60" fill="yellow" stroke="black" stroke-width="3" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M60 10 L90 30 L60 50 L60 40 L10 40 L10 20 L60 20 Z" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- 모바일 전용 이전/다음 네비게이션 및 현재 위치 (화면이 작을 때만 표시) -->
+        <div class="md:hidden flex justify-between items-center w-full mt-6 px-1">
+            <button onclick="prevCard()" class="bg-yellow-300 border-2 border-black px-4 py-2 font-bold hover:bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">◀ 이전</button>
+            <div id="mobile-pagination" class="font-bold text-lg text-gray-700 bg-white border-2 border-black px-3 py-1">0 / 0</div>
+            <button onclick="nextCard()" class="bg-yellow-300 border-2 border-black px-4 py-2 font-bold hover:bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">다음 ▶</button>
+        </div>
+        
+        <!-- 하단 페이징(Pagination) 버튼 번호 영역 [1] [2] [3] -->
+        <div id="pagination" class="flex justify-center items-center space-x-1 mt-8 mb-12 flex-wrap gap-y-3 text-lg font-bold">
+            <!-- 자바스크립트로 [1] [2] [3] 버튼이 생성됩니다. -->
+        </div>
+        
+    </div>
+
+    <script>
+        let globalData = [];
+        let currentFilteredData = [];
+        let currentIndex = 0; // 현재 보고 있는 카드(토픽) 인덱스
+        
+        const DB_KEY = 'pe_topic_memo_db';
+        const EXCEL_FILE_URL = './Topic_list.xlsx'; 
+
+        // 1. 앱 초기화 및 데이터 로드 (캐시 확인 -> 엑셀 다운로드)
+        async function initApp() {
+            try {
+                const savedData = await localforage.getItem(DB_KEY);
+                
+                if (savedData && savedData.length > 0) {
+                    globalData = savedData;
+                    document.getElementById('db-status-badge').innerText = "✅ 로컬 캐시 사용됨";
+                    resetFilters();
+                    fetchExcelData(false); // 배경에서 몰래 최신화
+                } else {
+                    fetchExcelData(true);
+                }
+            } catch (err) {
+                console.error("초기화 에러:", err);
+                fetchExcelData(true); 
+            }
+        }
+
+        // 2. 서버(GitHub)에서 엑셀 파일 가져오기
+        async function fetchExcelData(showLoadingUI = true) {
+            if (showLoadingUI) {
+                document.getElementById('db-status-badge').innerText = "🔄 서버 데이터 다운로드 중...";
+            }
+
+            try {
+                const response = await fetch(`${EXCEL_FILE_URL}?t=${new Date().getTime()}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                const parsedData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                
+                if (parsedData.length > 0) {
+                    globalData = parsedData;
+                    await localforage.setItem(DB_KEY, parsedData);
+                    
+                    if (showLoadingUI) {
+                        document.getElementById('db-status-badge').innerText = "✅ 최신 동기화 완료";
+                        resetFilters();
+                    }
+                }
+            } catch (error) {
+                console.error("데이터 동기화 실패:", error);
+                if (showLoadingUI && globalData.length === 0) {
+                    document.getElementById('db-status-badge').className = "px-2 py-1 bg-red-600 text-white text-xs font-bold border-2 border-black";
+                    document.getElementById('db-status-badge').innerText = "❌ 다운로드 실패";
+                    alert('Topic_list.xlsx 파일을 불러오지 못했습니다. 파일 위치를 확인해주세요.');
+                }
+            }
+        }
+
+        // 엔터키 입력 시 자동 조회
+        document.getElementById('keyword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applyFilters();
+        });
+
+        // 3. 필터(조회 조건) 적용 함수
+        function applyFilters() {
+            if (globalData.length === 0) return;
+
+            const keywordStr = document.getElementById('keyword').value.trim();
+            const domain = document.getElementById('domain').value;
+            const importance = document.getElementById('importance').value;
+
+            // 띄어쓰기 기준 키워드 다중 AND 검색
+            const keywords = keywordStr ? keywordStr.split(/\s+/) : [];
+
+            currentFilteredData = globalData.filter(row => {
+                const rowTopic = String(row['토픽'] || '').toLowerCase();
+                const rowKeyword = String(row['키워드'] || '').toLowerCase();
+                // 토픽명과 키워드 내용을 합쳐서 통합 검색 적용
+                const searchableText = rowTopic + " " + rowKeyword;
+                
+                const rowDomain = String(row['도메인'] || '');
+                const rowImportance = String(row['중요도'] || '');
+
+                let keywordMatch = true;
+                if (keywords.length > 0) {
+                    for (let kw of keywords) {
+                        if (!searchableText.includes(kw.toLowerCase())) {
+                            keywordMatch = false;
+                            break;
+                        }
+                    }
+                }
+
+                const domainMatch = domain === "" || rowDomain.includes(domain);
+                const importanceMatch = importance === "" || rowImportance === importance;
+
+                return keywordMatch && domainMatch && importanceMatch;
+            });
+
+            // 원본 엑셀의 NO(번호) 기준으로 오름차순 정렬 (기본 상태)
+            currentFilteredData.sort((a, b) => {
+                let valA = Number(a['NO']) || 0;
+                let valB = Number(b['NO']) || 0;
+                return valA - valB;
+            });
+
+            // 필터링 적용 시 무조건 첫 번째 카드로 리셋
+            currentIndex = 0;
+            renderCard();
+        }
+
+        function resetFilters() {
+            document.getElementById('keyword').value = '';
+            document.getElementById('domain').value = '';
+            document.getElementById('importance').value = '';
+            applyFilters(); 
+        }
+
+        // 4. 단일 카드 렌더링(출력) 함수
+        function renderCard() {
+            const total = currentFilteredData.length;
+            
+            // 조회 결과가 없을 때의 처리
+            if (total === 0) {
+                document.getElementById('card-no').innerText = '-';
+                document.getElementById('card-domain').innerText = '-';
+                document.getElementById('card-importance').innerText = '-';
+                document.getElementById('card-topic').innerHTML = '<span class="text-gray-400">조건에 맞는 토픽이 없습니다.</span>';
+                document.getElementById('card-keyword').innerHTML = '';
+                document.getElementById('card-related').innerHTML = '';
+                document.getElementById('card-memo').innerHTML = '';
+                renderPagination();
+                return;
+            }
+
+            // 현재 인덱스의 데이터 가져오기
+            const item = currentFilteredData[currentIndex];
+
+            // 상단 정보 바인딩
+            document.getElementById('card-no').innerText = item['NO'] || '-';
+            document.getElementById('card-domain').innerText = item['도메인'] || '-';
+            document.getElementById('card-importance').innerText = item['중요도'] || '-';
+            
+            // 텍스트 변환 및 바인딩 (엔터키 처리 보존)
+            document.getElementById('card-topic').innerHTML = formatText(item['토픽']);
+            document.getElementById('card-keyword').innerHTML = formatText(item['키워드']);
+            document.getElementById('card-related').innerHTML = formatText(item['연관토픽']);
+            document.getElementById('card-memo').innerHTML = formatText(item['암기법']);
+
+            renderPagination();
+        }
+
+        // 엑셀 내의 줄바꿈 문자를 HTML <br> 태그로 안전하게 변환하는 헬퍼 함수
+        function formatText(text) {
+            if (!text) return '-';
+            let safeText = String(text).replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            let compressedText = safeText.replace(/(?:\r\n|\r|\n)+/g, '\n');
+            return compressedText.replace(/\n/g, '<br>');
+        }
+
+        // 5. 네비게이션 제어 함수 (이전/다음/번호이동)
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderCard();
+            }
+        }
+
+        function nextCard() {
+            if (currentFilteredData.length > 0 && currentIndex < currentFilteredData.length - 1) {
+                currentIndex++;
+                renderCard();
+            }
+        }
+
+        function goToCard(idx) {
+            if (idx >= 0 && idx < currentFilteredData.length) {
+                currentIndex = idx;
+                renderCard();
+            }
+        }
+
+        // 키보드 방향키 좌/우 이동 지원 (편의성)
+        document.addEventListener('keydown', function(e) {
+            // 검색어 입력 중에 좌우 화살표를 누를 땐 카드 이동을 막음
+            if (document.activeElement.id !== 'keyword') {
+                if (e.key === 'ArrowLeft') prevCard();
+                else if (e.key === 'ArrowRight') nextCard();
+            }
+        });
+
+        // 6. 하단 번호(Pagination) 렌더링 함수 - [1] [2] [3] 형식 출력
+        function renderPagination() {
+            const total = currentFilteredData.length;
+            const paginationDiv = document.getElementById('pagination');
+            const mobilePageText = document.getElementById('mobile-pagination');
+            
+            if (total === 0) {
+                paginationDiv.innerHTML = '';
+                if(mobilePageText) mobilePageText.innerText = '0 / 0';
+                return;
+            }
+
+            // 모바일용 텍스트 업데이트
+            if(mobilePageText) mobilePageText.innerText = `${currentIndex + 1} / ${total}`;
+
+            let html = '';
+            
+            // 한 번에 최대 9개(앞 4개, 뒤 4개)의 페이징 번호만 렌더링
+            let start = Math.max(0, currentIndex - 4);
+            let end = Math.min(total - 1, start + 8);
+            if (end - start < 8) {
+                start = Math.max(0, end - 8);
+            }
+
+            // 맨 앞으로 이동 [1]
+            if (start > 0) {
+                html += `<span onclick="goToCard(0)" class="cursor-pointer text-gray-500 hover:text-black mx-1">[1]</span>`;
+                if (start > 1) html += `<span class="mx-1 text-gray-400">...</span>`;
+            }
+
+            // 중간 번호들
+            for (let i = start; i <= end; i++) {
+                if (i === currentIndex) {
+                    html += `<span class="cursor-pointer text-blue-700 font-extrabold mx-1 underline decoration-4 underline-offset-4">[${i + 1}]</span>`;
+                } else {
+                    html += `<span onclick="goToCard(${i})" class="cursor-pointer text-gray-600 hover:text-black mx-1">[${i + 1}]</span>`;
+                }
+            }
+
+            // 맨 뒤로 이동 [마지막번호]
+            if (end < total - 1) {
+                if (end < total - 2) html += `<span class="mx-1 text-gray-400">...</span>`;
+                html += `<span onclick="goToCard(${total - 1})" class="cursor-pointer text-gray-500 hover:text-black mx-1">[${total}]</span>`;
+            }
+
+            paginationDiv.innerHTML = html;
+        }
+
+        // 앱 시작
+        window.onload = initApp;
+    </script>
+</body>
+</html>
