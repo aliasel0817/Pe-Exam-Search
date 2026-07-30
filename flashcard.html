@@ -5,160 +5,157 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>기술사 토픽 자동 암기장</title>
     
-    <!-- Tailwind CSS (반응형 UI) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS (엑셀 파일 읽기) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- localForage (브라우저 내장 IndexedDB) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     
     <style>
-        /* 스크롤바 커스텀 스타일 (키워드 영역 가독성 향상) */
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-left: 1px solid black; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border: 1px solid black; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* 스크롤바 부드러운 스타일 */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="bg-slate-50 p-2 md:p-8 font-sans">
-    <div class="max-w-5xl mx-auto">
+<body class="bg-slate-50 p-4 md:p-8 font-sans text-gray-800">
+    <div class="max-w-6xl mx-auto">
         
         <!-- 상단 헤더 영역 -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 gap-2">
-            <h1 onclick="location.reload()" class="text-2xl font-extrabold text-gray-900 cursor-pointer hover:text-blue-600 transition tracking-tight" title="페이지 새로고침">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-2">
+            <h1 onclick="location.reload()" class="text-2xl font-bold text-gray-800 cursor-pointer hover:text-blue-600 transition tracking-tight" title="페이지 새로고침">
                 📖 기술사 토픽 암기장
             </h1>
-            <div class="flex flex-col items-end">
-                <span id="db-status-badge" class="px-2 py-1 bg-black text-white text-xs font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <div class="flex flex-col items-end mt-2 sm:mt-0">
+                <span id="db-status-badge" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded">
                     데이터 불러오는 중...
                 </span>
-                <button onclick="fetchExcelData(true)" class="mt-2 text-xs border-2 border-black bg-yellow-300 px-3 py-1 hover:bg-yellow-400 font-bold transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    🔄 엑셀 파일 최신 갱신
+                <button onclick="fetchExcelData(true)" class="mt-2 text-xs bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-100 transition whitespace-nowrap">
+                    🔄 최신 데이터 갱신
                 </button>
             </div>
         </div>
+        <p class="text-sm text-gray-500 mb-6">최신 데이터가 자동으로 동기화됩니다.</p>
         
-        <!-- 검색 조건 패널 (이미지 레이아웃 반영) -->
-        <div class="flex w-full mb-6 items-stretch border-2 border-black bg-white p-3 md:p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]">
-            <!-- 좌측 '검색 조건' 라벨 -->
-            <div class="w-14 md:w-20 flex-shrink-0 flex items-center justify-center font-bold text-sm md:text-base mr-3 text-center leading-tight">
-                검색<br>조건
+        <!-- 검색 조건 패널 (검색기 스타일 적용) -->
+        <div class="bg-white p-4 md:p-6 rounded-lg shadow-sm mb-8 grid grid-cols-1 md:grid-cols-6 gap-4 border-t-4 border-blue-500">
+            <div class="md:col-span-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">토픽 및 키워드 검색 (띄어쓰기 시 AND)</label>
+                <input type="text" id="keyword" placeholder="예: ITSM 프로세스" class="block w-full p-2.5 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm transition">
             </div>
             
-            <!-- 검색 입력 컨트롤 컨테이너 -->
-            <div class="flex-grow flex flex-col gap-3">
-                <!-- 상단: 토픽 검색 -->
-                <div class="flex border-2 border-black bg-white">
-                    <div class="w-16 md:w-20 border-r-2 border-black flex items-center justify-center font-bold text-sm bg-gray-100">토픽</div>
-                    <input type="text" id="keyword" placeholder="예: ITSM (띄어쓰기 시 AND 검색)" class="flex-grow p-2 focus:outline-none focus:bg-blue-50 text-sm md:text-base font-bold">
-                </div>
-                
-                <!-- 하단: 도메인, 중요도, 버튼 -->
-                <div class="flex flex-col md:flex-row gap-3 md:gap-4 md:items-end">
-                    <!-- 도메인 & 중요도 (모바일 환경 고려 flex 분할) -->
-                    <div class="flex gap-3 flex-grow md:flex-grow-0">
-                        <div class="flex flex-col flex-1 md:w-36">
-                            <label class="text-left font-bold text-xs md:text-sm mb-1 ml-1 text-gray-700">도메인</label>
-                            <select id="domain" class="border-2 border-black p-2 focus:outline-none text-sm font-bold bg-white text-center cursor-pointer">
-                                <option value="">전체</option>
-                                <option value="MG">MG (경영)</option>
-                                <option value="SW">SW (소프트웨어)</option>
-                                <option value="SV">SV (보안)</option>
-                                <option value="AI">AI (인공지능)</option>
-                                <option value="ST">ST (통계)</option>
-                                <option value="AL">AL (알고리즘)</option>
-                                <option value="DB">DB (데이터베이스)</option>
-                                <option value="NW">NW (네트워크)</option>
-                                <option value="SE">SE (시스템엔지니어링)</option>
-                                <option value="OS">OS (운영체제)</option>
-                                <option value="CA">CA (컴퓨터구조)</option>
-                            </select>
-                        </div>
-                        <div class="flex flex-col flex-1 md:w-32">
-                            <label class="text-left font-bold text-xs md:text-sm mb-1 ml-1 text-gray-700">중요도</label>
-                            <select id="importance" class="border-2 border-black p-2 focus:outline-none text-sm font-bold bg-white text-center cursor-pointer">
-                                <option value="">전체</option>
-                                <option value="상">상</option>
-                                <option value="중">중</option>
-                                <option value="하">하</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <!-- 조회/초기화 버튼 -->
-                    <div class="flex gap-2 shrink-0 md:ml-auto h-[40px]">
-                        <button onclick="applyFilters()" class="border-2 border-black bg-white hover:bg-gray-100 font-bold px-5 md:px-6 text-sm h-full transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">조회</button>
-                        <button onclick="resetFilters()" class="border-2 border-black bg-white hover:bg-gray-100 font-bold px-5 md:px-6 text-sm h-full transition shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">초기화</button>
-                    </div>
-                </div>
+            <div class="md:col-span-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">도메인</label>
+                <select id="domain" class="block w-full p-2.5 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm bg-white transition cursor-pointer">
+                    <option value="">전체</option>
+                    <option value="MG">MG (경영)</option>
+                    <option value="SW">SW (소프트웨어)</option>
+                    <option value="SV">SV (보안)</option>
+                    <option value="AI">AI (인공지능)</option>
+                    <option value="ST">ST (통계)</option>
+                    <option value="AL">AL (알고리즘)</option>
+                    <option value="DB">DB (데이터베이스)</option>
+                    <option value="NW">NW (네트워크)</option>
+                    <option value="SE">SE (시스템엔지니어링)</option>
+                    <option value="OS">OS (운영체제)</option>
+                    <option value="CA">CA (컴퓨터구조)</option>
+                </select>
+            </div>
+            
+            <div class="md:col-span-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">중요도</label>
+                <select id="importance" class="block w-full p-2.5 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm bg-white transition cursor-pointer">
+                    <option value="">전체</option>
+                    <option value="상">상</option>
+                    <option value="중">중</option>
+                    <option value="하">하</option>
+                </select>
+            </div>
+            
+            <div class="md:col-span-1 flex items-end space-x-2">
+                <button onclick="applyFilters()" class="w-full bg-slate-700 text-white font-semibold py-2.5 px-3 rounded-md hover:bg-slate-800 transition shadow-sm text-sm h-[42px]">
+                    조회
+                </button>
+                <button onclick="resetFilters()" class="w-full bg-gray-400 text-white font-semibold py-2.5 px-3 rounded-md hover:bg-gray-500 transition shadow-sm text-sm h-[42px]">
+                    초기화
+                </button>
             </div>
         </div>
 
         <!-- 메인 암기장 카드 영역 -->
-        <div class="flex flex-col md:flex-row items-center justify-center w-full gap-2 md:gap-4 mt-6">
+        <div class="flex items-center justify-center w-full gap-4 md:gap-8">
             
-            <!-- 좌측 화살표 (데스크탑 전용) -->
-            <button onclick="prevCard()" class="hidden md:block flex-shrink-0 hover:-translate-x-2 transition-transform cursor-pointer" title="이전 토픽 (왼쪽 방향키)">
-                <svg width="60" height="50" viewBox="0 0 100 60" fill="yellow" stroke="black" stroke-width="3" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M40 10 L10 30 L40 50 L40 40 L90 40 L90 20 L40 20 Z" />
+            <!-- 좌측 화살표 (소프트 UI) -->
+            <button onclick="prevCard()" class="hidden md:flex flex-shrink-0 items-center justify-center w-14 h-14 rounded-full bg-white shadow-sm border border-gray-200 text-gray-400 hover:text-blue-600 hover:shadow-md hover:-translate-x-1 transition-all cursor-pointer" title="이전 토픽 (방향키 ←)">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path>
                 </svg>
             </button>
             
-            <!-- 플래시 카드 본체 (CSS Grid 활용 완벽 매칭) -->
-            <div class="grid grid-cols-[70px_minmax(0,1fr)] md:grid-cols-[100px_minmax(0,1fr)] w-full max-w-3xl border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.2)]">
+            <!-- 플래시 카드 본체 -->
+            <div class="w-full max-w-4xl bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col">
                 
-                <!-- [1행 & 2행] 토픽 영역 (좌측 라벨 세로 병합) -->
-                <div class="border-r-2 border-b-2 border-black flex items-center justify-center font-bold bg-gray-50 text-sm md:text-base row-span-2">토픽</div>
-                
-                <!-- 1행 우측: NO, 도메인, 중요도 -->
-                <div class="grid grid-cols-3 border-b-2 border-black text-center font-bold text-xs md:text-sm bg-white">
-                    <div class="border-r-2 border-black p-2 truncate">NO: <span id="card-no" class="font-normal"></span></div>
-                    <div class="border-r-2 border-black p-2 truncate">도메인: <span id="card-domain" class="font-normal text-blue-600"></span></div>
-                    <div class="p-2 truncate">중요도: <span id="card-importance" class="font-normal text-red-600"></span></div>
+                <!-- 1. 카드 헤더 (메타 정보) -->
+                <div class="flex bg-slate-50 border-b border-gray-200 text-sm font-medium text-gray-500 divide-x divide-gray-200">
+                    <div class="flex-1 p-3 text-center truncate">NO: <span id="card-no" class="font-bold text-slate-700"></span></div>
+                    <div class="flex-1 p-3 text-center truncate">도메인: <span id="card-domain" class="font-bold text-blue-600"></span></div>
+                    <div class="flex-1 p-3 text-center truncate">중요도: <span id="card-importance" class="font-bold text-red-500"></span></div>
                 </div>
                 
-                <!-- 2행 우측: 토픽명 -->
-                <div class="border-b-2 border-black p-4 text-lg md:text-2xl font-extrabold min-h-[70px] flex items-center bg-white" id="card-topic">
+                <!-- 2. 토픽명 -->
+                <div class="p-6 md:p-8 text-xl md:text-3xl font-extrabold text-gray-800 text-center border-b border-gray-100 flex items-center justify-center min-h-[100px]" id="card-topic">
                     <!-- 토픽 내용 바인딩 -->
                 </div>
                 
-                <!-- [3행] 키워드 영역 (스크롤 적용) -->
-                <div class="border-r-2 border-b-2 border-black flex items-center justify-center font-bold bg-gray-50 text-sm md:text-base">키워드</div>
-                <div class="border-b-2 border-black p-4 h-64 md:h-[320px] overflow-y-auto leading-relaxed text-sm md:text-base bg-white custom-scrollbar whitespace-normal" id="card-keyword">
-                    <!-- 키워드 내용 바인딩 -->
+                <!-- 3. 키워드 영역 -->
+                <div class="flex flex-col md:flex-row border-b border-gray-100">
+                    <div class="md:w-36 bg-slate-50/50 p-4 flex items-center justify-center font-semibold text-slate-600 border-r-0 md:border-r border-gray-100 text-sm md:text-base">
+                        키워드
+                    </div>
+                    <div class="flex-1 p-5 md:p-7 text-gray-700 text-sm md:text-base h-[280px] md:h-[350px] overflow-y-auto leading-relaxed custom-scrollbar whitespace-normal" id="card-keyword">
+                        <!-- 키워드 내용 바인딩 -->
+                    </div>
                 </div>
                 
-                <!-- [4행] 연관 토픽 영역 -->
-                <div class="border-r-2 border-b-2 border-black flex items-center justify-center font-bold text-center bg-gray-50 text-sm md:text-base">연관<br>토픽</div>
-                <div class="border-b-2 border-black p-4 flex items-center justify-center font-bold text-sm md:text-base text-center bg-white" id="card-related">
-                    <!-- 연관토픽 내용 바인딩 -->
+                <!-- 4. 연관 토픽 영역 -->
+                <div class="flex flex-col md:flex-row border-b border-gray-100">
+                    <div class="md:w-36 bg-slate-50/50 p-4 flex items-center justify-center font-semibold text-slate-600 border-r-0 md:border-r border-gray-100 text-sm md:text-base text-center">
+                        연관 토픽
+                    </div>
+                    <div class="flex-1 p-4 md:p-5 text-gray-800 font-medium text-sm md:text-base flex items-center justify-center md:justify-start" id="card-related">
+                        <!-- 연관토픽 내용 바인딩 -->
+                    </div>
                 </div>
                 
-                <!-- [5행] 암기법 영역 -->
-                <div class="border-r-2 border-black flex items-center justify-center font-bold bg-gray-50 text-sm md:text-base">암기법</div>
-                <div class="p-4 flex items-center justify-center font-extrabold text-lg md:text-xl text-center bg-yellow-50 text-indigo-900" id="card-memo">
-                    <!-- 암기법 내용 바인딩 -->
+                <!-- 5. 암기법 영역 -->
+                <div class="flex flex-col md:flex-row bg-blue-50/30">
+                    <div class="md:w-36 p-4 flex items-center justify-center font-bold text-blue-800 border-r-0 md:border-r border-blue-100/50 text-sm md:text-base">
+                        암기법
+                    </div>
+                    <div class="flex-1 p-5 text-indigo-700 font-extrabold text-lg md:text-xl flex items-center justify-center md:justify-start" id="card-memo">
+                        <!-- 암기법 내용 바인딩 -->
+                    </div>
                 </div>
             </div>
 
-            <!-- 우측 화살표 (데스크탑 전용) -->
-            <button onclick="nextCard()" class="hidden md:block flex-shrink-0 hover:translate-x-2 transition-transform cursor-pointer" title="다음 토픽 (오른쪽 방향키)">
-                <svg width="60" height="50" viewBox="0 0 100 60" fill="yellow" stroke="black" stroke-width="3" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M60 10 L90 30 L60 50 L60 40 L10 40 L10 20 L60 20 Z" />
+            <!-- 우측 화살표 (소프트 UI) -->
+            <button onclick="nextCard()" class="hidden md:flex flex-shrink-0 items-center justify-center w-14 h-14 rounded-full bg-white shadow-sm border border-gray-200 text-gray-400 hover:text-blue-600 hover:shadow-md hover:translate-x-1 transition-all cursor-pointer" title="다음 토픽 (방향키 →)">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
                 </svg>
             </button>
         </div>
 
-        <!-- 모바일 전용 이전/다음 네비게이션 및 현재 위치 (화면이 작을 때만 표시) -->
-        <div class="md:hidden flex justify-between items-center w-full mt-6 px-1">
-            <button onclick="prevCard()" class="bg-yellow-300 border-2 border-black px-4 py-2 font-bold hover:bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">◀ 이전</button>
-            <div id="mobile-pagination" class="font-bold text-lg text-gray-700 bg-white border-2 border-black px-3 py-1">0 / 0</div>
-            <button onclick="nextCard()" class="bg-yellow-300 border-2 border-black px-4 py-2 font-bold hover:bg-yellow-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">다음 ▶</button>
+        <!-- 모바일 전용 이전/다음 컨트롤러 (화면이 작을 때만 표시) -->
+        <div class="md:hidden flex justify-between items-center w-full mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+            <button onclick="prevCard()" class="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-md font-semibold hover:bg-slate-200 transition text-sm">◀ 이전</button>
+            <div id="mobile-pagination" class="font-bold text-sm text-gray-500">0 / 0</div>
+            <button onclick="nextCard()" class="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-md font-semibold hover:bg-blue-100 transition text-sm">다음 ▶</button>
         </div>
         
-        <!-- 하단 페이징(Pagination) 버튼 번호 영역 [1] [2] [3] -->
-        <div id="pagination" class="flex justify-center items-center space-x-1 mt-8 mb-12 flex-wrap gap-y-3 text-lg font-bold">
-            <!-- 자바스크립트로 [1] [2] [3] 버튼이 생성됩니다. -->
+        <!-- 하단 페이징(Pagination) 버튼 영역 (검색기 스타일 적용) -->
+        <div id="pagination" class="flex justify-center items-center space-x-1.5 mt-8 mb-12 flex-wrap gap-y-2">
+            <!-- 자바스크립트로 버튼이 생성됩니다. -->
         </div>
         
     </div>
@@ -166,21 +163,21 @@
     <script>
         let globalData = [];
         let currentFilteredData = [];
-        let currentIndex = 0; // 현재 보고 있는 카드(토픽) 인덱스
+        let currentIndex = 0; 
         
         const DB_KEY = 'pe_topic_memo_db';
         const EXCEL_FILE_URL = './Topic_list.xlsx'; 
 
-        // 1. 앱 초기화 및 데이터 로드 (캐시 확인 -> 엑셀 다운로드)
         async function initApp() {
             try {
                 const savedData = await localforage.getItem(DB_KEY);
                 
                 if (savedData && savedData.length > 0) {
                     globalData = savedData;
+                    document.getElementById('db-status-badge').className = "px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded";
                     document.getElementById('db-status-badge').innerText = "✅ 로컬 캐시 사용됨";
                     resetFilters();
-                    fetchExcelData(false); // 배경에서 몰래 최신화
+                    fetchExcelData(false); 
                 } else {
                     fetchExcelData(true);
                 }
@@ -190,9 +187,9 @@
             }
         }
 
-        // 2. 서버(GitHub)에서 엑셀 파일 가져오기
         async function fetchExcelData(showLoadingUI = true) {
             if (showLoadingUI) {
+                document.getElementById('db-status-badge').className = "px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded";
                 document.getElementById('db-status-badge').innerText = "🔄 서버 데이터 다운로드 중...";
             }
 
@@ -212,6 +209,7 @@
                     await localforage.setItem(DB_KEY, parsedData);
                     
                     if (showLoadingUI) {
+                        document.getElementById('db-status-badge').className = "px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded";
                         document.getElementById('db-status-badge').innerText = "✅ 최신 동기화 완료";
                         resetFilters();
                     }
@@ -219,19 +217,17 @@
             } catch (error) {
                 console.error("데이터 동기화 실패:", error);
                 if (showLoadingUI && globalData.length === 0) {
-                    document.getElementById('db-status-badge').className = "px-2 py-1 bg-red-600 text-white text-xs font-bold border-2 border-black";
+                    document.getElementById('db-status-badge').className = "px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded";
                     document.getElementById('db-status-badge').innerText = "❌ 다운로드 실패";
                     alert('Topic_list.xlsx 파일을 불러오지 못했습니다. 파일 위치를 확인해주세요.');
                 }
             }
         }
 
-        // 엔터키 입력 시 자동 조회
         document.getElementById('keyword').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') applyFilters();
         });
 
-        // 3. 필터(조회 조건) 적용 함수
         function applyFilters() {
             if (globalData.length === 0) return;
 
@@ -239,13 +235,11 @@
             const domain = document.getElementById('domain').value;
             const importance = document.getElementById('importance').value;
 
-            // 띄어쓰기 기준 키워드 다중 AND 검색
             const keywords = keywordStr ? keywordStr.split(/\s+/) : [];
 
             currentFilteredData = globalData.filter(row => {
                 const rowTopic = String(row['토픽'] || '').toLowerCase();
                 const rowKeyword = String(row['키워드'] || '').toLowerCase();
-                // 토픽명과 키워드 내용을 합쳐서 통합 검색 적용
                 const searchableText = rowTopic + " " + rowKeyword;
                 
                 const rowDomain = String(row['도메인'] || '');
@@ -267,14 +261,12 @@
                 return keywordMatch && domainMatch && importanceMatch;
             });
 
-            // 원본 엑셀의 NO(번호) 기준으로 오름차순 정렬 (기본 상태)
             currentFilteredData.sort((a, b) => {
                 let valA = Number(a['NO']) || 0;
                 let valB = Number(b['NO']) || 0;
                 return valA - valB;
             });
 
-            // 필터링 적용 시 무조건 첫 번째 카드로 리셋
             currentIndex = 0;
             renderCard();
         }
@@ -286,16 +278,14 @@
             applyFilters(); 
         }
 
-        // 4. 단일 카드 렌더링(출력) 함수
         function renderCard() {
             const total = currentFilteredData.length;
             
-            // 조회 결과가 없을 때의 처리
             if (total === 0) {
                 document.getElementById('card-no').innerText = '-';
                 document.getElementById('card-domain').innerText = '-';
                 document.getElementById('card-importance').innerText = '-';
-                document.getElementById('card-topic').innerHTML = '<span class="text-gray-400">조건에 맞는 토픽이 없습니다.</span>';
+                document.getElementById('card-topic').innerHTML = '<span class="text-gray-400 font-medium text-lg">조건에 맞는 토픽이 없습니다.</span>';
                 document.getElementById('card-keyword').innerHTML = '';
                 document.getElementById('card-related').innerHTML = '';
                 document.getElementById('card-memo').innerHTML = '';
@@ -303,15 +293,12 @@
                 return;
             }
 
-            // 현재 인덱스의 데이터 가져오기
             const item = currentFilteredData[currentIndex];
 
-            // 상단 정보 바인딩
             document.getElementById('card-no').innerText = item['NO'] || '-';
             document.getElementById('card-domain').innerText = item['도메인'] || '-';
             document.getElementById('card-importance').innerText = item['중요도'] || '-';
             
-            // 텍스트 변환 및 바인딩 (엔터키 처리 보존)
             document.getElementById('card-topic').innerHTML = formatText(item['토픽']);
             document.getElementById('card-keyword').innerHTML = formatText(item['키워드']);
             document.getElementById('card-related').innerHTML = formatText(item['연관토픽']);
@@ -320,7 +307,6 @@
             renderPagination();
         }
 
-        // 엑셀 내의 줄바꿈 문자를 HTML <br> 태그로 안전하게 변환하는 헬퍼 함수
         function formatText(text) {
             if (!text) return '-';
             let safeText = String(text).replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -328,7 +314,6 @@
             return compressedText.replace(/\n/g, '<br>');
         }
 
-        // 5. 네비게이션 제어 함수 (이전/다음/번호이동)
         function prevCard() {
             if (currentIndex > 0) {
                 currentIndex--;
@@ -350,16 +335,15 @@
             }
         }
 
-        // 키보드 방향키 좌/우 이동 지원 (편의성)
+        // 키보드 방향키 이동 지원
         document.addEventListener('keydown', function(e) {
-            // 검색어 입력 중에 좌우 화살표를 누를 땐 카드 이동을 막음
             if (document.activeElement.id !== 'keyword') {
                 if (e.key === 'ArrowLeft') prevCard();
                 else if (e.key === 'ArrowRight') nextCard();
             }
         });
 
-        // 6. 하단 번호(Pagination) 렌더링 함수 - [1] [2] [3] 형식 출력
+        // 하단 모던 스타일 페이징 렌더링
         function renderPagination() {
             const total = currentFilteredData.length;
             const paginationDiv = document.getElementById('pagination');
@@ -371,43 +355,40 @@
                 return;
             }
 
-            // 모바일용 텍스트 업데이트
             if(mobilePageText) mobilePageText.innerText = `${currentIndex + 1} / ${total}`;
 
             let html = '';
             
-            // 한 번에 최대 9개(앞 4개, 뒤 4개)의 페이징 번호만 렌더링
-            let start = Math.max(0, currentIndex - 4);
-            let end = Math.min(total - 1, start + 8);
-            if (end - start < 8) {
-                start = Math.max(0, end - 8);
+            let start = Math.max(0, currentIndex - 3);
+            let end = Math.min(total - 1, start + 6);
+            if (end - start < 6) {
+                start = Math.max(0, end - 6);
             }
 
-            // 맨 앞으로 이동 [1]
+            // 첫 페이지 버튼
             if (start > 0) {
-                html += `<span onclick="goToCard(0)" class="cursor-pointer text-gray-500 hover:text-black mx-1">[1]</span>`;
-                if (start > 1) html += `<span class="mx-1 text-gray-400">...</span>`;
+                html += `<button onclick="goToCard(0)" class="px-3 py-1.5 min-w-[36px] bg-white border border-gray-300 rounded-md hover:bg-gray-100 text-sm font-medium text-gray-600 transition">1</button>`;
+                if (start > 1) html += `<span class="px-1 text-gray-400">...</span>`;
             }
 
-            // 중간 번호들
+            // 번호 버튼들
             for (let i = start; i <= end; i++) {
                 if (i === currentIndex) {
-                    html += `<span class="cursor-pointer text-blue-700 font-extrabold mx-1 underline decoration-4 underline-offset-4">[${i + 1}]</span>`;
+                    html += `<button class="px-3 py-1.5 min-w-[36px] bg-blue-600 border border-blue-600 rounded-md text-sm font-bold text-white shadow-sm">${i + 1}</button>`;
                 } else {
-                    html += `<span onclick="goToCard(${i})" class="cursor-pointer text-gray-600 hover:text-black mx-1">[${i + 1}]</span>`;
+                    html += `<button onclick="goToCard(${i})" class="px-3 py-1.5 min-w-[36px] bg-white border border-gray-300 rounded-md hover:bg-gray-100 text-sm font-medium text-gray-600 transition">${i + 1}</button>`;
                 }
             }
 
-            // 맨 뒤로 이동 [마지막번호]
+            // 끝 페이지 버튼
             if (end < total - 1) {
-                if (end < total - 2) html += `<span class="mx-1 text-gray-400">...</span>`;
-                html += `<span onclick="goToCard(${total - 1})" class="cursor-pointer text-gray-500 hover:text-black mx-1">[${total}]</span>`;
+                if (end < total - 2) html += `<span class="px-1 text-gray-400">...</span>`;
+                html += `<button onclick="goToCard(${total - 1})" class="px-3 py-1.5 min-w-[36px] bg-white border border-gray-300 rounded-md hover:bg-gray-100 text-sm font-medium text-gray-600 transition">${total}</button>`;
             }
 
             paginationDiv.innerHTML = html;
         }
 
-        // 앱 시작
         window.onload = initApp;
     </script>
 </body>
