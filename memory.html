@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>기술사 토픽 암기장</title>
+  <style>
+    :root {
+      --primary: #2b6cb0;
+      --bg: #f7fafc;
+      --card-bg: #ffffff;
+      --text-main: #2d3748;
+      --text-sub: #718096;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1300px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+    h1 { margin-top: 0; font-size: 1.5rem; color: var(--primary); }
+    
+    /* 검색 레이아웃 */
+    .search-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: flex-end;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 150px;
+    }
+    label { font-size: 0.9rem; font-weight: 600; color: var(--text-sub); }
+    input, select, textarea {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--primary); }
+    .btn-group { display: flex; gap: 10px; }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .btn-search { background-color: var(--primary); color: white; }
+    .btn-search:hover { background-color: #2c5282; }
+    .btn-reset { background-color: #a0aec0; color: white; }
+    .btn-reset:hover { background-color: #718096; }
+    .btn-save { background-color: #38a169; color: white; width: 100%; margin-top: 10px; padding: 12px; }
+    .btn-save:hover { background-color: #2f855a; }
+
+    /* 메인 콘텐츠 레이아웃 (목록 + 뷰어) */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 20px;
+    }
+    
+    /* 토픽 목록 */
+    .list-layout {
+      max-height: 70vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card-bg);
+    }
+    .list-item {
+      padding: 15px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .list-item:hover { background: #ebf8ff; }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-title { font-weight: bold; margin-bottom: 4px; }
+    .list-item-sub { font-size: 0.8rem; color: var(--text-sub); }
+    
+    /* 뷰어 레이아웃 */
+    .viewer-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .viewer-layout .full-width { grid-column: span 2; }
+    .viewer-layout textarea { resize: vertical; min-height: 80px; }
+    
+    #loading {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-sub);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- 검색 레이아웃 -->
+  <div class="card search-layout">
+    <div class="form-group">
+      <label>토픽명</label>
+      <input type="text" id="s-topic" placeholder="토픽명 검색">
+    </div>
+    <div class="form-group">
+      <label>키워드</label>
+      <input type="text" id="s-keyword" placeholder="키워드 검색">
+    </div>
+    <div class="form-group">
+      <label>도메인</label>
+      <input type="text" id="s-domain" placeholder="도메인 검색">
+    </div>
+    <div class="form-group">
+      <label>중요도</label>
+      <input type="text" id="s-importance" placeholder="중요도 검색">
+    </div>
+    <div class="btn-group">
+      <button class="btn-search" onclick="searchData()">검색</button>
+      <button class="btn-reset" onclick="resetSearch()">초기화</button>
+    </div>
+  </div>
+
+  <div id="loading">구글 스프레드시트에서 데이터를 불러오는 중입니다...</div>
+
+  <!-- 메인 레이아웃 -->
+  <div class="main-layout" id="main-content" style="display: none;">
+    
+    <!-- 좌측: 목록 -->
+    <div class="list-layout" id="topic-list"></div>
+
+    <!-- 우측: 뷰어 레이아웃 (수정 가능) -->
+    <div class="card">
+      <h1>토픽 뷰어 및 수정</h1>
+      <div class="viewer-layout">
+        <div class="form-group">
+          <label>도메인</label>
+          <input type="text" id="v-domain">
+        </div>
+        <div class="form-group">
+          <label>중요도</label>
+          <input type="text" id="v-importance">
+        </div>
+        <div class="form-group full-width">
+          <label>토픽명</label>
+          <input type="text" id="v-topic">
+        </div>
+        <div class="form-group full-width">
+          <label>개념</label>
+          <textarea id="v-concept"></textarea>
+        </div>
+        <div class="form-group full-width">
+          <label>키워드</label>
+          <input type="text" id="v-keyword">
+        </div>
+        <div class="form-group full-width">
+          <label>암기법</label>
+          <input type="text" id="v-memo">
+        </div>
+        <div class="form-group full-width">
+          <label>관련토픽</label>
+          <input type="text" id="v-related">
+        </div>
+      </div>
+      <button class="btn-save" onclick="saveData()">구글 스프레드시트에 저장하기</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // 생성하신 구글 Apps Script 웹 앱 URL이 반영되었습니다.
+  const API_URL = 'https://script.google.com/macros/s/AKfycbwNNgGoWhlr5vjOhecA80_2VGYpdu3Rh5ytThmc0DKDisBjgkfA420gSptVMZ9eHhESKQ/exec';
+  
+  let allData = [];
+  let currentRowIndex = null;
+
+  // 초기 로드: 데이터 전체를 가져와서 캐싱 (오프라인 기능)
+  window.onload = async () => {
+    try {
+      // POST 방식으로 데이터를 가져올 때는 리다이렉트가 발생할 수 있으므로, 
+      // 웹 앱 배포 설정(모든 사용자 접근 가능 여부)이 올바르게 되어있어야 합니다.
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error('네트워크 응답이 정상이 아닙니다.');
+      
+      allData = await response.json();
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('main-content').style.display = 'grid';
+      renderList(allData);
+    } catch (error) {
+      document.getElementById('loading').innerText = '데이터를 불러오는데 실패했습니다. 콘솔 창을 확인해주세요.';
+      console.error('Fetch error:', error);
+    }
+  };
+
+  // 목록 렌더링
+  function renderList(data) {
+    const listContainer = document.getElementById('topic-list');
+    listContainer.innerHTML = '';
+    
+    data.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      
+      // 중요도 필드가 있을 경우 표시, 없으면 생략
+      const importance = item['중요도'] ? `[${item['중요도']}] ` : ''; 
+      
+      div.innerHTML = `
+        <div class="list-item-title">${item['토픽명'] || '이름 없음'}</div>
+        <div class="list-item-sub">${item['도메인'] || ''} ${importance}</div>
+      `;
+      div.onclick = () => loadViewer(item);
+      listContainer.appendChild(div);
+    });
+  }
+
+  // 검색 기능 (캐싱된 데이터를 기반으로 오프라인 필터링)
+  function searchData() {
+    const sTopic = document.getElementById('s-topic').value.toLowerCase();
+    const sKeyword = document.getElementById('s-keyword').value.toLowerCase();
+    const sDomain = document.getElementById('s-domain').value.toLowerCase();
+    const sImp = document.getElementById('s-importance').value.toLowerCase();
+
+    const filtered = allData.filter(item => {
+      const matchTopic = (item['토픽명'] || '').toString().toLowerCase().includes(sTopic);
+      const matchKeyword = (item['키워드'] || '').toString().toLowerCase().includes(sKeyword);
+      const matchDomain = (item['도메인'] || '').toString().toLowerCase().includes(sDomain);
+      const matchImp = (item['중요도'] || '').toString().toLowerCase().includes(sImp);
+      return matchTopic && matchKeyword && matchDomain && matchImp;
+    });
+    renderList(filtered);
+  }
+
+  // 검색 초기화
+  function resetSearch() {
+    document.getElementById('s-topic').value = '';
+    document.getElementById('s-keyword').value = '';
+    document.getElementById('s-domain').value = '';
+    document.getElementById('s-importance').value = '';
+    renderList(allData);
+  }
+
+  // 뷰어에 데이터 출력
+  function loadViewer(item) {
+    currentRowIndex = item['row_index'];
+    
+    document.getElementById('v-domain').value = item['도메인'] || '';
+    document.getElementById('v-importance').value = item['중요도'] || '';
+    document.getElementById('v-topic').value = item['토픽명'] || '';
+    document.getElementById('v-concept').value = item['개념'] || '';
+    document.getElementById('v-keyword').value = item['키워드'] || '';
+    document.getElementById('v-memo').value = item['암기법'] || '';
+    document.getElementById('v-related').value = item['관련토픽'] || '';
+  }
+
+  // 수정한 내용을 구글 스프레드시트에 저장 및 로컬 데이터 갱신
+  async function saveData() {
+    if (!currentRowIndex) {
+      alert('수정할 토픽을 좌측 목록에서 먼저 선택해주세요.');
+      return;
+    }
+
+    const updatedInfo = {
+      '도메인': document.getElementById('v-domain').value,
+      '중요도': document.getElementById('v-importance').value,
+      '토픽명': document.getElementById('v-topic').value,
+      '개념': document.getElementById('v-concept').value,
+      '키워드': document.getElementById('v-keyword').value,
+      '암기법': document.getElementById('v-memo').value,
+      '관련토픽': document.getElementById('v-related').value
+    };
+
+    const payload = {
+      row_index: currentRowIndex,
+      data: updatedInfo
+    };
+
+    try {
+      // POST 방식으로 앱스 스크립트로 전송하여 스프레드시트 갱신
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        // 'Content-Type': 'text/plain;charset=utf-8' // CORS 에러 방지를 위해 단순 텍스트로 보냄
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        // 로컬 메모리(allData) 갱신으로 빠른 UI 반영 (서버 재요청 없이)
+        const index = allData.findIndex(item => item.row_index === currentRowIndex);
+        if (index !== -1) {
+          allData[index] = { ...allData[index], ...updatedInfo };
+        }
+        
+        alert('성공적으로 저장되었습니다.');
+        searchData(); // 현재 검색 조건 유지하며 목록 갱신
+      } else {
+        alert('저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('저장 중 오류가 발생했습니다. 개발자 도구 콘솔을 확인하세요.');
+    }
+  }
+</script>
+
+</body>
+</html>
