@@ -19,15 +19,15 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
     body { background-color: var(--bg); color: var(--text-main); font-size: 16px; padding-bottom: 90px; }
 
-    /* 헤더 & 동기화 영역 (한 줄로 슬림하게 변경) */
+    /* 헤더 & 동기화 영역 */
     .header {
       background: var(--card-bg); color: var(--text-main); 
-      padding: 10px 16px; /* 여백 축소 */
+      padding: 10px 16px;
       display: flex; justify-content: space-between; align-items: center;
       position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border);
     }
     .header h1 { font-size: 1.1rem; margin: 0; font-weight: 700; letter-spacing: -0.5px; white-space: nowrap; }
-    .sync-area { display: flex; flex-direction: row; align-items: center; gap: 8px; } /* 가로 배치 */
+    .sync-area { display: flex; flex-direction: row; align-items: center; gap: 8px; }
     .sync-time { font-size: 0.75rem; color: var(--text-sub); white-space: nowrap; }
     .btn-sync {
       background: #f9fafb; border: 1px solid var(--border); color: var(--text-sub);
@@ -77,10 +77,8 @@
     }
     
     .fc-header { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-    
     .fc-auto-badge { background: #f3f4f6; color: var(--text-sub); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; border: 1px solid var(--border); }
     
-    /* 도메인, 중요도 글자색 통일 및 왼쪽 정렬 */
     .fc-domain { background: #eff6ff; color: var(--text-sub); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; outline: none; text-align: left; width: auto; }
     .fc-importance { width: auto; min-width: 65px; padding: 4px 8px; text-align: left; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); background: transparent; outline: none; }
     
@@ -189,7 +187,6 @@
         <span class="fc-auto-badge" id="v-no-badge">NO: -</span>
         <span class="fc-auto-badge" id="v-code-badge">코드: -</span>
         
-        <!-- 도메인 텍스트 변경 및 클래스 정렬 적용 -->
         <select id="v-domain" class="fc-domain" disabled onchange="updateCodeBadge()">
           <option value="">도메인</option>
           <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
@@ -203,7 +200,6 @@
         </select>
       </div>
       
-      <!-- 빈 입력폼 처리를 위해 placeholder 완전히 비움 -->
       <div class="fc-group" style="margin-bottom: 12px;">
         <label class="fc-label">대분류</label>
         <input type="text" id="v-category" class="fc-input" readonly placeholder="">
@@ -272,8 +268,7 @@
       if (cachedData && cachedData !== '[]') {
         allData = JSON.parse(cachedData);
         currentList = [...allData];
-        // 표시할 때 모바일에서도 잘보이게 포맷 단축 적용
-        document.getElementById('last-sync-text').innerText = `최근 갱신: ${lastSyncTime}`;
+        document.getElementById('last-sync-text').innerText = `갱신: ${lastSyncTime}`;
         initApp();
       } else {
         syncDataFromServer();
@@ -306,8 +301,26 @@
 
     function initApp() {
       renderList(currentList);
+      
+      // 이어보기 로직: 저장된 마지막 시점(row_index) 확인
+      const lastRowIndex = localStorage.getItem('pe_last_viewed_row');
+      let targetIndex = 0; // 기본은 0번째 (첫번째)
+      
+      if (lastRowIndex && currentList.length > 0) {
+        // 마지막으로 봤던 토픽의 배열 인덱스 찾기
+        const foundIndex = currentList.findIndex(item => item.row_index == lastRowIndex);
+        if (foundIndex !== -1) {
+          // 종료시 이어서 보기위해 (마지막 토픽이었으면 그대로 마지막 유지)
+          //targetIndex = foundIndex + 1;  // 다음번호부터 보기
+          targetIndex = foundIndex;  // 이어서보기
+          if (targetIndex >= currentList.length) {
+            targetIndex = currentList.length - 1;
+          }
+        }
+      }
+
       if (currentList.length > 0) {
-        loadViewer(0);
+        loadViewer(targetIndex);
       } else {
         clearViewer();
       }
@@ -386,7 +399,9 @@
       document.getElementById('s-imp').value = '';
       currentList = [...allData];
       renderList(currentList);
-      if(currentList.length > 0) loadViewer(0);
+      
+      // 검색 초기화 시에도 이어보기 저장 내역 기반으로 이동 (선택사항)
+      initApp(); 
     }
 
     function updateCodeBadge() {
@@ -402,6 +417,11 @@
     function loadViewer(index) {
       currentIndex = index;
       const item = currentList[index];
+      
+      // 현재 조회중인 고유 row_index를 로컬 스토리지에 저장하여 위치 기억
+      if(item && item['row_index']) {
+        localStorage.setItem('pe_last_viewed_row', item['row_index']);
+      }
       
       document.getElementById('v-no-badge').innerText = `NO: ${item['NO'] || '-'}`;
       document.getElementById('v-code-badge').innerText = `코드: ${item['코드'] || '-'}`;
@@ -422,7 +442,6 @@
       updateArrows();
     }
 
-    // 완전히 빈칸을 보여주기 위해 조건문 제거하고 값만 빈칸 처리
     function clearViewer(isAddMode = false) {
       if(isAddMode) {
         document.getElementById('v-no-badge').innerText = 'NO: 자동부여';
@@ -530,7 +549,6 @@
       const topicVal = document.getElementById('v-topic').value;
       const conceptVal = document.getElementById('v-concept').value;
       
-      // 필수값 3가지 검증 (Validation)
       if (!domainVal) { alert('안내: [도메인]을 선택해주세요.'); return; }
       if (!topicVal.trim()) { alert('안내: [토픽명] 정보를 입력해주세요.'); return; }
       if (!conceptVal.trim()) { alert('안내: [개념] 정보를 입력해주세요.'); return; }
