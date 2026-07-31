@@ -183,11 +183,14 @@
     <!-- 메인: 플래시카드 뷰어 -->
     <div class="flashcard" id="viewer-form">
       
+      <!-- 뱃지 목록 (대분류코드, 토픽코드 추가) -->
       <div class="fc-header">
         <span class="fc-auto-badge" id="v-no-badge">NO: -</span>
+        <span class="fc-auto-badge" id="v-major-code-badge">대분류코드: -</span>
+        <span class="fc-auto-badge" id="v-topic-code-badge">토픽코드: -</span>
         <span class="fc-auto-badge" id="v-code-badge">코드: -</span>
         
-        <select id="v-domain" class="fc-domain" disabled onchange="updateCodeBadge()">
+        <select id="v-domain" class="fc-domain" disabled onchange="updateDomainChange()">
           <option value="">도메인</option>
           <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
           <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option>
@@ -200,9 +203,18 @@
         </select>
       </div>
       
+      <!-- 대분류 동적 콤보박스 / 입력폼 영역 -->
       <div class="fc-group" style="margin-bottom: 12px;">
         <label class="fc-label">대분류</label>
+        
+        <!-- 읽기 모드 전용 (텍스트박스) -->
         <input type="text" id="v-category" class="fc-input" readonly placeholder="">
+        
+        <!-- 편집/추가 모드 전용 (콤보박스 및 직접입력) -->
+        <div id="v-category-edit-group" style="display: none;">
+          <select id="v-category-select" class="fc-input" onchange="handleCategorySelect()"></select>
+          <input type="text" id="v-category-input" class="fc-input" style="display:none; margin-top:8px;" placeholder="새 대분류명 입력">
+        </div>
       </div>
       
       <div class="fc-group" style="margin-bottom: 24px;">
@@ -248,12 +260,12 @@
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzpdbVHtdr4lYRG26mVJPBcE78SpeHSoFHJJSmpO1CRoHDcARBJpsd5mexUsbfV4D356Q/exec';
+    // 새롭게 발급된 앱스 스크립트 웹 앱 주소 반영
+    const API_URL = 'https://script.google.com/macros/s/AKfycbywXPl4JkeiSeXHZmfxWf_GnvZWBTFyugc4a74ObFK3Hco8AQVXPsR2-UVyKMV0hhmvwQ/exec';
     
     let allData = [];
     let currentList = [];
     let currentIndex = 0;
-    
     let currentMode = 'view'; 
     
     const DOMAIN_CODES = {
@@ -302,17 +314,13 @@
     function initApp() {
       renderList(currentList);
       
-      // 이어보기 로직: 저장된 마지막 시점(row_index) 확인
       const lastRowIndex = localStorage.getItem('pe_last_viewed_row');
-      let targetIndex = 0; // 기본은 0번째 (첫번째)
+      let targetIndex = 0; 
       
       if (lastRowIndex && currentList.length > 0) {
-        // 마지막으로 봤던 토픽의 배열 인덱스 찾기
         const foundIndex = currentList.findIndex(item => item.row_index == lastRowIndex);
         if (foundIndex !== -1) {
-          // 종료시 이어서 보기위해 (마지막 토픽이었으면 그대로 마지막 유지)
-          //targetIndex = foundIndex + 1;  // 다음번호부터 보기
-          targetIndex = foundIndex;  // 이어서보기
+          targetIndex = foundIndex + 1;
           if (targetIndex >= currentList.length) {
             targetIndex = currentList.length - 1;
           }
@@ -399,12 +407,11 @@
       document.getElementById('s-imp').value = '';
       currentList = [...allData];
       renderList(currentList);
-      
-      // 검색 초기화 시에도 이어보기 저장 내역 기반으로 이동 (선택사항)
       initApp(); 
     }
 
-    function updateCodeBadge() {
+    // 도메인 변경 시: 코드 뱃지 갱신 + 대분류 콤보박스 목록 갱신 연동
+    function updateDomainChange() {
       const domainVal = document.getElementById('v-domain').value;
       const codeBadge = document.getElementById('v-code-badge');
       if (DOMAIN_CODES[domainVal]) {
@@ -412,22 +419,81 @@
       } else {
         codeBadge.innerText = `코드: -`;
       }
+      
+      // 편집 및 추가 모드일 때는 선택한 도메인 기준으로 대분류 목록 재구성
+      if (currentMode !== 'view') {
+        populateCategorySelect(domainVal, '');
+      }
+    }
+
+    // 선택한 도메인에 맞는 대분류를 뽑아와 콤보박스를 그리는 함수
+    function populateCategorySelect(domain, selectedCategory = '') {
+      const select = document.getElementById('v-category-select');
+      const input = document.getElementById('v-category-input');
+      
+      select.innerHTML = '<option value="">대분류 선택</option>';
+      
+      if (domain) {
+        // 해당 도메인에 등록되어 있는 대분류 중복 제거 추출
+        const categories = [...new Set(allData.filter(d => d['도메인'] === domain && d['대분류']).map(d => d['대분류']))];
+        categories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.innerText = cat;
+          select.appendChild(opt);
+        });
+      }
+      
+      select.innerHTML += '<option value="__NEW__">+ 직접 입력 (새로 추가)</option>';
+      
+      if (selectedCategory) {
+        const exists = Array.from(select.options).some(opt => opt.value === selectedCategory);
+        if (exists) {
+          select.value = selectedCategory;
+          input.style.display = 'none';
+          input.value = '';
+        } else {
+          select.value = '__NEW__';
+          input.value = selectedCategory;
+          input.style.display = 'block';
+        }
+      } else {
+        select.value = '';
+        input.style.display = 'none';
+        input.value = '';
+      }
+    }
+
+    // 대분류 콤보박스 변경 이벤트 처리
+    function handleCategorySelect() {
+      const select = document.getElementById('v-category-select');
+      const input = document.getElementById('v-category-input');
+      if (select.value === '__NEW__') {
+        input.style.display = 'block';
+        input.focus();
+      } else {
+        input.style.display = 'none';
+        input.value = '';
+      }
     }
 
     function loadViewer(index) {
       currentIndex = index;
       const item = currentList[index];
       
-      // 현재 조회중인 고유 row_index를 로컬 스토리지에 저장하여 위치 기억
       if(item && item['row_index']) {
         localStorage.setItem('pe_last_viewed_row', item['row_index']);
       }
       
       document.getElementById('v-no-badge').innerText = `NO: ${item['NO'] || '-'}`;
+      document.getElementById('v-major-code-badge').innerText = `대분류코드: ${item['대분류코드'] || '-'}`;
+      document.getElementById('v-topic-code-badge').innerText = `토픽코드: ${item['토픽코드'] || '-'}`;
       document.getElementById('v-code-badge').innerText = `코드: ${item['코드'] || '-'}`;
       
       document.getElementById('v-domain').value = item['도메인'] || '';
       document.getElementById('v-importance').value = item['중요도'] || '';
+      
+      // 대분류 (읽기 전용 텍스트창)
       document.getElementById('v-category').value = item['대분류'] || '';
       document.getElementById('v-topic').value = item['토픽명'] || '';
       
@@ -445,9 +511,13 @@
     function clearViewer(isAddMode = false) {
       if(isAddMode) {
         document.getElementById('v-no-badge').innerText = 'NO: 자동부여';
+        document.getElementById('v-major-code-badge').innerText = '대분류코드: 자동';
+        document.getElementById('v-topic-code-badge').innerText = '토픽코드: 자동';
         document.getElementById('v-code-badge').innerText = '코드: 자동부여';
       } else {
         document.getElementById('v-no-badge').innerText = 'NO: -';
+        document.getElementById('v-major-code-badge').innerText = '대분류코드: -';
+        document.getElementById('v-topic-code-badge').innerText = '토픽코드: -';
         document.getElementById('v-code-badge').innerText = '코드: -';
       }
       
@@ -486,22 +556,38 @@
 
     function setFormInputsState(isEnabled) {
       const viewer = document.getElementById('viewer-form');
-      const inputs = viewer.querySelectorAll('input, textarea, select');
+      const inputs = viewer.querySelectorAll('input:not([type="hidden"]), textarea, select');
+      
+      const catInputReadOnly = document.getElementById('v-category');
+      const catSelectGroup = document.getElementById('v-category-edit-group');
       
       if(isEnabled) {
         viewer.classList.add('edit-mode');
         inputs.forEach(input => {
-          if(input.id !== 'v-no-badge' && input.id !== 'v-code-badge') {
+          if(!input.id.includes('badge')) {
             input.removeAttribute('readonly');
             input.removeAttribute('disabled');
           }
         });
+        
+        // 편집/추가 모드 시: 기존 텍스트창 숨기고 콤보박스 노출
+        catInputReadOnly.style.display = 'none';
+        catSelectGroup.style.display = 'block';
+        
+        const domainVal = document.getElementById('v-domain').value;
+        const currentCat = currentMode === 'edit' ? catInputReadOnly.value : '';
+        populateCategorySelect(domainVal, currentCat);
+        
       } else {
         viewer.classList.remove('edit-mode');
         inputs.forEach(input => {
           input.setAttribute('readonly', true);
           input.setAttribute('disabled', true);
         });
+        
+        // 읽기 모드 복귀 시: 텍스트창 노출
+        catInputReadOnly.style.display = 'block';
+        catSelectGroup.style.display = 'none';
       }
     }
 
@@ -549,14 +635,26 @@
       const topicVal = document.getElementById('v-topic').value;
       const conceptVal = document.getElementById('v-concept').value;
       
+      // 대분류 콤보박스/직접입력 값 추출
+      let finalCategory = '';
+      const catSelect = document.getElementById('v-category-select').value;
+      const catInput = document.getElementById('v-category-input').value;
+      if(catSelect === '__NEW__') {
+        finalCategory = catInput.trim();
+      } else {
+        finalCategory = catSelect;
+      }
+      
+      // 필수값 4가지 검증 (Validation)
       if (!domainVal) { alert('안내: [도메인]을 선택해주세요.'); return; }
+      if (!finalCategory) { alert('안내: [대분류]를 선택하거나 직접 입력해주세요.'); return; }
       if (!topicVal.trim()) { alert('안내: [토픽명] 정보를 입력해주세요.'); return; }
       if (!conceptVal.trim()) { alert('안내: [개념] 정보를 입력해주세요.'); return; }
 
       const updatedInfo = {
         '도메인': domainVal,
         '코드': DOMAIN_CODES[domainVal] || '',
-        '대분류': document.getElementById('v-category').value,
+        '대분류': finalCategory,
         '토픽명': topicVal,
         '중요도': document.getElementById('v-importance').value,
         '개념': conceptVal,
@@ -587,11 +685,16 @@
           if (currentMode === 'edit') {
             const rowIndex = payload.row_index;
             const globalIndex = allData.findIndex(d => d.row_index === rowIndex);
+            // 백엔드에서 반환된 새로 맵핑/생성된 대분류코드 반영
+            if(result.new_cat_code) updatedInfo['대분류코드'] = result.new_cat_code;
+            
             if(globalIndex !== -1) allData[globalIndex] = { ...allData[globalIndex], ...updatedInfo };
             currentList[currentIndex] = { ...currentList[currentIndex], ...updatedInfo };
             
           } else if (currentMode === 'add') {
             updatedInfo['NO'] = result.new_no;
+            updatedInfo['토픽코드'] = result.new_topic_code;
+            updatedInfo['대분류코드'] = result.new_cat_code;
             updatedInfo['row_index'] = result.new_row_index;
             
             allData.push(updatedInfo);
