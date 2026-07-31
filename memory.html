@@ -6,32 +6,24 @@
   <title>기술사 토픽 암기장</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* 깔끔하고 모던한 컬러 팔레트 (참고 사이트 스타일 적용) */
     :root {
-      --primary: #3b82f6;      /* 포인트 컬러 (액션 버튼) */
-      --bg: #f3f4f6;           /* 전체 배경 (연한 회색) */
-      --card-bg: #ffffff;      /* 카드 배경 (흰색) */
-      --text-main: #1f2937;    /* 메인 텍스트 (진한 회색/검정) */
-      --text-sub: #6b7280;     /* 서브 텍스트 (중간 회색) */
-      --border: #e5e7eb;       /* 테두리 색상 */
+      --primary: #3b82f6; 
+      --bg: #f3f4f6;
+      --card-bg: #ffffff;
+      --text-main: #1f2937;
+      --text-sub: #6b7280;
+      --border: #e5e7eb;
       --radius: 12px;
     }
     
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
     body { background-color: var(--bg); color: var(--text-main); font-size: 16px; padding-bottom: 90px; }
 
-    /* 헤더 & 동기화 영역 (화이트 톤) */
+    /* 헤더 & 동기화 영역 */
     .header {
-      background: var(--card-bg);
-      color: var(--text-main);
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      border-bottom: 1px solid var(--border);
+      background: var(--card-bg); color: var(--text-main); padding: 16px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border);
     }
     .header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
     .sync-area { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
@@ -43,137 +35,107 @@
     }
     .btn-sync:active { background: #e5e7eb; }
 
-    /* 레이아웃 컨테이너 */
     .container { padding: 16px; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
     
-    /* 아코디언 (검색, 목록 숨김/펼침) */
+    /* 아코디언 */
     .accordion {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     }
     .acc-header {
-      padding: 16px;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--card-bg);
-      cursor: pointer;
-      color: var(--text-main);
-      font-size: 0.95rem;
+      padding: 16px; font-weight: 600; display: flex; justify-content: space-between;
+      align-items: center; background: var(--card-bg); cursor: pointer; color: var(--text-main); font-size: 0.95rem;
     }
-    .acc-body {
-      display: none;
-      padding: 16px;
-      border-top: 1px solid var(--border);
-      background: #fafafa;
-    }
+    .acc-body { display: none; padding: 16px; border-top: 1px solid var(--border); background: #fafafa; }
     .acc-body.active { display: block; }
 
-    /* 검색 폼 (콤보박스 적용) */
+    /* 검색 폼 */
     .search-group { display: flex; flex-direction: column; gap: 12px; }
     .search-input {
       padding: 12px; border: 1px solid var(--border); border-radius: 8px;
-      font-size: 0.95rem; width: 100%; background: var(--card-bg); outline: none;
-      color: var(--text-main);
+      font-size: 0.95rem; width: 100%; background: var(--card-bg); outline: none; color: var(--text-main);
     }
     .search-input:focus { border-color: var(--primary); }
     select.search-input { appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; padding-right: 30px; }
-    
     .search-btns { display: flex; gap: 10px; margin-top: 4px; }
-    .btn-search { flex: 1; padding: 12px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; }
-    .btn-reset { flex: 1; padding: 12px; background: #e5e7eb; color: var(--text-main); border: none; border-radius: 8px; font-weight: 600; font-size: 0.95rem; }
+    .btn-search { flex: 1; padding: 12px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 600; }
+    .btn-reset { flex: 1; padding: 12px; background: #e5e7eb; color: var(--text-main); border: none; border-radius: 8px; font-weight: 600; }
 
-    /* 토픽 목록 */
+    /* 목록 */
     .list-container { max-height: 40vh; overflow-y: auto; padding: 0; }
-    .list-item {
-      padding: 16px; border-bottom: 1px solid var(--border); cursor: pointer;
-      background: var(--card-bg);
-    }
+    .list-item { padding: 16px; border-bottom: 1px solid var(--border); cursor: pointer; background: var(--card-bg); }
     .list-item:active { background: #f3f4f6; }
     .list-item:last-child { border-bottom: none; }
     .list-item-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; }
     .list-item-sub { font-size: 0.85rem; color: var(--text-sub); }
 
-    /* 플래시카드 뷰어 (메인 콘텐츠) */
+    /* 플래시카드 뷰어 */
     .flashcard {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 24px 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      border: 1px solid var(--border);
+      background: var(--card-bg); border-radius: var(--radius); padding: 24px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid var(--border);
     }
-    .fc-header { display: flex; justify-content: space-between; margin-bottom: 16px; }
-    .fc-domain { background: #eff6ff; color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; }
-    .fc-importance { width: 50px; text-align: center; border: none; font-size: 0.85rem; font-weight: 600; color: var(--text-sub); background: transparent;}
     
-    .fc-title { width: 100%; font-size: 1.5rem; font-weight: 800; border: none; padding: 0; margin-bottom: 20px; color: var(--text-main); background: transparent; }
+    .fc-header { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
     
-    .fc-group { margin-bottom: 20px; }
+    /* 신규 추가된 자동입력 뱃지 스타일 */
+    .fc-auto-badge { background: #f3f4f6; color: var(--text-sub); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; border: 1px solid var(--border); }
+    
+    .fc-domain { background: #eff6ff; color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; outline: none; }
+    .fc-importance { width: 70px; text-align: center; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); background: transparent; outline: none; }
+    
+    .fc-title { width: 100%; font-size: 1.4rem; font-weight: 800; border: none; padding: 0; margin-bottom: 20px; color: var(--text-main); background: transparent; }
+    
+    .fc-group { margin-bottom: 16px; }
     .fc-label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
     .fc-input, .fc-textarea {
-      width: 100%; padding: 0; font-size: 1rem; border: none; 
-      background: transparent; outline: none; line-height: 1.6; color: var(--text-main);
+      width: 100%; padding: 0; font-size: 1rem; border: none; background: transparent; outline: none; line-height: 1.6; color: var(--text-main);
     }
     .fc-textarea { resize: none; min-height: 80px; }
+    select.fc-input { appearance: none; padding: 0; }
 
-    /* 수정 모드 스타일 (활성화 시에만 테두리 표시) */
+    /* 수정/추가 모드 스타일 */
     .edit-mode .fc-input, .edit-mode .fc-textarea, .edit-mode .fc-title, .edit-mode .fc-domain, .edit-mode .fc-importance {
-      border: 1px solid var(--border); background: #fafafa; border-radius: 8px; padding: 12px;
+      border: 1px solid var(--border); background: #fafafa; border-radius: 8px; padding: 12px; width: 100%;
+    }
+    .edit-mode select.fc-input, .edit-mode select.fc-domain, .edit-mode select.fc-importance { 
+      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+      background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; padding-right: 30px;
     }
     .edit-mode .fc-title { font-size: 1.2rem; }
 
-    /* 하단 고정 네비게이션바 (이전/수정/다음) */
+    /* 하단 고정 네비게이션바 */
     .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--card-bg);
-      border-top: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 24px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
-      z-index: 100;
+      position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 100;
     }
     .nav-btn {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: var(--bg); border: none; font-size: 1.1rem;
+      width: 44px; height: 44px; border-radius: 50%; background: var(--bg); border: none; font-size: 1.1rem;
       color: var(--text-main); cursor: pointer; transition: background 0.2s;
     }
     .nav-btn:active { background: #e5e7eb; }
     .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     
+    .center-actions { display: flex; gap: 8px; }
     .action-btn {
-      background: var(--primary); color: white; border: none;
-      padding: 12px 32px; border-radius: 24px; font-weight: 700; font-size: 0.95rem;
-      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+      background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 20px; font-weight: 700; font-size: 0.9rem;
+      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); display: flex; gap: 6px; align-items: center; cursor: pointer;
     }
     .action-btn.save { background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
+    .action-btn.cancel { background: #9ca3af; box-shadow: none; display: none; }
 
-    /* 전체화면 로딩 */
     #loading {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255,255,255,0.9); z-index: 999;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      display: none;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 999;
+      display: flex; flex-direction: column; justify-content: center; align-items: center; display: none;
     }
-    .spinner {
-      border: 3px solid var(--border); border-top: 3px solid var(--primary);
-      border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; margin-bottom: 12px;
-    }
+    .spinner { border: 3px solid var(--border); border-top: 3px solid var(--primary); border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
   </style>
 </head>
 <body>
 
-  <!-- 로딩 오버레이 -->
-  <div id="loading">
-    <div class="spinner"></div>
-    <div id="loading-msg" style="font-weight: 600; color: var(--text-sub); font-size: 0.9rem;">데이터 갱신 중...</div>
-  </div>
+  <div id="loading"><div class="spinner"></div><div id="loading-msg" style="font-weight: 600; color: var(--text-sub); font-size: 0.9rem;">데이터 처리 중...</div></div>
 
-  <!-- 헤더 (동기화 버튼 포함) -->
   <header class="header">
     <h1>📝 토픽 암기장</h1>
     <div class="sync-area">
@@ -183,7 +145,6 @@
   </header>
 
   <div class="container">
-    <!-- 아코디언 1: 검색창 (기본 숨김) -->
     <div class="accordion">
       <div class="acc-header" onclick="toggleAcc('search-acc', 'search-icon')">
         <span><i class="fas fa-search" style="margin-right:6px; color:var(--text-sub);"></i> 검색 필터</span>
@@ -192,31 +153,16 @@
       <div class="acc-body" id="search-acc">
         <div class="search-group">
           <input type="text" id="s-main" class="search-input" placeholder="토픽명 또는 키워드 검색" onkeyup="if(event.key==='Enter') searchData()">
-          
-          <!-- 도메인 콤보박스 -->
           <select id="s-domain" class="search-input">
             <option value="">도메인: 전체</option>
-            <option value="MG">MG (경영정보)</option>
-            <option value="SW">SW (소프트웨어)</option>
-            <option value="SV">SV (디지털서비스)</option>
-            <option value="AI">AI (인공지능)</option>
-            <option value="ST">ST (통계)</option>
-            <option value="AL">AL (알고리즘)</option>
-            <option value="DB">DB (데이터베이스)</option>
-            <option value="NW">NW (네트워크)</option>
-            <option value="SE">SE (정보보안)</option>
-            <option value="OS">OS (운영체제)</option>
-            <option value="CA">CA (컴퓨터구조)</option>
+            <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
+            <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option>
+            <option value="DB">DB (데이터베이스)</option><option value="NW">NW (네트워크)</option><option value="SE">SE (정보보안)</option>
+            <option value="OS">OS (운영체제)</option><option value="CA">CA (컴퓨터구조)</option>
           </select>
-
-          <!-- 중요도 콤보박스 -->
           <select id="s-imp" class="search-input">
-            <option value="">중요도: 전체</option>
-            <option value="상">상</option>
-            <option value="중">중</option>
-            <option value="하">하</option>
+            <option value="">중요도: 전체</option><option value="상">상</option><option value="중">중</option><option value="하">하</option>
           </select>
-          
           <div class="search-btns">
             <button class="btn-search" onclick="searchData()">검색 적용</button>
             <button class="btn-reset" onclick="resetSearch()">초기화</button>
@@ -225,7 +171,6 @@
       </div>
     </div>
 
-    <!-- 아코디언 2: 전체 목록 (기본 숨김) -->
     <div class="accordion">
       <div class="acc-header" onclick="toggleAcc('list-acc', 'list-icon')">
         <span><i class="fas fa-list-ul" style="margin-right:6px; color:var(--text-sub);"></i> 검색 결과 (<span id="list-count">0</span>건)</span>
@@ -238,11 +183,36 @@
 
     <!-- 메인: 플래시카드 뷰어 -->
     <div class="flashcard" id="viewer-form">
+      
+      <!-- 상단 자동 입력 뱃지 영역 -->
       <div class="fc-header">
-        <input type="text" id="v-domain" class="fc-domain" readonly placeholder="도메인">
-        <input type="text" id="v-importance" class="fc-importance" readonly placeholder="중요도">
+        <span class="fc-auto-badge" id="v-no-badge">NO: -</span>
+        <span class="fc-auto-badge" id="v-code-badge">코드: -</span>
+        
+        <select id="v-domain" class="fc-domain" disabled onchange="updateCodeBadge()">
+          <option value="">도메인 선택</option>
+          <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
+          <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option>
+          <option value="DB">DB (데이터베이스)</option><option value="NW">NW (네트워크)</option><option value="SE">SE (정보보안)</option>
+          <option value="OS">OS (운영체제)</option><option value="CA">CA (컴퓨터구조)</option>
+        </select>
+        
+        <select id="v-importance" class="fc-importance" disabled>
+          <option value="">중요도</option><option value="상">상</option><option value="중">중</option><option value="하">하</option>
+        </select>
       </div>
-      <input type="text" id="v-topic" class="fc-title" readonly placeholder="토픽명이 없습니다.">
+      
+      <!-- 대분류 신규 입력 항목 -->
+      <div class="fc-group" style="margin-bottom: 12px;">
+        <label class="fc-label">대분류</label>
+        <input type="text" id="v-category" class="fc-input" readonly placeholder="대분류 입력">
+      </div>
+      
+      <!-- 토픽명 -->
+      <div class="fc-group" style="margin-bottom: 24px;">
+        <label class="fc-label">토픽명</label>
+        <input type="text" id="v-topic" class="fc-title" readonly placeholder="토픽명이 없습니다.">
+      </div>
       
       <div class="fc-group">
         <label class="fc-label">개념</label>
@@ -263,21 +233,40 @@
     </div>
   </div>
 
-  <!-- 하단 컨트롤바 -->
   <div class="bottom-nav">
     <button class="nav-btn" id="btn-prev" onclick="moveCard(-1)"><i class="fas fa-arrow-left"></i></button>
-    <button class="action-btn" id="btn-edit" onclick="toggleEditMode()"><i class="fas fa-pen" style="margin-right:4px;"></i> 수정</button>
-    <button class="action-btn save" id="btn-save" style="display: none;" onclick="saveData()"><i class="fas fa-check" style="margin-right:4px;"></i> 저장</button>
+    
+    <div class="center-actions">
+      <!-- 취소 버튼 -->
+      <button class="action-btn cancel" id="btn-cancel" onclick="cancelEdit()"><i class="fas fa-times"></i> 취소</button>
+      
+      <!-- 추가/수정 버튼 -->
+      <button class="action-btn" id="btn-add" onclick="enterAddMode()"><i class="fas fa-plus"></i> 추가</button>
+      <button class="action-btn" id="btn-edit" onclick="toggleEditMode()"><i class="fas fa-pen"></i> 수정</button>
+      
+      <!-- 저장 버튼 -->
+      <button class="action-btn save" id="btn-save" style="display: none;" onclick="saveData()"><i class="fas fa-check"></i> 저장</button>
+    </div>
+
     <button class="nav-btn" id="btn-next" onclick="moveCard(1)"><i class="fas fa-arrow-right"></i></button>
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwNNgGoWhlr5vjOhecA80_2VGYpdu3Rh5ytThmc0DKDisBjgkfA420gSptVMZ9eHhESKQ/exec';
+    // 새롭게 발급받은 웹 앱 URL 반영
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzpdbVHtdr4lYRG26mVJPBcE78SpeHSoFHJJSmpO1CRoHDcARBJpsd5mexUsbfV4D356Q/exec';
     
     let allData = [];
     let currentList = [];
     let currentIndex = 0;
-    let isEditMode = false;
+    
+    // 상태 관리: 'view', 'edit', 'add'
+    let currentMode = 'view'; 
+    
+    // 도메인 코드 매핑 규칙
+    const DOMAIN_CODES = {
+      'MG': 1, 'SW': 2, 'SV': 3, 'AI': 4, 'ST': 5, 'AL': 6,
+      'DB': 7, 'NW': 8, 'SE': 9, 'OS': 10, 'CA': 11
+    };
 
     window.onload = () => {
       const cachedData = localStorage.getItem('pe_topic_data');
@@ -351,6 +340,10 @@
           <div class="list-item-sub">${item['도메인'] || ''} ${item['중요도'] ? `[${item['중요도']}]` : ''}</div>
         `;
         div.onclick = () => {
+          if (currentMode !== 'view') {
+            if(!confirm('작업 중인 내용이 초기화됩니다. 이동하시겠습니까?')) return;
+            cancelEdit();
+          }
           loadViewer(index);
           document.getElementById('list-acc').classList.remove('active');
           document.getElementById('list-icon').className = 'fas fa-chevron-down';
@@ -361,18 +354,18 @@
 
     function searchData() {
       const sMain = document.getElementById('s-main').value.toLowerCase();
-      const sDomain = document.getElementById('s-domain').value.toLowerCase(); // select value
-      const sImp = document.getElementById('s-imp').value.toLowerCase();       // select value
+      const sDomain = document.getElementById('s-domain').value; 
+      const sImp = document.getElementById('s-imp').value;       
 
       currentList = allData.filter(item => {
         const title = (item['토픽명'] || '').toString().toLowerCase();
         const keyword = (item['키워드'] || '').toString().toLowerCase();
-        const domain = (item['도메인'] || '').toString().toLowerCase();
-        const imp = (item['중요도'] || '').toString().toLowerCase();
+        const domain = (item['도메인'] || '').toString();
+        const imp = (item['중요도'] || '').toString();
         
         const mainMatch = sMain === '' || title.includes(sMain) || keyword.includes(sMain);
-        const domainMatch = sDomain === '' || domain.includes(sDomain);
-        const impMatch = sImp === '' || imp.includes(sImp);
+        const domainMatch = sDomain === '' || domain === sDomain;
+        const impMatch = sImp === '' || imp === sImp;
         return mainMatch && domainMatch && impMatch;
       });
       
@@ -398,14 +391,27 @@
       if(currentList.length > 0) loadViewer(0);
     }
 
+    // 도메인 콤보박스 변경 시 코드 자동 세팅
+    function updateCodeBadge() {
+      const domainVal = document.getElementById('v-domain').value;
+      const codeBadge = document.getElementById('v-code-badge');
+      if (DOMAIN_CODES[domainVal]) {
+        codeBadge.innerText = `코드: ${DOMAIN_CODES[domainVal]}`;
+      } else {
+        codeBadge.innerText = `코드: -`;
+      }
+    }
+
     function loadViewer(index) {
-      if(isEditMode) toggleEditMode(); 
-      
       currentIndex = index;
       const item = currentList[index];
       
+      document.getElementById('v-no-badge').innerText = `NO: ${item['NO'] || '-'}`;
+      document.getElementById('v-code-badge').innerText = `코드: ${item['코드'] || '-'}`;
+      
       document.getElementById('v-domain').value = item['도메인'] || '';
       document.getElementById('v-importance').value = item['중요도'] || '';
+      document.getElementById('v-category').value = item['대분류'] || '';
       document.getElementById('v-topic').value = item['토픽명'] || '';
       
       const conceptEl = document.getElementById('v-concept');
@@ -419,14 +425,27 @@
       updateArrows();
     }
 
-    function clearViewer() {
+    // 추가 모드일 때는 화면 비우기
+    function clearViewer(isAddMode = false) {
+      if(isAddMode) {
+        document.getElementById('v-no-badge').innerText = 'NO: 자동부여';
+        document.getElementById('v-code-badge').innerText = '코드: 자동부여';
+      } else {
+        document.getElementById('v-no-badge').innerText = 'NO: -';
+        document.getElementById('v-code-badge').innerText = '코드: -';
+      }
+      
       document.getElementById('v-domain').value = '';
       document.getElementById('v-importance').value = '';
-      document.getElementById('v-topic').value = '검색 결과가 없습니다.';
+      document.getElementById('v-category').value = '';
+      document.getElementById('v-topic').value = isAddMode ? '' : '결과가 없습니다.';
       document.getElementById('v-concept').value = '';
       document.getElementById('v-keyword').value = '';
       document.getElementById('v-memo').value = '';
       document.getElementById('v-related').value = '';
+      
+      const conceptEl = document.getElementById('v-concept');
+      autoResize(conceptEl);
       updateArrows(true);
     }
 
@@ -436,54 +455,112 @@
     }
 
     function updateArrows(forceDisable = false) {
+      if (currentMode !== 'view') forceDisable = true;
       document.getElementById('btn-prev').disabled = forceDisable || (currentIndex <= 0);
       document.getElementById('btn-next').disabled = forceDisable || (currentIndex >= currentList.length - 1);
     }
 
     function moveCard(direction) {
-      if(isEditMode) {
-        if(!confirm('수정 중인 내용이 있습니다. 무시하고 이동하시겠습니까?')) return;
-        toggleEditMode();
-      }
+      if(currentMode !== 'view') return;
       const newIndex = currentIndex + direction;
       if(newIndex >= 0 && newIndex < currentList.length) {
         loadViewer(newIndex);
       }
     }
 
-    function toggleEditMode() {
-      isEditMode = !isEditMode;
+    function setFormInputsState(isEnabled) {
       const viewer = document.getElementById('viewer-form');
-      const inputs = viewer.querySelectorAll('input, textarea');
+      // 뱃지 제외 입력창 제어
+      const inputs = viewer.querySelectorAll('input, textarea, select');
       
-      if(isEditMode) {
+      if(isEnabled) {
         viewer.classList.add('edit-mode');
-        inputs.forEach(input => input.removeAttribute('readonly'));
-        document.getElementById('btn-edit').style.display = 'none';
-        document.getElementById('btn-save').style.display = 'block';
+        inputs.forEach(input => {
+          if(input.id !== 'v-no-badge' && input.id !== 'v-code-badge') {
+            input.removeAttribute('readonly');
+            input.removeAttribute('disabled');
+          }
+        });
       } else {
         viewer.classList.remove('edit-mode');
-        inputs.forEach(input => input.setAttribute('readonly', true));
-        document.getElementById('btn-save').style.display = 'none';
-        document.getElementById('btn-edit').style.display = 'block';
+        inputs.forEach(input => {
+          input.setAttribute('readonly', true);
+          input.setAttribute('disabled', true);
+        });
+      }
+    }
+
+    // 수정 모드
+    function toggleEditMode() {
+      currentMode = 'edit';
+      setFormInputsState(true);
+      
+      document.getElementById('btn-add').style.display = 'none';
+      document.getElementById('btn-edit').style.display = 'none';
+      document.getElementById('btn-save').style.display = 'flex';
+      document.getElementById('btn-cancel').style.display = 'flex';
+      updateArrows();
+    }
+
+    // 추가 모드
+    function enterAddMode() {
+      currentMode = 'add';
+      clearViewer(true);
+      setFormInputsState(true);
+      
+      document.getElementById('btn-add').style.display = 'none';
+      document.getElementById('btn-edit').style.display = 'none';
+      document.getElementById('btn-save').style.display = 'flex';
+      document.getElementById('btn-cancel').style.display = 'flex';
+      updateArrows();
+    }
+
+    // 취소 버튼
+    function cancelEdit() {
+      currentMode = 'view';
+      setFormInputsState(false);
+      
+      document.getElementById('btn-add').style.display = 'flex';
+      document.getElementById('btn-edit').style.display = 'flex';
+      document.getElementById('btn-save').style.display = 'none';
+      document.getElementById('btn-cancel').style.display = 'none';
+      
+      if(currentList.length > 0) {
+        loadViewer(currentIndex);
+      } else {
+        clearViewer();
       }
     }
 
     async function saveData() {
-      const item = currentList[currentIndex];
-      const rowIndex = item['row_index'];
+      const domainVal = document.getElementById('v-domain').value;
+      const topicVal = document.getElementById('v-topic').value;
+      
+      if (!domainVal) { alert('도메인을 선택해주세요.'); return; }
+      if (!topicVal.trim()) { alert('토픽명을 입력해주세요.'); return; }
 
+      // 저장 페이로드 구성
       const updatedInfo = {
-        '도메인': document.getElementById('v-domain').value,
+        '도메인': domainVal,
+        '코드': DOMAIN_CODES[domainVal] || '',
+        '대분류': document.getElementById('v-category').value,
+        '토픽명': topicVal,
         '중요도': document.getElementById('v-importance').value,
-        '토픽명': document.getElementById('v-topic').value,
         '개념': document.getElementById('v-concept').value,
         '키워드': document.getElementById('v-keyword').value,
         '암기법': document.getElementById('v-memo').value,
         '관련토픽': document.getElementById('v-related').value
       };
 
-      const payload = { row_index: rowIndex, data: updatedInfo };
+      let payload = {};
+
+      if (currentMode === 'edit') {
+        const item = currentList[currentIndex];
+        payload = { action: 'update', row_index: item['row_index'], data: updatedInfo };
+      } else if (currentMode === 'add') {
+        payload = { action: 'add', data: updatedInfo };
+      }
+
       showLoading(true, '구글 시트에 저장 중...');
 
       try {
@@ -494,14 +571,41 @@
         const result = await response.json();
         
         if (result.status === 'success') {
-          const globalIndex = allData.findIndex(d => d.row_index === rowIndex);
-          if(globalIndex !== -1) allData[globalIndex] = { ...allData[globalIndex], ...updatedInfo };
-          currentList[currentIndex] = { ...item, ...updatedInfo };
-          localStorage.setItem('pe_topic_data', JSON.stringify(allData));
+          if (currentMode === 'edit') {
+            const rowIndex = payload.row_index;
+            const globalIndex = allData.findIndex(d => d.row_index === rowIndex);
+            if(globalIndex !== -1) allData[globalIndex] = { ...allData[globalIndex], ...updatedInfo };
+            currentList[currentIndex] = { ...currentList[currentIndex], ...updatedInfo };
+            
+          } else if (currentMode === 'add') {
+            // 백엔드에서 생성해준 NO와 행번호 맵핑
+            updatedInfo['NO'] = result.new_no;
+            updatedInfo['row_index'] = result.new_row_index;
+            
+            allData.push(updatedInfo);
+            
+            // 검색 조건 지우고 리스트 마지막으로 이동
+            document.getElementById('s-main').value = '';
+            document.getElementById('s-domain').value = '';
+            document.getElementById('s-imp').value = '';
+            currentList = [...allData];
+            currentIndex = currentList.length - 1;
+          }
           
-          alert('정상적으로 저장되었습니다.');
-          toggleEditMode();
+          localStorage.setItem('pe_topic_data', JSON.stringify(allData));
+          alert(currentMode === 'edit' ? '정상적으로 수정되었습니다.' : '새 토픽이 추가되었습니다.');
+          
+          // 모드 복원
+          currentMode = 'view';
+          setFormInputsState(false);
+          document.getElementById('btn-add').style.display = 'flex';
+          document.getElementById('btn-edit').style.display = 'flex';
+          document.getElementById('btn-save').style.display = 'none';
+          document.getElementById('btn-cancel').style.display = 'none';
+          
           renderList(currentList); 
+          loadViewer(currentIndex); 
+          
         } else {
           alert('저장 실패: 서버 응답 오류');
         }
