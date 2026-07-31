@@ -2,332 +2,506 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>기술사 토픽 암기장</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>기술사 토픽 암기장 (Flashcard)</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
       --primary: #2b6cb0;
-      --bg: #f7fafc;
+      --bg: #f4f6f8;
       --card-bg: #ffffff;
       --text-main: #2d3748;
       --text-sub: #718096;
       --border: #e2e8f0;
-      --radius: 12px;
     }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg);
-      color: var(--text-main);
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 1300px;
-      margin: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .card {
-      background: var(--card-bg);
-      padding: 24px;
-      border-radius: var(--radius);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    }
-    h1 { margin-top: 0; font-size: 1.5rem; color: var(--primary); }
     
-    /* 검색 레이아웃 */
-    .search-layout {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: flex-end;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      flex: 1;
-      min-width: 150px;
-    }
-    label { font-size: 0.9rem; font-weight: 600; color: var(--text-sub); }
-    input, select, textarea {
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
-      transition: border-color 0.2s;
-    }
-    input:focus, textarea:focus { outline: none; border-color: var(--primary); }
-    .btn-group { display: flex; gap: 10px; }
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 14px;
-      transition: background 0.2s;
-    }
-    .btn-search { background-color: var(--primary); color: white; }
-    .btn-search:hover { background-color: #2c5282; }
-    .btn-reset { background-color: #a0aec0; color: white; }
-    .btn-reset:hover { background-color: #718096; }
-    .btn-save { background-color: #38a169; color: white; width: 100%; margin-top: 10px; padding: 12px; }
-    .btn-save:hover { background-color: #2f855a; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+    body { background-color: var(--bg); color: var(--text-main); font-size: 16px; padding-bottom: 80px; }
 
-    /* 메인 콘텐츠 레이아웃 (목록 + 뷰어) */
-    .main-layout {
-      display: grid;
-      grid-template-columns: 1fr 2fr;
-      gap: 20px;
+    /* 헤더 & 동기화 영역 */
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    .header h1 { font-size: 1.1rem; margin: 0; }
+    .sync-area { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .sync-time { font-size: 0.75rem; color: #e2e8f0; }
+    .btn-sync {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; cursor: pointer;
+    }
+    .btn-sync:active { background: rgba(255,255,255,0.4); }
+
+    /* 아코디언 (검색, 목록 숨김/펼침) */
+    .container { padding: 12px; max-width: 800px; margin: 0 auto; }
     
-    /* 토픽 목록 */
-    .list-layout {
-      max-height: 70vh;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+    .accordion {
       background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
     }
-    .list-item {
-      padding: 15px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .list-item:hover { background: #ebf8ff; }
-    .list-item:last-child { border-bottom: none; }
-    .list-item-title { font-weight: bold; margin-bottom: 4px; }
-    .list-item-sub { font-size: 0.8rem; color: var(--text-sub); }
-    
-    /* 뷰어 레이아웃 */
-    .viewer-layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-    }
-    .viewer-layout .full-width { grid-column: span 2; }
-    .viewer-layout textarea { resize: vertical; min-height: 80px; }
-    
-    #loading {
-      text-align: center;
-      padding: 20px;
-      color: var(--text-sub);
+    .acc-header {
+      padding: 14px 16px;
       font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f7fafc;
+      cursor: pointer;
+      color: var(--text-main);
     }
+    .acc-body {
+      display: none;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .acc-body.active { display: block; }
+
+    /* 검색 폼 */
+    .search-group { display: flex; flex-direction: column; gap: 10px; }
+    .search-input {
+      padding: 10px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 1rem; width: 100%;
+    }
+    .search-btns { display: flex; gap: 10px; margin-top: 5px; }
+    .btn-search { flex: 1; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 6px; font-weight: bold; }
+    .btn-reset { flex: 1; padding: 10px; background: #a0aec0; color: white; border: none; border-radius: 6px; font-weight: bold; }
+
+    /* 토픽 목록 */
+    .list-container { max-height: 40vh; overflow-y: auto; }
+    .list-item {
+      padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer;
+    }
+    .list-item:active { background: #ebf8ff; }
+    .list-item-title { font-weight: bold; font-size: 1.05rem; }
+    .list-item-sub { font-size: 0.85rem; color: var(--text-sub); margin-top: 4px; }
+
+    /* 플래시카드 뷰어 (메인 콘텐츠) */
+    .flashcard {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      margin-top: 10px;
+    }
+    .fc-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+    .fc-domain { background: #ebf8ff; color: var(--primary); padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; border: none; }
+    .fc-importance { width: 60px; text-align: center; border: none; font-size: 0.85rem; padding: 4px; }
+    
+    .fc-title { width: 100%; font-size: 1.4rem; font-weight: bold; border: none; padding: 8px 0; margin-bottom: 12px; color: var(--text-main); }
+    
+    .fc-group { margin-bottom: 16px; }
+    .fc-label { display: block; font-size: 0.85rem; font-weight: bold; color: var(--primary); margin-bottom: 6px; }
+    .fc-input, .fc-textarea {
+      width: 100%; padding: 10px; font-size: 1rem; border: 1px solid transparent; 
+      background: transparent; outline: none; line-height: 1.5; color: var(--text-main);
+    }
+    .fc-textarea { resize: none; min-height: 100px; }
+
+    /* 수정 모드 스타일 */
+    .edit-mode .fc-input, .edit-mode .fc-textarea, .edit-mode .fc-title, .edit-mode .fc-domain, .edit-mode .fc-importance {
+      border: 1px solid var(--primary); background: #fff; border-radius: 6px;
+    }
+    .edit-mode .fc-input, .edit-mode .fc-textarea { padding: 10px; }
+
+    /* 하단 고정 네비게이션바 (이전/수정/다음) */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--card-bg);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 20px; z-index: 100;
+    }
+    .nav-btn {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #edf2f7; border: none; font-size: 1.2rem;
+      color: var(--text-main); cursor: pointer;
+    }
+    .nav-btn:disabled { opacity: 0.3; }
+    .action-btn {
+      background: var(--primary); color: white; border: none;
+      padding: 12px 30px; border-radius: 24px; font-weight: bold; font-size: 1rem;
+    }
+    .action-btn.save { background: #38a169; }
+
+    /* 전체화면 로딩 */
+    #loading {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.9); z-index: 999;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      display: none;
+    }
+    .spinner {
+      border: 4px solid var(--border); border-top: 4px solid var(--primary);
+      border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
   </style>
 </head>
 <body>
 
-<div class="container">
-  <!-- 검색 레이아웃 -->
-  <div class="card search-layout">
-    <div class="form-group">
-      <label>토픽명</label>
-      <input type="text" id="s-topic" placeholder="토픽명 검색">
-    </div>
-    <div class="form-group">
-      <label>키워드</label>
-      <input type="text" id="s-keyword" placeholder="키워드 검색">
-    </div>
-    <div class="form-group">
-      <label>도메인</label>
-      <input type="text" id="s-domain" placeholder="도메인 검색">
-    </div>
-    <div class="form-group">
-      <label>중요도</label>
-      <input type="text" id="s-importance" placeholder="중요도 검색">
-    </div>
-    <div class="btn-group">
-      <button class="btn-search" onclick="searchData()">검색</button>
-      <button class="btn-reset" onclick="resetSearch()">초기화</button>
-    </div>
+  <!-- 로딩 오버레이 -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-msg" style="font-weight: bold; color: var(--text-sub);">데이터 갱신 중...</div>
   </div>
 
-  <div id="loading">구글 스프레드시트에서 데이터를 불러오는 중입니다...</div>
+  <!-- 헤더 (동기화 버튼 포함) -->
+  <header class="header">
+    <h1>📝 기술사 토픽 암기장</h1>
+    <div class="sync-area">
+      <span class="sync-time" id="last-sync-text">동기화 필요</span>
+      <button class="btn-sync" onclick="syncDataFromServer()"><i class="fas fa-sync-alt"></i> 시트 갱신</button>
+    </div>
+  </header>
 
-  <!-- 메인 레이아웃 -->
-  <div class="main-layout" id="main-content" style="display: none;">
-    
-    <!-- 좌측: 목록 -->
-    <div class="list-layout" id="topic-list"></div>
-
-    <!-- 우측: 뷰어 레이아웃 (수정 가능) -->
-    <div class="card">
-      <h1>토픽 뷰어 및 수정</h1>
-      <div class="viewer-layout">
-        <div class="form-group">
-          <label>도메인</label>
-          <input type="text" id="v-domain">
-        </div>
-        <div class="form-group">
-          <label>중요도</label>
-          <input type="text" id="v-importance">
-        </div>
-        <div class="form-group full-width">
-          <label>토픽명</label>
-          <input type="text" id="v-topic">
-        </div>
-        <div class="form-group full-width">
-          <label>개념</label>
-          <textarea id="v-concept"></textarea>
-        </div>
-        <div class="form-group full-width">
-          <label>키워드</label>
-          <input type="text" id="v-keyword">
-        </div>
-        <div class="form-group full-width">
-          <label>암기법</label>
-          <input type="text" id="v-memo">
-        </div>
-        <div class="form-group full-width">
-          <label>관련토픽</label>
-          <input type="text" id="v-related">
+  <div class="container">
+    <!-- 아코디언 1: 검색창 (기본 숨김) -->
+    <div class="accordion">
+      <div class="acc-header" onclick="toggleAcc('search-acc', 'search-icon')">
+        <span><i class="fas fa-search"></i> 검색 옵션</span>
+        <i class="fas fa-chevron-down" id="search-icon"></i>
+      </div>
+      <div class="acc-body" id="search-acc">
+        <div class="search-group">
+          <input type="text" id="s-main" class="search-input" placeholder="토픽명 또는 키워드 입력" onkeyup="if(event.key==='Enter') searchData()">
+          <input type="text" id="s-domain" class="search-input" placeholder="도메인명 (선택)">
+          <input type="text" id="s-imp" class="search-input" placeholder="중요도 (선택)">
+          <div class="search-btns">
+            <button class="btn-search" onclick="searchData()">검색</button>
+            <button class="btn-reset" onclick="resetSearch()">초기화</button>
+          </div>
         </div>
       </div>
-      <button class="btn-save" onclick="saveData()">구글 스프레드시트에 저장하기</button>
     </div>
 
+    <!-- 아코디언 2: 전체 목록 (기본 숨김) -->
+    <div class="accordion">
+      <div class="acc-header" onclick="toggleAcc('list-acc', 'list-icon')">
+        <span><i class="fas fa-list"></i> 검색된 목록 (<span id="list-count">0</span>건)</span>
+        <i class="fas fa-chevron-down" id="list-icon"></i>
+      </div>
+      <div class="acc-body list-container" id="list-acc">
+        <!-- 리스트 동적 렌더링 영역 -->
+        <div id="topic-list"></div>
+      </div>
+    </div>
+
+    <!-- 메인: 플래시카드 뷰어 (항상 노출) -->
+    <div class="flashcard" id="viewer-form">
+      <div class="fc-header">
+        <input type="text" id="v-domain" class="fc-domain" readonly placeholder="도메인">
+        <input type="text" id="v-importance" class="fc-importance" readonly placeholder="중요도">
+      </div>
+      <input type="text" id="v-topic" class="fc-title" readonly placeholder="토픽명이 없습니다.">
+      
+      <div class="fc-group">
+        <label class="fc-label">개념</label>
+        <textarea id="v-concept" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
+      </div>
+      <div class="fc-group">
+        <label class="fc-label">키워드</label>
+        <input type="text" id="v-keyword" class="fc-input" readonly>
+      </div>
+      <div class="fc-group">
+        <label class="fc-label">암기법</label>
+        <input type="text" id="v-memo" class="fc-input" readonly>
+      </div>
+      <div class="fc-group">
+        <label class="fc-label">관련토픽</label>
+        <input type="text" id="v-related" class="fc-input" readonly>
+      </div>
+    </div>
   </div>
-</div>
 
-<script>
-  // 생성하신 구글 Apps Script 웹 앱 URL이 반영되었습니다.
-  const API_URL = 'https://script.google.com/macros/s/AKfycbwNNgGoWhlr5vjOhecA80_2VGYpdu3Rh5ytThmc0DKDisBjgkfA420gSptVMZ9eHhESKQ/exec';
-  
-  let allData = [];
-  let currentRowIndex = null;
+  <!-- 하단 컨트롤바 -->
+  <div class="bottom-nav">
+    <button class="nav-btn" id="btn-prev" onclick="moveCard(-1)"><i class="fas fa-chevron-left"></i></button>
+    <button class="action-btn" id="btn-edit" onclick="toggleEditMode()"><i class="fas fa-pen"></i> 수정</button>
+    <button class="action-btn save" id="btn-save" style="display: none;" onclick="saveData()"><i class="fas fa-check"></i> 저장</button>
+    <button class="nav-btn" id="btn-next" onclick="moveCard(1)"><i class="fas fa-chevron-right"></i></button>
+  </div>
 
-  // 초기 로드: 데이터 전체를 가져와서 캐싱 (오프라인 기능)
-  window.onload = async () => {
-    try {
-      // POST 방식으로 데이터를 가져올 때는 리다이렉트가 발생할 수 있으므로, 
-      // 웹 앱 배포 설정(모든 사용자 접근 가능 여부)이 올바르게 되어있어야 합니다.
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error('네트워크 응답이 정상이 아닙니다.');
-      
-      allData = await response.json();
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('main-content').style.display = 'grid';
-      renderList(allData);
-    } catch (error) {
-      document.getElementById('loading').innerText = '데이터를 불러오는데 실패했습니다. 콘솔 창을 확인해주세요.';
-      console.error('Fetch error:', error);
-    }
-  };
-
-  // 목록 렌더링
-  function renderList(data) {
-    const listContainer = document.getElementById('topic-list');
-    listContainer.innerHTML = '';
+  <script>
+    // 구글 앱스 스크립트 웹앱 주소
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwNNgGoWhlr5vjOhecA80_2VGYpdu3Rh5ytThmc0DKDisBjgkfA420gSptVMZ9eHhESKQ/exec';
     
-    data.forEach(item => {
-      const div = document.createElement('div');
-      div.className = 'list-item';
-      
-      // 중요도 필드가 있을 경우 표시, 없으면 생략
-      const importance = item['중요도'] ? `[${item['중요도']}] ` : ''; 
-      
-      div.innerHTML = `
-        <div class="list-item-title">${item['토픽명'] || '이름 없음'}</div>
-        <div class="list-item-sub">${item['도메인'] || ''} ${importance}</div>
-      `;
-      div.onclick = () => loadViewer(item);
-      listContainer.appendChild(div);
-    });
-  }
+    let allData = [];
+    let currentList = [];
+    let currentIndex = 0;
+    let isEditMode = false;
 
-  // 검색 기능 (캐싱된 데이터를 기반으로 오프라인 필터링)
-  function searchData() {
-    const sTopic = document.getElementById('s-topic').value.toLowerCase();
-    const sKeyword = document.getElementById('s-keyword').value.toLowerCase();
-    const sDomain = document.getElementById('s-domain').value.toLowerCase();
-    const sImp = document.getElementById('s-importance').value.toLowerCase();
+    // 1. 앱 실행 시 로컬 캐시 확인
+    window.onload = () => {
+      const cachedData = localStorage.getItem('pe_topic_data');
+      const lastSyncTime = localStorage.getItem('pe_last_sync');
 
-    const filtered = allData.filter(item => {
-      const matchTopic = (item['토픽명'] || '').toString().toLowerCase().includes(sTopic);
-      const matchKeyword = (item['키워드'] || '').toString().toLowerCase().includes(sKeyword);
-      const matchDomain = (item['도메인'] || '').toString().toLowerCase().includes(sDomain);
-      const matchImp = (item['중요도'] || '').toString().toLowerCase().includes(sImp);
-      return matchTopic && matchKeyword && matchDomain && matchImp;
-    });
-    renderList(filtered);
-  }
-
-  // 검색 초기화
-  function resetSearch() {
-    document.getElementById('s-topic').value = '';
-    document.getElementById('s-keyword').value = '';
-    document.getElementById('s-domain').value = '';
-    document.getElementById('s-importance').value = '';
-    renderList(allData);
-  }
-
-  // 뷰어에 데이터 출력
-  function loadViewer(item) {
-    currentRowIndex = item['row_index'];
-    
-    document.getElementById('v-domain').value = item['도메인'] || '';
-    document.getElementById('v-importance').value = item['중요도'] || '';
-    document.getElementById('v-topic').value = item['토픽명'] || '';
-    document.getElementById('v-concept').value = item['개념'] || '';
-    document.getElementById('v-keyword').value = item['키워드'] || '';
-    document.getElementById('v-memo').value = item['암기법'] || '';
-    document.getElementById('v-related').value = item['관련토픽'] || '';
-  }
-
-  // 수정한 내용을 구글 스프레드시트에 저장 및 로컬 데이터 갱신
-  async function saveData() {
-    if (!currentRowIndex) {
-      alert('수정할 토픽을 좌측 목록에서 먼저 선택해주세요.');
-      return;
-    }
-
-    const updatedInfo = {
-      '도메인': document.getElementById('v-domain').value,
-      '중요도': document.getElementById('v-importance').value,
-      '토픽명': document.getElementById('v-topic').value,
-      '개념': document.getElementById('v-concept').value,
-      '키워드': document.getElementById('v-keyword').value,
-      '암기법': document.getElementById('v-memo').value,
-      '관련토픽': document.getElementById('v-related').value
+      if (cachedData && cachedData !== '[]') {
+        // 캐시 데이터가 있으면 오프라인 로드
+        allData = JSON.parse(cachedData);
+        currentList = [...allData];
+        document.getElementById('last-sync-text').innerText = `최근 갱신: ${lastSyncTime}`;
+        initApp();
+      } else {
+        // 캐시가 없으면 자동 서버 갱신
+        syncDataFromServer();
+      }
     };
 
-    const payload = {
-      row_index: currentRowIndex,
-      data: updatedInfo
-    };
+    // 2. 서버에서 스프레드시트 데이터 갱신 (수동 갱신 버튼 연결)
+    async function syncDataFromServer() {
+      showLoading(true, '구글 시트에서 데이터를 불러오는 중...');
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error('네트워크 오류');
+        const data = await response.json();
+        
+        allData = data;
+        currentList = [...allData];
+        
+        // 로컬스토리지에 저장 (오프라인 캐싱)
+        const now = new Date();
+        const timeStr = `${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+        localStorage.setItem('pe_topic_data', JSON.stringify(allData));
+        localStorage.setItem('pe_last_sync', timeStr);
+        
+        document.getElementById('last-sync-text').innerText = `최근 갱신: ${timeStr}`;
+        initApp();
+      } catch (error) {
+        alert('데이터 동기화에 실패했습니다. 네트워크 상태를 확인하세요.');
+        console.error(error);
+      } finally {
+        showLoading(false);
+      }
+    }
 
-    try {
-      // POST 방식으로 앱스 스크립트로 전송하여 스프레드시트 갱신
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        // 'Content-Type': 'text/plain;charset=utf-8' // CORS 에러 방지를 위해 단순 텍스트로 보냄
-        body: JSON.stringify(payload)
+    // 초기 설정 렌더링
+    function initApp() {
+      renderList(currentList);
+      if (currentList.length > 0) {
+        loadViewer(0); // 앱 실행 시 뷰어에 첫번째 데이터 출력
+      } else {
+        clearViewer();
+      }
+    }
+
+    // 3. 아코디언 메뉴 제어
+    function toggleAcc(accId, iconId) {
+      const body = document.getElementById(accId);
+      const icon = document.getElementById(iconId);
+      if (body.classList.contains('active')) {
+        body.classList.remove('active');
+        icon.className = 'fas fa-chevron-down';
+      } else {
+        body.classList.add('active');
+        icon.className = 'fas fa-chevron-up';
+      }
+    }
+
+    // 4. 리스트 렌더링
+    function renderList(data) {
+      document.getElementById('list-count').innerText = data.length;
+      const listContainer = document.getElementById('topic-list');
+      listContainer.innerHTML = '';
+      
+      data.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.innerHTML = `
+          <div class="list-item-title">${item['토픽명'] || '이름 없음'}</div>
+          <div class="list-item-sub">${item['도메인'] || ''} ${item['중요도'] ? `[${item['중요도']}]` : ''}</div>
+        `;
+        div.onclick = () => {
+          loadViewer(index);
+          // 목록에서 선택하면 자동으로 목록 아코디언 닫기
+          document.getElementById('list-acc').classList.remove('active');
+          document.getElementById('list-icon').className = 'fas fa-chevron-down';
+        };
+        listContainer.appendChild(div);
+      });
+    }
+
+    // 5. 검색 로직 (로컬 캐시 안에서 빠르게 검색)
+    function searchData() {
+      const sMain = document.getElementById('s-main').value.toLowerCase();
+      const sDomain = document.getElementById('s-domain').value.toLowerCase();
+      const sImp = document.getElementById('s-imp').value.toLowerCase();
+
+      currentList = allData.filter(item => {
+        const title = (item['토픽명'] || '').toString().toLowerCase();
+        const keyword = (item['키워드'] || '').toString().toLowerCase();
+        const domain = (item['도메인'] || '').toString().toLowerCase();
+        const imp = (item['중요도'] || '').toString().toLowerCase();
+        
+        const mainMatch = sMain === '' || title.includes(sMain) || keyword.includes(sMain);
+        const domainMatch = domain.includes(sDomain);
+        const impMatch = imp.includes(sImp);
+        return mainMatch && domainMatch && impMatch;
       });
       
-      const result = await response.json();
+      renderList(currentList);
       
-      if (result.status === 'success') {
-        // 로컬 메모리(allData) 갱신으로 빠른 UI 반영 (서버 재요청 없이)
-        const index = allData.findIndex(item => item.row_index === currentRowIndex);
-        if (index !== -1) {
-          allData[index] = { ...allData[index], ...updatedInfo };
-        }
-        
-        alert('성공적으로 저장되었습니다.');
-        searchData(); // 현재 검색 조건 유지하며 목록 갱신
+      if(currentList.length > 0) {
+        loadViewer(0);
       } else {
-        alert('저장에 실패했습니다.');
+        clearViewer();
       }
-    } catch (error) {
-      console.error('Save error:', error);
-      alert('저장 중 오류가 발생했습니다. 개발자 도구 콘솔을 확인하세요.');
+      
+      // 검색 버튼을 누르면 검색 아코디언 자동으로 닫고, 목록 아코디언 열어주기
+      document.getElementById('search-acc').classList.remove('active');
+      document.getElementById('search-icon').className = 'fas fa-chevron-down';
+      document.getElementById('list-acc').classList.add('active');
+      document.getElementById('list-icon').className = 'fas fa-chevron-up';
     }
-  }
-</script>
 
+    function resetSearch() {
+      document.getElementById('s-main').value = '';
+      document.getElementById('s-domain').value = '';
+      document.getElementById('s-imp').value = '';
+      currentList = [...allData];
+      renderList(currentList);
+      if(currentList.length > 0) loadViewer(0);
+    }
+
+    // 6. 뷰어/플래시카드 제어
+    function loadViewer(index) {
+      if(isEditMode) toggleEditMode(); // 다른 카드 로드 시 편집모드 해제
+      
+      currentIndex = index;
+      const item = currentList[index];
+      
+      document.getElementById('v-domain').value = item['도메인'] || '';
+      document.getElementById('v-importance').value = item['중요도'] || '';
+      document.getElementById('v-topic').value = item['토픽명'] || '';
+      
+      const conceptEl = document.getElementById('v-concept');
+      conceptEl.value = item['개념'] || '';
+      autoResize(conceptEl);
+      
+      document.getElementById('v-keyword').value = item['키워드'] || '';
+      document.getElementById('v-memo').value = item['암기법'] || '';
+      document.getElementById('v-related').value = item['관련토픽'] || '';
+      
+      updateArrows();
+    }
+
+    function clearViewer() {
+      document.getElementById('v-domain').value = '';
+      document.getElementById('v-importance').value = '';
+      document.getElementById('v-topic').value = '결과가 없습니다.';
+      document.getElementById('v-concept').value = '';
+      document.getElementById('v-keyword').value = '';
+      document.getElementById('v-memo').value = '';
+      document.getElementById('v-related').value = '';
+      updateArrows(true);
+    }
+
+    function autoResize(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = (textarea.scrollHeight) + 'px';
+    }
+
+    function updateArrows(forceDisable = false) {
+      document.getElementById('btn-prev').disabled = forceDisable || (currentIndex <= 0);
+      document.getElementById('btn-next').disabled = forceDisable || (currentIndex >= currentList.length - 1);
+    }
+
+    function moveCard(direction) {
+      if(isEditMode) {
+        if(!confirm('수정 중인 내용이 있습니다. 이동하시겠습니까?')) return;
+        toggleEditMode();
+      }
+      const newIndex = currentIndex + direction;
+      if(newIndex >= 0 && newIndex < currentList.length) {
+        loadViewer(newIndex);
+      }
+    }
+
+    // 7. 편집 및 구글 시트 저장 로직
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      const viewer = document.getElementById('viewer-form');
+      const inputs = viewer.querySelectorAll('input, textarea');
+      
+      if(isEditMode) {
+        viewer.classList.add('edit-mode');
+        inputs.forEach(input => input.removeAttribute('readonly'));
+        document.getElementById('btn-edit').style.display = 'none';
+        document.getElementById('btn-save').style.display = 'block';
+      } else {
+        viewer.classList.remove('edit-mode');
+        inputs.forEach(input => input.setAttribute('readonly', true));
+        document.getElementById('btn-save').style.display = 'none';
+        document.getElementById('btn-edit').style.display = 'block';
+      }
+    }
+
+    async function saveData() {
+      const item = currentList[currentIndex];
+      const rowIndex = item['row_index'];
+
+      const updatedInfo = {
+        '도메인': document.getElementById('v-domain').value,
+        '중요도': document.getElementById('v-importance').value,
+        '토픽명': document.getElementById('v-topic').value,
+        '개념': document.getElementById('v-concept').value,
+        '키워드': document.getElementById('v-keyword').value,
+        '암기법': document.getElementById('v-memo').value,
+        '관련토픽': document.getElementById('v-related').value
+      };
+
+      const payload = { row_index: rowIndex, data: updatedInfo };
+      showLoading(true, '구글 시트에 저장하는 중...');
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+          // 메모리 및 로컬 캐시 갱신 (서버 재로드 불필요)
+          const globalIndex = allData.findIndex(d => d.row_index === rowIndex);
+          if(globalIndex !== -1) allData[globalIndex] = { ...allData[globalIndex], ...updatedInfo };
+          currentList[currentIndex] = { ...item, ...updatedInfo };
+          localStorage.setItem('pe_topic_data', JSON.stringify(allData));
+          
+          alert('저장되었습니다.');
+          toggleEditMode();
+          renderList(currentList); // 목록에도 제목 등 반영
+        } else {
+          alert('서버 응답 오류로 저장에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error(error);
+        alert('네트워크 오류로 저장에 실패했습니다.');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function showLoading(show, msg = '') {
+      const el = document.getElementById('loading');
+      const msgEl = document.getElementById('loading-msg');
+      if(show) {
+        msgEl.innerText = msg;
+        el.style.display = 'flex';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  </script>
 </body>
 </html>
