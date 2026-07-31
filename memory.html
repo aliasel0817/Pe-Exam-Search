@@ -19,19 +19,20 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
     body { background-color: var(--bg); color: var(--text-main); font-size: 16px; padding-bottom: 90px; }
 
-    /* 헤더 & 동기화 영역 */
+    /* 헤더 & 동기화 영역 (한 줄로 슬림하게 변경) */
     .header {
-      background: var(--card-bg); color: var(--text-main); padding: 16px 20px;
+      background: var(--card-bg); color: var(--text-main); 
+      padding: 10px 16px; /* 여백 축소 */
       display: flex; justify-content: space-between; align-items: center;
       position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border);
     }
-    .header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
-    .sync-area { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-    .sync-time { font-size: 0.75rem; color: var(--text-sub); }
+    .header h1 { font-size: 1.1rem; margin: 0; font-weight: 700; letter-spacing: -0.5px; white-space: nowrap; }
+    .sync-area { display: flex; flex-direction: row; align-items: center; gap: 8px; } /* 가로 배치 */
+    .sync-time { font-size: 0.75rem; color: var(--text-sub); white-space: nowrap; }
     .btn-sync {
       background: #f9fafb; border: 1px solid var(--border); color: var(--text-sub);
-      padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;
-      display: flex; align-items: center; gap: 4px; transition: all 0.2s;
+      padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; transition: all 0.2s; white-space: nowrap;
     }
     .btn-sync:active { background: #e5e7eb; }
 
@@ -77,11 +78,11 @@
     
     .fc-header { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
     
-    /* 신규 추가된 자동입력 뱃지 스타일 */
     .fc-auto-badge { background: #f3f4f6; color: var(--text-sub); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; border: 1px solid var(--border); }
     
-    .fc-domain { background: #eff6ff; color: var(--primary); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; outline: none; }
-    .fc-importance { width: 70px; text-align: center; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); background: transparent; outline: none; }
+    /* 도메인, 중요도 글자색 통일 및 왼쪽 정렬 */
+    .fc-domain { background: #eff6ff; color: var(--text-sub); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; outline: none; text-align: left; width: auto; }
+    .fc-importance { width: auto; min-width: 65px; padding: 4px 8px; text-align: left; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); background: transparent; outline: none; }
     
     .fc-title { width: 100%; font-size: 1.4rem; font-weight: 800; border: none; padding: 0; margin-bottom: 20px; color: var(--text-main); background: transparent; }
     
@@ -184,13 +185,13 @@
     <!-- 메인: 플래시카드 뷰어 -->
     <div class="flashcard" id="viewer-form">
       
-      <!-- 상단 자동 입력 뱃지 영역 -->
       <div class="fc-header">
         <span class="fc-auto-badge" id="v-no-badge">NO: -</span>
         <span class="fc-auto-badge" id="v-code-badge">코드: -</span>
         
+        <!-- 도메인 텍스트 변경 및 클래스 정렬 적용 -->
         <select id="v-domain" class="fc-domain" disabled onchange="updateCodeBadge()">
-          <option value="">도메인 선택</option>
+          <option value="">도메인</option>
           <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
           <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option>
           <option value="DB">DB (데이터베이스)</option><option value="NW">NW (네트워크)</option><option value="SE">SE (정보보안)</option>
@@ -202,16 +203,15 @@
         </select>
       </div>
       
-      <!-- 대분류 신규 입력 항목 -->
+      <!-- 빈 입력폼 처리를 위해 placeholder 완전히 비움 -->
       <div class="fc-group" style="margin-bottom: 12px;">
         <label class="fc-label">대분류</label>
-        <input type="text" id="v-category" class="fc-input" readonly placeholder="대분류 입력">
+        <input type="text" id="v-category" class="fc-input" readonly placeholder="">
       </div>
       
-      <!-- 토픽명 -->
       <div class="fc-group" style="margin-bottom: 24px;">
         <label class="fc-label">토픽명</label>
-        <input type="text" id="v-topic" class="fc-title" readonly placeholder="토픽명이 없습니다.">
+        <input type="text" id="v-topic" class="fc-title" readonly placeholder="">
       </div>
       
       <div class="fc-group">
@@ -252,17 +252,14 @@
   </div>
 
   <script>
-    // 새롭게 발급받은 웹 앱 URL 반영
     const API_URL = 'https://script.google.com/macros/s/AKfycbzpdbVHtdr4lYRG26mVJPBcE78SpeHSoFHJJSmpO1CRoHDcARBJpsd5mexUsbfV4D356Q/exec';
     
     let allData = [];
     let currentList = [];
     let currentIndex = 0;
     
-    // 상태 관리: 'view', 'edit', 'add'
     let currentMode = 'view'; 
     
-    // 도메인 코드 매핑 규칙
     const DOMAIN_CODES = {
       'MG': 1, 'SW': 2, 'SV': 3, 'AI': 4, 'ST': 5, 'AL': 6,
       'DB': 7, 'NW': 8, 'SE': 9, 'OS': 10, 'CA': 11
@@ -275,6 +272,7 @@
       if (cachedData && cachedData !== '[]') {
         allData = JSON.parse(cachedData);
         currentList = [...allData];
+        // 표시할 때 모바일에서도 잘보이게 포맷 단축 적용
         document.getElementById('last-sync-text').innerText = `최근 갱신: ${lastSyncTime}`;
         initApp();
       } else {
@@ -297,7 +295,7 @@
         localStorage.setItem('pe_topic_data', JSON.stringify(allData));
         localStorage.setItem('pe_last_sync', timeStr);
         
-        document.getElementById('last-sync-text').innerText = `최근 갱신: ${timeStr}`;
+        document.getElementById('last-sync-text').innerText = `갱신: ${timeStr}`;
         initApp();
       } catch (error) {
         alert('동기화 실패. 네트워크 연결을 확인하세요.');
@@ -391,7 +389,6 @@
       if(currentList.length > 0) loadViewer(0);
     }
 
-    // 도메인 콤보박스 변경 시 코드 자동 세팅
     function updateCodeBadge() {
       const domainVal = document.getElementById('v-domain').value;
       const codeBadge = document.getElementById('v-code-badge');
@@ -425,7 +422,7 @@
       updateArrows();
     }
 
-    // 추가 모드일 때는 화면 비우기
+    // 완전히 빈칸을 보여주기 위해 조건문 제거하고 값만 빈칸 처리
     function clearViewer(isAddMode = false) {
       if(isAddMode) {
         document.getElementById('v-no-badge').innerText = 'NO: 자동부여';
@@ -438,7 +435,7 @@
       document.getElementById('v-domain').value = '';
       document.getElementById('v-importance').value = '';
       document.getElementById('v-category').value = '';
-      document.getElementById('v-topic').value = isAddMode ? '' : '결과가 없습니다.';
+      document.getElementById('v-topic').value = '';
       document.getElementById('v-concept').value = '';
       document.getElementById('v-keyword').value = '';
       document.getElementById('v-memo').value = '';
@@ -470,7 +467,6 @@
 
     function setFormInputsState(isEnabled) {
       const viewer = document.getElementById('viewer-form');
-      // 뱃지 제외 입력창 제어
       const inputs = viewer.querySelectorAll('input, textarea, select');
       
       if(isEnabled) {
@@ -490,7 +486,6 @@
       }
     }
 
-    // 수정 모드
     function toggleEditMode() {
       currentMode = 'edit';
       setFormInputsState(true);
@@ -502,7 +497,6 @@
       updateArrows();
     }
 
-    // 추가 모드
     function enterAddMode() {
       currentMode = 'add';
       clearViewer(true);
@@ -515,7 +509,6 @@
       updateArrows();
     }
 
-    // 취소 버튼
     function cancelEdit() {
       currentMode = 'view';
       setFormInputsState(false);
@@ -535,18 +528,20 @@
     async function saveData() {
       const domainVal = document.getElementById('v-domain').value;
       const topicVal = document.getElementById('v-topic').value;
+      const conceptVal = document.getElementById('v-concept').value;
       
-      if (!domainVal) { alert('도메인을 선택해주세요.'); return; }
-      if (!topicVal.trim()) { alert('토픽명을 입력해주세요.'); return; }
+      // 필수값 3가지 검증 (Validation)
+      if (!domainVal) { alert('안내: [도메인]을 선택해주세요.'); return; }
+      if (!topicVal.trim()) { alert('안내: [토픽명] 정보를 입력해주세요.'); return; }
+      if (!conceptVal.trim()) { alert('안내: [개념] 정보를 입력해주세요.'); return; }
 
-      // 저장 페이로드 구성
       const updatedInfo = {
         '도메인': domainVal,
         '코드': DOMAIN_CODES[domainVal] || '',
         '대분류': document.getElementById('v-category').value,
         '토픽명': topicVal,
         '중요도': document.getElementById('v-importance').value,
-        '개념': document.getElementById('v-concept').value,
+        '개념': conceptVal,
         '키워드': document.getElementById('v-keyword').value,
         '암기법': document.getElementById('v-memo').value,
         '관련토픽': document.getElementById('v-related').value
@@ -578,13 +573,11 @@
             currentList[currentIndex] = { ...currentList[currentIndex], ...updatedInfo };
             
           } else if (currentMode === 'add') {
-            // 백엔드에서 생성해준 NO와 행번호 맵핑
             updatedInfo['NO'] = result.new_no;
             updatedInfo['row_index'] = result.new_row_index;
             
             allData.push(updatedInfo);
             
-            // 검색 조건 지우고 리스트 마지막으로 이동
             document.getElementById('s-main').value = '';
             document.getElementById('s-domain').value = '';
             document.getElementById('s-imp').value = '';
@@ -595,7 +588,6 @@
           localStorage.setItem('pe_topic_data', JSON.stringify(allData));
           alert(currentMode === 'edit' ? '정상적으로 수정되었습니다.' : '새 토픽이 추가되었습니다.');
           
-          // 모드 복원
           currentMode = 'view';
           setFormInputsState(false);
           document.getElementById('btn-add').style.display = 'flex';
