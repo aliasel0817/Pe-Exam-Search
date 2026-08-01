@@ -91,7 +91,15 @@
     .fc-input, .fc-textarea {
       width: 100%; padding: 0; font-size: 1rem; border: none; background: transparent; outline: none; line-height: 1.6; color: var(--text-main);
     }
-    .fc-textarea { resize: none; min-height: 60px; overflow: hidden; } /* 여러 줄 입력을 위해 min-height 조정 */
+    
+    /* 텍스트 영역에 최대 높이 및 스크롤 생성 옵션 추가 */
+    .fc-textarea { 
+      resize: none; 
+      min-height: 60px; 
+      max-height: 200px; /* 화면이 작아질 때를 대비한 최대 높이 설정 */
+      overflow-y: auto;  /* 내용이 넘치면 스크롤 바 생성 */
+    } 
+    
     select.fc-input { appearance: none; padding: 0; }
 
     /* 수정/추가 모드 스타일 */
@@ -146,7 +154,6 @@
   </header>
 
   <div class="container">
-    <!-- 검색 필터 생략 방지 -->
     <div class="accordion">
       <div class="acc-header" onclick="toggleAcc('search-acc', 'search-icon')">
         <span><i class="fas fa-search" style="margin-right:6px; color:var(--text-sub);"></i> 검색 필터</span>
@@ -173,7 +180,6 @@
       </div>
     </div>
 
-    <!-- 검색 결과 목록 생략 방지 -->
     <div class="accordion">
       <div class="acc-header" onclick="toggleAcc('list-acc', 'list-icon')">
         <span><i class="fas fa-list-ul" style="margin-right:6px; color:var(--text-sub);"></i> 검색 결과 (<span id="list-count">0</span>건)</span>
@@ -466,7 +472,6 @@
       }
     }
 
-    // 글자 수 실시간 카운트 함수
     function updateCharCount(inputId, countId) {
       const inputEl = document.getElementById(inputId);
       const countEl = document.getElementById(countId);
@@ -504,25 +509,21 @@
       document.getElementById('v-category').value = item['대분류'] || '';
       document.getElementById('v-topic').value = item['토픽명'] || '';
       
-      // 개념
       const conceptEl = document.getElementById('v-concept');
       conceptEl.value = item['개념'] || '';
       autoResize(conceptEl);
       updateCharCount('v-concept', 'cnt-v-concept');
       
-      // 키워드 (textarea로 변경)
       const keywordEl = document.getElementById('v-keyword');
       keywordEl.value = item['키워드'] || '';
       autoResize(keywordEl);
       updateCharCount('v-keyword', 'cnt-v-keyword');
       
-      // 암기법 (textarea로 변경)
       const memoEl = document.getElementById('v-memo');
       memoEl.value = item['암기법'] || '';
       autoResize(memoEl);
       updateCharCount('v-memo', 'cnt-v-memo');
       
-      // 관련토픽 (textarea로 변경)
       const relatedEl = document.getElementById('v-related');
       relatedEl.value = item['관련토픽'] || '';
       autoResize(relatedEl);
@@ -554,7 +555,6 @@
       document.getElementById('v-memo').value = '';
       document.getElementById('v-related').value = '';
       
-      // 높이 및 글자 수 카운터 리셋
       ['v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => {
         const el = document.getElementById(id);
         autoResize(el);
@@ -565,7 +565,6 @@
     }
 
     function autoResize(textarea) {
-      // 스크롤 높이에 따라 자동으로 높이 조절
       textarea.style.height = 'auto';
       textarea.style.height = (textarea.scrollHeight) + 'px';
     }
@@ -618,7 +617,6 @@
         catSelectGroup.style.display = 'none';
       }
       
-      // 모드 변경 시 글자 수 갱신 (빈 값 표시 유무 처리 위해)
       ['v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => {
         updateCharCount(id, 'cnt-' + id);
       });
