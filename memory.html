@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>기술사 토픽 암기장</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 엑셀 파일을 읽기 위한 SheetJS 라이브러리 추가 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root {
       --primary: #3b82f6; 
@@ -82,7 +84,7 @@
     .fc-domain { background: #eff6ff; color: var(--text-sub); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; outline: none; text-align: left; width: auto; }
     .fc-importance { width: auto; min-width: 65px; padding: 4px 8px; text-align: left; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); background: transparent; outline: none; }
     
-    .fc-title { width: 100%; font-size: 1.4rem; font-weight: 800; border: none; padding: 0; margin-bottom: 20px; color: var(--text-main); background: transparent; }
+    .fc-title { width: 100%; font-size: 1.4rem; font-weight: 800; border: none; padding: 0; color: var(--text-main); background: transparent; }
     
     .fc-group { margin-bottom: 16px; }
     .fc-label { display: flex; align-items: center; font-size: 0.8rem; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -91,16 +93,21 @@
     .fc-input, .fc-textarea {
       width: 100%; padding: 0; font-size: 1rem; border: none; background: transparent; outline: none; line-height: 1.6; color: var(--text-main);
     }
-    
-    /* 텍스트 영역에 최대 높이 및 스크롤 생성 옵션 추가 */
-    .fc-textarea { 
-      resize: none; 
-      min-height: 60px; 
-      max-height: 200px; /* 화면이 작아질 때를 대비한 최대 높이 설정 */
-      overflow-y: auto;  /* 내용이 넘치면 스크롤 바 생성 */
-    } 
-    
+    .fc-textarea { resize: none; min-height: 60px; max-height: 200px; overflow-y: auto; } 
     select.fc-input { appearance: none; padding: 0; }
+
+    /* 기출문제 검색 그룹 UI */
+    .exam-search-group {
+      display: flex; gap: 8px; margin-top: 12px; margin-bottom: 24px;
+    }
+    .exam-search-input {
+      flex: 1; border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; outline: none;
+    }
+    .exam-search-input:focus { border-color: var(--primary); }
+    .btn-exam-search {
+      background: var(--text-main); color: white; border: none; padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.2s;
+    }
+    .btn-exam-search:active { background: var(--text-sub); }
 
     /* 수정/추가 모드 스타일 */
     .edit-mode .fc-input, .edit-mode .fc-textarea, .edit-mode .fc-title, .edit-mode .fc-domain, .edit-mode .fc-importance {
@@ -138,6 +145,33 @@
     }
     .spinner { border: 3px solid var(--border); border-top: 3px solid var(--primary); border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* 기출문제 모달 팝업 스타일 */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6); z-index: 1000;
+      display: none; justify-content: center; align-items: center; padding: 16px;
+    }
+    .modal-content {
+      background: var(--card-bg); border-radius: var(--radius); width: 100%; max-width: 600px;
+      max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    .modal-header {
+      padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+      background: #f9fafb;
+    }
+    .modal-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
+    .btn-close-modal { background: transparent; border: none; font-size: 1.2rem; color: var(--text-sub); cursor: pointer; }
+    .modal-body {
+      padding: 16px 20px; overflow-y: auto; flex: 1;
+    }
+    .exam-result-item {
+      padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; background: #fff;
+    }
+    .exam-result-item:last-child { margin-bottom: 0; }
+    .exam-meta { font-size: 0.85rem; color: var(--primary); font-weight: 700; margin-bottom: 6px; }
+    .exam-question { font-size: 0.95rem; color: var(--text-main); line-height: 1.5; }
 
   </style>
 </head>
@@ -222,12 +256,17 @@
         </div>
       </div>
       
-      <div class="fc-group" style="margin-bottom: 24px;">
+      <div class="fc-group" style="margin-bottom: 0;">
         <label class="fc-label">토픽명</label>
         <input type="text" id="v-topic" class="fc-title" readonly placeholder="">
       </div>
+
+      <!-- 기출문제 검색 그룹 -->
+      <div class="exam-search-group" id="exam-search-wrapper">
+        <input type="text" id="exam-search-input" class="exam-search-input" placeholder="기출문제 검색어 (빈칸 시 토픽명 적용)" onkeyup="if(event.key==='Enter') searchExamQuestions()">
+        <button class="btn-exam-search" onclick="searchExamQuestions()">문제 검색</button>
+      </div>
       
-      <!-- 텍스트 영역(Textarea)과 글자수 카운터 적용 -->
       <div class="fc-group">
         <label class="fc-label">개념 <span id="cnt-v-concept" class="char-count"></span></label>
         <textarea id="v-concept" class="fc-textarea" readonly oninput="autoResize(this); updateCharCount('v-concept', 'cnt-v-concept')"></textarea>
@@ -260,11 +299,26 @@
     <button class="nav-btn" id="btn-next" onclick="moveCard(1)"><i class="fas fa-arrow-right"></i></button>
   </div>
 
+  <!-- 기출문제 검색 결과 모달 오버레이 -->
+  <div class="modal-overlay" id="exam-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="exam-modal-title">검색 결과</h2>
+        <button class="btn-close-modal" onclick="closeExamModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="exam-modal-body">
+        <!-- 검색 결과가 동적으로 삽입되는 영역 -->
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbywXPl4JkeiSeXHZmfxWf_GnvZWBTFyugc4a74ObFK3Hco8AQVXPsR2-UVyKMV0hhmvwQ/exec';
+    const GITHUB_EXAM_URL = 'https://aliasel0817.github.io/Pe-Exam-Search/list.xlsx';
     
     let allData = [];
     let currentList = [];
+    let examData = []; // 기출문제 데이터 저장
     let currentIndex = 0;
     let currentMode = 'view'; 
     
@@ -275,11 +329,14 @@
 
     window.onload = () => {
       const cachedData = localStorage.getItem('pe_topic_data');
+      const cachedExamData = localStorage.getItem('pe_exam_list_data');
       const lastSyncTime = localStorage.getItem('pe_last_sync');
 
       if (cachedData && cachedData !== '[]') {
         allData = JSON.parse(cachedData);
         currentList = [...allData];
+        if (cachedExamData) examData = JSON.parse(cachedExamData);
+        
         document.getElementById('last-sync-text').innerText = `갱신: ${lastSyncTime}`;
         initApp();
       } else {
@@ -287,25 +344,44 @@
       }
     };
 
+    // 구글 시트와 깃허브 list.xlsx를 동시 다발적으로 가져와 캐싱하는 로직
     async function syncDataFromServer() {
-      showLoading(true, '스프레드시트 동기화 중...');
+      showLoading(true, '데이터 동기화 중 (토픽 + 기출문제)...');
       try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error('네트워크 오류');
-        const data = await response.json();
-        
-        allData = data;
+        // 병렬 처리(Promise.all)로 두 데이터를 동시에 요청
+        const [topicResponse, examResponse] = await Promise.all([
+          fetch(API_URL),
+          fetch(GITHUB_EXAM_URL, { cache: 'no-cache' }) // 깃허브에서 최신 파일 다운로드
+        ]);
+
+        if (!topicResponse.ok) throw new Error('토픽 시트 네트워크 오류');
+        allData = await topicResponse.json();
         currentList = [...allData];
+
+        // 깃허브 엑셀 파일(list.xlsx) 파싱
+        if (examResponse.ok) {
+          const arrayBuffer = await examResponse.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          examData = XLSX.utils.sheet_to_json(worksheet);
+        } else {
+          console.warn('기출문제 파일(list.xlsx)을 가져오지 못했습니다.');
+        }
         
         const now = new Date();
         const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        
+        // 로컬 스토리지에 둘 다 저장
         localStorage.setItem('pe_topic_data', JSON.stringify(allData));
+        localStorage.setItem('pe_exam_list_data', JSON.stringify(examData));
         localStorage.setItem('pe_last_sync', timeStr);
         
         document.getElementById('last-sync-text').innerText = `갱신: ${timeStr}`;
         initApp();
       } catch (error) {
         alert('동기화 실패. 네트워크 연결을 확인하세요.');
+        console.error(error);
       } finally {
         showLoading(false);
       }
@@ -333,6 +409,81 @@
         clearViewer();
       }
     }
+
+    // --- 기출문제 검색 로직 ---
+    function searchExamQuestions() {
+      let keyword = document.getElementById('exam-search-input').value.trim();
+      
+      // 텍스트박스가 비어있으면 현재 조회중인 '토픽명' 사용
+      if (!keyword) {
+        keyword = document.getElementById('v-topic').value.trim();
+      }
+
+      if (!keyword || keyword === '결과가 없습니다.') {
+        alert('검색할 키워드나 토픽명이 없습니다.');
+        return;
+      }
+
+      if (!examData || examData.length === 0) {
+        alert('기출문제 데이터가 없습니다. 먼저 상단의 [시트 갱신]을 진행해주세요.');
+        return;
+      }
+
+      const lowerKeyword = keyword.toLowerCase();
+      
+      // 엑셀의 모든 열 값을 뒤져서 키워드가 포함되어 있는지 검사
+      const results = examData.filter(row => {
+        return Object.values(row).some(val => 
+          String(val).toLowerCase().includes(lowerKeyword)
+        );
+      });
+
+      renderExamModal(keyword, results);
+    }
+
+    // 기출문제 팝업창 렌더링
+    function renderExamModal(keyword, results) {
+      const titleEl = document.getElementById('exam-modal-title');
+      const bodyEl = document.getElementById('exam-modal-body');
+      
+      titleEl.innerText = `'${keyword}' 기출문제 (${results.length}건)`;
+      bodyEl.innerHTML = '';
+
+      if (results.length === 0) {
+        bodyEl.innerHTML = '<div style="text-align:center; padding: 30px; color: var(--text-sub);">검색된 기출문제가 없습니다.</div>';
+      } else {
+        results.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'exam-result-item';
+          
+          // list.xlsx의 보편적인 헤더명(회차, 교시, 번호, 문제)을 유추하여 출력
+          let metaStr = '';
+          if (item['회차']) metaStr += `[${item['회차']}회] `;
+          if (item['교시']) metaStr += `${item['교시']}교시 `;
+          if (item['번호']) metaStr += `${item['번호']}번`;
+          
+          // 문제 혹은 내용, 없으면 전체 데이터를 문자열로 출력
+          let questionStr = item['문제'] || item['내용'] || item['문제명'];
+          if (!questionStr) {
+             // 특정 컬럼명이 일치하지 않을 경우, 모든 데이터를 나열
+             questionStr = Object.entries(item).map(([k,v]) => `<b>${k}</b>: ${v}`).join('<br>');
+          }
+
+          div.innerHTML = `
+            <div class="exam-meta">${metaStr}</div>
+            <div class="exam-question">${questionStr}</div>
+          `;
+          bodyEl.appendChild(div);
+        });
+      }
+
+      document.getElementById('exam-modal').style.display = 'flex';
+    }
+
+    function closeExamModal() {
+      document.getElementById('exam-modal').style.display = 'none';
+    }
+    // ----------------------------
 
     function toggleAcc(accId, iconId) {
       const body = document.getElementById(accId);
@@ -493,6 +644,9 @@
         localStorage.setItem('pe_last_viewed_row', item['row_index']);
       }
       
+      // 검색창 텍스트 비우기 (새 토픽 이동 시)
+      document.getElementById('exam-search-input').value = '';
+
       const noVal = (item['NO'] !== undefined && item['NO'] !== '') ? item['NO'] : '-';
       const majorCodeVal = (item['대분류코드'] !== undefined && item['대분류코드'] !== '') ? item['대분류코드'] : '-';
       const topicCodeVal = (item['토픽코드'] !== undefined && item['토픽코드'] !== '') ? item['토픽코드'] : '-';
@@ -545,6 +699,7 @@
         document.getElementById('v-code-badge').innerText = '코드: -';
       }
       
+      document.getElementById('exam-search-input').value = '';
       document.getElementById('v-domain').value = '';
       document.getElementById('v-importance').value = '';
       document.getElementById('v-category').value = '';
@@ -585,10 +740,11 @@
 
     function setFormInputsState(isEnabled) {
       const viewer = document.getElementById('viewer-form');
-      const inputs = viewer.querySelectorAll('input:not([type="hidden"]), textarea, select');
+      const inputs = viewer.querySelectorAll('input:not([type="hidden"]):not(.exam-search-input), textarea, select');
       
       const catInputReadOnly = document.getElementById('v-category');
       const catSelectGroup = document.getElementById('v-category-edit-group');
+      const examSearchWrap = document.getElementById('exam-search-wrapper');
       
       if(isEnabled) {
         viewer.classList.add('edit-mode');
@@ -601,6 +757,7 @@
         
         catInputReadOnly.style.display = 'none';
         catSelectGroup.style.display = 'block';
+        examSearchWrap.style.display = 'none'; // 추가/수정 시 기출문제 검색 숨김
         
         const domainVal = document.getElementById('v-domain').value;
         const currentCat = currentMode === 'edit' ? catInputReadOnly.value : '';
@@ -615,6 +772,7 @@
         
         catInputReadOnly.style.display = 'block';
         catSelectGroup.style.display = 'none';
+        examSearchWrap.style.display = 'flex'; // 읽기 모드 시 다시 노출
       }
       
       ['v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => {
