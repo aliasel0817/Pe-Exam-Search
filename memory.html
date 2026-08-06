@@ -87,7 +87,6 @@
     
     .fc-group { margin-bottom: 16px; }
     .fc-label { display: flex; align-items: center; font-size: 0.8rem; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .char-count { font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-left: 6px; }
     
     .fc-input, .fc-textarea {
       width: 100%; padding: 0; font-size: 1rem; border: none; background: transparent; outline: none; line-height: 1.6; color: var(--text-main);
@@ -95,7 +94,7 @@
     .fc-textarea { resize: none; min-height: 60px; max-height: 200px; overflow-y: auto; } 
     select.fc-input { appearance: none; padding: 0; }
 
-    /* 기출문제 검색 그룹 UI (최상단 배치용 여백 조절) */
+    /* 기출문제 검색 그룹 UI */
     .exam-search-group {
       display: flex; gap: 8px; margin-bottom: 16px;
     }
@@ -169,8 +168,8 @@
       padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; background: #fff;
     }
     .exam-result-item:last-child { margin-bottom: 0; }
-    .exam-meta { font-size: 0.85rem; color: var(--primary); font-weight: 700; margin-bottom: 6px; }
-    .exam-question { font-size: 0.95rem; color: var(--text-main); line-height: 1.5; }
+    .exam-meta { font-size: 0.85rem; color: var(--primary); font-weight: 700; margin-bottom: 8px; }
+    .exam-question { font-size: 0.95rem; color: var(--text-main); line-height: 1.6; }
 
   </style>
 </head>
@@ -226,7 +225,7 @@
     <!-- 메인: 플래시카드 뷰어 -->
     <div class="flashcard" id="viewer-form">
       
-      <!-- 최상단으로 이동된 기출문제 검색 그룹 -->
+      <!-- 기출문제 검색 그룹 -->
       <div class="exam-search-group" id="exam-search-wrapper">
         <input type="text" id="exam-search-input" class="exam-search-input" placeholder="기출문제 검색어 (빈칸 시 토픽명 적용)" onkeyup="if(event.key==='Enter') searchExamQuestions()">
         <button class="btn-exam-search" onclick="searchExamQuestions()">문제 검색</button>
@@ -267,20 +266,20 @@
       </div>
       
       <div class="fc-group">
-        <label class="fc-label">개념 <span id="cnt-v-concept" class="char-count"></span></label>
-        <textarea id="v-concept" class="fc-textarea" readonly oninput="autoResize(this); updateCharCount('v-concept', 'cnt-v-concept')"></textarea>
+        <label class="fc-label">개념</label>
+        <textarea id="v-concept" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
       </div>
       <div class="fc-group">
-        <label class="fc-label">키워드 <span id="cnt-v-keyword" class="char-count"></span></label>
-        <textarea id="v-keyword" class="fc-textarea" readonly oninput="autoResize(this); updateCharCount('v-keyword', 'cnt-v-keyword')"></textarea>
+        <label class="fc-label">키워드</label>
+        <textarea id="v-keyword" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
       </div>
       <div class="fc-group">
-        <label class="fc-label">암기법 <span id="cnt-v-memo" class="char-count"></span></label>
-        <textarea id="v-memo" class="fc-textarea" readonly oninput="autoResize(this); updateCharCount('v-memo', 'cnt-v-memo')"></textarea>
+        <label class="fc-label">암기법</label>
+        <textarea id="v-memo" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
       </div>
       <div class="fc-group">
-        <label class="fc-label">관련토픽 <span id="cnt-v-related" class="char-count"></span></label>
-        <textarea id="v-related" class="fc-textarea" readonly oninput="autoResize(this); updateCharCount('v-related', 'cnt-v-related')"></textarea>
+        <label class="fc-label">관련토픽</label>
+        <textarea id="v-related" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
       </div>
     </div>
   </div>
@@ -306,7 +305,7 @@
         <button class="btn-close-modal" onclick="closeExamModal()"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body" id="exam-modal-body">
-        <!-- 검색 결과 동적 삽입 -->
+        <!-- 동적 삽입 -->
       </div>
     </div>
   </div>
@@ -449,10 +448,28 @@
           div.className = 'exam-result-item';
           
           let metaStr = '';
-          if (item['회차']) metaStr += `[${item['회차']}회] `;
-          if (item['교시']) metaStr += `${item['교시']}교시 `;
-          if (item['번호']) metaStr += `${item['번호']}번`;
           
+          // [구분] 처리
+          if (item['구분']) {
+            metaStr += `[${item['구분']}] `;
+          }
+          
+          // [종목] 처리
+          if (item['종목']) {
+            metaStr += `${item['종목']} `;
+          }
+          
+          // [회차] 처리: 데이터에 포함된 '회' 글자를 제거하고 재조합하여 '129회회' 방지
+          if (item['회차']) {
+            let hoicha = String(item['회차']).replace(/회/g, '').trim();
+            metaStr += `${hoicha}회 `;
+          }
+          
+          // [유형] 처리 (교시 포함 여부는 데이터 구조에 따라 자동 표시)
+          if (item['유형']) {
+            metaStr += `- ${item['유형']}`;
+          }
+
           let questionStr = item['문제'] || item['내용'] || item['문제명'];
           if (!questionStr) {
              questionStr = Object.entries(item).map(([k,v]) => `<b>${k}</b>: ${v}`).join('<br>');
@@ -612,19 +629,6 @@
       }
     }
 
-    function updateCharCount(inputId, countId) {
-      const inputEl = document.getElementById(inputId);
-      const countEl = document.getElementById(countId);
-      if (inputEl && countEl) {
-        const len = inputEl.value.length;
-        if (len > 0 || currentMode !== 'view') {
-          countEl.innerText = `(${len}자)`;
-        } else {
-          countEl.innerText = '';
-        }
-      }
-    }
-
     function loadViewer(index) {
       currentIndex = index;
       const item = currentList[index];
@@ -654,22 +658,18 @@
       const conceptEl = document.getElementById('v-concept');
       conceptEl.value = item['개념'] || '';
       autoResize(conceptEl);
-      updateCharCount('v-concept', 'cnt-v-concept');
       
       const keywordEl = document.getElementById('v-keyword');
       keywordEl.value = item['키워드'] || '';
       autoResize(keywordEl);
-      updateCharCount('v-keyword', 'cnt-v-keyword');
       
       const memoEl = document.getElementById('v-memo');
       memoEl.value = item['암기법'] || '';
       autoResize(memoEl);
-      updateCharCount('v-memo', 'cnt-v-memo');
       
       const relatedEl = document.getElementById('v-related');
       relatedEl.value = item['관련토픽'] || '';
       autoResize(relatedEl);
-      updateCharCount('v-related', 'cnt-v-related');
       
       updateArrows();
     }
@@ -701,7 +701,6 @@
       ['v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => {
         const el = document.getElementById(id);
         autoResize(el);
-        updateCharCount(id, 'cnt-' + id);
       });
       
       updateArrows(true);
@@ -762,10 +761,6 @@
         catSelectGroup.style.display = 'none';
         examSearchWrap.style.display = 'flex'; 
       }
-      
-      ['v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => {
-        updateCharCount(id, 'cnt-' + id);
-      });
     }
 
     function toggleEditMode() {
