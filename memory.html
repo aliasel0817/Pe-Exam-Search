@@ -207,8 +207,9 @@
   </div>
 
   <script>
-    // 💡 선생님께서 캡처해주셨던 가장 최신 배포 URL로 직접 세팅했습니다!
-    const API_URL = 'https://script.google.com/macros/s/AKfycbw5eSkASX1M0Ew2WspRKCUvPrB6MGT7vw6bbP6oIHFBiwm4gZnx53OByaY2HxspBMI4gw/exec';
+    // ✅ 방금 보내주신 최신 API URL 적용 완료!
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxuV5teVEqOS8EUbA7XJ_t6eLDRu64sXPvMIKNbGWCICm0g8gMP3rQJmTIZIyZ-dfqi2Q/exec';
+    
     const GITHUB_EXAM_URL = 'https://aliasel0817.github.io/Pe-Exam-Search/list.xlsx';
     
     let allData = []; let currentList = []; let examData = []; 
@@ -251,7 +252,8 @@
       const lastRowIndex = localStorage.getItem('pe_last_viewed_row'); let targetIndex = 0; 
       if (lastRowIndex && currentList.length > 0) {
         const fIdx = currentList.findIndex(item => item.row_index == lastRowIndex);
-        if (fIdx !== -1) targetIndex = Math.min(fIdx + 1, currentList.length - 1);
+        // ✅ F5 새로고침 오작동 완벽 수정 (fIdx + 1 제거 유지)
+        if (fIdx !== -1) targetIndex = fIdx;
       }
       currentList.length > 0 ? loadViewer(targetIndex) : clearViewer();
     }
@@ -414,7 +416,7 @@
       try {
         payload.new_images = await Promise.all(newImageFiles.map(f => getBase64(f)));
         
-        // 💡 안정성 향상을 위해 headers 추가 명시
+        // ✅ 마법의 열쇠! text/plain 헤더 유지
         const response = await fetch(API_URL, { 
           method: 'POST', 
           headers: { "Content-Type": "text/plain;charset=utf-8" },
