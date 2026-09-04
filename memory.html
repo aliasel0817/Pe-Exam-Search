@@ -347,7 +347,7 @@
       const btnView = document.getElementById('btn-view-img'); const gallery = document.getElementById('hidden-image-gallery');
       if(existingImageIds.length > 0) {
         btnView.style.display = 'inline-block'; btnView.innerText = `🖼️ 이미지 보기 (${existingImageIds.length})`;
-        gallery.innerHTML = existingImageIds.map(id => `<li><img src="https://drive.google.com/uc?id=${id}"></li>`).join('');
+        gallery.innerHTML = existingImageIds.map(id => `<li><img src="https://lh3.googleusercontent.com/d/${id}"></li>`).join('');
         if(viewerJsInstance) viewerJsInstance.destroy();
         viewerJsInstance = new Viewer(gallery, { navbar: true, toolbar: true, title: false });
       } else { btnView.style.display = 'none'; if(viewerJsInstance){ viewerJsInstance.destroy(); viewerJsInstance=null; } }
@@ -358,7 +358,7 @@
     function openImageViewer() { if(viewerJsInstance) viewerJsInstance.show(); }
     function renderPreviews() {
       const c = document.getElementById('preview-container'); c.innerHTML = '';
-      existingImageIds.forEach((id, i) => c.innerHTML += `<div class="thumb-wrap"><img src="https://drive.google.com/uc?id=${id}"><button class="thumb-del" onclick="removeExistingImg(${i})"><i class="fas fa-times"></i></button></div>`);
+      existingImageIds.forEach((id, i) => c.innerHTML += `<div class="thumb-wrap"><img src="https://lh3.googleusercontent.com/d/${id}"><button class="thumb-del" onclick="removeExistingImg(${i})"><i class="fas fa-times"></i></button></div>`);
       newImageFiles.forEach((file, i) => c.innerHTML += `<div class="thumb-wrap"><img src="${URL.createObjectURL(file)}"><button class="thumb-del" onclick="removeNewImg(${i})"><i class="fas fa-times"></i></button></div>`);
     }
     function handleFileSelect(e) { newImageFiles = [...newImageFiles, ...Array.from(e.target.files)]; renderPreviews(); e.target.value=''; }
