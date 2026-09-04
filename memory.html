@@ -6,171 +6,91 @@
   <title>기술사 토픽 암기장</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Viewer.js 라이브러리 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/viewerjs/1.11.3/viewer.min.js"></script>
   <style>
-    :root {
-      --primary: #3b82f6; 
-      --bg: #f3f4f6;
-      --card-bg: #ffffff;
-      --text-main: #1f2937;
-      --text-sub: #6b7280;
-      --border: #e5e7eb;
-      --radius: 12px;
-    }
-    
+    :root { --primary: #3b82f6; --bg: #f3f4f6; --card-bg: #ffffff; --text-main: #1f2937; --text-sub: #6b7280; --border: #e5e7eb; --radius: 12px; }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
     body { background-color: var(--bg); color: var(--text-main); font-size: 16px; padding-bottom: 90px; }
 
-    /* 헤더 & 동기화 영역 */
-    .header {
-      background: var(--card-bg); color: var(--text-main); 
-      padding: 10px 16px;
-      display: flex; justify-content: space-between; align-items: center;
-      position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border);
-    }
+    .header { background: var(--card-bg); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); }
     .header h1 { font-size: 1.1rem; margin: 0; font-weight: 700; letter-spacing: -0.5px; white-space: nowrap; }
-    .sync-area { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+    .sync-area { display: flex; align-items: center; gap: 8px; }
     .sync-time { font-size: 0.75rem; color: var(--text-sub); white-space: nowrap; }
-    .btn-sync {
-      background: #f9fafb; border: 1px solid var(--border); color: var(--text-sub);
-      padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;
-      display: flex; align-items: center; gap: 4px; transition: all 0.2s; white-space: nowrap;
-    }
-    .btn-sync:active { background: #e5e7eb; }
-
-    .container { padding: 16px; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .btn-sync { background: #f9fafb; border: 1px solid var(--border); color: var(--text-sub); padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 4px; }
     
-    /* 아코디언 */
-    .accordion {
-      background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);
-      overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-    }
-    .acc-header {
-      padding: 16px; font-weight: 600; display: flex; justify-content: space-between;
-      align-items: center; background: var(--card-bg); cursor: pointer; color: var(--text-main); font-size: 0.95rem;
-    }
+    .container { padding: 16px; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .accordion { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    .acc-header { padding: 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: var(--text-main); font-size: 0.95rem; }
     .acc-body { display: none; padding: 16px; border-top: 1px solid var(--border); background: #fafafa; }
     .acc-body.active { display: block; }
 
-    /* 검색 폼 */
     .search-group { display: flex; flex-direction: column; gap: 12px; }
-    .search-input {
-      padding: 12px; border: 1px solid var(--border); border-radius: 8px;
-      font-size: 0.95rem; width: 100%; background: var(--card-bg); outline: none; color: var(--text-main);
-    }
-    .search-input:focus { border-color: var(--primary); }
-    select.search-input { appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; padding-right: 30px; }
+    .search-input { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; width: 100%; outline: none; }
+    select.search-input { -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; padding-right: 30px; }
     .search-btns { display: flex; gap: 10px; margin-top: 4px; }
-    .btn-search { flex: 1; padding: 12px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 600; }
-    .btn-reset { flex: 1; padding: 12px; background: #e5e7eb; color: var(--text-main); border: none; border-radius: 8px; font-weight: 600; }
+    .btn-search { flex: 1; padding: 12px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-reset { flex: 1; padding: 12px; background: #e5e7eb; color: var(--text-main); border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
 
-    /* 목록 */
     .list-container { max-height: 40vh; overflow-y: auto; padding: 0; }
     .list-item { padding: 16px; border-bottom: 1px solid var(--border); cursor: pointer; background: var(--card-bg); }
-    .list-item:active { background: #f3f4f6; }
-    .list-item:last-child { border-bottom: none; }
     .list-item-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; }
     .list-item-sub { font-size: 0.85rem; color: var(--text-sub); }
 
-    /* 플래시카드 뷰어 */
-    .flashcard {
-      background: var(--card-bg); border-radius: var(--radius); padding: 24px 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid var(--border);
-    }
-    
+    .flashcard { background: var(--card-bg); border-radius: var(--radius); padding: 24px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+    .exam-search-group { display: flex; gap: 8px; margin-bottom: 24px; }
+    .exam-search-input { flex: 1; border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; outline: none; }
+    .btn-exam-search { background: var(--text-main); color: white; border: none; padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
     .fc-header { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
     .fc-auto-badge { background: #f3f4f6; color: var(--text-sub); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; border: 1px solid var(--border); }
+    .fc-domain, .fc-importance, select.fc-input { -webkit-appearance: none; appearance: none; border: none; background: transparent; outline: none; }
+    .fc-domain { background: #eff6ff; color: var(--text-sub); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; text-align: left; }
+    .fc-importance { padding: 4px 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); }
     
-    .fc-domain { background: #eff6ff; color: var(--text-sub); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; border: none; outline: none; text-align: left; width: auto; }
-    .fc-importance { width: auto; min-width: 65px; padding: 4px 8px; text-align: left; border: none; font-size: 0.8rem; font-weight: 600; color: var(--text-sub); background: transparent; outline: none; }
-    
-    .fc-title { width: 100%; font-size: 1.4rem; font-weight: 800; border: none; padding: 0; color: var(--text-main); background: transparent; }
+    .fc-title { width: 100%; font-size: 1.4rem; font-weight: 800; border: none; padding: 0; margin-bottom: 20px; color: var(--text-main); background: transparent; outline:none; }
+    .btn-view-img { background: var(--primary); color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: none; }
     
     .fc-group { margin-bottom: 16px; }
     .fc-label { display: flex; align-items: center; font-size: 0.8rem; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    
-    .fc-input, .fc-textarea {
-      width: 100%; padding: 0; font-size: 1rem; border: none; background: transparent; outline: none; line-height: 1.6; color: var(--text-main);
-    }
+    .char-count { font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-left: 6px; }
+    .fc-input, .fc-textarea { width: 100%; padding: 0; font-size: 1rem; border: none; background: transparent; outline: none; line-height: 1.6; color: var(--text-main); }
     .fc-textarea { resize: none; min-height: 60px; max-height: 200px; overflow-y: auto; } 
-    select.fc-input { appearance: none; padding: 0; }
 
-    /* 기출문제 검색 그룹 UI */
-    .exam-search-group {
-      display: flex; gap: 8px; margin-bottom: 16px;
-    }
-    .exam-search-input {
-      flex: 1; border: 1px solid var(--border); padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; outline: none;
-    }
-    .exam-search-input:focus { border-color: var(--primary); }
-    .btn-exam-search {
-      background: var(--text-main); color: white; border: none; padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.2s;
-    }
-    .btn-exam-search:active { background: var(--text-sub); }
-
-    /* 수정/추가 모드 스타일 */
-    .edit-mode .fc-input, .edit-mode .fc-textarea, .edit-mode .fc-title, .edit-mode .fc-domain, .edit-mode .fc-importance {
-      border: 1px solid var(--border); background: #fafafa; border-radius: 8px; padding: 12px; width: 100%;
-    }
-    .edit-mode select.fc-input, .edit-mode select.fc-domain, .edit-mode select.fc-importance { 
-      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
-      background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; padding-right: 30px;
-    }
-    .edit-mode .fc-title { font-size: 1.2rem; }
-
-    /* 하단 고정 네비게이션바 */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 100;
-    }
-    .nav-btn {
-      width: 44px; height: 44px; border-radius: 50%; background: var(--bg); border: none; font-size: 1.1rem;
-      color: var(--text-main); cursor: pointer; transition: background 0.2s;
-    }
-    .nav-btn:active { background: #e5e7eb; }
-    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .edit-mode .fc-input, .edit-mode .fc-textarea, .edit-mode .fc-title, .edit-mode .fc-domain, .edit-mode .fc-importance { border: 1px solid var(--border); background: #fafafa; border-radius: 8px; padding: 12px; width: 100%; }
+    .edit-mode select.fc-input, .edit-mode select.fc-domain, .edit-mode select.fc-importance { -webkit-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 12px top 50%; background-size: 10px auto; padding-right: 30px; }
     
-    .center-actions { display: flex; gap: 8px; }
-    .action-btn {
-      background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 20px; font-weight: 700; font-size: 0.9rem;
-      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3); display: flex; gap: 6px; align-items: center; cursor: pointer;
-    }
-    .action-btn.save { background: #10b981; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3); }
-    .action-btn.cancel { background: #9ca3af; box-shadow: none; display: none; }
+    .upload-container { background: #f9fafb; border: 1px dashed var(--border); border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 24px; display: none; }
+    .upload-container input[type="file"] { display: none; }
+    .btn-upload { background: white; border: 1px solid var(--border); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--text-main); display: inline-block; }
+    .btn-upload i { margin-right: 6px; color: var(--primary); }
+    .preview-box { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: center; }
+    .thumb-wrap { position: relative; width: 70px; height: 70px; border-radius: 8px; border: 1px solid var(--border); overflow: hidden; background: #eee; }
+    .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .thumb-del { position: absolute; top: 2px; right: 2px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-    #loading {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 999;
-      display: flex; flex-direction: column; justify-content: center; align-items: center; display: none;
-    }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 100; }
+    .nav-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--bg); border: none; font-size: 1.1rem; color: var(--text-main); cursor: pointer; }
+    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .center-actions { display: flex; gap: 8px; }
+    .action-btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; display: flex; gap: 6px; align-items: center; cursor: pointer; }
+    .action-btn.save { background: #10b981; }
+    .action-btn.cancel { background: #9ca3af; display: none; }
+
+    #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center; display: none; }
     .spinner { border: 3px solid var(--border); border-top: 3px solid var(--primary); border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    /* 기출문제 모달 팝업 스타일 */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.6); z-index: 1000;
-      display: none; justify-content: center; align-items: center; padding: 16px;
-    }
-    .modal-content {
-      background: var(--card-bg); border-radius: var(--radius); width: 100%; max-width: 600px;
-      max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-    .modal-header {
-      padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
-      background: #f9fafb;
-    }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 16px; }
+    .modal-content { background: var(--card-bg); border-radius: var(--radius); width: 100%; max-width: 600px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #f9fafb; }
     .modal-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
     .btn-close-modal { background: transparent; border: none; font-size: 1.2rem; color: var(--text-sub); cursor: pointer; }
-    .modal-body {
-      padding: 16px 20px; overflow-y: auto; flex: 1;
-    }
-    .exam-result-item {
-      padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; background: #fff;
-    }
-    .exam-result-item:last-child { margin-bottom: 0; }
+    .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+    .exam-result-item { padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; background: #fff; }
     .exam-meta { font-size: 0.85rem; color: var(--primary); font-weight: 700; margin-bottom: 8px; }
     .exam-question { font-size: 0.95rem; color: var(--text-main); line-height: 1.6; }
-
   </style>
 </head>
 <body>
@@ -195,11 +115,9 @@
         <div class="search-group">
           <input type="text" id="s-main" class="search-input" placeholder="토픽명 또는 키워드 검색" onkeyup="if(event.key==='Enter') searchData()">
           <select id="s-domain" class="search-input">
-            <option value="">도메인: 전체</option>
-            <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
-            <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option>
-            <option value="DB">DB (데이터베이스)</option><option value="NW">NW (네트워크)</option><option value="SE">SE (정보보안)</option>
-            <option value="OS">OS (운영체제)</option><option value="CA">CA (컴퓨터구조)</option>
+            <option value="">도메인: 전체</option><option value="MG">MG</option><option value="SW">SW</option><option value="SV">SV</option>
+            <option value="AI">AI</option><option value="ST">ST</option><option value="AL">AL</option><option value="DB">DB</option>
+            <option value="NW">NW</option><option value="SE">SE</option><option value="OS">OS</option><option value="CA">CA</option>
           </select>
           <select id="s-imp" class="search-input">
             <option value="">중요도: 전체</option><option value="상">상</option><option value="중">중</option><option value="하">하</option>
@@ -217,21 +135,15 @@
         <span><i class="fas fa-list-ul" style="margin-right:6px; color:var(--text-sub);"></i> 검색 결과 (<span id="list-count">0</span>건)</span>
         <i class="fas fa-chevron-down" id="list-icon" style="color:var(--text-sub);"></i>
       </div>
-      <div class="acc-body list-container" id="list-acc">
-        <div id="topic-list"></div>
-      </div>
+      <div class="acc-body list-container" id="list-acc"><div id="topic-list"></div></div>
     </div>
 
-    <!-- 메인: 플래시카드 뷰어 -->
     <div class="flashcard" id="viewer-form">
-      
-      <!-- 기출문제 검색 그룹 -->
       <div class="exam-search-group" id="exam-search-wrapper">
         <input type="text" id="exam-search-input" class="exam-search-input" placeholder="기출문제 검색어 (빈칸 시 토픽명 적용)" onkeyup="if(event.key==='Enter') searchExamQuestions()">
         <button class="btn-exam-search" onclick="searchExamQuestions()">문제 검색</button>
       </div>
 
-      <!-- 뱃지 목록 -->
       <div class="fc-header">
         <span class="fc-auto-badge" id="v-no-badge">NO: -</span>
         <span class="fc-auto-badge" id="v-major-code-badge">대분류코드: -</span>
@@ -239,16 +151,14 @@
         <span class="fc-auto-badge" id="v-code-badge">코드: -</span>
         
         <select id="v-domain" class="fc-domain" disabled onchange="updateDomainChange()">
-          <option value="">도메인</option>
-          <option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
-          <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option>
-          <option value="DB">DB (데이터베이스)</option><option value="NW">NW (네트워크)</option><option value="SE">SE (정보보안)</option>
-          <option value="OS">OS (운영체제)</option><option value="CA">CA (컴퓨터구조)</option>
+          <option value="">도메인</option><option value="MG">MG (경영정보)</option><option value="SW">SW (소프트웨어)</option><option value="SV">SV (디지털서비스)</option>
+          <option value="AI">AI (인공지능)</option><option value="ST">ST (통계)</option><option value="AL">AL (알고리즘)</option><option value="DB">DB (데이터베이스)</option>
+          <option value="NW">NW (네트워크)</option><option value="SE">SE (정보보안)</option><option value="OS">OS (운영체제)</option><option value="CA">CA (컴퓨터구조)</option>
         </select>
+        <select id="v-importance" class="fc-importance" disabled><option value="">중요도</option><option value="상">상</option><option value="중">중</option><option value="하">하</option></select>
         
-        <select id="v-importance" class="fc-importance" disabled>
-          <option value="">중요도</option><option value="상">상</option><option value="중">중</option><option value="하">하</option>
-        </select>
+        <button id="btn-view-img" class="btn-view-img" onclick="openImageViewer()">🖼️ 이미지 보기</button>
+        <ul id="hidden-image-gallery" style="display:none;"></ul>
       </div>
       
       <div class="fc-group" style="margin-bottom: 12px;">
@@ -264,650 +174,282 @@
         <label class="fc-label">토픽명</label>
         <input type="text" id="v-topic" class="fc-title" readonly placeholder="">
       </div>
+
+      <div class="upload-container" id="image-upload-wrapper">
+        <label class="btn-upload" for="file-upload"><i class="fas fa-camera"></i> 기기에서 이미지 첨부</label>
+        <input type="file" id="file-upload" multiple accept="image/*" onchange="handleFileSelect(event)">
+        <div class="preview-box" id="preview-container"></div>
+      </div>
       
-      <div class="fc-group">
-        <label class="fc-label">개념</label>
-        <textarea id="v-concept" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
-      </div>
-      <div class="fc-group">
-        <label class="fc-label">키워드</label>
-        <textarea id="v-keyword" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
-      </div>
-      <div class="fc-group">
-        <label class="fc-label">암기법</label>
-        <textarea id="v-memo" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
-      </div>
-      <div class="fc-group">
-        <label class="fc-label">관련토픽</label>
-        <textarea id="v-related" class="fc-textarea" readonly oninput="autoResize(this)"></textarea>
-      </div>
+      <div class="fc-group"><label class="fc-label">개념 <span id="cnt-v-concept" class="char-count"></span></label><textarea id="v-concept" class="fc-textarea" readonly maxlength="50000" oninput="autoResize(this); updateCharCount('v-concept', 'cnt-v-concept')"></textarea></div>
+      <div class="fc-group"><label class="fc-label">키워드 <span id="cnt-v-keyword" class="char-count"></span></label><textarea id="v-keyword" class="fc-textarea" readonly maxlength="50000" oninput="autoResize(this); updateCharCount('v-keyword', 'cnt-v-keyword')"></textarea></div>
+      <div class="fc-group"><label class="fc-label">암기법 <span id="cnt-v-memo" class="char-count"></span></label><textarea id="v-memo" class="fc-textarea" readonly maxlength="50000" oninput="autoResize(this); updateCharCount('v-memo', 'cnt-v-memo')"></textarea></div>
+      <div class="fc-group"><label class="fc-label">관련토픽 <span id="cnt-v-related" class="char-count"></span></label><textarea id="v-related" class="fc-textarea" readonly maxlength="50000" oninput="autoResize(this); updateCharCount('v-related', 'cnt-v-related')"></textarea></div>
     </div>
   </div>
 
   <div class="bottom-nav">
     <button class="nav-btn" id="btn-prev" onclick="moveCard(-1)"><i class="fas fa-arrow-left"></i></button>
-    
     <div class="center-actions">
       <button class="action-btn cancel" id="btn-cancel" onclick="cancelEdit()"><i class="fas fa-times"></i> 취소</button>
       <button class="action-btn" id="btn-add" onclick="enterAddMode()"><i class="fas fa-plus"></i> 추가</button>
       <button class="action-btn" id="btn-edit" onclick="toggleEditMode()"><i class="fas fa-pen"></i> 수정</button>
       <button class="action-btn save" id="btn-save" style="display: none;" onclick="saveData()"><i class="fas fa-check"></i> 저장</button>
     </div>
-
     <button class="nav-btn" id="btn-next" onclick="moveCard(1)"><i class="fas fa-arrow-right"></i></button>
   </div>
 
-  <!-- 기출문제 검색 결과 모달 오버레이 -->
   <div class="modal-overlay" id="exam-modal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="exam-modal-title">검색 결과</h2>
-        <button class="btn-close-modal" onclick="closeExamModal()"><i class="fas fa-times"></i></button>
-      </div>
-      <div class="modal-body" id="exam-modal-body">
-        <!-- 동적 삽입 -->
-      </div>
+      <div class="modal-header"><h2 id="exam-modal-title">검색 결과</h2><button class="btn-close-modal" onclick="closeExamModal()"><i class="fas fa-times"></i></button></div>
+      <div class="modal-body" id="exam-modal-body"></div>
     </div>
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbywXPl4JkeiSeXHZmfxWf_GnvZWBTFyugc4a74ObFK3Hco8AQVXPsR2-UVyKMV0hhmvwQ/exec';
+    // 💡 선생님께서 캡처해주셨던 가장 최신 배포 URL로 직접 세팅했습니다!
+    const API_URL = 'https://script.google.com/macros/s/AKfycbw5eSkASX1M0Ew2WspRKCUvPrB6MGT7vw6bbP6oIHFBiwm4gZnx53OByaY2HxspBMI4gw/exec';
     const GITHUB_EXAM_URL = 'https://aliasel0817.github.io/Pe-Exam-Search/list.xlsx';
     
-    let allData = [];
-    let currentList = [];
-    let examData = []; 
-    let currentIndex = 0;
-    let currentMode = 'view'; 
-    
-    const DOMAIN_CODES = {
-      'MG': 1, 'SW': 2, 'SV': 3, 'AI': 4, 'ST': 5, 'AL': 6,
-      'DB': 7, 'NW': 8, 'SE': 9, 'OS': 10, 'CA': 11
-    };
+    let allData = []; let currentList = []; let examData = []; 
+    let currentIndex = 0; let currentMode = 'view'; 
+    let existingImageIds = []; let newImageFiles = []; let viewerJsInstance = null; 
+    const DOMAIN_CODES = { 'MG': 1, 'SW': 2, 'SV': 3, 'AI': 4, 'ST': 5, 'AL': 6, 'DB': 7, 'NW': 8, 'SE': 9, 'OS': 10, 'CA': 11 };
 
     window.onload = () => {
       const cachedData = localStorage.getItem('pe_topic_data');
-      const cachedExamData = localStorage.getItem('pe_exam_list_data');
-      const lastSyncTime = localStorage.getItem('pe_last_sync');
-
       if (cachedData && cachedData !== '[]') {
-        allData = JSON.parse(cachedData);
-        currentList = [...allData];
-        if (cachedExamData) examData = JSON.parse(cachedExamData);
-        
-        document.getElementById('last-sync-text').innerText = `갱신: ${lastSyncTime}`;
+        allData = JSON.parse(cachedData); currentList = [...allData];
+        const examD = localStorage.getItem('pe_exam_list_data'); if (examD) examData = JSON.parse(examD);
+        document.getElementById('last-sync-text').innerText = `갱신: ${localStorage.getItem('pe_last_sync')}`;
         initApp();
-      } else {
-        syncDataFromServer();
-      }
+      } else { syncDataFromServer(); }
     };
 
     async function syncDataFromServer() {
-      showLoading(true, '데이터 동기화 중 (토픽 + 기출문제)...');
+      showLoading(true, '데이터 동기화 중...');
       try {
         const [topicResponse, examResponse] = await Promise.all([
-          fetch(API_URL),
-          fetch(GITHUB_EXAM_URL, { cache: 'no-cache' })
+          fetch(API_URL), fetch(GITHUB_EXAM_URL, { cache: 'no-cache' })
         ]);
-
-        if (!topicResponse.ok) throw new Error('토픽 시트 네트워크 오류');
-        allData = await topicResponse.json();
-        currentList = [...allData];
-
+        allData = await topicResponse.json(); currentList = [...allData];
         if (examResponse.ok) {
-          const arrayBuffer = await examResponse.arrayBuffer();
-          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          examData = XLSX.utils.sheet_to_json(worksheet);
-        } else {
-          console.warn('기출문제 파일(list.xlsx)을 가져오지 못했습니다.');
+          const ab = await examResponse.arrayBuffer(); const wb = XLSX.read(ab, { type: 'array' });
+          examData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
         }
-        
-        const now = new Date();
-        const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-        
+        const timeStr = `${new Date().getMonth()+1}/${new Date().getDate()} ${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
         localStorage.setItem('pe_topic_data', JSON.stringify(allData));
         localStorage.setItem('pe_exam_list_data', JSON.stringify(examData));
         localStorage.setItem('pe_last_sync', timeStr);
-        
         document.getElementById('last-sync-text').innerText = `갱신: ${timeStr}`;
         initApp();
-      } catch (error) {
-        alert('동기화 실패. 네트워크 연결을 확인하세요.');
-        console.error(error);
-      } finally {
-        showLoading(false);
-      }
+      } catch (error) { alert('동기화 실패.'); } finally { showLoading(false); }
     }
 
     function initApp() {
       renderList(currentList);
-      
-      const lastRowIndex = localStorage.getItem('pe_last_viewed_row');
-      let targetIndex = 0; 
-      
+      const lastRowIndex = localStorage.getItem('pe_last_viewed_row'); let targetIndex = 0; 
       if (lastRowIndex && currentList.length > 0) {
-        const foundIndex = currentList.findIndex(item => item.row_index == lastRowIndex);
-        if (foundIndex !== -1) {
-          targetIndex = foundIndex + 1;
-          if (targetIndex >= currentList.length) {
-            targetIndex = currentList.length - 1;
-          }
-        }
+        const fIdx = currentList.findIndex(item => item.row_index == lastRowIndex);
+        if (fIdx !== -1) targetIndex = Math.min(fIdx + 1, currentList.length - 1);
       }
-
-      if (currentList.length > 0) {
-        loadViewer(targetIndex);
-      } else {
-        clearViewer();
-      }
+      currentList.length > 0 ? loadViewer(targetIndex) : clearViewer();
     }
 
-    // --- 기출문제 검색 로직 (부분 일치 & 대소문자 무시) ---
     function searchExamQuestions() {
-      let keyword = document.getElementById('exam-search-input').value.trim();
-      
-      if (!keyword) {
-        keyword = document.getElementById('v-topic').value.trim();
-      }
-
-      if (!keyword || keyword === '결과가 없습니다.' || keyword === '') {
-        alert('검색할 키워드나 토픽명이 없습니다.');
-        return;
-      }
-
-      if (!examData || examData.length === 0) {
-        alert('기출문제 데이터가 없습니다. 먼저 상단의 [시트 갱신]을 진행해주세요.');
-        return;
-      }
-
-      const lowerKeyword = keyword.toLowerCase();
-      
-      const results = examData.filter(row => {
-        return Object.values(row).some(val => 
-          String(val).toLowerCase().includes(lowerKeyword)
-        );
-      });
-
-      renderExamModal(keyword, results);
+      let keyword = document.getElementById('exam-search-input').value.trim() || document.getElementById('v-topic').value.trim();
+      if (!keyword || keyword === '결과가 없습니다.') return alert('검색할 키워드가 없습니다.');
+      if (!examData || examData.length === 0) return alert('기출문제 데이터가 없습니다.');
+      const res = examData.filter(row => Object.values(row).some(val => String(val).toLowerCase().includes(keyword.toLowerCase())));
+      renderExamModal(keyword, res);
     }
 
     function renderExamModal(keyword, results) {
-      const titleEl = document.getElementById('exam-modal-title');
+      document.getElementById('exam-modal-title').innerText = `'${keyword}' 기출문제 (${results.length}건)`;
       const bodyEl = document.getElementById('exam-modal-body');
-      
-      titleEl.innerText = `'${keyword}' 기출문제 (${results.length}건)`;
-      bodyEl.innerHTML = '';
-
-      if (results.length === 0) {
-        bodyEl.innerHTML = '<div style="text-align:center; padding: 30px; color: var(--text-sub);">검색된 기출문제가 없습니다.</div>';
-      } else {
-        results.forEach(item => {
-          const div = document.createElement('div');
-          div.className = 'exam-result-item';
-          
-          let metaStr = '';
-          
-          // [구분] 처리
-          if (item['구분']) {
-            metaStr += `[${item['구분']}] `;
-          }
-          
-          // [종목] 처리
-          if (item['종목']) {
-            metaStr += `${item['종목']} `;
-          }
-          
-          // [회차] 처리: 데이터에 포함된 '회' 글자를 제거하고 재조합하여 '129회회' 방지
-          if (item['회차']) {
-            let hoicha = String(item['회차']).replace(/회/g, '').trim();
-            metaStr += `${hoicha}회 `;
-          }
-          
-          // [유형] 처리 (교시 포함 여부는 데이터 구조에 따라 자동 표시)
-          if (item['유형']) {
-            metaStr += `- ${item['유형']}`;
-          }
-
-          let questionStr = item['문제'] || item['내용'] || item['문제명'];
-          if (!questionStr) {
-             questionStr = Object.entries(item).map(([k,v]) => `<b>${k}</b>: ${v}`).join('<br>');
-          }
-
-          div.innerHTML = `
-            <div class="exam-meta">${metaStr}</div>
-            <div class="exam-question">${questionStr}</div>
-          `;
-          bodyEl.appendChild(div);
-        });
+      if (results.length === 0) { bodyEl.innerHTML = '<div style="text-align:center; padding: 30px;">결과 없음</div>'; } 
+      else {
+        bodyEl.innerHTML = results.map(i => {
+          let mStr = (i['구분']?`[${i['구분']}] `:'') + (i['종목']?`${i['종목']} `:'') + (i['회차']?`${String(i['회차']).replace(/회/g, '').trim()}회 `:'') + (i['유형']?`- ${i['유형']}`:'');
+          let qStr = i['문제'] || i['내용'] || i['문제명'] || Object.entries(i).map(([k,v]) => `<b>${k}</b>: ${v}`).join('<br>');
+          return `<div class="exam-result-item"><div class="exam-meta">${mStr}</div><div class="exam-question">${qStr}</div></div>`;
+        }).join('');
       }
-
       document.getElementById('exam-modal').style.display = 'flex';
     }
-
-    function closeExamModal() {
-      document.getElementById('exam-modal').style.display = 'none';
-    }
-    // ----------------------------
-
-    function toggleAcc(accId, iconId) {
-      const body = document.getElementById(accId);
-      const icon = document.getElementById(iconId);
-      if (body.classList.contains('active')) {
-        body.classList.remove('active');
-        icon.className = 'fas fa-chevron-down';
-      } else {
-        body.classList.add('active');
-        icon.className = 'fas fa-chevron-up';
-      }
-    }
+    function closeExamModal() { document.getElementById('exam-modal').style.display = 'none'; }
+    function toggleAcc(id, iId) { document.getElementById(id).classList.toggle('active'); document.getElementById(iId).classList.toggle('fa-chevron-up'); document.getElementById(iId).classList.toggle('fa-chevron-down'); }
 
     function renderList(data) {
       document.getElementById('list-count').innerText = data.length;
-      const listContainer = document.getElementById('topic-list');
-      listContainer.innerHTML = '';
-      
-      data.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        div.innerHTML = `
-          <div class="list-item-title">${item['토픽명'] || '이름 없음'}</div>
-          <div class="list-item-sub">${item['도메인'] || ''} ${item['중요도'] ? `[${item['중요도']}]` : ''}</div>
-        `;
-        div.onclick = () => {
-          if (currentMode !== 'view') {
-            if(!confirm('작업 중인 내용이 초기화됩니다. 이동하시겠습니까?')) return;
-            cancelEdit();
-          }
-          loadViewer(index);
-          document.getElementById('list-acc').classList.remove('active');
-          document.getElementById('list-icon').className = 'fas fa-chevron-down';
-        };
-        listContainer.appendChild(div);
-      });
+      document.getElementById('topic-list').innerHTML = data.map((item, index) => `<div class="list-item" onclick="selectItem(${index})"><div class="list-item-title">${item['토픽명'] || '이름 없음'}</div><div class="list-item-sub">${item['도메인'] || ''} ${item['중요도'] ? `[${item['중요도']}]` : ''}</div></div>`).join('');
+    }
+    function selectItem(idx) {
+      if (currentMode !== 'view' && !confirm('초기화됩니다. 이동하시겠습니까?')) return;
+      if (currentMode !== 'view') cancelEdit();
+      loadViewer(idx); document.getElementById('list-acc').classList.remove('active');
     }
 
     function searchData() {
-      const sMain = document.getElementById('s-main').value.toLowerCase();
-      const sDomain = document.getElementById('s-domain').value; 
-      const sImp = document.getElementById('s-imp').value;       
-
-      currentList = allData.filter(item => {
-        const title = (item['토픽명'] || '').toString().toLowerCase();
-        const keyword = (item['키워드'] || '').toString().toLowerCase();
-        const domain = (item['도메인'] || '').toString();
-        const imp = (item['중요도'] || '').toString();
-        
-        const mainMatch = sMain === '' || title.includes(sMain) || keyword.includes(sMain);
-        const domainMatch = sDomain === '' || domain === sDomain;
-        const impMatch = sImp === '' || imp === sImp;
-        return mainMatch && domainMatch && impMatch;
-      });
-      
-      renderList(currentList);
-      if(currentList.length > 0) {
-        loadViewer(0);
-      } else {
-        clearViewer();
-      }
-      
-      document.getElementById('search-acc').classList.remove('active');
-      document.getElementById('search-icon').className = 'fas fa-chevron-down';
-      document.getElementById('list-acc').classList.add('active');
-      document.getElementById('list-icon').className = 'fas fa-chevron-up';
+      const sm = document.getElementById('s-main').value.toLowerCase(); const sd = document.getElementById('s-domain').value; 
+      currentList = allData.filter(i => (i['토픽명'].toLowerCase().includes(sm) || (i['키워드']||'').toLowerCase().includes(sm)) && (sd === '' || i['도메인'] === sd));
+      renderList(currentList); currentList.length > 0 ? loadViewer(0) : clearViewer();
     }
-
-    function resetSearch() {
-      document.getElementById('s-main').value = '';
-      document.getElementById('s-domain').value = '';
-      document.getElementById('s-imp').value = '';
-      currentList = [...allData];
-      renderList(currentList);
-      initApp(); 
-    }
+    function resetSearch() { document.getElementById('s-main').value=''; document.getElementById('s-domain').value=''; currentList=[...allData]; renderList(currentList); initApp(); }
 
     function updateDomainChange() {
-      const domainVal = document.getElementById('v-domain').value;
-      const codeBadge = document.getElementById('v-code-badge');
-      if (DOMAIN_CODES[domainVal]) {
-        codeBadge.innerText = `코드: ${DOMAIN_CODES[domainVal]}`;
-      } else {
-        codeBadge.innerText = `코드: -`;
-      }
-      
-      if (currentMode !== 'view') {
-        populateCategorySelect(domainVal, '');
-      }
+      const dVal = document.getElementById('v-domain').value;
+      document.getElementById('v-code-badge').innerText = `코드: ${DOMAIN_CODES[dVal] || '-'}`;
+      if (currentMode !== 'view') populateCategorySelect(dVal, '');
     }
-
     function populateCategorySelect(domain, selectedCategory = '') {
-      const select = document.getElementById('v-category-select');
-      const input = document.getElementById('v-category-input');
-      
-      select.innerHTML = '<option value="">대분류 선택</option>';
-      
-      if (domain) {
-        const categories = [...new Set(allData.filter(d => d['도메인'] === domain && d['대분류']).map(d => d['대분류']))];
-        categories.forEach(cat => {
-          const opt = document.createElement('option');
-          opt.value = cat;
-          opt.innerText = cat;
-          select.appendChild(opt);
-        });
-      }
-      
-      select.innerHTML += '<option value="__NEW__">+ 직접 입력 (새로 추가)</option>';
-      
+      const select = document.getElementById('v-category-select'); const input = document.getElementById('v-category-input');
+      select.innerHTML = '<option value="">대분류 선택</option>' + [...new Set(allData.filter(d=>d['도메인']===domain&&d['대분류']).map(d=>d['대분류']))].map(c=>`<option value="${c}">${c}</option>`).join('') + '<option value="__NEW__">+ 직접 입력</option>';
       if (selectedCategory) {
-        const exists = Array.from(select.options).some(opt => opt.value === selectedCategory);
-        if (exists) {
-          select.value = selectedCategory;
-          input.style.display = 'none';
-          input.value = '';
-        } else {
-          select.value = '__NEW__';
-          input.value = selectedCategory;
-          input.style.display = 'block';
-        }
-      } else {
-        select.value = '';
-        input.style.display = 'none';
-        input.value = '';
-      }
+        if(Array.from(select.options).some(o=>o.value===selectedCategory)) { select.value = selectedCategory; input.style.display = 'none'; } 
+        else { select.value = '__NEW__'; input.value = selectedCategory; input.style.display = 'block'; }
+      } else { select.value = ''; input.style.display = 'none'; }
+    }
+    function handleCategorySelect() {
+      const isNew = document.getElementById('v-category-select').value === '__NEW__';
+      document.getElementById('v-category-input').style.display = isNew ? 'block' : 'none'; if(isNew) document.getElementById('v-category-input').focus();
     }
 
-    function handleCategorySelect() {
-      const select = document.getElementById('v-category-select');
-      const input = document.getElementById('v-category-input');
-      if (select.value === '__NEW__') {
-        input.style.display = 'block';
-        input.focus();
-      } else {
-        input.style.display = 'none';
-        input.value = '';
-      }
+    function updateCharCount(id, cid) {
+      const el = document.getElementById(id); const cel = document.getElementById(cid);
+      if(el && cel) cel.innerText = (el.value.length > 0 || currentMode !== 'view') ? `(${el.value.length.toLocaleString()}자)` : '';
     }
 
     function loadViewer(index) {
-      currentIndex = index;
-      const item = currentList[index];
-      
-      if(item && item['row_index']) {
-        localStorage.setItem('pe_last_viewed_row', item['row_index']);
-      }
+      if (!currentList.length) return;
+      currentIndex = index; const item = currentList[index];
+      if(item) localStorage.setItem('pe_last_viewed_row', item['row_index']);
       
       document.getElementById('exam-search-input').value = '';
-
-      const noVal = (item['NO'] !== undefined && item['NO'] !== '') ? item['NO'] : '-';
-      const majorCodeVal = (item['대분류코드'] !== undefined && item['대분류코드'] !== '') ? item['대분류코드'] : '-';
-      const topicCodeVal = (item['토픽코드'] !== undefined && item['토픽코드'] !== '') ? item['토픽코드'] : '-';
-      const codeVal = (item['코드'] !== undefined && item['코드'] !== '') ? item['코드'] : '-';
-
-      document.getElementById('v-no-badge').innerText = `NO: ${noVal}`;
-      document.getElementById('v-major-code-badge').innerText = `대분류코드: ${majorCodeVal}`;
-      document.getElementById('v-topic-code-badge').innerText = `토픽코드: ${topicCodeVal}`;
-      document.getElementById('v-code-badge').innerText = `코드: ${codeVal}`;
+      document.getElementById('v-no-badge').innerText = `NO: ${item['NO']||'-'}`;
+      document.getElementById('v-major-code-badge').innerText = `대분류코드: ${item['대분류코드']||'-'}`;
+      document.getElementById('v-topic-code-badge').innerText = `토픽코드: ${item['토픽코드']||'-'}`;
+      document.getElementById('v-code-badge').innerText = `코드: ${item['코드']||'-'}`;
+      document.getElementById('v-domain').value = item['도메인']||''; document.getElementById('v-importance').value = item['중요도']||'';
+      document.getElementById('v-category').value = item['대분류']||''; document.getElementById('v-topic').value = item['토픽명']||'';
       
-      document.getElementById('v-domain').value = item['도메인'] || '';
-      document.getElementById('v-importance').value = item['중요도'] || '';
-      
-      document.getElementById('v-category').value = item['대분류'] || '';
-      document.getElementById('v-topic').value = item['토픽명'] || '';
-      
-      const conceptEl = document.getElementById('v-concept');
-      conceptEl.value = item['개념'] || '';
-      autoResize(conceptEl);
-      
-      const keywordEl = document.getElementById('v-keyword');
-      keywordEl.value = item['키워드'] || '';
-      autoResize(keywordEl);
-      
-      const memoEl = document.getElementById('v-memo');
-      memoEl.value = item['암기법'] || '';
-      autoResize(memoEl);
-      
-      const relatedEl = document.getElementById('v-related');
-      relatedEl.value = item['관련토픽'] || '';
-      autoResize(relatedEl);
-      
-      updateArrows();
-    }
-
-    function clearViewer(isAddMode = false) {
-      if(isAddMode) {
-        document.getElementById('v-no-badge').innerText = 'NO: 자동부여';
-        document.getElementById('v-major-code-badge').innerText = '대분류코드: 자동';
-        document.getElementById('v-topic-code-badge').innerText = '토픽코드: 자동';
-        document.getElementById('v-code-badge').innerText = '코드: 자동부여';
-      } else {
-        document.getElementById('v-no-badge').innerText = 'NO: -';
-        document.getElementById('v-major-code-badge').innerText = '대분류코드: -';
-        document.getElementById('v-topic-code-badge').innerText = '토픽코드: -';
-        document.getElementById('v-code-badge').innerText = '코드: -';
-      }
-      
-      document.getElementById('exam-search-input').value = '';
-      document.getElementById('v-domain').value = '';
-      document.getElementById('v-importance').value = '';
-      document.getElementById('v-category').value = '';
-      document.getElementById('v-topic').value = '';
-      
-      document.getElementById('v-concept').value = '';
-      document.getElementById('v-keyword').value = '';
-      document.getElementById('v-memo').value = '';
-      document.getElementById('v-related').value = '';
-      
-      ['v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => {
-        const el = document.getElementById(id);
-        autoResize(el);
+      ['concept', 'keyword', 'memo', 'related'].forEach(id => {
+        const el = document.getElementById(`v-${id}`); el.value = item[id==='concept'?'개념':id==='keyword'?'키워드':id==='memo'?'암기법':'관련토픽']||'';
+        autoResize(el); updateCharCount(`v-${id}`, `cnt-v-${id}`);
       });
       
-      updateArrows(true);
-    }
-
-    function autoResize(textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = (textarea.scrollHeight) + 'px';
-    }
-
-    function updateArrows(forceDisable = false) {
-      if (currentMode !== 'view') forceDisable = true;
-      document.getElementById('btn-prev').disabled = forceDisable || (currentIndex <= 0);
-      document.getElementById('btn-next').disabled = forceDisable || (currentIndex >= currentList.length - 1);
-    }
-
-    function moveCard(direction) {
-      if(currentMode !== 'view') return;
-      const newIndex = currentIndex + direction;
-      if(newIndex >= 0 && newIndex < currentList.length) {
-        loadViewer(newIndex);
-      }
-    }
-
-    function setFormInputsState(isEnabled) {
-      const viewer = document.getElementById('viewer-form');
-      const inputs = viewer.querySelectorAll('input:not([type="hidden"]):not(.exam-search-input), textarea, select');
+      existingImageIds = (item['이미지']||'').split(',').map(s=>s.trim()).filter(s=>s); newImageFiles = [];
+      const btnView = document.getElementById('btn-view-img'); const gallery = document.getElementById('hidden-image-gallery');
+      if(existingImageIds.length > 0) {
+        btnView.style.display = 'inline-block'; btnView.innerText = `🖼️ 이미지 보기 (${existingImageIds.length})`;
+        gallery.innerHTML = existingImageIds.map(id => `<li><img src="https://drive.google.com/uc?id=${id}"></li>`).join('');
+        if(viewerJsInstance) viewerJsInstance.destroy();
+        viewerJsInstance = new Viewer(gallery, { navbar: true, toolbar: true, title: false });
+      } else { btnView.style.display = 'none'; if(viewerJsInstance){ viewerJsInstance.destroy(); viewerJsInstance=null; } }
       
-      const catInputReadOnly = document.getElementById('v-category');
-      const catSelectGroup = document.getElementById('v-category-edit-group');
-      const examSearchWrap = document.getElementById('exam-search-wrapper');
-      
-      if(isEnabled) {
-        viewer.classList.add('edit-mode');
-        inputs.forEach(input => {
-          if(!input.id.includes('badge')) {
-            input.removeAttribute('readonly');
-            input.removeAttribute('disabled');
-          }
-        });
-        
-        catInputReadOnly.style.display = 'none';
-        catSelectGroup.style.display = 'block';
-        examSearchWrap.style.display = 'none'; 
-        
-        const domainVal = document.getElementById('v-domain').value;
-        const currentCat = currentMode === 'edit' ? catInputReadOnly.value : '';
-        populateCategorySelect(domainVal, currentCat);
-        
-      } else {
-        viewer.classList.remove('edit-mode');
-        inputs.forEach(input => {
-          input.setAttribute('readonly', true);
-          input.setAttribute('disabled', true);
-        });
-        
-        catInputReadOnly.style.display = 'block';
-        catSelectGroup.style.display = 'none';
-        examSearchWrap.style.display = 'flex'; 
-      }
+      renderPreviews(); updateArrows(); 
     }
 
-    function toggleEditMode() {
-      currentMode = 'edit';
-      setFormInputsState(true);
-      
-      document.getElementById('btn-add').style.display = 'none';
-      document.getElementById('btn-edit').style.display = 'none';
-      document.getElementById('btn-save').style.display = 'flex';
-      document.getElementById('btn-cancel').style.display = 'flex';
-      updateArrows();
+    function openImageViewer() { if(viewerJsInstance) viewerJsInstance.show(); }
+    function renderPreviews() {
+      const c = document.getElementById('preview-container'); c.innerHTML = '';
+      existingImageIds.forEach((id, i) => c.innerHTML += `<div class="thumb-wrap"><img src="https://drive.google.com/uc?id=${id}"><button class="thumb-del" onclick="removeExistingImg(${i})"><i class="fas fa-times"></i></button></div>`);
+      newImageFiles.forEach((file, i) => c.innerHTML += `<div class="thumb-wrap"><img src="${URL.createObjectURL(file)}"><button class="thumb-del" onclick="removeNewImg(${i})"><i class="fas fa-times"></i></button></div>`);
+    }
+    function handleFileSelect(e) { newImageFiles = [...newImageFiles, ...Array.from(e.target.files)]; renderPreviews(); e.target.value=''; }
+    function removeExistingImg(idx) { existingImageIds.splice(idx, 1); renderPreviews(); }
+    function removeNewImg(idx) { newImageFiles.splice(idx, 1); renderPreviews(); }
+
+    function clearViewer(isAdd) {
+      document.getElementById('v-no-badge').innerText = 'NO: '+(isAdd?'자동':'-'); document.getElementById('v-code-badge').innerText = '코드: '+(isAdd?'자동':'-');
+      ['exam-search-input', 'v-domain', 'v-importance', 'v-category', 'v-topic', 'v-concept', 'v-keyword', 'v-memo', 'v-related'].forEach(id => { const e=document.getElementById(id); if(e) e.value=''; });
+      ['concept', 'keyword', 'memo', 'related'].forEach(id => { autoResize(document.getElementById(`v-${id}`)); updateCharCount(`v-${id}`, `cnt-v-${id}`); });
+      document.getElementById('btn-view-img').style.display = 'none'; existingImageIds = []; newImageFiles = []; renderPreviews(); updateArrows(true);
+    }
+    function autoResize(ta) { ta.style.height='auto'; ta.style.height=ta.scrollHeight+'px'; }
+    function updateArrows(fDis = false) {
+      document.getElementById('btn-prev').disabled = fDis || !currentList.length || currentIndex <= 0;
+      document.getElementById('btn-next').disabled = fDis || !currentList.length || currentIndex >= currentList.length - 1;
+    }
+    function moveCard(dir) { if(currentMode==='view'&&currentList.length) { const n = currentIndex+dir; if(n>=0&&n<currentList.length) loadViewer(n); } }
+
+    function setFormInputsState(isEn) {
+      const v = document.getElementById('viewer-form');
+      v.querySelectorAll('input:not([type="hidden"]):not(.exam-search-input):not(#file-upload), textarea, select').forEach(i => {
+        if(!i.id.includes('badge')) { isEn ? i.removeAttribute('readonly') : i.setAttribute('readonly', true); }
+        if(i.tagName==='SELECT') isEn ? i.removeAttribute('disabled') : i.setAttribute('disabled', true);
+      });
+      document.getElementById('v-category').style.display = isEn ? 'none' : 'block'; document.getElementById('v-category-edit-group').style.display = isEn ? 'block' : 'none';
+      document.getElementById('exam-search-wrapper').style.display = isEn ? 'none' : 'flex';
+      document.getElementById('image-upload-wrapper').style.display = isEn ? 'block' : 'none';
+      document.getElementById('btn-view-img').style.display = isEn ? 'none' : (existingImageIds.length ? 'inline-block' : 'none');
+      isEn ? v.classList.add('edit-mode') : v.classList.remove('edit-mode');
+      if(isEn) populateCategorySelect(document.getElementById('v-domain').value, currentMode==='edit'?document.getElementById('v-category').value:'');
+      ['concept', 'keyword', 'memo', 'related'].forEach(id => updateCharCount(`v-${id}`, `cnt-v-${id}`));
     }
 
-    function enterAddMode() {
-      currentMode = 'add';
-      clearViewer(true);
-      setFormInputsState(true);
-      
-      document.getElementById('btn-add').style.display = 'none';
-      document.getElementById('btn-edit').style.display = 'none';
-      document.getElementById('btn-save').style.display = 'flex';
-      document.getElementById('btn-cancel').style.display = 'flex';
-      updateArrows();
+    function toggleEditMode() { currentMode = 'edit'; setFormInputsState(true); toggleBtns(true); }
+    function enterAddMode() { currentMode = 'add'; clearViewer(true); setFormInputsState(true); toggleBtns(true); }
+    function cancelEdit() { currentMode = 'view'; setFormInputsState(false); toggleBtns(false); currentList.length ? loadViewer(currentIndex) : clearViewer(); }
+    function toggleBtns(isEdit) {
+      document.getElementById('btn-add').style.display = isEdit ? 'none' : 'flex'; document.getElementById('btn-edit').style.display = isEdit ? 'none' : 'flex';
+      document.getElementById('btn-save').style.display = isEdit ? 'flex' : 'none'; document.getElementById('btn-cancel').style.display = isEdit ? 'flex' : 'none';
+      updateArrows(isEdit);
     }
-
-    function cancelEdit() {
-      currentMode = 'view';
-      setFormInputsState(false);
-      
-      document.getElementById('btn-add').style.display = 'flex';
-      document.getElementById('btn-edit').style.display = 'flex';
-      document.getElementById('btn-save').style.display = 'none';
-      document.getElementById('btn-cancel').style.display = 'none';
-      
-      if(currentList.length > 0) {
-        loadViewer(currentIndex);
-      } else {
-        clearViewer();
-      }
-    }
+    function getBase64(file) { return new Promise((res, rej) => { const r=new FileReader(); r.readAsDataURL(file); r.onload=()=>res({name:file.name, mimeType:file.type, base64:r.result.split(',')[1]}); r.onerror=e=>rej(e); }); }
 
     async function saveData() {
-      const domainVal = document.getElementById('v-domain').value;
-      const topicVal = document.getElementById('v-topic').value;
-      const conceptVal = document.getElementById('v-concept').value;
-      
-      let finalCategory = '';
-      const catSelect = document.getElementById('v-category-select').value;
-      const catInput = document.getElementById('v-category-input').value;
-      if(catSelect === '__NEW__') {
-        finalCategory = catInput.trim();
-      } else {
-        finalCategory = catSelect;
-      }
-      
-      if (!domainVal) { alert('안내: [도메인]을 선택해주세요.'); return; }
-      if (!finalCategory) { alert('안내: [대분류]를 선택하거나 직접 입력해주세요.'); return; }
-      if (!topicVal.trim()) { alert('안내: [토픽명] 정보를 입력해주세요.'); return; }
-      if (!conceptVal.trim()) { alert('안내: [개념] 정보를 입력해주세요.'); return; }
+      const dVal = document.getElementById('v-domain').value; const tVal = document.getElementById('v-topic').value;
+      const cVal = document.getElementById('v-category-select').value === '__NEW__' ? document.getElementById('v-category-input').value.trim() : document.getElementById('v-category-select').value;
+      if (!dVal || !cVal || !tVal) return alert('도메인, 대분류, 토픽명은 필수입니다.');
 
       const updatedInfo = {
-        '도메인': domainVal,
-        '코드': DOMAIN_CODES[domainVal] || '',
-        '대분류': finalCategory,
-        '토픽명': topicVal,
-        '중요도': document.getElementById('v-importance').value,
-        '개념': conceptVal,
-        '키워드': document.getElementById('v-keyword').value,
-        '암기법': document.getElementById('v-memo').value,
-        '관련토픽': document.getElementById('v-related').value
+        '도메인': dVal, '코드': DOMAIN_CODES[dVal]||'', '대분류': cVal, '토픽명': tVal, '중요도': document.getElementById('v-importance').value,
+        '개념': document.getElementById('v-concept').value, '키워드': document.getElementById('v-keyword').value,
+        '암기법': document.getElementById('v-memo').value, '관련토픽': document.getElementById('v-related').value, '이미지': existingImageIds.join(',') 
       };
+      const payload = { action: currentMode, row_index: currentMode==='edit'?currentList[currentIndex]['row_index']:null, data: updatedInfo };
 
-      let payload = {};
-
-      if (currentMode === 'edit') {
-        const item = currentList[currentIndex];
-        payload = { action: 'update', row_index: item['row_index'], data: updatedInfo };
-      } else if (currentMode === 'add') {
-        payload = { action: 'add', data: updatedInfo };
-      }
-
-      showLoading(true, '구글 시트에 저장 중...');
-
+      showLoading(true, '저장 중... (이미지가 클 경우 다소 시간이 소요됩니다)');
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
+        payload.new_images = await Promise.all(newImageFiles.map(f => getBase64(f)));
+        
+        // 💡 안정성 향상을 위해 headers 추가 명시
+        const response = await fetch(API_URL, { 
+          method: 'POST', 
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload) 
         });
+        
+        if (!response.ok) throw new Error(`서버 에러 (${response.status})`);
         const result = await response.json();
         
         if (result.status === 'success') {
           if (currentMode === 'edit') {
-            const rowIndex = payload.row_index;
-            const globalIndex = allData.findIndex(d => d.row_index === rowIndex);
             if(result.new_cat_code) updatedInfo['대분류코드'] = result.new_cat_code;
-            
-            if(globalIndex !== -1) allData[globalIndex] = { ...allData[globalIndex], ...updatedInfo };
+            if(result.updated_images) updatedInfo['이미지'] = result.updated_images;
+            const gIdx = allData.findIndex(d => d.row_index === payload.row_index);
+            if(gIdx!==-1) allData[gIdx] = { ...allData[gIdx], ...updatedInfo };
             currentList[currentIndex] = { ...currentList[currentIndex], ...updatedInfo };
-            
-          } else if (currentMode === 'add') {
-            updatedInfo['NO'] = result.new_no;
-            updatedInfo['토픽코드'] = result.new_topic_code;
-            updatedInfo['대분류코드'] = result.new_cat_code;
-            updatedInfo['row_index'] = result.new_row_index;
-            
-            allData.push(updatedInfo);
-            
-            document.getElementById('s-main').value = '';
-            document.getElementById('s-domain').value = '';
-            document.getElementById('s-imp').value = '';
-            currentList = [...allData];
-            currentIndex = currentList.length - 1;
+          } else {
+            updatedInfo['NO'] = result.new_no; updatedInfo['토픽코드'] = result.new_topic_code;
+            updatedInfo['대분류코드'] = result.new_cat_code; updatedInfo['row_index'] = result.new_row_index;
+            if(result.updated_images) updatedInfo['이미지'] = result.updated_images;
+            allData.push(updatedInfo); document.getElementById('s-main').value=''; document.getElementById('s-domain').value=''; document.getElementById('s-imp').value='';
+            currentList = [...allData]; currentIndex = currentList.length - 1;
           }
-          
           localStorage.setItem('pe_topic_data', JSON.stringify(allData));
-          alert(currentMode === 'edit' ? '정상적으로 수정되었습니다.' : '새 토픽이 추가되었습니다.');
-          
-          currentMode = 'view';
-          setFormInputsState(false);
-          document.getElementById('btn-add').style.display = 'flex';
-          document.getElementById('btn-edit').style.display = 'flex';
-          document.getElementById('btn-save').style.display = 'none';
-          document.getElementById('btn-cancel').style.display = 'none';
-          
-          renderList(currentList); 
-          loadViewer(currentIndex); 
-          
+          alert(currentMode === 'edit' ? '수정되었습니다.' : '추가되었습니다.');
+          currentMode = 'view'; setFormInputsState(false); toggleBtns(false); renderList(currentList); loadViewer(currentIndex); 
         } else {
-          alert('저장 실패: 서버 응답 오류');
+          alert(`저장 실패:\n${result.message}`);
         }
       } catch (error) {
-        alert('저장 실패: 네트워크 오류');
-      } finally {
-        showLoading(false);
-      }
+        console.error(error);
+        alert(`저장 오류가 발생했습니다.\n${error.message}\n(브라우저가 보안상 연결을 끊었을 수 있습니다. 새로고침 후 다시 시도해 주세요.)`);
+      } finally { showLoading(false); }
     }
-
-    function showLoading(show, msg = '') {
-      const el = document.getElementById('loading');
-      const msgEl = document.getElementById('loading-msg');
-      if(show) {
-        msgEl.innerText = msg;
-        el.style.display = 'flex';
-      } else {
-        el.style.display = 'none';
-      }
-    }
+    function showLoading(show, msg='') { document.getElementById('loading-msg').innerText = msg; document.getElementById('loading').style.display = show?'flex':'none'; }
   </script>
 </body>
 </html>
