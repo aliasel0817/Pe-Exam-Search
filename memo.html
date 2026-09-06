@@ -21,8 +21,15 @@
             width: 100%; 
             max-width: 500px; 
         }
-        h2 { margin-top: 0; color: #333; }
-        textarea { 
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        h2 { margin: 0; color: #333; font-size: 20px; }
+        
+        textarea.main-input { 
             width: 100%; 
             height: 100px; 
             padding: 12px; 
@@ -34,8 +41,9 @@
             font-family: inherit;
             font-size: 14px;
         }
-        textarea:focus { outline: none; border-color: #007BFF; }
-        .btn-save { 
+        textarea.main-input:focus { outline: none; border-color: #007BFF; }
+        
+        .btn-save-main { 
             background: #007BFF; 
             color: white; 
             border: none; 
@@ -47,7 +55,20 @@
             font-weight: bold;
             transition: background 0.2s;
         }
-        .btn-save:hover { background: #0056b3; }
+        .btn-save-main:hover { background: #0056b3; }
+        
+        .btn-delete-all {
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .btn-delete-all:hover { background: #cc0000; }
+
         .note-list { 
             margin-top: 25px; 
             display: flex; 
@@ -59,81 +80,147 @@
             padding: 15px; 
             border-radius: 8px; 
             border-left: 4px solid #007BFF; 
-            border-right: 1px solid #eee;
-            border-top: 1px solid #eee;
-            border-bottom: 1px solid #eee;
+            border: 1px solid #eee;
+            border-left-width: 4px;
+            border-left-color: #007BFF;
             position: relative; 
             word-wrap: break-word;
-            white-space: pre-wrap; /* 줄바꿈 유지 */
+            white-space: pre-wrap; 
         }
-        .delete-btn { 
-            position: absolute; 
-            top: 12px; 
-            right: 12px; 
-            background: #ff4d4d; 
-            color: white; 
-            border: none; 
-            padding: 5px 10px; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-size: 12px; 
+        
+        /* 버튼 그룹 (수정, 삭제) */
+        .action-buttons {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 5px;
         }
-        .delete-btn:hover { background: #cc0000; }
+        .btn-small {
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-edit { background: #28a745; }
+        .btn-edit:hover { background: #218838; }
+        .btn-delete { background: #6c757d; }
+        .btn-delete:hover { background: #5a6268; }
+        
         .timestamp { 
             font-size: 12px; 
             color: #888; 
             margin-bottom: 8px; 
             display: block; 
         }
-        .note-content { font-size: 14px; color: #333; line-height: 1.5; padding-right: 40px; }
+        .note-content { font-size: 14px; color: #333; line-height: 1.5; padding-right: 80px; }
+        
+        /* 수정 모드용 입력창 */
+        .edit-textarea {
+            width: 100%;
+            height: 80px;
+            margin-top: 5px;
+            padding: 8px;
+            box-sizing: border-box;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+        }
+        .edit-textarea:focus { outline: none; border-color: #28a745; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>📌 웹 탐색 메모</h2>
-        <textarea id="noteInput" placeholder="검색 중 발견한 내용이나 아이디어를 입력하세요... (Enter로 저장, Shift+Enter로 줄바꿈)"></textarea>
-        <button class="btn-save" onclick="addNote()">메모 저장</button>
+        <div class="header">
+            <h2>📌 웹 탐색 메모</h2>
+            <button class="btn-delete-all" onclick="deleteAllNotes()">전체 삭제</button>
+        </div>
+        <textarea id="noteInput" class="main-input" placeholder="검색 중 발견한 내용이나 아이디어를 입력하세요... (Enter로 저장, Shift+Enter로 줄바꿈)"></textarea>
+        <button class="btn-save-main" onclick="addNote()">메모 추가</button>
         <div class="note-list" id="noteList"></div>
     </div>
 
     <script>
-        // 로컬 스토리지에서 기존 메모 데이터 불러오기
         let notes = JSON.parse(localStorage.getItem('web_notes')) || [];
+        let editingIndex = -1; // 현재 수정 중인 메모의 인덱스를 저장
 
-        // 메모 목록을 화면에 그리는 함수
         function renderNotes() {
             const listElement = document.getElementById('noteList');
             listElement.innerHTML = '';
             
-            // 최신 메모가 상단에 오도록 배열을 복사한 뒤 뒤집어서 출력
             notes.slice().reverse().forEach((note, index) => {
-                const originalIndex = notes.length - 1 - index; // 실제 배열의 인덱스 추적
+                const originalIndex = notes.length - 1 - index;
                 
                 const div = document.createElement('div');
                 div.className = 'note-item';
                 
                 const time = document.createElement('span');
                 time.className = 'timestamp';
-                time.textContent = note.timestamp;
                 
-                const text = document.createElement('div');
-                text.className = 'note-content';
-                text.textContent = note.text;
-                
-                const delBtn = document.createElement('button');
-                delBtn.className = 'delete-btn';
-                delBtn.textContent = '삭제';
-                delBtn.onclick = () => deleteNote(originalIndex);
-                
-                div.appendChild(time);
-                div.appendChild(text);
-                div.appendChild(delBtn);
+                // 수정 모드와 일반 모드 분기
+                if (editingIndex === originalIndex) {
+                    time.textContent = note.timestamp + ' (수정 중)';
+                    
+                    const editArea = document.createElement('textarea');
+                    editArea.className = 'edit-textarea';
+                    editArea.value = note.text;
+                    
+                    const actionDiv = document.createElement('div');
+                    actionDiv.className = 'action-buttons';
+                    
+                    const saveBtn = document.createElement('button');
+                    saveBtn.className = 'btn-small btn-edit';
+                    saveBtn.textContent = '저장';
+                    saveBtn.onclick = () => saveEdit(originalIndex, editArea.value);
+                    
+                    const cancelBtn = document.createElement('button');
+                    cancelBtn.className = 'btn-small btn-delete';
+                    cancelBtn.textContent = '취소';
+                    cancelBtn.onclick = () => { editingIndex = -1; renderNotes(); };
+                    
+                    actionDiv.appendChild(saveBtn);
+                    actionDiv.appendChild(cancelBtn);
+                    
+                    div.appendChild(time);
+                    div.appendChild(editArea);
+                    div.appendChild(actionDiv);
+                } else {
+                    time.textContent = note.timestamp;
+                    
+                    const text = document.createElement('div');
+                    text.className = 'note-content';
+                    text.textContent = note.text;
+                    
+                    const actionDiv = document.createElement('div');
+                    actionDiv.className = 'action-buttons';
+                    
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn-small btn-edit';
+                    editBtn.textContent = '수정';
+                    editBtn.onclick = () => { editingIndex = originalIndex; renderNotes(); };
+                    
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn-small btn-delete';
+                    delBtn.style.background = '#ff4d4d'; // 삭제 버튼은 빨간색 강조
+                    delBtn.textContent = '삭제';
+                    delBtn.onclick = () => deleteNote(originalIndex);
+                    
+                    actionDiv.appendChild(editBtn);
+                    actionDiv.appendChild(delBtn);
+                    
+                    div.appendChild(time);
+                    div.appendChild(text);
+                    div.appendChild(actionDiv);
+                }
                 
                 listElement.appendChild(div);
             });
         }
 
-        // 새 메모 추가 함수
         function addNote() {
             const input = document.getElementById('noteInput');
             const text = input.value.trim();
@@ -144,25 +231,53 @@
                     timestamp: new Date().toLocaleString('ko-KR')
                 };
                 notes.push(newNote);
-                localStorage.setItem('web_notes', JSON.stringify(notes));
-                input.value = ''; // 입력창 초기화
+                saveToLocalStorage();
+                input.value = ''; 
+                editingIndex = -1; // 새 메모 추가 시 수정 모드 해제
                 renderNotes();
             }
         }
 
-        // 메모 삭제 함수
+        function saveEdit(index, newText) {
+            if (newText.trim()) {
+                notes[index].text = newText.trim();
+                notes[index].timestamp = new Date().toLocaleString('ko-KR') + ' (수정됨)';
+                saveToLocalStorage();
+                editingIndex = -1;
+                renderNotes();
+            } else {
+                alert('내용을 입력해주세요.');
+            }
+        }
+
         function deleteNote(index) {
             if(confirm('이 메모를 삭제하시겠습니까?')) {
-               notes.splice(index, 1);
-                localStorage.setItem('web_notes', JSON.stringify(notes));
+                notes.splice(index, 1);
+                saveToLocalStorage();
                 renderNotes();
             }
+        }
+
+        function deleteAllNotes() {
+            if (notes.length === 0) {
+                alert('삭제할 메모가 없습니다.');
+                return;
+            }
+            if(confirm('🚨 정말 모든 메모를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                notes = [];
+                saveToLocalStorage();
+                renderNotes();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('web_notes', JSON.stringify(notes));
         }
 
         // 단축키 지원 (Enter 누르면 저장, Shift+Enter는 줄바꿈)
         document.getElementById('noteInput').addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault(); // 기본 줄바꿈 방지
+                e.preventDefault(); 
                 addNote();
             }
         });
