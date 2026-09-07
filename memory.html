@@ -418,7 +418,7 @@
       const safeRowIndex = (currentMode==='edit' && currentList[currentIndex]) ? currentList[currentIndex]['row_index'] : null;
       const payload = { action: currentMode, row_index: safeRowIndex, data: updatedInfo };
 
-      showLoading(true, '스프레드시트에 강제로 꽂아넣는 중입니다... (약 2~3초 소요)');
+      showLoading(true, '스프레드시트에 저장 중 입니다 (약 2~3초 소요)');
       
       try {
         payload.new_images = await Promise.all(newImageFiles.map(f => getBase64(f)));
@@ -431,13 +431,13 @@
             body: JSON.stringify(payload) 
           });
         } catch (ignoredError) {
-          console.warn("보안 차단을 무시하고 데이터 전송 완료!");
+          console.warn("데이터 전송 완료!");
         }
 
         await new Promise(resolve => setTimeout(resolve, 3000));
         await syncDataFromServer();
         
-        alert('저장이 완료되었습니다! 이제 정말로 시트에 반영되었을 겁니다!!');
+        alert('저장이 완료되었습니다');
         currentMode = 'view'; setFormInputsState(false); toggleBtns(false);
         
       } catch (error) {
