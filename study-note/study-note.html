@@ -1,3 +1,208 @@
-<html>
-  hello world
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="정보관리기술사 학습노트">
+  <title>정보관리기술사 학습노트</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./assets/app.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand-area">
+        <button id="openSidebarBtn" class="icon-btn mobile-only" type="button" aria-label="검색 및 목록 열기">☰</button>
+        <div>
+          <h1>정보관리기술사 학습노트</h1>
+          <div class="top-meta">
+            <span id="networkBadge" class="status-chip">상태 확인 중</span>
+            <span id="syncLabel">MASTER 미수신</span>
+          </div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="refreshBtn" class="btn primary" type="button">⟳ MASTER 갱신</button>
+        <button id="settingsBtn" class="btn" type="button">⚙ 설정</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside id="sidebar" class="sidebar" aria-label="토픽 검색 및 목록">
+        <div class="sidebar-head mobile-only">
+          <strong>검색 · 토픽 목록</strong>
+          <button id="closeSidebarBtn" class="icon-btn" type="button" aria-label="닫기">✕</button>
+        </div>
+
+        <section class="panel filter-panel">
+          <div class="section-title-row">
+            <h2>검색</h2>
+            <button id="resetBtn" class="text-btn" type="button">초기화</button>
+          </div>
+
+          <label class="field-label" for="searchInput">검색어</label>
+          <input id="searchInput" class="field" type="search" autocomplete="off" placeholder="토픽명·개념·키워드·암기법 검색">
+
+          <div class="filter-grid">
+            <div>
+              <label class="field-label" for="studyTargetFilter">학습대상</label>
+              <select id="studyTargetFilter" class="field">
+                <option value="Y" selected>Y</option>
+                <option value="N">N</option>
+                <option value="ALL">전체</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="importanceFilter">중요도</label>
+              <select id="importanceFilter" class="field">
+                <option value="ALL">전체</option>
+                <option value="상">상</option>
+                <option value="중">중</option>
+                <option value="하">하</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-grid">
+            <div>
+              <label class="field-label" for="domainFilter">도메인</label>
+              <select id="domainFilter" class="field">
+                <option value="ALL">전체</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="categoryFilter">대분류</label>
+              <select id="categoryFilter" class="field">
+                <option value="ALL">전체</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel list-panel">
+          <div class="section-title-row sticky-list-title">
+            <h2>토픽 목록</h2>
+            <span id="resultCount" class="count-chip">0건</span>
+          </div>
+          <div id="topicList" class="topic-list" role="listbox" aria-label="토픽 검색 결과"></div>
+          <button id="loadMoreBtn" class="btn wide hidden" type="button">더 보기</button>
+        </section>
+      </aside>
+
+      <div id="sidebarBackdrop" class="sidebar-backdrop mobile-only"></div>
+
+      <main class="content">
+        <section id="emptyState" class="empty-state">
+          <div class="empty-icon">📘</div>
+          <h2>학습 데이터를 준비해 주세요.</h2>
+          <p>처음 한 번만 Google Spreadsheet의 텍스트 데이터를 받아 기기에 저장합니다.</p>
+          <p class="muted">이후 조회·검색·이동은 로컬 IndexedDB를 사용하므로 모바일 데이터가 소모되지 않습니다.</p>
+          <div class="empty-actions">
+            <button id="emptySettingsBtn" class="btn" type="button">Apps Script URL 설정</button>
+            <button id="emptyRefreshBtn" class="btn primary" type="button">최초 데이터 받기</button>
+          </div>
+        </section>
+
+        <article id="topicDetail" class="topic-detail hidden" aria-live="polite">
+          <div class="detail-toolbar">
+            <div class="topic-badges">
+              <span id="detailTopicId" class="badge strong">-</span>
+              <span id="detailDomain" class="badge">-</span>
+              <span id="detailCategoryCode" class="badge">-</span>
+              <span id="detailTopicOrder" class="badge">-</span>
+              <span id="detailImportance" class="badge">-</span>
+              <span id="detailStudyTarget" class="badge">-</span>
+            </div>
+            <div class="detail-counter" id="detailCounter">0 / 0</div>
+          </div>
+
+          <header class="topic-header">
+            <div id="detailCategory" class="eyebrow">대분류</div>
+            <h2 id="detailTitle">토픽명</h2>
+            <div id="detailDomainName" class="muted"></div>
+          </header>
+
+          <section class="study-card emphasis-card">
+            <h3>개념</h3>
+            <div id="detailConcept" class="study-text"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>키워드</h3>
+            <div id="detailKeywords" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>암기법</h3>
+            <div id="detailMnemonic" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>관련토픽</h3>
+            <div id="detailRelated" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card metadata-card">
+            <h3>페이지 · 참고정보</h3>
+            <dl class="meta-grid">
+              <div><dt>서브노트페이지</dt><dd id="detailSubnotePages">-</dd></div>
+              <div><dt>교재페이지</dt><dd id="detailTextbookPages">-</dd></div>
+              <div><dt>상태</dt><dd id="detailStatus">-</dd></div>
+              <div><dt>원본도메인</dt><dd id="detailSourceDomain">-</dd></div>
+              <div><dt>학습제외사유</dt><dd id="detailExclusionReason">-</dd></div>
+              <div><dt>비고</dt><dd id="detailNotes">-</dd></div>
+            </dl>
+          </section>
+
+          <div class="detail-bottom-spacer"></div>
+        </article>
+      </main>
+    </div>
+
+    <nav id="bottomNav" class="bottom-nav hidden" aria-label="토픽 이동">
+      <button id="prevBtn" class="nav-btn" type="button">← 이전</button>
+      <button id="listBtn" class="nav-btn mobile-only" type="button">☰ 목록</button>
+      <button id="nextBtn" class="nav-btn" type="button">다음 →</button>
+    </nav>
+  </div>
+
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="settingsTitle">학습노트 설정</h2>
+          <p class="muted">Apps Script Web App URL은 이 브라우저에만 저장됩니다.</p>
+        </div>
+        <button id="closeSettingsBtn" class="icon-btn" type="button" aria-label="설정 닫기">✕</button>
+      </div>
+
+      <label class="field-label" for="apiUrlInput">Google Apps Script Web App URL</label>
+      <input id="apiUrlInput" class="field" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">
+      <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data</p>
+
+      <div class="settings-status">
+        <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
+        <div><span>마지막 MASTER 갱신</span><strong id="settingsLastSync">없음</strong></div>
+        <div><span>앱 버전</span><strong id="settingsAppVersion">-</strong></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="testApiBtn" class="btn" type="button">연결 확인</button>
+        <button id="saveSettingsBtn" class="btn primary" type="button">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay hidden" aria-live="assertive">
+    <div class="spinner" aria-hidden="true"></div>
+    <strong id="loadingMessage">처리 중...</strong>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
 </html>
