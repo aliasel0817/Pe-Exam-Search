@@ -707,6 +707,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <h2 id="manageTitle">토픽 관리</h2>
           <p class="muted">수정은 통합ID를 기준으로 Google Spreadsheet에 반영됩니다.</p>
         </div>
+        <button id="closeManageBtn" class="icon-btn" type="button" aria-label="토픽 관리 닫기">✕</button>
       </div>
 
       <div class="manage-mode-row">
@@ -1096,7 +1097,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '2.0.3-stage2-search-autofill-fix';
+const APP_VERSION = '2.0.4-stage2-manage-close-button';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1159,7 +1160,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -1177,7 +1178,8 @@ function bindEvents() {
   els.testApiBtn.addEventListener('click', testApiConnection);
 
   // 관리 팝업은 바깥 영역 클릭이나 ESC로 닫히지 않는다.
-  // 사용자가 명시적으로 '취소'를 누르거나 저장/처리가 성공했을 때만 닫는다.
+  // 사용자가 명시적으로 상단 X 또는 하단 취소를 누르거나 저장/처리가 성공했을 때만 닫는다.
+  els.closeManageBtn.addEventListener('click', closeManage);
   els.cancelManageBtn.addEventListener('click', closeManage);
 
   // 팝업 내부의 모든 키 입력은 팝업/편집 컨트롤에서 처리하고
@@ -1249,7 +1251,7 @@ function bindEvents() {
       closeSearchTargetMenu();
       closeImportanceMenu();
 
-      // 토픽 관리 팝업은 ESC로 닫지 않는다. 취소 버튼으로만 닫는다.
+      // 토픽 관리 팝업은 ESC로 닫지 않는다. 상단 X 또는 하단 취소 버튼으로 닫는다.
       if (!els.manageModal.classList.contains('hidden')) {
         event.preventDefault();
         return;
