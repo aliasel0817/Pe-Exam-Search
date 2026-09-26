@@ -1326,7 +1326,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.3-stage3-learning-reset';
+const APP_VERSION = '3.0.4-stage3-today-count-fix';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2002,7 +2002,11 @@ function formatShortDateTime(value) {
   return new Intl.DateTimeFormat('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).format(date);
 }
 
-function localDateKey(value = new Date()) {
+function localDateKey(value) {
+  // 인자를 생략한 경우에만 '오늘'을 반환한다.
+  // lastStudiedAt이 없는 토픽(undefined/null/'')을 오늘 학습으로 오인하지 않도록 한다.
+  if (arguments.length === 0) value = new Date();
+  if (value === undefined || value === null || value === '') return '';
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const y = date.getFullYear();
