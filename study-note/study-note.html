@@ -707,7 +707,6 @@ button { -webkit-tap-highlight-color: transparent; }
           <h2 id="manageTitle">토픽 관리</h2>
           <p class="muted">수정은 통합ID를 기준으로 Google Spreadsheet에 반영됩니다.</p>
         </div>
-        <button id="closeManageBtn" class="icon-btn" type="button" aria-label="토픽 관리 닫기">✕</button>
       </div>
 
       <div class="manage-mode-row">
@@ -770,7 +769,11 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
           <div>
             <label class="field-label" for="manageStatus">상태</label>
-            <input id="manageStatus" class="field" type="text">
+            <select id="manageStatus" class="field" required>
+              <option value="">선택</option>
+              <option value="기존서브노트">기존서브노트</option>
+              <option value="교재신규">교재신규</option>
+            </select>
           </div>
           <div>
             <label class="field-label" for="manageExclusionReason">학습제외사유</label>
@@ -1093,7 +1096,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '2.0.0-stage2-topic-management';
+const APP_VERSION = '2.0.2-stage2-manage-input-fix';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1146,7 +1149,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -1163,9 +1166,13 @@ function bindEvents() {
   els.saveSettingsBtn.addEventListener('click', saveSettings);
   els.testApiBtn.addEventListener('click', testApiConnection);
 
-  els.closeManageBtn.addEventListener('click', closeManage);
+  // 관리 팝업은 바깥 영역 클릭이나 ESC로 닫히지 않는다.
+  // 사용자가 명시적으로 '취소'를 누르거나 저장/처리가 성공했을 때만 닫는다.
   els.cancelManageBtn.addEventListener('click', closeManage);
-  els.manageModal.addEventListener('click', event => { if (event.target === els.manageModal) closeManage(); });
+
+  // 팝업 내부의 모든 키 입력은 팝업/편집 컨트롤에서 처리하고
+  // 부모 페이지의 전역 토픽 이동 단축키로 전달하지 않는다.
+  els.manageModal.addEventListener('keydown', event => event.stopPropagation());
   els.editModeBtn.addEventListener('click', () => switchManageMode('edit'));
   els.addModeBtn.addEventListener('click', () => switchManageMode('add'));
   els.manageForm.addEventListener('submit', saveManagedTopic);
@@ -1217,10 +1224,60 @@ function bindEvents() {
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
 
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { closeSearchTargetMenu(); closeImportanceMenu(); if (!els.manageModal.classList.contains('hidden')) closeManage(); }
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || !currentTopicId) return;
-    if (event.key === 'ArrowLeft') moveTopic(-1);
-    if (event.key === 'ArrowRight' || event.key === ' ') {
+    // 한글 IME 조합 중이거나 다른 컴포넌트가 이미 처리한 키는 건드리지 않는다.
+    if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+
+    if (event.key === 'Escape') {
+      closeSearchTargetMenu();
+      closeImportanceMenu();
+
+      // 토픽 관리 팝업은 ESC로 닫지 않는다. 취소 버튼으로만 닫는다.
+      if (!els.manageModal.classList.contains('hidden')) {
+        event.preventDefault();
+        return;
+      }
+
+      // 설정 팝업은 기존 동작대로 ESC로 닫을 수 있다.
+      if (!els.settingsModal.classList.contains('hidden')) {
+        closeSettings();
+      }
+      return;
+    }
+
+    const target = event.target;
+    const isInteractiveTarget = target instanceof Element && Boolean(
+      target.closest(
+        'input, textarea, select, option, button, a, ' +
+        '[contenteditable]:not([contenteditable="false"]), ' +
+        '[role="textbox"], [role="combobox"], [role="button"]'
+      )
+    );
+
+    const overlayOpen =
+      !els.settingsModal.classList.contains('hidden') ||
+      !els.manageModal.classList.contains('hidden') ||
+      els.sidebar.classList.contains('open');
+
+    // 입력/편집/버튼/링크 등 인터랙티브 요소, 팝업/검색패널이 열린 상태,
+    // Ctrl/Alt/Meta 조합키에서는 부모 페이지의 토픽 이동 단축키를 실행하지 않는다.
+    if (
+      isInteractiveTarget ||
+      overlayOpen ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      !currentTopicId
+    ) {
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      moveTopic(-1);
+      return;
+    }
+
+    if (event.key === 'ArrowRight' || event.key === ' ' || event.key === 'Spacebar') {
       event.preventDefault();
       moveTopic(1);
     }
@@ -1709,6 +1766,7 @@ async function saveManagedTopic(event) {
   if (!adminPin) return showToast('관리 PIN을 먼저 설정해 주세요.');
   const fields = collectManageFields();
   if (!fields.topicName) return showToast('토픽명을 입력해 주세요.');
+  if (!fields.status) return showToast('상태를 선택해 주세요.');
 
   const payload = manageMode === 'add'
     ? { action: 'addTopic', adminPin, categoryCode: els.manageCategory.value, fields }
