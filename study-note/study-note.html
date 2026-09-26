@@ -387,7 +387,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .memo-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
 .memo-status { color: var(--muted); font-size: .75rem; }
 .learning-dashboard-card { width: min(900px, 100%); max-height: min(92dvh, 900px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.learning-dashboard-top { display: flex; justify-content: flex-end; margin: 12px 0; }
+.learning-dashboard-top { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .learning-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .learning-stat { padding: 11px 9px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
 .learning-stat span, .learning-stat strong { display: block; }
@@ -420,6 +420,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .learning-summary { width: 100%; margin-left: 0; text-align: right; }
   .learning-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .learning-dashboard-card { width: 100%; max-height: 94dvh; padding: 16px 14px calc(18px + env(safe-area-inset-bottom)); }
+  .learning-dashboard-top .btn { flex: 1 1 auto; min-width: 0; }
   .memo-actions { align-items: flex-end; }
 }
 
@@ -903,6 +904,8 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
 
       <div class="learning-dashboard-top">
+        <button id="resetCurrentLearningBtn" class="btn" type="button">현재 토픽 초기화</button>
+        <button id="resetAllLearningBtn" class="btn danger" type="button">전체 학습 초기화</button>
         <button id="syncLearningBtn" class="btn primary" type="button">↕ 학습정보 동기화</button>
       </div>
 
@@ -1055,6 +1058,14 @@ async function getAllLearningStates(db) {
 async function putLearningState(db, state) {
   const tx = db.transaction(LEARNING_STORE, 'readwrite');
   tx.objectStore(LEARNING_STORE).put(state);
+  await transactionDone(tx);
+}
+
+async function putLearningStates(db, states) {
+  if (!Array.isArray(states) || !states.length) return;
+  const tx = db.transaction(LEARNING_STORE, 'readwrite');
+  const store = tx.objectStore(LEARNING_STORE);
+  for (const state of states) store.put(state);
   await transactionDone(tx);
 }
 
@@ -1315,7 +1326,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.2-stage3-search-autofill-prevent';
+const APP_VERSION = '3.0.3-stage3-learning-reset';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1381,7 +1392,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -1421,6 +1432,8 @@ function bindEvents() {
   els.recallToggleBtn.addEventListener('click', toggleRecallMode);
   els.saveMemoBtn.addEventListener('click', savePersonalMemo);
   els.closeLearningBtn.addEventListener('click', closeLearningDashboard);
+  els.resetCurrentLearningBtn.addEventListener('click', resetCurrentLearningProgress);
+  els.resetAllLearningBtn.addEventListener('click', resetAllLearningProgress);
   els.syncLearningBtn.addEventListener('click', syncLearningStates);
 
   document.querySelectorAll('[data-reveal-field]').forEach(button => {
@@ -2194,6 +2207,93 @@ function navigateToLearningTopic(topicId) {
   showTopicById(topicId);
   closeLearningDashboard();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function learningProgressIsSet(state) {
+  if (!state) return false;
+  return (
+    state.studyStatus === '암기' ||
+    state.studyStatus === '미암기' ||
+    Number(state.reviewCount || 0) > 0 ||
+    Number(state.missCount || 0) > 0 ||
+    Boolean(clean(state.lastStudiedAt))
+  );
+}
+
+function buildResetLearningState(state, updatedAt) {
+  return normalizeLearningState({
+    ...state,
+    studyStatus: '미학습',
+    lastStudiedAt: '',
+    reviewCount: 0,
+    missCount: 0,
+    updatedAt,
+    revision: Number(state.revision || 0) + 1,
+    dirty: true,
+  });
+}
+
+async function resetCurrentLearningProgress() {
+  if (!currentTopicId) return showToast('현재 토픽이 없습니다.');
+  const topic = allTopics.find(item => item.topicId === currentTopicId);
+  const current = getLearningState(currentTopicId);
+  if (!learningProgressIsSet(current)) {
+    return showToast('현재 토픽에 초기화할 학습기록이 없습니다.');
+  }
+
+  const confirmed = window.confirm(
+    `${topic?.topicName || currentTopicId}\n\n현재 토픽의 학습기록을 초기화할까요?\n` +
+    '암기/미암기, 복습횟수, 미암기횟수, 최근학습일시만 초기화됩니다.\n' +
+    '즐겨찾기와 개인메모는 유지됩니다.'
+  );
+  if (!confirmed) return;
+
+  await updateLearningState(currentTopicId, {
+    studyStatus: '미학습',
+    lastStudiedAt: '',
+    reviewCount: 0,
+    missCount: 0,
+  });
+  renderLearningDashboard();
+  showToast(`${currentTopicId} 학습기록을 초기화했습니다.`);
+}
+
+async function resetAllLearningProgress() {
+  const statesToReset = [...learningStateMap.values()].filter(learningProgressIsSet);
+  if (!statesToReset.length) {
+    return showToast('초기화할 학습기록이 없습니다.');
+  }
+
+  const confirmed = window.confirm(
+    `전체 ${statesToReset.length.toLocaleString()}개 토픽의 학습 진행기록을 초기화할까요?\n\n` +
+    '초기화: 암기/미암기, 복습횟수, 미암기횟수, 최근학습일시\n' +
+    '유지: 즐겨찾기, 개인메모\n\n' +
+    'Google Spreadsheet에 동기화된 학습기록도 다음 동기화 시 초기화됩니다.'
+  );
+  if (!confirmed) return;
+
+  const updatedAt = new Date().toISOString();
+  const resetStates = statesToReset.map(state => buildResetLearningState(state, updatedAt));
+
+  for (const state of resetStates) learningStateMap.set(state.topicId, state);
+  await putLearningStates(db, resetStates);
+
+  renderCurrentLearningState();
+  renderTopicList();
+  renderLearningDashboard();
+
+  const canSyncNow = navigator.onLine && Boolean(getAdminPin());
+  if (canSyncNow) {
+    showToast(`전체 학습기록 ${resetStates.length.toLocaleString()}건 초기화 · 서버 동기화 중`);
+    try {
+      await syncLearningStates();
+    } catch (error) {
+      console.error(error);
+      showToast('로컬 초기화는 완료됐으며 서버 동기화는 나중에 다시 시도할 수 있습니다.');
+    }
+  } else {
+    showToast(`전체 학습기록 ${resetStates.length.toLocaleString()}건을 로컬에서 초기화했습니다. 나중에 학습정보 동기화를 실행해 주세요.`);
+  }
 }
 
 async function syncLearningStates() {
