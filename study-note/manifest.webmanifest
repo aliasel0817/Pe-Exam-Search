@@ -1,7 +1,7 @@
 {
   "name": "정보관리기술사 학습노트",
   "short_name": "학습노트",
-  "description": "정보관리기술사 암기장 + 학습장",
+  "description": "정보관리기술사 암기장 + 학습장 + 토픽별 이미지/PDF 첨부자료",
   "lang": "ko-KR",
   "id": "./study-note.html",
   "start_url": "./study-note.html",

@@ -434,6 +434,96 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 
+
+/* ===== 4-1단계 토픽별 이미지/PDF 첨부자료 ===== */
+.media-card .card-head { align-items: flex-start; }
+.media-card-title { display: flex; align-items: center; gap: 7px; }
+.media-count {
+  display: inline-flex;
+  min-width: 24px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.media-card-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.media-card-actions .btn { min-height: 34px; padding: 6px 9px; font-size: .75rem; }
+.media-status { margin: 0 0 9px; color: var(--muted); font-size: .72rem; line-height: 1.5; }
+.media-list { border: 1px solid #e6ebf1; border-radius: 11px; overflow: hidden; background: #fff; }
+.media-empty { padding: 18px 12px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.55; }
+.media-empty.error { color: var(--danger); background: var(--danger-soft); }
+.media-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 11px;
+  border-bottom: 1px solid #edf1f5;
+}
+.media-item:last-child { border-bottom: 0; }
+.media-file-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: #eef2f6;
+  color: #475467;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+.media-file-icon.image { background: #eff6ff; color: #1d4ed8; }
+.media-file-icon.pdf { background: #fff1f2; color: #be123c; }
+.media-file-main { min-width: 0; }
+.media-file-name { font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.media-file-meta { margin-top: 4px; color: var(--muted); font-size: .7rem; }
+.media-file-actions { display: flex; gap: 6px; align-items: center; }
+.media-small-btn { min-height: 34px; padding: 5px 8px; font-size: .72rem; }
+.media-viewer-card {
+  width: min(1100px, 96vw);
+  height: min(92dvh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+}
+.media-viewer-head { flex: 0 0 auto; }
+.media-viewer-meta { margin-top: 4px; color: var(--muted); font-size: .75rem; line-height: 1.4; }
+.media-viewer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 12px 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: #f1f5f9;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.media-image-preview { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+.media-pdf-frame { width: 100%; height: 100%; min-height: 60dvh; border: 0; background: #fff; }
+.media-viewer-loading { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); }
+.media-viewer-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 760px) {
+  .media-card .card-head { flex-direction: column; }
+  .media-card-actions { width: 100%; justify-content: stretch; }
+  .media-card-actions .btn { flex: 1 1 auto; }
+  .media-item { grid-template-columns: 42px minmax(0, 1fr); align-items: start; }
+  .media-file-icon { width: 40px; height: 40px; }
+  .media-file-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .media-file-actions .btn { flex: 1 1 0; }
+  .media-viewer-card { width: 100%; height: 94dvh; padding: 12px; }
+  .media-pdf-frame { min-height: 66dvh; }
+  .media-viewer-actions { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -756,6 +846,18 @@ button { -webkit-tap-highlight-color: transparent; }
             <div id="detailRelated" class="study-text preserve-lines"></div>
           </section>
 
+          <section class="study-card media-card">
+            <div class="card-head">
+              <div class="media-card-title"><h3>첨부자료</h3><span id="mediaCount" class="media-count">0</span></div>
+              <div class="media-card-actions">
+                <button id="mediaRefreshBtn" class="btn" type="button">↻ 목록 갱신</button>
+                <button id="mediaAddBtn" class="btn primary" type="button">＋ 이미지/PDF</button>
+                <input id="mediaFileInput" class="hidden" type="file" accept="image/*,application/pdf,.pdf" multiple>
+              </div>
+            </div>
+            <p id="mediaStatus" class="media-status">첨부자료 메타데이터만 기기에 저장하며 원본은 열 때만 Google Drive에서 받습니다.</p>
+            <div id="mediaList" class="media-list"><div class="media-empty">첨부자료 목록을 확인하고 있습니다.</div></div>
+          </section>
 
           <section class="study-card">
             <div class="card-head"><h3>개인메모</h3></div>
@@ -804,9 +906,9 @@ button { -webkit-tap-highlight-color: transparent; }
       <input id="apiUrlInput" name="studyNoteApiUrl" class="field" type="text" inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data · 입력값을 지우고 저장하면 공용 기본 URL을 사용합니다.</p>
 
-      <label class="field-label" for="adminPinInput">관리 PIN (토픽 관리 · 학습정보 동기화)</label>
+      <label class="field-label" for="adminPinInput">관리 PIN (토픽 관리 · 학습정보 동기화 · 첨부자료)</label>
       <input id="adminPinInput" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6자리 관리 PIN">
-      <p class="help-text">토픽 관리와 학습정보 동기화에 사용하며 이 기기 브라우저에 저장됩니다.</p>
+      <p class="help-text">토픽 관리, 학습정보 동기화, topic_files 첨부자료 조회·추가·삭제에 사용하며 이 기기 브라우저에 저장됩니다.</p>
 
       <div class="settings-status">
         <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
@@ -968,6 +1070,23 @@ button { -webkit-tap-highlight-color: transparent; }
     </div>
   </div>
 
+  <div id="mediaViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="mediaViewerTitle">
+    <div class="modal-card media-viewer-card">
+      <div class="modal-head media-viewer-head">
+        <div>
+          <h2 id="mediaViewerTitle">첨부자료</h2>
+          <p id="mediaViewerMeta" class="media-viewer-meta">Google Drive 원본을 불러오는 중...</p>
+        </div>
+        <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="첨부자료 닫기">✕</button>
+      </div>
+      <div id="mediaViewerBody" class="media-viewer-body"></div>
+      <div class="media-viewer-actions">
+        <button id="mediaViewerOpenBtn" class="btn" type="button" disabled>새 창으로 열기</button>
+        <button id="mediaViewerDownloadBtn" class="btn primary" type="button" disabled>다운로드</button>
+      </div>
+    </div>
+  </div>
+
   <div id="loadingOverlay" class="loading-overlay hidden" aria-live="assertive">
     <div class="spinner" aria-hidden="true"></div>
     <strong id="loadingMessage">처리 중...</strong>
@@ -977,10 +1096,11 @@ button { -webkit-tap-highlight-color: transparent; }
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const TOPIC_STORE = 'topics';
 const META_STORE = 'meta';
 const LEARNING_STORE = 'learningStates';
+const MEDIA_STORE = 'topicMedia';
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -1018,6 +1138,11 @@ function openDatabase() {
         learningStore.createIndex('studyStatus', 'studyStatus', { unique: false });
         learningStore.createIndex('favorite', 'favorite', { unique: false });
         learningStore.createIndex('lastStudiedAt', 'lastStudiedAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(MEDIA_STORE)) {
+        const mediaStore = db.createObjectStore(MEDIA_STORE, { keyPath: 'fileId' });
+        mediaStore.createIndex('topicId', 'topicId', { unique: false });
+        mediaStore.createIndex('sequence', 'sequence', { unique: false });
       }
     };
 
@@ -1109,6 +1234,23 @@ async function putLearningStates(db, states) {
 async function setMeta(db, key, value) {
   const tx = db.transaction(META_STORE, 'readwrite');
   tx.objectStore(META_STORE).put({ key, value });
+  await transactionDone(tx);
+}
+
+async function getTopicMedia(db, topicId) {
+  const tx = db.transaction(MEDIA_STORE, 'readonly');
+  const rows = await requestToPromise(tx.objectStore(MEDIA_STORE).index('topicId').getAll(IDBKeyRange.only(topicId)));
+  await transactionDone(tx);
+  return rows.sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0) || String(a.originalName || '').localeCompare(String(b.originalName || ''), 'ko'));
+}
+
+async function replaceTopicMedia(db, topicId, items, syncedAt = new Date().toISOString()) {
+  const tx = db.transaction([MEDIA_STORE, META_STORE], 'readwrite');
+  const mediaStore = tx.objectStore(MEDIA_STORE);
+  const keys = await requestToPromise(mediaStore.index('topicId').getAllKeys(IDBKeyRange.only(topicId)));
+  for (const key of keys) mediaStore.delete(key);
+  for (const item of items) mediaStore.put(item);
+  tx.objectStore(META_STORE).put({ key: `mediaSync:${topicId}`, value: syncedAt });
   await transactionDone(tx);
 }
 
@@ -1261,6 +1403,42 @@ async function fetchLearningStates(apiUrl, adminPin) {
   return normalizeLearningDataset(json);
 }
 
+
+function normalizeMediaItem(raw = {}) {
+  return {
+    topicId: clean(raw.topicId),
+    fileId: clean(raw.fileId),
+    sequence: toNumber(raw.sequence, 0),
+    fileName: clean(raw.fileName),
+    originalName: clean(raw.originalName) || clean(raw.fileName),
+    mimeType: clean(raw.mimeType).toLowerCase(),
+    size: Math.max(0, toNumber(raw.size, 0)),
+    updatedAt: clean(raw.updatedAt),
+    driveUrl: clean(raw.driveUrl),
+  };
+}
+
+async function fetchTopicMedia(apiUrl, adminPin, topicId) {
+  const url = `${normalizeApiUrl(apiUrl)}?action=mediaList&topicId=${encodeURIComponent(topicId)}&adminPin=${encodeURIComponent(adminPin)}&_=${Date.now()}`;
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`첨부자료 목록 조회 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || '첨부자료 목록 응답이 올바르지 않습니다.');
+  return {
+    items: (Array.isArray(json.items) ? json.items : []).map(normalizeMediaItem).filter(item => item.fileId && item.topicId === topicId),
+    generatedAt: clean(json.generatedAt) || new Date().toISOString(),
+  };
+}
+
+async function fetchMediaContent(apiUrl, adminPin, topicId, fileId) {
+  const url = `${normalizeApiUrl(apiUrl)}?action=mediaContent&topicId=${encodeURIComponent(topicId)}&fileId=${encodeURIComponent(fileId)}&adminPin=${encodeURIComponent(adminPin)}`;
+  const response = await fetch(url, { method: 'GET', cache: 'default', redirect: 'follow' });
+  if (!response.ok) throw new Error(`첨부자료 열기 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || '첨부자료 응답이 올바르지 않습니다.');
+  return json;
+}
+
 function normalizeSingleRow(headers, row) {
   const cleanHeaders = Array.isArray(headers) ? headers.map(clean) : [];
   if (!Array.isArray(row)) throw new Error('토픽 응답 형식이 올바르지 않습니다.');
@@ -1292,7 +1470,7 @@ async function fetchMutationStatus(apiUrl, requestId) {
   return response.json();
 }
 
-async function sendMutation(apiUrl, payload) {
+async function sendMutation(apiUrl, payload, { timeoutMs = 15000 } = {}) {
   const requestId = createRequestId();
   const body = JSON.stringify({ ...payload, requestId });
   await fetch(normalizeApiUrl(apiUrl), {
@@ -1304,14 +1482,14 @@ async function sendMutation(apiUrl, payload) {
   });
 
   const startedAt = Date.now();
-  while (Date.now() - startedAt < 15000) {
+  while (Date.now() - startedAt < timeoutMs) {
     await new Promise(resolve => setTimeout(resolve, 500));
     const status = await fetchMutationStatus(apiUrl, requestId);
     if (!status.done) continue;
-    if (!status.ok) throw new Error(status.message || 'Spreadsheet 저장에 실패했습니다.');
+    if (!status.ok) throw new Error(status.message || '서버 저장에 실패했습니다.');
     return status;
   }
-  throw new Error('Spreadsheet 저장 확인 시간이 초과되었습니다. 다시 확인해 주세요.');
+  throw new Error('서버 저장 확인 시간이 초과되었습니다. 다시 확인해 주세요.');
 }
 
 function validateAndNormalizeDataset(payload) {
@@ -1374,7 +1552,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.7-stage3-daily-learning-count';
+const APP_VERSION = '4.1.0-stage4-1-topic-media';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1398,6 +1576,12 @@ let learningStateMap = new Map();
 let recallMode = false;
 let learningView = 'recent';
 let learningPage = 1;
+
+// 4-1단계 첨부자료 상태. 원본 바이너리는 IndexedDB에 저장하지 않는다.
+let currentMediaItems = [];
+let mediaRenderToken = 0;
+let mediaViewerObjectUrl = '';
+let mediaViewerItem = null;
 
 const els = {};
 
@@ -1458,6 +1642,8 @@ function bindElements() {
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
+    'mediaCount','mediaRefreshBtn','mediaAddBtn','mediaFileInput','mediaStatus','mediaList',
+    'mediaViewerModal','mediaViewerTitle','mediaViewerMeta','mediaViewerBody','closeMediaViewerBtn','mediaViewerOpenBtn','mediaViewerDownloadBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
     'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
@@ -1492,6 +1678,17 @@ function bindEvents() {
   els.manageForm.addEventListener('submit', saveManagedTopic);
   els.deactivateTopicBtn.addEventListener('click', deactivateCurrentTopic);
   els.manageCategory.addEventListener('change', updateManageCategoryHint);
+
+  // 4-1단계 첨부자료 이벤트 연결
+  els.mediaRefreshBtn.addEventListener('click', () => refreshTopicMedia());
+  els.mediaAddBtn.addEventListener('click', selectMediaFiles);
+  els.mediaFileInput.addEventListener('change', uploadSelectedMedia);
+  els.mediaList.addEventListener('click', handleMediaListClick);
+  els.closeMediaViewerBtn.addEventListener('click', closeMediaViewer);
+  els.mediaViewerOpenBtn.addEventListener('click', openMediaViewerInNewWindow);
+  els.mediaViewerDownloadBtn.addEventListener('click', downloadMediaViewerFile);
+  els.mediaViewerModal.addEventListener('click', event => { if (event.target === els.mediaViewerModal) closeMediaViewer(); });
+  els.mediaViewerModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 3단계 학습기능 이벤트 연결
   els.favoriteBtn.addEventListener('click', toggleFavorite);
@@ -1610,6 +1807,11 @@ function bindEvents() {
         return;
       }
 
+      if (!els.mediaViewerModal.classList.contains('hidden')) {
+        closeMediaViewer();
+        return;
+      }
+
       // 설정 팝업은 기존 동작대로 ESC로 닫을 수 있다.
       if (!els.settingsModal.classList.contains('hidden')) {
         closeSettings();
@@ -1630,6 +1832,7 @@ function bindEvents() {
       !els.settingsModal.classList.contains('hidden') ||
       !els.manageModal.classList.contains('hidden') ||
       !els.learningModal.classList.contains('hidden') ||
+      !els.mediaViewerModal.classList.contains('hidden') ||
       els.sidebar.classList.contains('open');
 
     // 입력/편집/버튼/링크 등 인터랙티브 요소, 팝업/검색패널이 열린 상태,
@@ -1672,6 +1875,12 @@ function updateNetworkStatus() {
   els.networkBadge.textContent = online ? '온라인' : '오프라인';
   els.networkBadge.classList.toggle('online', online);
   els.networkBadge.classList.toggle('offline', !online);
+  if (els.mediaRefreshBtn) updateMediaButtons();
+  if (currentTopicId && currentMediaItems.length) {
+    getMeta(db, mediaSyncMetaKey(currentTopicId), '').then(syncedAt => {
+      if (currentTopicId) renderTopicMediaList(currentMediaItems, syncedAt, { cached: true });
+    }).catch(() => {});
+  }
 }
 
 function getApiUrl() {
@@ -2077,6 +2286,7 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setText('detailSourceDomain', topic.sourceDomain || '-');
   setText('detailExclusionReason', topic.studyExclusionReason || '-');
   setText('detailNotes', topic.notes || '-');
+  loadTopicMedia(topic.topicId);
   renderCurrentLearningState();
   resetRecallForTopic();
 
@@ -2089,6 +2299,10 @@ function showTopicById(topicId, { scrollList = true } = {}) {
 
 function clearDetailForNoResults() {
   currentTopicId = null;
+  currentMediaItems = [];
+  mediaRenderToken++;
+  if (els.mediaList) els.mediaList.innerHTML = '';
+  if (els.mediaCount) els.mediaCount.textContent = '0';
   els.emptyState.classList.remove('hidden');
   els.topicDetail.classList.add('hidden');
   els.bottomNav.classList.add('hidden');
@@ -2123,6 +2337,345 @@ function updateNavigation() {
   els.detailCounter.textContent = index >= 0 ? `${(index + 1).toLocaleString()} / ${filteredTopics.length.toLocaleString()}` : '-';
 }
 
+
+
+function mediaSyncMetaKey(topicId) {
+  return `mediaSync:${topicId}`;
+}
+
+function isMediaImage(item) {
+  return clean(item?.mimeType).toLowerCase().startsWith('image/');
+}
+
+function isMediaPdf(item) {
+  return clean(item?.mimeType).toLowerCase() === 'application/pdf' || clean(item?.originalName).toLowerCase().endsWith('.pdf');
+}
+
+function formatFileSize(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return '0 B';
+  const units = ['B','KB','MB','GB'];
+  let size = value;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index++;
+  }
+  const digits = index === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[index]}`;
+}
+
+function updateMediaButtons() {
+  const online = navigator.onLine;
+  if (els.mediaRefreshBtn) els.mediaRefreshBtn.disabled = !online || !currentTopicId;
+  if (els.mediaAddBtn) els.mediaAddBtn.disabled = !online || !currentTopicId;
+}
+
+async function loadTopicMedia(topicId) {
+  const token = ++mediaRenderToken;
+  currentMediaItems = [];
+  els.mediaCount.textContent = '0';
+  els.mediaStatus.textContent = '첨부자료 목록 확인 중...';
+  els.mediaList.innerHTML = '<div class="media-empty">로컬 첨부 메타데이터를 확인하고 있습니다.</div>';
+  updateMediaButtons();
+
+  try {
+    const [cachedItems, syncedAt] = await Promise.all([
+      getTopicMedia(db, topicId),
+      getMeta(db, mediaSyncMetaKey(topicId), ''),
+    ]);
+    if (token !== mediaRenderToken || currentTopicId !== topicId) return;
+
+    currentMediaItems = cachedItems;
+    renderTopicMediaList(cachedItems, syncedAt, { cached: Boolean(syncedAt) });
+
+    // 한 번도 목록을 받은 적이 없는 토픽만 자동으로 메타데이터를 1회 조회한다.
+    // 원본 이미지/PDF는 이 과정에서 내려받지 않는다.
+    if (navigator.onLine && !syncedAt) {
+      await refreshTopicMedia({ topicId, silent: true, expectedToken: token });
+    }
+  } catch (error) {
+    console.error(error);
+    if (token !== mediaRenderToken || currentTopicId !== topicId) return;
+    els.mediaStatus.textContent = '첨부자료 목록을 읽지 못했습니다.';
+    els.mediaList.innerHTML = `<div class="media-empty error">${escapeHtml(error.message || '첨부자료 목록 오류')}</div>`;
+  }
+}
+
+function renderTopicMediaList(items, syncedAt = '', { cached = false } = {}) {
+  if (!currentTopicId) return;
+  currentMediaItems = Array.isArray(items) ? items.slice() : [];
+  els.mediaCount.textContent = String(currentMediaItems.length);
+  updateMediaButtons();
+
+  if (!navigator.onLine) {
+    els.mediaStatus.textContent = syncedAt
+      ? `오프라인 · 저장된 목록 ${formatDateTime(syncedAt)} · 원본은 온라인에서 열 수 있습니다.`
+      : '오프라인 · 이 토픽의 첨부자료 목록이 아직 기기에 저장되지 않았습니다.';
+  } else if (syncedAt) {
+    els.mediaStatus.textContent = `${cached ? '저장된 목록' : '목록 갱신'} ${formatDateTime(syncedAt)} · 원본은 열 때만 Google Drive에서 받습니다.`;
+  } else {
+    els.mediaStatus.textContent = '첨부자료 메타데이터만 기기에 저장하며 원본은 열 때만 받습니다.';
+  }
+
+  if (!currentMediaItems.length) {
+    els.mediaList.innerHTML = '<div class="media-empty">등록된 이미지/PDF 첨부자료가 없습니다.</div>';
+    return;
+  }
+
+  els.mediaList.innerHTML = currentMediaItems.map(item => {
+    const typeLabel = isMediaPdf(item) ? 'PDF' : isMediaImage(item) ? 'IMG' : 'FILE';
+    const typeClass = isMediaPdf(item) ? 'pdf' : 'image';
+    const openDisabled = navigator.onLine ? '' : ' disabled';
+    return `<div class="media-item" data-media-file-id="${escapeHtml(item.fileId)}">
+      <div class="media-file-icon ${typeClass}" aria-hidden="true">${typeLabel}</div>
+      <div class="media-file-main">
+        <div class="media-file-name">${escapeHtml(item.originalName || item.fileName)}</div>
+        <div class="media-file-meta">#${escapeHtml(item.sequence)} · ${escapeHtml(formatFileSize(item.size))}${item.updatedAt ? ` · ${escapeHtml(formatDateTime(item.updatedAt))}` : ''}</div>
+      </div>
+      <div class="media-file-actions">
+        <button class="btn media-small-btn" type="button" data-media-action="open" data-media-file-id="${escapeHtml(item.fileId)}"${openDisabled}>열기</button>
+        <button class="btn media-small-btn" type="button" data-media-action="drive" data-media-file-id="${escapeHtml(item.fileId)}"${openDisabled}>Drive</button>
+        <button class="btn media-small-btn danger" type="button" data-media-action="delete" data-media-file-id="${escapeHtml(item.fileId)}"${openDisabled}>삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function refreshTopicMedia({ topicId = currentTopicId, silent = false, expectedToken = null } = {}) {
+  if (!topicId) return;
+  if (!navigator.onLine) {
+    if (!silent) showToast('오프라인 상태에서는 첨부자료 목록을 갱신할 수 없습니다.');
+    return;
+  }
+  const adminPin = getAdminPin();
+  if (!adminPin) {
+    if (!silent) {
+      openSettings();
+      showToast('첨부자료를 사용하려면 설정에서 관리 PIN 6자리를 저장해 주세요.');
+    } else if (currentTopicId === topicId) {
+      els.mediaStatus.textContent = '첨부자료 목록을 받으려면 설정에 관리 PIN을 저장해 주세요.';
+    }
+    return;
+  }
+
+  if (!silent) setLoading(true, '첨부자료 목록을 갱신하는 중...');
+  try {
+    const result = await fetchTopicMedia(getApiUrl(), adminPin, topicId);
+    await replaceTopicMedia(db, topicId, result.items, result.generatedAt);
+    if (currentTopicId === topicId && (expectedToken === null || expectedToken === mediaRenderToken)) {
+      currentMediaItems = result.items;
+      renderTopicMediaList(result.items, result.generatedAt, { cached: false });
+    }
+    if (!silent) showToast(`첨부자료 목록 갱신 완료 · ${result.items.length.toLocaleString()}개`);
+  } catch (error) {
+    console.error(error);
+    if (currentTopicId === topicId) els.mediaStatus.textContent = error.message || '첨부자료 목록 갱신에 실패했습니다.';
+    if (!silent) showToast(error.message || '첨부자료 목록 갱신에 실패했습니다.');
+  } finally {
+    if (!silent) setLoading(false);
+  }
+}
+
+function selectMediaFiles() {
+  if (!currentTopicId) return;
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 첨부자료를 추가할 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) {
+    openSettings();
+    return showToast('첨부자료를 추가하려면 설정에서 관리 PIN 6자리를 저장해 주세요.');
+  }
+  els.mediaFileInput.value = '';
+  els.mediaFileInput.click();
+}
+
+async function uploadSelectedMedia() {
+  const topicId = currentTopicId;
+  const files = [...(els.mediaFileInput.files || [])];
+  els.mediaFileInput.value = '';
+  if (!topicId || !files.length) return;
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 첨부자료를 추가할 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) {
+    openSettings();
+    return showToast('설정에서 관리 PIN 6자리를 먼저 저장해 주세요.');
+  }
+
+  const maxBytes = 25 * 1024 * 1024;
+  const invalid = files.find(file => !isAllowedLocalMediaFile(file));
+  if (invalid) return showToast(`이미지 또는 PDF만 첨부할 수 있습니다: ${invalid.name}`);
+  const oversized = files.find(file => file.size > maxBytes);
+  if (oversized) return showToast(`파일당 25MB 이하만 첨부할 수 있습니다: ${oversized.name}`);
+
+  setLoading(true, `첨부자료 업로드 준비 중 · 0 / ${files.length}`);
+  try {
+    for (let i = 0; i < files.length; i++) {
+      if (currentTopicId !== topicId) throw new Error('업로드 중 토픽이 변경되었습니다. 다시 시도해 주세요.');
+      const file = files[i];
+      els.loadingMessage.textContent = `첨부자료 업로드 중 · ${i + 1} / ${files.length} · ${file.name}`;
+      const base64Data = await fileToBase64(file);
+      await sendMutation(getApiUrl(), {
+        action: 'uploadMedia',
+        adminPin,
+        topicId,
+        fileName: file.name,
+        mimeType: file.type,
+        base64Data,
+      }, { timeoutMs: 90000 });
+    }
+    await refreshTopicMedia({ topicId, silent: true });
+    showToast(`첨부자료 ${files.length.toLocaleString()}개를 추가했습니다.`);
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || '첨부자료 업로드에 실패했습니다.');
+    await refreshTopicMedia({ topicId, silent: true });
+  } finally {
+    setLoading(false);
+  }
+}
+
+function isAllowedLocalMediaFile(file) {
+  const type = clean(file?.type).toLowerCase();
+  const name = clean(file?.name).toLowerCase();
+  if (type === 'application/pdf' || name.endsWith('.pdf')) return true;
+  if (type.startsWith('image/') && type !== 'image/svg+xml') return true;
+  return /\.(jpe?g|png|gif|webp|bmp|heic|heif|tiff?)$/.test(name);
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const comma = result.indexOf(',');
+      if (comma < 0) return reject(new Error('파일 데이터를 변환하지 못했습니다.'));
+      resolve(result.slice(comma + 1));
+    };
+    reader.onerror = () => reject(reader.error || new Error('파일을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function findCurrentMediaItem(fileId) {
+  return currentMediaItems.find(item => item.fileId === fileId) || null;
+}
+
+async function handleMediaListClick(event) {
+  const button = event.target.closest('[data-media-action]');
+  if (!button) return;
+  const item = findCurrentMediaItem(button.dataset.mediaFileId);
+  if (!item) return showToast('첨부자료 정보를 찾을 수 없습니다. 목록을 갱신해 주세요.');
+  const action = button.dataset.mediaAction;
+  if (action === 'open') return openMediaItem(item);
+  if (action === 'drive') {
+    if (!navigator.onLine) return showToast('오프라인 상태에서는 원본을 열 수 없습니다.');
+    if (item.driveUrl) window.open(item.driveUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (action === 'delete') return deleteMediaItem(item);
+}
+
+async function openMediaItem(item) {
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 이미지/PDF 원본을 열 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) {
+    openSettings();
+    return showToast('첨부자료를 열려면 설정에서 관리 PIN 6자리를 저장해 주세요.');
+  }
+
+  closeMediaViewerObjectUrl();
+  mediaViewerItem = item;
+  els.mediaViewerTitle.textContent = item.originalName || item.fileName;
+  els.mediaViewerMeta.textContent = `${formatFileSize(item.size)} · Google Drive 원본을 불러오는 중...`;
+  els.mediaViewerBody.innerHTML = '<div class="media-viewer-loading"><div class="spinner" aria-hidden="true"></div><strong>원본을 불러오는 중...</strong></div>';
+  els.mediaViewerOpenBtn.disabled = true;
+  els.mediaViewerDownloadBtn.disabled = true;
+  els.mediaViewerModal.classList.remove('hidden');
+
+  try {
+    const result = await fetchMediaContent(getApiUrl(), adminPin, item.topicId, item.fileId);
+    if (!mediaViewerItem || mediaViewerItem.fileId !== item.fileId) return;
+    const bytes = base64ToUint8Array(result.base64Data || '');
+    const mimeType = clean(result.mimeType) || item.mimeType || 'application/octet-stream';
+    const blob = new Blob([bytes], { type: mimeType });
+    mediaViewerObjectUrl = URL.createObjectURL(blob);
+    const isPdf = mimeType === 'application/pdf' || isMediaPdf(item);
+    if (isPdf) {
+      els.mediaViewerBody.innerHTML = `<iframe class="media-pdf-frame" src="${escapeHtml(mediaViewerObjectUrl)}" title="${escapeHtml(item.originalName || item.fileName)}"></iframe>`;
+    } else {
+      els.mediaViewerBody.innerHTML = `<img class="media-image-preview" src="${escapeHtml(mediaViewerObjectUrl)}" alt="${escapeHtml(item.originalName || item.fileName)}">`;
+    }
+    els.mediaViewerMeta.textContent = `${formatFileSize(blob.size)} · 원본은 메모리에만 임시 로드되며 영구 저장하지 않습니다.`;
+    els.mediaViewerOpenBtn.disabled = false;
+    els.mediaViewerDownloadBtn.disabled = false;
+  } catch (error) {
+    console.error(error);
+    els.mediaViewerMeta.textContent = '원본을 불러오지 못했습니다.';
+    els.mediaViewerBody.innerHTML = `<div class="media-empty error">${escapeHtml(error.message || '첨부자료 열기 실패')}<br><br>필요하면 목록의 Drive 버튼으로 원본을 직접 열 수 있습니다.</div>`;
+  }
+}
+
+function base64ToUint8Array(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function closeMediaViewerObjectUrl() {
+  if (mediaViewerObjectUrl) URL.revokeObjectURL(mediaViewerObjectUrl);
+  mediaViewerObjectUrl = '';
+}
+
+function closeMediaViewer() {
+  els.mediaViewerModal.classList.add('hidden');
+  els.mediaViewerBody.innerHTML = '';
+  mediaViewerItem = null;
+  closeMediaViewerObjectUrl();
+}
+
+function openMediaViewerInNewWindow() {
+  if (!mediaViewerObjectUrl) return;
+  window.open(mediaViewerObjectUrl, '_blank', 'noopener,noreferrer');
+}
+
+function downloadMediaViewerFile() {
+  if (!mediaViewerObjectUrl || !mediaViewerItem) return;
+  const link = document.createElement('a');
+  link.href = mediaViewerObjectUrl;
+  link.download = mediaViewerItem.originalName || mediaViewerItem.fileName || 'attachment';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+async function deleteMediaItem(item) {
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 첨부자료를 삭제할 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) {
+    openSettings();
+    return showToast('첨부자료를 삭제하려면 설정에서 관리 PIN 6자리를 저장해 주세요.');
+  }
+  const ok = window.confirm(`첨부자료를 삭제할까요?\n\n${item.originalName || item.fileName}\n\nGoogle Drive의 topic_files에서 휴지통으로 이동합니다.`);
+  if (!ok) return;
+
+  setLoading(true, '첨부자료를 삭제하는 중...');
+  try {
+    await sendMutation(getApiUrl(), {
+      action: 'deleteMedia',
+      adminPin,
+      topicId: item.topicId,
+      fileId: item.fileId,
+    }, { timeoutMs: 30000 });
+    await refreshTopicMedia({ topicId: item.topicId, silent: true });
+    showToast('첨부자료를 삭제했습니다.');
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || '첨부자료 삭제에 실패했습니다.');
+  } finally {
+    setLoading(false);
+  }
+}
 
 function getLearningState(topicId) {
   const existing = learningStateMap.get(topicId);
@@ -2789,7 +3342,6 @@ function cssEscape(value) {
   if (window.CSS?.escape) return CSS.escape(value);
   return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
 }
-
   </script>
 </body>
 </html>
