@@ -103,6 +103,51 @@ button { -webkit-tap-highlight-color: transparent; }
   outline: none;
 }
 .field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+
+.search-target-select { position: relative; }
+.search-target-button {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid #cfd8e3;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+}
+.search-target-button:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+.search-target-button .arrow { color: var(--muted); font-size: .8rem; transition: transform .15s ease; }
+.search-target-select.open .search-target-button .arrow { transform: rotate(180deg); }
+.search-target-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 65;
+  margin-top: 5px;
+  padding: 7px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .14);
+}
+.search-target-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  user-select: none;
+}
+.search-target-option:hover { background: #f8fafc; }
+.search-target-option input { width: 17px; height: 17px; margin: 0; accent-color: var(--primary); }
+.search-help { margin: 6px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.45; }
 .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 .btn, .icon-btn, .nav-btn, .text-btn {
@@ -360,7 +405,22 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
 
           <label class="field-label" for="searchInput">검색어</label>
-          <input id="searchInput" class="field" type="search" autocomplete="off" placeholder="토픽명·개념·키워드·암기법 검색">
+          <input id="searchInput" class="field" type="search" autocomplete="off" placeholder="예: 클라우드;가상화  (; = OR)">
+          <p class="search-help">여러 검색어는 세미콜론(;)으로 구분하면 OR 조건으로 조회합니다.</p>
+
+          <label class="field-label" for="searchTargetButton">검색대상</label>
+          <div id="searchTargetSelect" class="search-target-select">
+            <button id="searchTargetButton" class="search-target-button" type="button" aria-haspopup="true" aria-expanded="false">
+              <span id="searchTargetLabel">전체 4개</span>
+              <span class="arrow" aria-hidden="true">▼</span>
+            </button>
+            <div id="searchTargetMenu" class="search-target-menu hidden" role="group" aria-label="검색대상 다중 선택">
+              <label class="search-target-option"><input class="search-target-check" type="checkbox" value="topicName" checked> 토픽명</label>
+              <label class="search-target-option"><input class="search-target-check" type="checkbox" value="concept" checked> 개념</label>
+              <label class="search-target-option"><input class="search-target-check" type="checkbox" value="keywords" checked> 키워드</label>
+              <label class="search-target-option"><input class="search-target-check" type="checkbox" value="mnemonic" checked> 암기법</label>
+            </div>
+          </div>
 
           <div class="filter-grid">
             <div>
@@ -417,7 +477,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <p>처음 한 번만 Google Spreadsheet의 텍스트 데이터를 받아 기기에 저장합니다.</p>
           <p class="muted">이후 조회·검색·이동은 로컬 IndexedDB를 사용하므로 모바일 데이터가 소모되지 않습니다.</p>
           <div class="empty-actions">
-            <button id="emptySettingsBtn" class="btn" type="button">Apps Script URL 설정</button>
+            <button id="emptySettingsBtn" class="btn" type="button">연결 설정(선택)</button>
             <button id="emptyRefreshBtn" class="btn primary" type="button">최초 데이터 받기</button>
           </div>
         </section>
@@ -490,14 +550,14 @@ button { -webkit-tap-highlight-color: transparent; }
       <div class="modal-head">
         <div>
           <h2 id="settingsTitle">학습노트 설정</h2>
-          <p class="muted">Apps Script Web App URL은 이 브라우저에만 저장됩니다.</p>
+          <p class="muted">공용 Apps Script URL이 기본 내장되어 있어 PC·휴대폰·태블릿에서 별도 입력 없이 사용할 수 있습니다.</p>
         </div>
         <button id="closeSettingsBtn" class="icon-btn" type="button" aria-label="설정 닫기">✕</button>
       </div>
 
       <label class="field-label" for="apiUrlInput">Google Apps Script Web App URL</label>
       <input id="apiUrlInput" class="field" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">
-      <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data</p>
+      <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data · 입력값을 지우고 저장하면 공용 기본 URL을 사용합니다.</p>
 
       <div class="settings-status">
         <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
@@ -752,7 +812,8 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '1.0.1-stage1-simple';
+const APP_VERSION = '1.1.0-stage1-search';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
 const PAGE_SIZE = 120;
@@ -770,6 +831,7 @@ window.addEventListener('DOMContentLoaded', init);
 async function init() {
   bindElements();
   bindEvents();
+  updateSearchTargetLabel();
   updateNetworkStatus();
   window.addEventListener('online', updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
@@ -795,7 +857,7 @@ async function init() {
 function bindElements() {
   const ids = [
     'networkBadge','syncLabel','refreshBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
-    'searchInput','studyTargetFilter','importanceFilter','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
+    'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceFilter','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'loadMoreBtn','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
@@ -817,6 +879,18 @@ function bindEvents() {
   els.testApiBtn.addEventListener('click', testApiConnection);
 
   els.searchInput.addEventListener('input', () => applyFilters());
+  els.searchTargetButton.addEventListener('click', event => {
+    event.stopPropagation();
+    toggleSearchTargetMenu();
+  });
+  els.searchTargetMenu.addEventListener('click', event => event.stopPropagation());
+  document.querySelectorAll('.search-target-check').forEach(check => {
+    check.addEventListener('change', () => {
+      updateSearchTargetLabel();
+      applyFilters();
+    });
+  });
+  document.addEventListener('click', closeSearchTargetMenu);
   els.studyTargetFilter.addEventListener('change', () => applyFilters());
   els.importanceFilter.addEventListener('change', () => applyFilters());
   els.domainFilter.addEventListener('change', () => {
@@ -838,6 +912,7 @@ function bindEvents() {
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
 
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeSearchTargetMenu();
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || !currentTopicId) return;
     if (event.key === 'ArrowLeft') moveTopic(-1);
     if (event.key === 'ArrowRight' || event.key === ' ') {
@@ -864,7 +939,7 @@ function updateNetworkStatus() {
 }
 
 function getApiUrl() {
-  return normalizeApiUrl(localStorage.getItem(API_URL_KEY) || '');
+  return normalizeApiUrl(localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL);
 }
 
 function openSettings() {
@@ -882,10 +957,10 @@ function saveSettings() {
     showToast('Apps Script Web App URL 형식을 확인해 주세요.');
     return;
   }
-  if (value) localStorage.setItem(API_URL_KEY, value);
+  if (value && value !== normalizeApiUrl(DEFAULT_API_URL)) localStorage.setItem(API_URL_KEY, value);
   else localStorage.removeItem(API_URL_KEY);
   closeSettings();
-  showToast('설정을 저장했습니다.');
+  showToast(value ? '설정을 저장했습니다.' : '공용 기본 Apps Script URL을 사용합니다.');
 }
 
 async function testApiConnection() {
@@ -961,8 +1036,45 @@ function populateCategoryFilter() {
   els.categoryFilter.value = categories.some(c => c.code === current) ? current : 'ALL';
 }
 
+function getSearchTargetChecks() {
+  return [...document.querySelectorAll('.search-target-check')];
+}
+
+function getSelectedSearchTargets() {
+  return getSearchTargetChecks().filter(check => check.checked).map(check => check.value);
+}
+
+function updateSearchTargetLabel() {
+  const checks = getSearchTargetChecks();
+  const selected = checks.filter(check => check.checked);
+  if (selected.length === checks.length) {
+    els.searchTargetLabel.textContent = `전체 ${checks.length}개`;
+  } else if (selected.length === 0) {
+    els.searchTargetLabel.textContent = '선택 없음';
+  } else {
+    const names = selected.map(check => check.parentElement.textContent.trim());
+    els.searchTargetLabel.textContent = names.join(', ');
+  }
+}
+
+function toggleSearchTargetMenu() {
+  const willOpen = els.searchTargetMenu.classList.contains('hidden');
+  els.searchTargetMenu.classList.toggle('hidden', !willOpen);
+  els.searchTargetSelect.classList.toggle('open', willOpen);
+  els.searchTargetButton.setAttribute('aria-expanded', String(willOpen));
+}
+
+function closeSearchTargetMenu() {
+  els.searchTargetMenu.classList.add('hidden');
+  els.searchTargetSelect.classList.remove('open');
+  els.searchTargetButton.setAttribute('aria-expanded', 'false');
+}
+
 function resetFilters({ render = true } = {}) {
   els.searchInput.value = '';
+  getSearchTargetChecks().forEach(check => { check.checked = true; });
+  updateSearchTargetLabel();
+  closeSearchTargetMenu();
   els.studyTargetFilter.value = 'Y';
   els.importanceFilter.value = 'ALL';
   els.domainFilter.value = 'ALL';
@@ -972,7 +1084,11 @@ function resetFilters({ render = true } = {}) {
 }
 
 function applyFilters({ preserveCurrent = false } = {}) {
-  const query = normalizeSearchText(els.searchInput.value);
+  const searchTerms = els.searchInput.value
+    .split(';')
+    .map(term => normalizeSearchText(term))
+    .filter(Boolean);
+  const searchTargets = getSelectedSearchTargets();
   const target = els.studyTargetFilter.value;
   const importance = els.importanceFilter.value;
   const domain = els.domainFilter.value;
@@ -983,14 +1099,11 @@ function applyFilters({ preserveCurrent = false } = {}) {
     if (importance !== 'ALL' && topic.importance !== importance) return false;
     if (domain !== 'ALL' && topic.domain !== domain) return false;
     if (category !== 'ALL' && topic.categoryCode !== category) return false;
-    if (!query) return true;
+    if (!searchTerms.length) return true;
+    if (!searchTargets.length) return false;
 
-    const haystack = normalizeSearchText([
-      topic.topicName, topic.concept, topic.keywords, topic.mnemonic,
-      topic.relatedTopics, topic.categoryName, topic.categoryCode,
-      topic.subnotePages, topic.textbookPages
-    ].join(' '));
-    return haystack.includes(query);
+    const targetTexts = searchTargets.map(fieldName => normalizeSearchText(topic[fieldName] || ''));
+    return searchTerms.some(term => targetTexts.some(text => text.includes(term)));
   }).sort(compareTopics);
 
   visibleCount = PAGE_SIZE;
