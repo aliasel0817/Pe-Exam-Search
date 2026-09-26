@@ -351,6 +351,79 @@ button { -webkit-tap-highlight-color: transparent; }
   .manage-actions-right { display: grid; grid-template-columns: 1fr 1fr; }
 }
 
+
+/* ===== 3단계 학습장 ===== */
+.detail-learning-btn { display: none; }
+.learning-action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.learning-action-btn {
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+.learning-action-btn.active { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+.learning-action-btn.remember.active { border-color: #a7f3d0; background: #ecfdf3; color: #047857; }
+.learning-action-btn.miss.active { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+.learning-summary { margin-left: auto; color: var(--muted); font-size: .75rem; font-weight: 700; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.card-head h3 { margin: 0; }
+.reveal-btn { display: none; }
+.recall-mode .reveal-btn { display: inline-flex; }
+.recall-mode .recall-content.masked { visibility: hidden; }
+.memo-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.memo-status { color: var(--muted); font-size: .75rem; }
+.learning-dashboard-card { width: min(900px, 100%); max-height: min(92dvh, 900px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.learning-dashboard-top { display: flex; justify-content: flex-end; margin: 12px 0; }
+.learning-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.learning-stat { padding: 11px 9px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
+.learning-stat span, .learning-stat strong { display: block; }
+.learning-stat span { color: var(--muted); font-size: .68rem; margin-bottom: 4px; }
+.learning-stat strong { font-size: 1rem; }
+.progress-track { height: 9px; margin: 12px 0 6px; overflow: hidden; background: #e5e7eb; border-radius: 999px; }
+.progress-fill { height: 100%; width: 0; background: var(--primary); border-radius: inherit; transition: width .2s ease; }
+.progress-label { color: var(--muted); font-size: .75rem; }
+.learning-view-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0 10px; }
+.learning-view-tabs .btn.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); }
+.learning-list { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.learning-list-empty { padding: 26px 15px; text-align: center; color: var(--muted); }
+.learning-list-item { width: 100%; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; text-align: left; cursor: pointer; }
+.learning-list-item:last-child { border-bottom: 0; }
+.learning-list-item:hover { background: #f8fbff; }
+.learning-list-title { font-weight: 800; line-height: 1.35; }
+.learning-list-meta { margin-top: 4px; color: var(--muted); font-size: .72rem; }
+.learning-state-badge { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; background: #eef2f6; color: #475467; font-size: .72rem; font-weight: 800; }
+.learning-state-badge.memorized { background: var(--success-soft); color: var(--success); }
+.learning-state-badge.missed { background: var(--warning-soft); color: var(--warning); }
+.topic-learning-mark { font-weight: 800; }
+.topic-learning-mark.favorite { color: #b45309; }
+.topic-learning-mark.memorized { color: var(--success); }
+.topic-learning-mark.missed { color: var(--warning); }
+
+@media (max-width: 760px) {
+  .detail-learning-btn { display: inline-flex; }
+  .learning-action-bar { gap: 6px; padding: 9px; }
+  .learning-action-btn { flex: 1 1 calc(50% - 6px); min-width: 0; padding: 7px 8px; }
+  .learning-summary { width: 100%; margin-left: 0; text-align: right; }
+  .learning-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .learning-dashboard-card { width: 100%; max-height: 94dvh; padding: 16px 14px calc(18px + env(safe-area-inset-bottom)); }
+  .memo-actions { align-items: flex-end; }
+}
+
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -502,6 +575,7 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
       <div class="top-actions">
         <button id="refreshBtn" class="btn primary" type="button">⟳ MASTER 갱신</button>
+        <button id="learningBtn" class="btn" type="button">▣ 학습</button>
         <button id="manageBtn" class="btn" type="button">✎ 관리</button>
         <button id="settingsBtn" class="btn" type="button">⚙ 설정</button>
       </div>
@@ -615,6 +689,7 @@ button { -webkit-tap-highlight-color: transparent; }
             </div>
             <div class="detail-toolbar-right">
               <div class="detail-counter" id="detailCounter">0 / 0</div>
+              <button id="detailLearningBtn" class="icon-btn detail-learning-btn" type="button" aria-label="학습 현황">▣</button>
               <button id="detailManageBtn" class="icon-btn detail-manage-btn" type="button" aria-label="현재 토픽 관리">✎</button>
             </div>
           </div>
@@ -625,24 +700,42 @@ button { -webkit-tap-highlight-color: transparent; }
             <div id="detailDomainName" class="muted"></div>
           </header>
 
-          <section class="study-card emphasis-card">
-            <h3>개념</h3>
-            <div id="detailConcept" class="study-text"></div>
+          <section class="learning-action-bar" aria-label="학습 기능">
+            <button id="favoriteBtn" class="learning-action-btn" type="button">☆ 즐겨찾기</button>
+            <button id="rememberBtn" class="learning-action-btn remember" type="button">✓ 기억함</button>
+            <button id="missBtn" class="learning-action-btn miss" type="button">↻ 다시보기</button>
+            <button id="recallToggleBtn" class="learning-action-btn" type="button">◐ 회상 OFF</button>
+            <span id="learningSummary" class="learning-summary">미학습</span>
           </section>
 
-          <section class="study-card">
-            <h3>키워드</h3>
-            <div id="detailKeywords" class="study-text preserve-lines"></div>
+          <section class="study-card emphasis-card recall-card" data-recall-card="concept">
+            <div class="card-head"><h3>개념</h3><button class="text-btn reveal-btn" type="button" data-reveal-field="concept">보기</button></div>
+            <div id="detailConcept" class="study-text recall-content"></div>
           </section>
 
-          <section class="study-card">
-            <h3>암기법</h3>
-            <div id="detailMnemonic" class="study-text preserve-lines"></div>
+          <section class="study-card recall-card" data-recall-card="keywords">
+            <div class="card-head"><h3>키워드</h3><button class="text-btn reveal-btn" type="button" data-reveal-field="keywords">보기</button></div>
+            <div id="detailKeywords" class="study-text preserve-lines recall-content"></div>
+          </section>
+
+          <section class="study-card recall-card" data-recall-card="mnemonic">
+            <div class="card-head"><h3>암기법</h3><button class="text-btn reveal-btn" type="button" data-reveal-field="mnemonic">보기</button></div>
+            <div id="detailMnemonic" class="study-text preserve-lines recall-content"></div>
           </section>
 
           <section class="study-card">
             <h3>관련토픽</h3>
             <div id="detailRelated" class="study-text preserve-lines"></div>
+          </section>
+
+
+          <section class="study-card">
+            <div class="card-head"><h3>개인메모</h3></div>
+            <textarea id="personalMemoInput" class="textarea-field" placeholder="이 토픽에 대한 개인 메모를 입력하세요."></textarea>
+            <div class="memo-actions">
+              <span id="memoStatus" class="memo-status">저장된 메모 없음</span>
+              <button id="saveMemoBtn" class="btn" type="button">메모 저장</button>
+            </div>
           </section>
 
           <section class="study-card metadata-card">
@@ -683,9 +776,9 @@ button { -webkit-tap-highlight-color: transparent; }
       <input id="apiUrlInput" name="studyNoteApiUrl" class="field" type="text" inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data · 입력값을 지우고 저장하면 공용 기본 URL을 사용합니다.</p>
 
-      <label class="field-label" for="adminPinInput">관리 PIN (2단계 쓰기 기능)</label>
+      <label class="field-label" for="adminPinInput">관리 PIN (토픽 관리 · 학습정보 동기화)</label>
       <input id="adminPinInput" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6자리 관리 PIN">
-      <p class="help-text">토픽 추가·수정·학습대상 N 처리에만 사용하며 이 기기 브라우저에 저장됩니다.</p>
+      <p class="help-text">토픽 관리와 학습정보 동기화에 사용하며 이 기기 브라우저에 저장됩니다.</p>
 
       <div class="settings-status">
         <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
@@ -798,6 +891,43 @@ button { -webkit-tap-highlight-color: transparent; }
     </div>
   </div>
 
+
+  <div id="learningModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="learningTitle">
+    <div class="modal-card learning-dashboard-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="learningTitle">학습 현황</h2>
+          <p class="muted">학습상태는 기기에 즉시 저장되며, 동기화하면 Google Spreadsheet의 '학습정보' 시트와 맞춰집니다.</p>
+        </div>
+        <button id="closeLearningBtn" class="icon-btn" type="button" aria-label="학습 현황 닫기">✕</button>
+      </div>
+
+      <div class="learning-dashboard-top">
+        <button id="syncLearningBtn" class="btn primary" type="button">↕ 학습정보 동기화</button>
+      </div>
+
+      <div class="learning-stats">
+        <div class="learning-stat"><span>학습대상</span><strong id="statTarget">0</strong></div>
+        <div class="learning-stat"><span>학습함</span><strong id="statStudied">0</strong></div>
+        <div class="learning-stat"><span>암기</span><strong id="statMemorized">0</strong></div>
+        <div class="learning-stat"><span>미암기</span><strong id="statMissed">0</strong></div>
+        <div class="learning-stat"><span>즐겨찾기</span><strong id="statFavorite">0</strong></div>
+        <div class="learning-stat"><span>오늘 학습</span><strong id="statToday">0</strong></div>
+      </div>
+      <div class="progress-track"><div id="learningProgressFill" class="progress-fill"></div></div>
+      <div id="learningProgressLabel" class="progress-label">진도 0%</div>
+
+      <div class="learning-view-tabs" role="tablist" aria-label="학습 목록">
+        <button class="btn active" type="button" data-learning-view="recent">최근학습</button>
+        <button class="btn" type="button" data-learning-view="today">오늘의 학습</button>
+        <button class="btn" type="button" data-learning-view="missed">미암기 복습</button>
+        <button class="btn" type="button" data-learning-view="favorite">즐겨찾기</button>
+      </div>
+      <div id="learningList" class="learning-list"></div>
+      <p id="learningSyncLabel" class="help-text">학습정보 동기화 이력 없음</p>
+    </div>
+  </div>
+
   <div id="loadingOverlay" class="loading-overlay hidden" aria-live="assertive">
     <div class="spinner" aria-hidden="true"></div>
     <strong id="loadingMessage">처리 중...</strong>
@@ -807,9 +937,10 @@ button { -webkit-tap-highlight-color: transparent; }
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const TOPIC_STORE = 'topics';
 const META_STORE = 'meta';
+const LEARNING_STORE = 'learningStates';
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -841,6 +972,12 @@ function openDatabase() {
       }
       if (!db.objectStoreNames.contains(META_STORE)) {
         db.createObjectStore(META_STORE, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(LEARNING_STORE)) {
+        const learningStore = db.createObjectStore(LEARNING_STORE, { keyPath: 'topicId' });
+        learningStore.createIndex('studyStatus', 'studyStatus', { unique: false });
+        learningStore.createIndex('favorite', 'favorite', { unique: false });
+        learningStore.createIndex('lastStudiedAt', 'lastStudiedAt', { unique: false });
       }
     };
 
@@ -905,6 +1042,26 @@ async function getAllMeta(db) {
   const rows = await requestToPromise(tx.objectStore(META_STORE).getAll());
   await transactionDone(tx);
   return Object.fromEntries(rows.map(({ key, value }) => [key, value]));
+}
+
+
+async function getAllLearningStates(db) {
+  const tx = db.transaction(LEARNING_STORE, 'readonly');
+  const rows = await requestToPromise(tx.objectStore(LEARNING_STORE).getAll());
+  await transactionDone(tx);
+  return rows;
+}
+
+async function putLearningState(db, state) {
+  const tx = db.transaction(LEARNING_STORE, 'readwrite');
+  tx.objectStore(LEARNING_STORE).put(state);
+  await transactionDone(tx);
+}
+
+async function setMeta(db, key, value) {
+  const tx = db.transaction(META_STORE, 'readwrite');
+  tx.objectStore(META_STORE).put({ key, value });
+  await transactionDone(tx);
 }
 
 
@@ -982,6 +1139,67 @@ async function fetchMasterDataset(apiUrl) {
   const json = await response.json();
   if (!json || json.ok !== true) throw new Error(json?.message || 'MASTER 응답이 올바르지 않습니다.');
   return json;
+}
+
+
+const LEARNING_HEADERS = ['통합ID','즐겨찾기','학습상태','개인메모','최종학습일시','복습횟수','미암기횟수','업데이트일시','수정버전'];
+
+function normalizeLearningState(raw = {}) {
+  return {
+    topicId: clean(raw.topicId),
+    favorite: raw.favorite === true || clean(raw.favorite).toUpperCase() === 'Y',
+    studyStatus: ['암기','미암기'].includes(clean(raw.studyStatus)) ? clean(raw.studyStatus) : '미학습',
+    personalMemo: raw.personalMemo == null ? '' : String(raw.personalMemo),
+    lastStudiedAt: clean(raw.lastStudiedAt),
+    reviewCount: toNumber(raw.reviewCount, 0),
+    missCount: toNumber(raw.missCount, 0),
+    updatedAt: clean(raw.updatedAt),
+    revision: toNumber(raw.revision, 0),
+    dirty: Boolean(raw.dirty),
+  };
+}
+
+function normalizeLearningDataset(payload) {
+  const headers = Array.isArray(payload.headers) ? payload.headers.map(clean) : [];
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+  const missing = LEARNING_HEADERS.filter(header => !headers.includes(header));
+  if (missing.length) throw new Error(`학습정보 필수 컬럼 누락: ${missing.join(', ')}`);
+  const idx = Object.fromEntries(headers.map((header, index) => [header, index]));
+  return rows.map(row => normalizeLearningState({
+    topicId: row[idx['통합ID']],
+    favorite: row[idx['즐겨찾기']],
+    studyStatus: row[idx['학습상태']],
+    personalMemo: row[idx['개인메모']],
+    lastStudiedAt: row[idx['최종학습일시']],
+    reviewCount: row[idx['복습횟수']],
+    missCount: row[idx['미암기횟수']],
+    updatedAt: row[idx['업데이트일시']],
+    revision: row[idx['수정버전']],
+    dirty: false,
+  })).filter(state => state.topicId);
+}
+
+function serializeLearningState(state) {
+  return {
+    topicId: state.topicId,
+    favorite: state.favorite ? 'Y' : 'N',
+    studyStatus: state.studyStatus || '미학습',
+    personalMemo: state.personalMemo || '',
+    lastStudiedAt: state.lastStudiedAt || '',
+    reviewCount: Number(state.reviewCount || 0),
+    missCount: Number(state.missCount || 0),
+    updatedAt: state.updatedAt || new Date().toISOString(),
+    revision: Number(state.revision || 0),
+  };
+}
+
+async function fetchLearningStates(apiUrl, adminPin) {
+  const url = `${normalizeApiUrl(apiUrl)}?action=learningStates&adminPin=${encodeURIComponent(adminPin)}&_=${Date.now()}`;
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`학습정보 조회 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || '학습정보 응답이 올바르지 않습니다.');
+  return normalizeLearningDataset(json);
 }
 
 function normalizeSingleRow(headers, row) {
@@ -1097,12 +1315,13 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '2.0.4-stage2-manage-close-button';
+const APP_VERSION = '3.0.0-stage3-learning';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
 const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
 const PAGE_SIZE = 120;
+const RECALL_MODE_KEY = 'peStudyNote.recallMode';
 
 let db;
 let allTopics = [];
@@ -1140,6 +1359,8 @@ async function init() {
   db = await openDatabase();
   allTopics = await getAllTopics(db);
   allTopics.sort(compareTopics);
+  learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
+  recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
   await renderMeta();
 
   if (allTopics.length) {
@@ -1153,14 +1374,14 @@ async function init() {
 
 function bindElements() {
   const ids = [
-    'networkBadge','syncLabel','refreshBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
+    'networkBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'loadMoreBtn','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
-    'detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
+    'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -1169,6 +1390,8 @@ function bindEvents() {
   els.refreshBtn.addEventListener('click', refreshMaster);
   els.emptyRefreshBtn.addEventListener('click', refreshMaster);
   els.settingsBtn.addEventListener('click', openSettings);
+  els.learningBtn.addEventListener('click', openLearningDashboard);
+  els.detailLearningBtn.addEventListener('click', openLearningDashboard);
   els.manageBtn.addEventListener('click', () => openManage('edit'));
   els.detailManageBtn.addEventListener('click', () => openManage('edit'));
   els.emptySettingsBtn.addEventListener('click', openSettings);
@@ -1276,6 +1499,7 @@ function bindEvents() {
     const overlayOpen =
       !els.settingsModal.classList.contains('hidden') ||
       !els.manageModal.classList.contains('hidden') ||
+      !els.learningModal.classList.contains('hidden') ||
       els.sidebar.classList.contains('open');
 
     // 입력/편집/버튼/링크 등 인터랙티브 요소, 팝업/검색패널이 열린 상태,
@@ -1580,8 +1804,13 @@ function renderTopicList() {
   els.topicList.innerHTML = rows.map(topic => {
     const active = topic.topicId === currentTopicId ? ' active' : '';
     const targetClass = topic.studyTarget === 'N' ? ' target-n' : '';
+    const learningState = getLearningState(topic.topicId);
+    const favoriteMark = learningState.favorite ? '<span class="topic-learning-mark favorite">★</span>' : '';
+    const statusMark = learningState.studyStatus === '암기'
+      ? '<span class="topic-learning-mark memorized">✓</span>'
+      : (learningState.studyStatus === '미암기' ? '<span class="topic-learning-mark missed">↻</span>' : '');
     return `<button class="topic-item${active}" type="button" role="option" data-topic-id="${escapeHtml(topic.topicId)}" aria-selected="${topic.topicId === currentTopicId}">
-      <span class="topic-item-title">${escapeHtml(topic.topicName || '(토픽명 없음)')}</span>
+      <span class="topic-item-title">${favoriteMark}${statusMark}${favoriteMark || statusMark ? ' ' : ''}${escapeHtml(topic.topicName || '(토픽명 없음)')}</span>
       <span class="topic-item-meta">
         <span class="mini-badge">${escapeHtml(topic.topicId)}</span>
         <span class="mini-badge">${escapeHtml(topic.domain)}</span>
@@ -1641,6 +1870,8 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setText('detailSourceDomain', topic.sourceDomain || '-');
   setText('detailExclusionReason', topic.studyExclusionReason || '-');
   setText('detailNotes', topic.notes || '-');
+  renderCurrentLearningState();
+  resetRecallForTopic();
 
   updateNavigation();
   renderTopicList();
@@ -1681,6 +1912,270 @@ function updateNavigation() {
   els.prevBtn.disabled = index <= 0;
   els.nextBtn.disabled = index < 0 || index >= filteredTopics.length - 1;
   els.detailCounter.textContent = index >= 0 ? `${(index + 1).toLocaleString()} / ${filteredTopics.length.toLocaleString()}` : '-';
+}
+
+
+function getLearningState(topicId) {
+  const existing = learningStateMap.get(topicId);
+  return existing ? normalizeLearningState(existing) : normalizeLearningState({ topicId });
+}
+
+function formatShortDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).format(date);
+}
+
+function localDateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+async function updateLearningState(topicId, patch, { trySync = true } = {}) {
+  if (!topicId) return null;
+  const current = getLearningState(topicId);
+  const next = normalizeLearningState({
+    ...current,
+    ...patch,
+    topicId,
+    updatedAt: new Date().toISOString(),
+    revision: Number(current.revision || 0) + 1,
+    dirty: true,
+  });
+  learningStateMap.set(topicId, next);
+  await putLearningState(db, next);
+  if (topicId === currentTopicId) renderCurrentLearningState();
+  const previousListScrollTop = els.topicList.scrollTop;
+  renderTopicList();
+  els.topicList.scrollTop = previousListScrollTop;
+  if (!els.learningModal.classList.contains('hidden')) renderLearningDashboard();
+  if (trySync) syncSingleLearningState(next).catch(() => {});
+  return next;
+}
+
+async function markLearningStateClean(topicId, expectedUpdatedAt) {
+  const current = learningStateMap.get(topicId);
+  if (!current || current.updatedAt !== expectedUpdatedAt) return;
+  const cleanState = { ...current, dirty: false };
+  learningStateMap.set(topicId, cleanState);
+  await putLearningState(db, cleanState);
+}
+
+async function syncSingleLearningState(state) {
+  if (!navigator.onLine) return false;
+  const adminPin = getAdminPin();
+  if (!adminPin) return false;
+  const expectedUpdatedAt = state.updatedAt;
+  await sendMutation(getApiUrl(), {
+    action: 'saveLearningStates',
+    adminPin,
+    states: [serializeLearningState(state)],
+  });
+  await markLearningStateClean(state.topicId, expectedUpdatedAt);
+  return true;
+}
+
+async function toggleFavorite() {
+  if (!currentTopicId) return;
+  const current = getLearningState(currentTopicId);
+  const next = await updateLearningState(currentTopicId, { favorite: !current.favorite });
+  showToast(next.favorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 해제했습니다.');
+}
+
+async function recordLearningResult(result) {
+  if (!currentTopicId) return;
+  const current = getLearningState(currentTopicId);
+  const now = new Date().toISOString();
+  const patch = {
+    studyStatus: result,
+    lastStudiedAt: now,
+    reviewCount: Number(current.reviewCount || 0) + 1,
+    missCount: Number(current.missCount || 0) + (result === '미암기' ? 1 : 0),
+  };
+  await updateLearningState(currentTopicId, patch);
+  showToast(result === '암기' ? '기억함으로 기록했습니다.' : '다시보기 대상으로 기록했습니다.');
+}
+
+async function savePersonalMemo() {
+  if (!currentTopicId) return;
+  const memo = els.personalMemoInput.value;
+  await updateLearningState(currentTopicId, { personalMemo: memo });
+  els.memoStatus.textContent = `저장 ${formatShortDateTime(new Date())}`;
+  showToast('개인메모를 저장했습니다.');
+}
+
+function renderCurrentLearningState() {
+  if (!currentTopicId) return;
+  const state = getLearningState(currentTopicId);
+  els.favoriteBtn.classList.toggle('active', state.favorite);
+  els.favoriteBtn.textContent = state.favorite ? '★ 즐겨찾기' : '☆ 즐겨찾기';
+  els.rememberBtn.classList.toggle('active', state.studyStatus === '암기');
+  els.missBtn.classList.toggle('active', state.studyStatus === '미암기');
+  els.recallToggleBtn.classList.toggle('active', recallMode);
+  els.recallToggleBtn.textContent = recallMode ? '◐ 회상 ON' : '◐ 회상 OFF';
+  const last = state.lastStudiedAt ? ` · 최근 ${formatShortDateTime(state.lastStudiedAt)}` : '';
+  els.learningSummary.textContent = `${state.studyStatus || '미학습'} · 복습 ${state.reviewCount || 0}회 · 미암기 ${state.missCount || 0}회${last}`;
+  els.personalMemoInput.value = state.personalMemo || '';
+  els.memoStatus.textContent = state.personalMemo ? `메모 저장됨 · ${formatShortDateTime(state.updatedAt)}` : '저장된 메모 없음';
+}
+
+function toggleRecallMode() {
+  recallMode = !recallMode;
+  localStorage.setItem(RECALL_MODE_KEY, recallMode ? '1' : '0');
+  resetRecallForTopic();
+  renderCurrentLearningState();
+}
+
+function resetRecallForTopic() {
+  els.topicDetail.classList.toggle('recall-mode', recallMode);
+  document.querySelectorAll('.recall-content').forEach(content => {
+    content.classList.toggle('masked', recallMode);
+  });
+}
+
+function revealRecallField(field) {
+  const map = { concept: 'detailConcept', keywords: 'detailKeywords', mnemonic: 'detailMnemonic' };
+  const id = map[field];
+  if (!id) return;
+  els[id].classList.remove('masked');
+}
+
+function openLearningDashboard() {
+  renderLearningDashboard();
+  els.learningModal.classList.remove('hidden');
+}
+
+function closeLearningDashboard() {
+  els.learningModal.classList.add('hidden');
+}
+
+function learningStatesForExistingTopics() {
+  const topicIds = new Set(allTopics.map(topic => topic.topicId));
+  return [...learningStateMap.values()].filter(state => topicIds.has(state.topicId));
+}
+
+function renderLearningDashboard() {
+  const targetTopics = allTopics.filter(topic => topic.studyTarget === 'Y');
+  const states = learningStatesForExistingTopics();
+  const stateById = new Map(states.map(state => [state.topicId, state]));
+  const todayKey = localDateKey();
+  const studiedCount = targetTopics.filter(topic => (stateById.get(topic.topicId)?.reviewCount || 0) > 0).length;
+  const memorizedCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.studyStatus === '암기').length;
+  const missedCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.studyStatus === '미암기').length;
+  const favoriteCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.favorite).length;
+  const todayCount = targetTopics.filter(topic => localDateKey(stateById.get(topic.topicId)?.lastStudiedAt) === todayKey).length;
+
+  els.statTarget.textContent = targetTopics.length.toLocaleString();
+  els.statStudied.textContent = studiedCount.toLocaleString();
+  els.statMemorized.textContent = memorizedCount.toLocaleString();
+  els.statMissed.textContent = missedCount.toLocaleString();
+  els.statFavorite.textContent = favoriteCount.toLocaleString();
+  els.statToday.textContent = todayCount.toLocaleString();
+  const percent = targetTopics.length ? (studiedCount / targetTopics.length * 100) : 0;
+  els.learningProgressFill.style.width = `${Math.min(100, percent).toFixed(1)}%`;
+  els.learningProgressLabel.textContent = `진도 ${percent.toFixed(1)}% · ${studiedCount.toLocaleString()} / ${targetTopics.length.toLocaleString()}`;
+
+  document.querySelectorAll('[data-learning-view]').forEach(button => {
+    button.classList.toggle('active', button.dataset.learningView === learningView);
+  });
+
+  const topicMap = new Map(allTopics.map(topic => [topic.topicId, topic]));
+  let selected = states.filter(state => topicMap.has(state.topicId));
+  if (learningView === 'today') selected = selected.filter(state => localDateKey(state.lastStudiedAt) === todayKey);
+  else if (learningView === 'missed') selected = selected.filter(state => state.studyStatus === '미암기');
+  else if (learningView === 'favorite') selected = selected.filter(state => state.favorite);
+  else selected = selected.filter(state => state.lastStudiedAt);
+  selected.sort((a, b) => String(b.lastStudiedAt || b.updatedAt).localeCompare(String(a.lastStudiedAt || a.updatedAt)));
+  selected = selected.slice(0, 200);
+
+  if (!selected.length) {
+    els.learningList.innerHTML = '<div class="learning-list-empty">해당 학습 기록이 없습니다.</div>';
+  } else {
+    els.learningList.innerHTML = selected.map(state => {
+      const topic = topicMap.get(state.topicId);
+      const badgeClass = state.studyStatus === '암기' ? ' memorized' : (state.studyStatus === '미암기' ? ' missed' : '');
+      const fav = state.favorite ? '★ ' : '';
+      return `<button class="learning-list-item" type="button" data-learning-topic-id="${escapeHtml(state.topicId)}">
+        <span><span class="learning-list-title">${fav}${escapeHtml(topic?.topicName || state.topicId)}</span>
+        <span class="learning-list-meta">${escapeHtml(state.topicId)} · 복습 ${state.reviewCount || 0}회 · 미암기 ${state.missCount || 0}회 · ${escapeHtml(formatShortDateTime(state.lastStudiedAt || state.updatedAt))}</span></span>
+        <span class="learning-state-badge${badgeClass}">${escapeHtml(state.studyStatus || '미학습')}</span>
+      </button>`;
+    }).join('');
+    els.learningList.querySelectorAll('[data-learning-topic-id]').forEach(button => {
+      button.addEventListener('click', () => navigateToLearningTopic(button.dataset.learningTopicId));
+    });
+  }
+
+  getAllMeta(db).then(meta => {
+    els.learningSyncLabel.textContent = meta.lastLearningSyncAt
+      ? `마지막 학습정보 동기화: ${formatDateTime(meta.lastLearningSyncAt)}`
+      : '학습정보 동기화 이력 없음';
+  });
+}
+
+function navigateToLearningTopic(topicId) {
+  const topic = allTopics.find(item => item.topicId === topicId);
+  if (!topic) return;
+  els.searchInput.value = '';
+  els.studyTargetFilter.value = topic.studyTarget === 'N' ? 'ALL' : 'Y';
+  getImportanceChecks().forEach(check => { check.checked = true; });
+  updateImportanceLabel();
+  els.domainFilter.value = 'ALL';
+  populateCategoryFilter();
+  els.categoryFilter.value = 'ALL';
+  applyFilters();
+  showTopicById(topicId);
+  closeLearningDashboard();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function syncLearningStates() {
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 학습정보를 동기화할 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) {
+    openSettings();
+    return showToast('설정에서 관리 PIN 6자리를 먼저 저장해 주세요.');
+  }
+
+  setLoading(true, '학습정보를 동기화하는 중...');
+  try {
+    const dirtyStates = [...learningStateMap.values()].filter(state => state.dirty);
+    for (let i = 0; i < dirtyStates.length; i += 50) {
+      const batch = dirtyStates.slice(i, i + 50);
+      await sendMutation(getApiUrl(), {
+        action: 'saveLearningStates',
+        adminPin,
+        states: batch.map(serializeLearningState),
+      });
+      for (const state of batch) await markLearningStateClean(state.topicId, state.updatedAt);
+    }
+
+    const remoteStates = await fetchLearningStates(getApiUrl(), adminPin);
+    for (const remote of remoteStates) {
+      const local = learningStateMap.get(remote.topicId);
+      if (local?.dirty) continue;
+      if (!local || String(remote.updatedAt) >= String(local.updatedAt || '')) {
+        learningStateMap.set(remote.topicId, remote);
+        await putLearningState(db, remote);
+      }
+    }
+    const syncAt = new Date().toISOString();
+    await setMeta(db, 'lastLearningSyncAt', syncAt);
+    renderCurrentLearningState();
+    renderTopicList();
+    renderLearningDashboard();
+    showToast(`학습정보 동기화 완료 · ${remoteStates.length.toLocaleString()}건`);
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || '학습정보 동기화에 실패했습니다.');
+  } finally {
+    setLoading(false);
+  }
 }
 
 function getAdminPin() {
