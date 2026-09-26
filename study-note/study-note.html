@@ -398,8 +398,17 @@ button { -webkit-tap-highlight-color: transparent; }
 .progress-label { color: var(--muted); font-size: .75rem; }
 .learning-view-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0 10px; }
 .learning-view-tabs .btn.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); }
-.learning-list { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.learning-list { border: 1px solid var(--line); border-radius: 12px; max-height: min(42dvh, 430px); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .learning-list-empty { padding: 26px 15px; text-align: center; color: var(--muted); }
+.learning-pager, .topic-pager { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.learning-pager { margin-top: 10px; }
+.topic-pager { flex: 0 0 auto; padding: 9px 10px 11px; border-top: 1px solid var(--line); background: #fff; }
+.learning-pager .btn, .topic-pager .btn { min-width: 76px; }
+.pager-center { display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: var(--muted); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.pager-page-input { width: 52px; height: 34px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; background: #fff; text-align: center; font: inherit; font-weight: 800; color: var(--text); }
+.pager-page-input::-webkit-outer-spin-button, .pager-page-input::-webkit-inner-spin-button { margin: 0; }
+.topic-page-size { width: auto; min-width: 86px; height: 34px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--text); font: inherit; font-size: .76rem; font-weight: 700; }
+.pager-range { flex-basis: 100%; text-align: center; color: var(--muted); font-size: .7rem; }
 .learning-list-item { width: 100%; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; text-align: left; cursor: pointer; }
 .learning-list-item:last-child { border-bottom: 0; }
 .learning-list-item:hover { background: #f8fbff; }
@@ -542,6 +551,10 @@ button { -webkit-tap-highlight-color: transparent; }
   .detail-counter { padding-top: 4px; }
   .bottom-nav { justify-content: space-between; padding-left: 12px; padding-right: 12px; }
   .nav-btn { min-width: 0; flex: 1 1 0; padding-left: 7px; padding-right: 7px; }
+  .topic-pager, .learning-pager { gap: 6px; }
+  .topic-pager .btn, .learning-pager .btn { min-width: 70px; padding-left: 8px; padding-right: 8px; }
+  .pager-page-input { width: 46px; }
+  .topic-page-size { min-width: 78px; }
   .settings-status { grid-template-columns: 1fr; }
 }
 
@@ -660,7 +673,21 @@ button { -webkit-tap-highlight-color: transparent; }
             <span id="resultCount" class="count-chip">0건</span>
           </div>
           <div id="topicList" class="topic-list" role="listbox" aria-label="토픽 검색 결과"></div>
-          <button id="loadMoreBtn" class="btn wide hidden" type="button">더 보기</button>
+          <div id="topicPager" class="topic-pager hidden" aria-label="토픽 목록 페이지 이동">
+            <button id="topicPrevPageBtn" class="btn" type="button">← 이전</button>
+            <span class="pager-center">
+              <input id="topicPageInput" class="pager-page-input" type="number" min="1" value="1" inputmode="numeric" aria-label="토픽 현재 페이지">
+              <span>/</span>
+              <span id="topicTotalPages">1</span>
+            </span>
+            <button id="topicNextPageBtn" class="btn" type="button">다음 →</button>
+            <select id="topicPageSize" class="topic-page-size" aria-label="토픽 페이지당 표시 개수">
+              <option value="30">30개씩</option>
+              <option value="50">50개씩</option>
+              <option value="100">100개씩</option>
+            </select>
+            <span id="topicPageRange" class="pager-range">0건</span>
+          </div>
         </section>
       </aside>
 
@@ -927,6 +954,16 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-learning-view="favorite">즐겨찾기</button>
       </div>
       <div id="learningList" class="learning-list"></div>
+      <div id="learningPager" class="learning-pager hidden" aria-label="학습 목록 페이지 이동">
+        <button id="learningPrevPageBtn" class="btn" type="button">← 이전</button>
+        <span class="pager-center">
+          <input id="learningPageInput" class="pager-page-input" type="number" min="1" value="1" inputmode="numeric" aria-label="학습 목록 현재 페이지">
+          <span>/</span>
+          <span id="learningTotalPages">1</span>
+        </span>
+        <button id="learningNextPageBtn" class="btn" type="button">다음 →</button>
+        <span id="learningPageRange" class="pager-range">0건</span>
+      </div>
       <p id="learningSyncLabel" class="help-text">학습정보 동기화 이력 없음</p>
     </div>
   </div>
@@ -1326,18 +1363,22 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.4-stage3-today-count-fix';
+const APP_VERSION = '3.0.6-stage3-unified-paging-last-topic';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
 const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
-const PAGE_SIZE = 120;
+const TOPIC_PAGE_SIZE_KEY = 'peStudyNote.topicPageSize';
+const DEFAULT_TOPIC_PAGE_SIZE = 50;
+const LEARNING_PAGE_SIZE = 30;
 const RECALL_MODE_KEY = 'peStudyNote.recallMode';
 
 let db;
 let allTopics = [];
 let filteredTopics = [];
-let visibleCount = PAGE_SIZE;
+let topicPage = 1;
+let topicPageSize = Number(localStorage.getItem(TOPIC_PAGE_SIZE_KEY)) || DEFAULT_TOPIC_PAGE_SIZE;
+if (![30, 50, 100].includes(topicPageSize)) topicPageSize = DEFAULT_TOPIC_PAGE_SIZE;
 let currentTopicId = null;
 let manageMode = 'edit';
 
@@ -1345,6 +1386,7 @@ let manageMode = 'edit';
 let learningStateMap = new Map();
 let recallMode = false;
 let learningView = 'recent';
+let learningPage = 1;
 
 const els = {};
 
@@ -1357,6 +1399,7 @@ async function init() {
   // Chrome/브라우저가 설정용 Apps Script URL을 검색어 칸에 복원하지 못하도록
   // 검색창을 사용자가 실제로 조작하기 전까지 readonly로 보호한다.
   installSearchAutofillGuard();
+  els.topicPageSize.value = String(topicPageSize);
 
   updateSearchTargetLabel();
   updateNetworkStatus();
@@ -1375,9 +1418,23 @@ async function init() {
   await renderMeta();
 
   if (allTopics.length) {
+    // 마지막으로 보던 토픽을 필터가 첫 토픽을 자동선택하기 전에 먼저 복원한다.
+    // 기존 코드는 applyFilters()가 먼저 T0001을 선택하면서 LAST_TOPIC_KEY를 덮어쓰는 문제가 있었다.
+    const savedTopicId = localStorage.getItem(LAST_TOPIC_KEY);
+    const savedTopic = savedTopicId ? allTopics.find(topic => topic.topicId === savedTopicId) : null;
+    if (savedTopic) {
+      currentTopicId = savedTopic.topicId;
+      // 학습대상 N 토픽도 마지막으로 보고 있었다면 그대로 복원할 수 있게 한다.
+      if (savedTopic.studyTarget === 'N') els.studyTargetFilter.value = 'ALL';
+    }
+
     populateDomainFilter();
     applyFilters({ preserveCurrent: true });
-    showTopicById(localStorage.getItem(LAST_TOPIC_KEY) || filteredTopics[0]?.topicId);
+
+    // 저장된 토픽이 현재 필터에 포함되어 있으면 그 토픽을 유지한다.
+    if (savedTopic && filteredTopics.some(topic => topic.topicId === savedTopic.topicId)) {
+      showTopicById(savedTopic.topicId);
+    }
   } else {
     showEmptyState();
   }
@@ -1387,12 +1444,12 @@ function bindElements() {
   const ids = [
     'networkBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
-    'loadMoreBtn','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
+    'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -1435,6 +1492,16 @@ function bindEvents() {
   els.resetCurrentLearningBtn.addEventListener('click', resetCurrentLearningProgress);
   els.resetAllLearningBtn.addEventListener('click', resetAllLearningProgress);
   els.syncLearningBtn.addEventListener('click', syncLearningStates);
+  els.learningPrevPageBtn.addEventListener('click', () => setLearningPage(learningPage - 1));
+  els.learningNextPageBtn.addEventListener('click', () => setLearningPage(learningPage + 1));
+  els.learningPageInput.addEventListener('change', () => setLearningPage(Number(els.learningPageInput.value)));
+  els.learningPageInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setLearningPage(Number(els.learningPageInput.value));
+      els.learningPageInput.blur();
+    }
+  });
 
   document.querySelectorAll('[data-reveal-field]').forEach(button => {
     button.addEventListener('click', () => revealRecallField(button.dataset.revealField));
@@ -1443,7 +1510,9 @@ function bindEvents() {
   document.querySelectorAll('[data-learning-view]').forEach(button => {
     button.addEventListener('click', () => {
       learningView = button.dataset.learningView || 'recent';
+      learningPage = 1;
       renderLearningDashboard();
+      els.learningList.scrollTop = 0;
     });
   });
 
@@ -1489,8 +1558,23 @@ function bindEvents() {
   });
   els.categoryFilter.addEventListener('change', () => applyFilters());
   els.resetBtn.addEventListener('click', resetFilters);
-  els.loadMoreBtn.addEventListener('click', () => {
-    visibleCount += PAGE_SIZE;
+  els.topicPrevPageBtn.addEventListener('click', () => setTopicPage(topicPage - 1, { selectFirst: true }));
+  els.topicNextPageBtn.addEventListener('click', () => setTopicPage(topicPage + 1, { selectFirst: true }));
+  els.topicPageInput.addEventListener('change', () => setTopicPage(Number(els.topicPageInput.value), { selectFirst: true }));
+  els.topicPageInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      setTopicPage(Number(els.topicPageInput.value), { selectFirst: true });
+      els.topicPageInput.blur();
+    }
+  });
+  els.topicPageSize.addEventListener('change', () => {
+    const nextSize = Number(els.topicPageSize.value);
+    if (![30, 50, 100].includes(nextSize)) return;
+    topicPageSize = nextSize;
+    localStorage.setItem(TOPIC_PAGE_SIZE_KEY, String(topicPageSize));
+    const currentIndex = currentTopicId ? filteredTopics.findIndex(topic => topic.topicId === currentTopicId) : -1;
+    topicPage = currentIndex >= 0 ? Math.floor(currentIndex / topicPageSize) + 1 : 1;
     renderTopicList();
   });
 
@@ -1856,26 +1940,53 @@ function applyFilters({ preserveCurrent = false } = {}) {
     return searchTerms.some(term => targetTexts.some(text => text.includes(term)));
   }).sort(compareTopics);
 
-  visibleCount = PAGE_SIZE;
-  renderTopicList();
-
   if (!filteredTopics.length) {
+    topicPage = 1;
+    renderTopicList();
     clearDetailForNoResults();
     return;
   }
 
   if (preserveCurrent && currentTopicId && filteredTopics.some(t => t.topicId === currentTopicId)) {
+    const currentIndex = filteredTopics.findIndex(t => t.topicId === currentTopicId);
+    topicPage = Math.floor(currentIndex / topicPageSize) + 1;
+    renderTopicList();
     showTopicById(currentTopicId, { scrollList: false });
   } else if (!currentTopicId || !filteredTopics.some(t => t.topicId === currentTopicId)) {
+    topicPage = 1;
+    renderTopicList();
     showTopicById(filteredTopics[0].topicId, { scrollList: false });
   } else {
+    topicPage = Math.min(topicPage, getTopicTotalPages());
+    renderTopicList();
     updateNavigation();
+  }
+}
+
+function getTopicTotalPages() {
+  return Math.max(1, Math.ceil(filteredTopics.length / topicPageSize));
+}
+
+function setTopicPage(page, { selectFirst = false } = {}) {
+  const totalPages = getTopicTotalPages();
+  const numericPage = Number.isFinite(Number(page)) ? Math.trunc(Number(page)) : 1;
+  topicPage = Math.min(Math.max(1, numericPage), totalPages);
+  renderTopicList();
+  els.topicList.scrollTop = 0;
+
+  if (selectFirst && filteredTopics.length) {
+    const firstIndex = (topicPage - 1) * topicPageSize;
+    const firstTopic = filteredTopics[firstIndex];
+    if (firstTopic) showTopicById(firstTopic.topicId, { scrollList: false });
   }
 }
 
 function renderTopicList() {
   els.resultCount.textContent = `${filteredTopics.length.toLocaleString()}건`;
-  const rows = filteredTopics.slice(0, visibleCount);
+  const totalPages = getTopicTotalPages();
+  topicPage = Math.min(Math.max(1, topicPage), totalPages);
+  const pageStart = (topicPage - 1) * topicPageSize;
+  const rows = filteredTopics.slice(pageStart, pageStart + topicPageSize);
   els.topicList.innerHTML = rows.map(topic => {
     const active = topic.topicId === currentTopicId ? ' active' : '';
     const targetClass = topic.studyTarget === 'N' ? ' target-n' : '';
@@ -1904,7 +2015,18 @@ function renderTopicList() {
     });
   });
 
-  els.loadMoreBtn.classList.toggle('hidden', visibleCount >= filteredTopics.length);
+  const totalRows = filteredTopics.length;
+  const rangeStart = totalRows ? pageStart + 1 : 0;
+  const rangeEnd = Math.min(pageStart + rows.length, totalRows);
+  els.topicPager.classList.toggle('hidden', totalRows === 0);
+  els.topicPrevPageBtn.disabled = topicPage <= 1;
+  els.topicNextPageBtn.disabled = topicPage >= totalPages;
+  els.topicPageInput.min = '1';
+  els.topicPageInput.max = String(totalPages);
+  els.topicPageInput.value = String(topicPage);
+  els.topicTotalPages.textContent = totalPages.toLocaleString();
+  els.topicPageSize.value = String(topicPageSize);
+  els.topicPageRange.textContent = `${rangeStart.toLocaleString()}-${rangeEnd.toLocaleString()} / ${totalRows.toLocaleString()}건`;
 }
 
 function showTopicById(topicId, { scrollList = true } = {}) {
@@ -1915,9 +2037,8 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   }
 
   const topicIndex = filteredTopics.findIndex(t => t.topicId === topic.topicId);
-  if (topicIndex >= visibleCount) {
-    visibleCount = Math.ceil((topicIndex + 1) / PAGE_SIZE) * PAGE_SIZE;
-  }
+  const desiredPage = Math.floor(topicIndex / topicPageSize) + 1;
+  if (desiredPage !== topicPage) topicPage = desiredPage;
 
   currentTopicId = topic.topicId;
   localStorage.setItem(LAST_TOPIC_KEY, topic.topicId);
@@ -1968,8 +2089,10 @@ function clearDetailForNoResults() {
 
 function showEmptyState() {
   filteredTopics = [];
+  topicPage = 1;
   els.topicList.innerHTML = '';
   els.resultCount.textContent = '0건';
+  els.topicPager.classList.add('hidden');
   clearDetailForNoResults();
 }
 
@@ -2138,6 +2261,22 @@ function learningStatesForExistingTopics() {
   return [...learningStateMap.values()].filter(state => topicIds.has(state.topicId));
 }
 
+function setLearningPage(page) {
+  const states = learningStatesForExistingTopics();
+  const todayKey = localDateKey();
+  let selected = states;
+  if (learningView === 'today') selected = selected.filter(state => state.lastStudiedAt && localDateKey(state.lastStudiedAt) === todayKey);
+  else if (learningView === 'missed') selected = selected.filter(state => state.studyStatus === '미암기');
+  else if (learningView === 'favorite') selected = selected.filter(state => state.favorite);
+  else selected = selected.filter(state => state.lastStudiedAt);
+
+  const totalPages = Math.max(1, Math.ceil(selected.length / LEARNING_PAGE_SIZE));
+  const numericPage = Number.isFinite(Number(page)) ? Math.trunc(Number(page)) : 1;
+  learningPage = Math.min(Math.max(1, numericPage), totalPages);
+  renderLearningDashboard();
+  els.learningList.scrollTop = 0;
+}
+
 function renderLearningDashboard() {
   const targetTopics = allTopics.filter(topic => topic.studyTarget === 'Y');
   const states = learningStatesForExistingTopics();
@@ -2147,7 +2286,10 @@ function renderLearningDashboard() {
   const memorizedCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.studyStatus === '암기').length;
   const missedCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.studyStatus === '미암기').length;
   const favoriteCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.favorite).length;
-  const todayCount = targetTopics.filter(topic => localDateKey(stateById.get(topic.topicId)?.lastStudiedAt) === todayKey).length;
+  const todayCount = targetTopics.filter(topic => {
+    const lastStudiedAt = stateById.get(topic.topicId)?.lastStudiedAt;
+    return Boolean(lastStudiedAt) && localDateKey(lastStudiedAt) === todayKey;
+  }).length;
 
   els.statTarget.textContent = targetTopics.length.toLocaleString();
   els.statStudied.textContent = studiedCount.toLocaleString();
@@ -2165,17 +2307,33 @@ function renderLearningDashboard() {
 
   const topicMap = new Map(allTopics.map(topic => [topic.topicId, topic]));
   let selected = states.filter(state => topicMap.has(state.topicId));
-  if (learningView === 'today') selected = selected.filter(state => localDateKey(state.lastStudiedAt) === todayKey);
+  if (learningView === 'today') selected = selected.filter(state => state.lastStudiedAt && localDateKey(state.lastStudiedAt) === todayKey);
   else if (learningView === 'missed') selected = selected.filter(state => state.studyStatus === '미암기');
   else if (learningView === 'favorite') selected = selected.filter(state => state.favorite);
   else selected = selected.filter(state => state.lastStudiedAt);
   selected.sort((a, b) => String(b.lastStudiedAt || b.updatedAt).localeCompare(String(a.lastStudiedAt || a.updatedAt)));
-  selected = selected.slice(0, 200);
 
-  if (!selected.length) {
+  const totalLearningRows = selected.length;
+  const totalLearningPages = Math.max(1, Math.ceil(totalLearningRows / LEARNING_PAGE_SIZE));
+  learningPage = Math.min(Math.max(1, learningPage), totalLearningPages);
+  const pageStart = (learningPage - 1) * LEARNING_PAGE_SIZE;
+  const pageRows = selected.slice(pageStart, pageStart + LEARNING_PAGE_SIZE);
+
+  els.learningPager.classList.toggle('hidden', totalLearningRows === 0);
+  els.learningPrevPageBtn.disabled = learningPage <= 1;
+  els.learningNextPageBtn.disabled = learningPage >= totalLearningPages;
+  els.learningPageInput.min = '1';
+  els.learningPageInput.max = String(totalLearningPages);
+  els.learningPageInput.value = String(learningPage);
+  els.learningTotalPages.textContent = totalLearningPages.toLocaleString();
+  const learningRangeStart = totalLearningRows ? pageStart + 1 : 0;
+  const learningRangeEnd = Math.min(pageStart + pageRows.length, totalLearningRows);
+  els.learningPageRange.textContent = `${learningRangeStart.toLocaleString()}-${learningRangeEnd.toLocaleString()} / ${totalLearningRows.toLocaleString()}건`;
+
+  if (!pageRows.length) {
     els.learningList.innerHTML = '<div class="learning-list-empty">해당 학습 기록이 없습니다.</div>';
   } else {
-    els.learningList.innerHTML = selected.map(state => {
+    els.learningList.innerHTML = pageRows.map(state => {
       const topic = topicMap.get(state.topicId);
       const badgeClass = state.studyStatus === '암기' ? ' memorized' : (state.studyStatus === '미암기' ? ' missed' : '');
       const fav = state.favorite ? '★ ' : '';
