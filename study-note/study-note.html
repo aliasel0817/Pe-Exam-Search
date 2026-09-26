@@ -521,7 +521,7 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
 
           <label class="field-label" for="searchInput">검색어</label>
-          <input id="searchInput" class="field" type="search" autocomplete="off" placeholder="예: 클라우드;가상화  (; = OR)">
+          <input id="searchInput" name="topicSearchQuery" class="field" type="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="예: 클라우드;가상화  (; = OR)">
           <p class="search-help">여러 검색어는 세미콜론(;)으로 구분하면 OR 조건으로 조회합니다.</p>
 
           <label class="field-label" for="searchTargetButton">검색대상</label>
@@ -680,7 +680,7 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
 
       <label class="field-label" for="apiUrlInput">Google Apps Script Web App URL</label>
-      <input id="apiUrlInput" class="field" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">
+      <input id="apiUrlInput" name="studyNoteApiUrl" class="field" type="text" inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data · 입력값을 지우고 저장하면 공용 기본 URL을 사용합니다.</p>
 
       <label class="field-label" for="adminPinInput">관리 PIN (2단계 쓰기 기능)</label>
@@ -1096,7 +1096,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '2.0.2-stage2-manage-input-fix';
+const APP_VERSION = '2.0.3-stage2-search-autofill-fix';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1117,6 +1117,16 @@ window.addEventListener('DOMContentLoaded', init);
 async function init() {
   bindElements();
   bindEvents();
+
+  // Chrome/브라우저 자동입력이 설정용 Apps Script URL을 검색어 칸에 잘못 넣는 경우를 방어한다.
+  const sanitizeSearchAutofill = () => {
+    if (clearAccidentalSearchAutofill()) applyFilters({ preserveCurrent: true });
+  };
+  document.addEventListener('pointerdown', sanitizeSearchAutofill, true);
+  window.addEventListener('pageshow', () => setTimeout(sanitizeSearchAutofill, 0));
+  setTimeout(sanitizeSearchAutofill, 250);
+  setTimeout(sanitizeSearchAutofill, 1200);
+
   updateSearchTargetLabel();
   updateNetworkStatus();
   window.addEventListener('online', updateNetworkStatus);
@@ -1179,7 +1189,15 @@ function bindEvents() {
   els.deactivateTopicBtn.addEventListener('click', deactivateCurrentTopic);
   els.manageCategory.addEventListener('change', updateManageCategoryHint);
 
-  els.searchInput.addEventListener('input', () => applyFilters());
+  const handleSearchInput = () => {
+    clearAccidentalSearchAutofill();
+    applyFilters();
+  };
+  els.searchInput.addEventListener('input', handleSearchInput);
+  els.searchInput.addEventListener('change', handleSearchInput);
+  els.searchInput.addEventListener('focus', () => {
+    if (clearAccidentalSearchAutofill()) applyFilters();
+  });
   els.searchTargetButton.addEventListener('click', event => {
     event.stopPropagation();
     toggleSearchTargetMenu();
@@ -1475,6 +1493,32 @@ function closeImportanceMenu() {
   els.importanceButton.setAttribute('aria-expanded', 'false');
 }
 
+function isAppsScriptUrlText(value) {
+  const text = clean(value);
+  return /^https:\/\/script\.google\.com\/macros\/s\//i.test(text);
+}
+
+function clearAccidentalSearchAutofill() {
+  if (!els.searchInput) return false;
+  const value = clean(els.searchInput.value);
+  if (!value) return false;
+
+  const apiUrl = getApiUrl();
+  if (isAppsScriptUrlText(value) || (apiUrl && normalizeApiUrl(value) === normalizeApiUrl(apiUrl))) {
+    els.searchInput.value = '';
+    return true;
+  }
+  return false;
+}
+
+function getSafeSearchTerms() {
+  clearAccidentalSearchAutofill();
+  return els.searchInput.value
+    .split(';')
+    .map(term => normalizeSearchText(term))
+    .filter(Boolean);
+}
+
 function resetFilters({ render = true } = {}) {
   els.searchInput.value = '';
   getSearchTargetChecks().forEach(check => { check.checked = true; });
@@ -1491,10 +1535,7 @@ function resetFilters({ render = true } = {}) {
 }
 
 function applyFilters({ preserveCurrent = false } = {}) {
-  const searchTerms = els.searchInput.value
-    .split(';')
-    .map(term => normalizeSearchText(term))
-    .filter(Boolean);
+  const searchTerms = getSafeSearchTerms();
   const searchTargets = getSelectedSearchTargets();
   const target = els.studyTargetFilter.value;
   const selectedImportance = getSelectedImportance();
