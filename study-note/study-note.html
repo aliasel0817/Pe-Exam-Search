@@ -301,6 +301,56 @@ button { -webkit-tap-highlight-color: transparent; }
 .settings-status strong { font-size: .82rem; overflow-wrap: anywhere; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
+
+.detail-toolbar-right { display: flex; align-items: center; gap: 7px; }
+.detail-manage-btn { display: none; }
+
+.manage-card {
+  width: min(900px, 100%);
+  max-height: min(90dvh, 920px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.manage-mode-row { display: flex; gap: 8px; margin: 16px 0 4px; }
+.manage-mode-row .btn.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); }
+.manage-form { margin-top: 12px; }
+.manage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.manage-grid .full { grid-column: 1 / -1; }
+.manage-field-readonly { background: #f8fafc; color: #667085; }
+.textarea-field {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 11px;
+  resize: vertical;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid #cfd8e3;
+  border-radius: 9px;
+  outline: none;
+  line-height: 1.55;
+}
+.textarea-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+.manage-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.manage-actions-right { display: flex; gap: 8px; }
+.btn.danger { border-color: #fecdd3; background: #fff1f2; color: #be123c; }
+.btn.danger:hover { background: #ffe4e6; }
+.admin-pin-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.manage-hint { margin: 5px 0 0; color: var(--muted); font-size: .73rem; line-height: 1.45; }
+
+@media (max-width: 760px) {
+  .detail-manage-btn { display: inline-flex; }
+  .manage-card {
+    width: 100%;
+    max-height: 94dvh;
+    padding: 16px 14px calc(18px + env(safe-area-inset-bottom));
+  }
+  .manage-grid { grid-template-columns: 1fr; gap: 0; }
+  .manage-grid .full { grid-column: auto; }
+  .manage-actions { flex-direction: column-reverse; }
+  .manage-actions .btn, .manage-actions-right, .manage-actions-right .btn { width: 100%; }
+  .manage-actions-right { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -452,6 +502,7 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
       <div class="top-actions">
         <button id="refreshBtn" class="btn primary" type="button">⟳ MASTER 갱신</button>
+        <button id="manageBtn" class="btn" type="button">✎ 관리</button>
         <button id="settingsBtn" class="btn" type="button">⚙ 설정</button>
       </div>
     </header>
@@ -562,7 +613,10 @@ button { -webkit-tap-highlight-color: transparent; }
               <span id="detailImportance" class="badge">-</span>
               <span id="detailStudyTarget" class="badge">-</span>
             </div>
-            <div class="detail-counter" id="detailCounter">0 / 0</div>
+            <div class="detail-toolbar-right">
+              <div class="detail-counter" id="detailCounter">0 / 0</div>
+              <button id="detailManageBtn" class="icon-btn detail-manage-btn" type="button" aria-label="현재 토픽 관리">✎</button>
+            </div>
           </div>
 
           <header class="topic-header">
@@ -629,6 +683,10 @@ button { -webkit-tap-highlight-color: transparent; }
       <input id="apiUrlInput" class="field" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data · 입력값을 지우고 저장하면 공용 기본 URL을 사용합니다.</p>
 
+      <label class="field-label" for="adminPinInput">관리 PIN (2단계 쓰기 기능)</label>
+      <input id="adminPinInput" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6자리 관리 PIN">
+      <p class="help-text">토픽 추가·수정·학습대상 N 처리에만 사용하며 이 기기 브라우저에 저장됩니다.</p>
+
       <div class="settings-status">
         <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
         <div><span>마지막 MASTER 갱신</span><strong id="settingsLastSync">없음</strong></div>
@@ -639,6 +697,100 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="testApiBtn" class="btn" type="button">연결 확인</button>
         <button id="saveSettingsBtn" class="btn primary" type="button">저장</button>
       </div>
+    </div>
+  </div>
+
+  <div id="manageModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="manageTitle">
+    <div class="modal-card manage-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="manageTitle">토픽 관리</h2>
+          <p class="muted">수정은 통합ID를 기준으로 Google Spreadsheet에 반영됩니다.</p>
+        </div>
+        <button id="closeManageBtn" class="icon-btn" type="button" aria-label="토픽 관리 닫기">✕</button>
+      </div>
+
+      <div class="manage-mode-row">
+        <button id="editModeBtn" class="btn active" type="button">현재 토픽 수정</button>
+        <button id="addModeBtn" class="btn" type="button">＋ 새 토픽</button>
+      </div>
+
+      <form id="manageForm" class="manage-form">
+        <div class="manage-grid">
+          <div>
+            <label class="field-label" for="manageTopicId">통합ID</label>
+            <input id="manageTopicId" class="field manage-field-readonly" type="text" readonly>
+          </div>
+          <div>
+            <label class="field-label" for="manageCategory">대분류</label>
+            <select id="manageCategory" class="field"></select>
+          </div>
+          <div>
+            <label class="field-label" for="manageImportance">중요도</label>
+            <select id="manageImportance" class="field">
+              <option value="상">상</option>
+              <option value="중">중</option>
+              <option value="하">하</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="manageStudyTarget">학습대상</label>
+            <select id="manageStudyTarget" class="field">
+              <option value="Y">Y</option>
+              <option value="N">N</option>
+            </select>
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageTopicName">토픽명</label>
+            <input id="manageTopicName" class="field" type="text" maxlength="300">
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageConcept">개념</label>
+            <textarea id="manageConcept" class="textarea-field"></textarea>
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageKeywords">키워드</label>
+            <textarea id="manageKeywords" class="textarea-field"></textarea>
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageMnemonic">암기법</label>
+            <textarea id="manageMnemonic" class="textarea-field"></textarea>
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageRelated">관련토픽</label>
+            <textarea id="manageRelated" class="textarea-field"></textarea>
+          </div>
+          <div>
+            <label class="field-label" for="manageSubnotePages">서브노트페이지</label>
+            <input id="manageSubnotePages" class="field" type="text">
+          </div>
+          <div>
+            <label class="field-label" for="manageTextbookPages">교재페이지</label>
+            <input id="manageTextbookPages" class="field" type="text">
+          </div>
+          <div>
+            <label class="field-label" for="manageStatus">상태</label>
+            <input id="manageStatus" class="field" type="text">
+          </div>
+          <div>
+            <label class="field-label" for="manageExclusionReason">학습제외사유</label>
+            <input id="manageExclusionReason" class="field" type="text">
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageNotes">비고</label>
+            <textarea id="manageNotes" class="textarea-field"></textarea>
+          </div>
+        </div>
+        <p id="manageCategoryHint" class="manage-hint"></p>
+
+        <div class="manage-actions">
+          <button id="deactivateTopicBtn" class="btn danger" type="button">학습대상 N 처리</button>
+          <div class="manage-actions-right">
+            <button id="cancelManageBtn" class="btn" type="button">취소</button>
+            <button id="saveTopicBtn" class="btn primary" type="submit">저장</button>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -705,6 +857,12 @@ async function getTopic(db, topicId) {
   const row = await requestToPromise(tx.objectStore(TOPIC_STORE).get(topicId));
   await transactionDone(tx);
   return row || null;
+}
+
+async function putTopic(db, topic) {
+  const tx = db.transaction(TOPIC_STORE, 'readwrite');
+  tx.objectStore(TOPIC_STORE).put(topic);
+  await transactionDone(tx);
 }
 
 async function replaceAllTopics(db, topics, meta) {
@@ -822,6 +980,59 @@ async function fetchMasterDataset(apiUrl) {
   return json;
 }
 
+function normalizeSingleRow(headers, row) {
+  const cleanHeaders = Array.isArray(headers) ? headers.map(clean) : [];
+  if (!Array.isArray(row)) throw new Error('토픽 응답 형식이 올바르지 않습니다.');
+  const missing = REQUIRED_HEADERS.filter(header => !cleanHeaders.includes(header));
+  if (missing.length) throw new Error(`필수 컬럼 누락: ${missing.join(', ')}`);
+  const headerIndex = Object.fromEntries(cleanHeaders.map((header, index) => [header, index]));
+  const topic = {};
+  for (const [header, fieldName] of Object.entries(FIELD_MAP)) {
+    topic[fieldName] = clean(row[headerIndex[header]]);
+  }
+  if (!topic.topicId) throw new Error('서버 응답의 통합ID가 비어 있습니다.');
+  topic.domainOrder = toNumber(topic.domainOrder, 9999);
+  topic.topicOrder = toNumber(topic.topicOrder, 9999);
+  topic.categorySortOrder = categorySortNumber(topic.categoryCode);
+  topic.sourceLinkCount = toNumber(topic.sourceLinkCount, 0);
+  topic.studyTarget = topic.studyTarget.toUpperCase() || 'Y';
+  return topic;
+}
+
+function createRequestId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function fetchMutationStatus(apiUrl, requestId) {
+  const url = `${normalizeApiUrl(apiUrl)}?action=mutationStatus&requestId=${encodeURIComponent(requestId)}&_=${Date.now()}`;
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`처리상태 확인 실패: HTTP ${response.status}`);
+  return response.json();
+}
+
+async function sendMutation(apiUrl, payload) {
+  const requestId = createRequestId();
+  const body = JSON.stringify({ ...payload, requestId });
+  await fetch(normalizeApiUrl(apiUrl), {
+    method: 'POST',
+    mode: 'no-cors',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body,
+  });
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 15000) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const status = await fetchMutationStatus(apiUrl, requestId);
+    if (!status.done) continue;
+    if (!status.ok) throw new Error(status.message || 'Spreadsheet 저장에 실패했습니다.');
+    return status;
+  }
+  throw new Error('Spreadsheet 저장 확인 시간이 초과되었습니다. 다시 확인해 주세요.');
+}
+
 function validateAndNormalizeDataset(payload) {
   const headers = Array.isArray(payload.headers) ? payload.headers.map(clean) : [];
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
@@ -882,9 +1093,10 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '1.1.4-stage1-responsive-panel-fix';
+const APP_VERSION = '2.0.0-stage2-topic-management';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
+const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
 const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
 const PAGE_SIZE = 120;
 
@@ -893,6 +1105,7 @@ let allTopics = [];
 let filteredTopics = [];
 let visibleCount = PAGE_SIZE;
 let currentTopicId = null;
+let manageMode = 'edit';
 
 const els = {};
 
@@ -926,14 +1139,14 @@ async function init() {
 
 function bindElements() {
   const ids = [
-    'networkBadge','syncLabel','refreshBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
+    'networkBadge','syncLabel','refreshBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'loadMoreBtn','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
-    'detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
+    'detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
-    'settingsModal','closeSettingsBtn','apiUrlInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','loadingOverlay','loadingMessage','toast'
+    'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -942,11 +1155,22 @@ function bindEvents() {
   els.refreshBtn.addEventListener('click', refreshMaster);
   els.emptyRefreshBtn.addEventListener('click', refreshMaster);
   els.settingsBtn.addEventListener('click', openSettings);
+  els.manageBtn.addEventListener('click', () => openManage('edit'));
+  els.detailManageBtn.addEventListener('click', () => openManage('edit'));
   els.emptySettingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsModal.addEventListener('click', event => { if (event.target === els.settingsModal) closeSettings(); });
   els.saveSettingsBtn.addEventListener('click', saveSettings);
   els.testApiBtn.addEventListener('click', testApiConnection);
+
+  els.closeManageBtn.addEventListener('click', closeManage);
+  els.cancelManageBtn.addEventListener('click', closeManage);
+  els.manageModal.addEventListener('click', event => { if (event.target === els.manageModal) closeManage(); });
+  els.editModeBtn.addEventListener('click', () => switchManageMode('edit'));
+  els.addModeBtn.addEventListener('click', () => switchManageMode('add'));
+  els.manageForm.addEventListener('submit', saveManagedTopic);
+  els.deactivateTopicBtn.addEventListener('click', deactivateCurrentTopic);
+  els.manageCategory.addEventListener('change', updateManageCategoryHint);
 
   els.searchInput.addEventListener('input', () => applyFilters());
   els.searchTargetButton.addEventListener('click', event => {
@@ -993,7 +1217,7 @@ function bindEvents() {
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
 
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { closeSearchTargetMenu(); closeImportanceMenu(); }
+    if (event.key === 'Escape') { closeSearchTargetMenu(); closeImportanceMenu(); if (!els.manageModal.classList.contains('hidden')) closeManage(); }
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || !currentTopicId) return;
     if (event.key === 'ArrowLeft') moveTopic(-1);
     if (event.key === 'ArrowRight' || event.key === ' ') {
@@ -1007,7 +1231,7 @@ async function renderMeta() {
   const meta = await getAllMeta(db);
   const last = meta.lastMasterSyncAt ? formatDateTime(meta.lastMasterSyncAt) : 'MASTER 미수신';
   els.syncLabel.textContent = meta.lastMasterSyncAt ? `갱신 ${last}` : 'MASTER 미수신';
-  els.settingsTopicCount.textContent = Number(meta.topicCount || allTopics.length).toLocaleString();
+  els.settingsTopicCount.textContent = allTopics.length.toLocaleString();
   els.settingsLastSync.textContent = meta.lastMasterSyncAt ? last : '없음';
   els.settingsAppVersion.textContent = APP_VERSION;
 }
@@ -1025,6 +1249,7 @@ function getApiUrl() {
 
 function openSettings() {
   els.apiUrlInput.value = getApiUrl();
+  els.adminPinInput.value = localStorage.getItem(ADMIN_PIN_KEY) || '';
   els.settingsModal.classList.remove('hidden');
 }
 
@@ -1040,6 +1265,13 @@ function saveSettings() {
   }
   if (value && value !== normalizeApiUrl(DEFAULT_API_URL)) localStorage.setItem(API_URL_KEY, value);
   else localStorage.removeItem(API_URL_KEY);
+  const adminPin = clean(els.adminPinInput.value);
+  if (adminPin && !/^\d{6}$/.test(adminPin)) {
+    showToast('관리 PIN은 숫자 6자리로 입력해 주세요.');
+    return;
+  }
+  if (adminPin) localStorage.setItem(ADMIN_PIN_KEY, adminPin);
+  else localStorage.removeItem(ADMIN_PIN_KEY);
   closeSettings();
   showToast(value ? '설정을 저장했습니다.' : '공용 기본 Apps Script URL을 사용합니다.');
 }
@@ -1349,6 +1581,207 @@ function updateNavigation() {
   els.prevBtn.disabled = index <= 0;
   els.nextBtn.disabled = index < 0 || index >= filteredTopics.length - 1;
   els.detailCounter.textContent = index >= 0 ? `${(index + 1).toLocaleString()} / ${filteredTopics.length.toLocaleString()}` : '-';
+}
+
+function getAdminPin() {
+  return clean(localStorage.getItem(ADMIN_PIN_KEY) || '');
+}
+
+function buildCategoryOptions() {
+  const categories = [...new Map(allTopics.map(topic => [topic.categoryCode, {
+    categoryCode: topic.categoryCode,
+    categoryName: topic.categoryName,
+    domain: topic.domain,
+    domainName: topic.domainName,
+    domainOrder: topic.domainOrder,
+    categorySortOrder: topic.categorySortOrder,
+  }])).values()].sort((a, b) =>
+    a.domainOrder - b.domainOrder ||
+    a.categorySortOrder - b.categorySortOrder ||
+    a.categoryCode.localeCompare(b.categoryCode, 'ko', { numeric: true })
+  );
+  els.manageCategory.innerHTML = categories.map(item =>
+    `<option value="${escapeHtml(item.categoryCode)}">${escapeHtml(item.categoryCode)} · ${escapeHtml(item.categoryName)} (${escapeHtml(item.domain)})</option>`
+  ).join('');
+}
+
+function openManage(mode = 'edit') {
+  if (!allTopics.length) return showToast('먼저 MASTER 데이터를 받아 주세요.');
+  if (!getAdminPin()) {
+    openSettings();
+    showToast('2단계 쓰기 기능을 사용하려면 설정에서 관리 PIN 6자리를 먼저 저장해 주세요.');
+    return;
+  }
+  buildCategoryOptions();
+  els.manageModal.classList.remove('hidden');
+  switchManageMode(mode);
+}
+
+function closeManage() {
+  els.manageModal.classList.add('hidden');
+}
+
+function switchManageMode(mode) {
+  manageMode = mode === 'add' ? 'add' : 'edit';
+  els.editModeBtn.classList.toggle('active', manageMode === 'edit');
+  els.addModeBtn.classList.toggle('active', manageMode === 'add');
+  els.deactivateTopicBtn.classList.toggle('hidden', manageMode !== 'edit');
+  els.manageCategory.disabled = manageMode === 'edit';
+
+  if (manageMode === 'edit') {
+    const topic = allTopics.find(item => item.topicId === currentTopicId);
+    if (!topic) return showToast('수정할 현재 토픽이 없습니다.');
+    fillManageForm(topic);
+  } else {
+    clearManageFormForAdd();
+  }
+  updateManageCategoryHint();
+}
+
+function fillManageForm(topic) {
+  els.manageTopicId.value = topic.topicId;
+  els.manageCategory.value = topic.categoryCode;
+  els.manageImportance.value = topic.importance || '중';
+  els.manageStudyTarget.value = topic.studyTarget || 'Y';
+  els.manageTopicName.value = topic.topicName || '';
+  els.manageConcept.value = topic.concept || '';
+  els.manageKeywords.value = topic.keywords || '';
+  els.manageMnemonic.value = topic.mnemonic || '';
+  els.manageRelated.value = topic.relatedTopics || '';
+  els.manageSubnotePages.value = topic.subnotePages || '';
+  els.manageTextbookPages.value = topic.textbookPages || '';
+  els.manageStatus.value = topic.status || '';
+  els.manageExclusionReason.value = topic.studyExclusionReason || '';
+  els.manageNotes.value = topic.notes || '';
+}
+
+function clearManageFormForAdd() {
+  const current = allTopics.find(item => item.topicId === currentTopicId);
+  els.manageTopicId.value = '자동 발급';
+  els.manageCategory.value = current?.categoryCode || els.manageCategory.options[0]?.value || '';
+  els.manageImportance.value = '중';
+  els.manageStudyTarget.value = 'Y';
+  els.manageTopicName.value = '';
+  els.manageConcept.value = '';
+  els.manageKeywords.value = '';
+  els.manageMnemonic.value = '';
+  els.manageRelated.value = '';
+  els.manageSubnotePages.value = '';
+  els.manageTextbookPages.value = '';
+  els.manageStatus.value = '';
+  els.manageExclusionReason.value = '';
+  els.manageNotes.value = '';
+}
+
+function updateManageCategoryHint() {
+  const categoryCode = els.manageCategory.value;
+  const sample = allTopics.find(topic => topic.categoryCode === categoryCode);
+  if (!sample) {
+    els.manageCategoryHint.textContent = '';
+    return;
+  }
+  els.manageCategoryHint.textContent = manageMode === 'edit'
+    ? `현재 분류: ${sample.domain} · ${sample.categoryCode} · ${sample.categoryName} (2단계에서는 기존 토픽의 대분류 이동은 수정하지 않음)`
+    : `신규 토픽은 ${sample.domain} · ${sample.categoryCode} · ${sample.categoryName}의 마지막 코드 다음 번호로 추가됩니다.`;
+}
+
+function collectManageFields() {
+  return {
+    importance: els.manageImportance.value,
+    studyTarget: els.manageStudyTarget.value,
+    topicName: clean(els.manageTopicName.value),
+    concept: els.manageConcept.value.trim(),
+    keywords: els.manageKeywords.value.trim(),
+    mnemonic: els.manageMnemonic.value.trim(),
+    relatedTopics: els.manageRelated.value.trim(),
+    subnotePages: clean(els.manageSubnotePages.value),
+    textbookPages: clean(els.manageTextbookPages.value),
+    status: clean(els.manageStatus.value),
+    studyExclusionReason: clean(els.manageExclusionReason.value),
+    notes: els.manageNotes.value.trim(),
+  };
+}
+
+async function saveManagedTopic(event) {
+  event.preventDefault();
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 Spreadsheet를 수정할 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) return showToast('관리 PIN을 먼저 설정해 주세요.');
+  const fields = collectManageFields();
+  if (!fields.topicName) return showToast('토픽명을 입력해 주세요.');
+
+  const payload = manageMode === 'add'
+    ? { action: 'addTopic', adminPin, categoryCode: els.manageCategory.value, fields }
+    : { action: 'updateTopic', adminPin, topicId: currentTopicId, fields };
+
+  setLoading(true, manageMode === 'add' ? '새 토픽을 추가하는 중...' : '토픽을 저장하는 중...');
+  try {
+    const status = await sendMutation(getApiUrl(), payload);
+    const topic = normalizeSingleRow(status.headers, status.row);
+    await applyServerTopicLocally(topic, { selectTopic: true });
+    closeManage();
+    showToast(manageMode === 'add' ? `새 토픽 추가 완료 · ${topic.topicId}` : `토픽 수정 완료 · ${topic.topicId}`);
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || '토픽 저장에 실패했습니다.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function deactivateCurrentTopic() {
+  const topic = allTopics.find(item => item.topicId === currentTopicId);
+  if (!topic) return;
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 Spreadsheet를 수정할 수 없습니다.');
+  const adminPin = getAdminPin();
+  if (!adminPin) return showToast('관리 PIN을 먼저 설정해 주세요.');
+  const confirmed = window.confirm(`${topic.topicName}\n\n행을 삭제하지 않고 학습대상만 N으로 변경합니다. 계속할까요?`);
+  if (!confirmed) return;
+
+  setLoading(true, '학습대상 N 처리 중...');
+  try {
+    const status = await sendMutation(getApiUrl(), {
+      action: 'deactivateTopic',
+      adminPin,
+      topicId: topic.topicId,
+      reason: clean(els.manageExclusionReason.value),
+    });
+    const updated = normalizeSingleRow(status.headers, status.row);
+    await applyServerTopicLocally(updated, { selectTopic: false });
+    closeManage();
+    showToast(`${updated.topicId} · 학습대상 N 처리 완료`);
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || '학습대상 N 처리에 실패했습니다.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function applyServerTopicLocally(topic, { selectTopic = true } = {}) {
+  await putTopic(db, topic);
+  const existingIndex = allTopics.findIndex(item => item.topicId === topic.topicId);
+  if (existingIndex >= 0) allTopics[existingIndex] = topic;
+  else allTopics.push(topic);
+  allTopics.sort(compareTopics);
+  populateDomainFilter();
+  applyFilters({ preserveCurrent: false });
+
+  if (selectTopic) {
+    // 현재 필터에 신규/수정 토픽이 포함되지 않으면 학습대상을 전체로 풀어 해당 토픽을 보여준다.
+    if (!filteredTopics.some(item => item.topicId === topic.topicId)) {
+      els.studyTargetFilter.value = 'ALL';
+      getImportanceChecks().forEach(check => { check.checked = true; });
+      updateImportanceLabel();
+      els.domainFilter.value = 'ALL';
+      populateCategoryFilter();
+      els.categoryFilter.value = 'ALL';
+      els.searchInput.value = '';
+      applyFilters();
+    }
+    showTopicById(topic.topicId);
+  }
+  await renderMeta();
 }
 
 function openSidebar() {
