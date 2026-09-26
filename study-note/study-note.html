@@ -1190,19 +1190,28 @@ async function fetchMasterDataset(apiUrl) {
 }
 
 
-const LEARNING_HEADERS = ['통합ID','즐겨찾기','학습상태','개인메모','최종학습일시','복습횟수','미암기횟수','업데이트일시','수정버전'];
+const LEARNING_HEADERS = ['통합ID','즐겨찾기','학습상태','개인메모','최종학습일시','복습횟수','미암기횟수','업데이트일시','수정버전','최종미암기일시'];
 
 function normalizeLearningState(raw = {}) {
+  const studyStatus = ['암기','미암기'].includes(clean(raw.studyStatus)) ? clean(raw.studyStatus) : '미학습';
+  const lastStudiedAt = clean(raw.lastStudiedAt);
+  const explicitLastMissedAt = clean(raw.lastMissedAt);
+
+  // v3.0.6 이전 데이터에는 최종미암기일시가 없으므로, 현재 상태가 미암기이면
+  // 기존 최종학습일시를 최초 1회에 한해 미암기 기록일시로 간주하여 중복 카운트를 방지한다.
+  const lastMissedAt = explicitLastMissedAt || (studyStatus === '미암기' ? lastStudiedAt : '');
+
   return {
     topicId: clean(raw.topicId),
     favorite: raw.favorite === true || clean(raw.favorite).toUpperCase() === 'Y',
-    studyStatus: ['암기','미암기'].includes(clean(raw.studyStatus)) ? clean(raw.studyStatus) : '미학습',
+    studyStatus,
     personalMemo: raw.personalMemo == null ? '' : String(raw.personalMemo),
-    lastStudiedAt: clean(raw.lastStudiedAt),
+    lastStudiedAt,
     reviewCount: toNumber(raw.reviewCount, 0),
     missCount: toNumber(raw.missCount, 0),
     updatedAt: clean(raw.updatedAt),
     revision: toNumber(raw.revision, 0),
+    lastMissedAt,
     dirty: Boolean(raw.dirty),
   };
 }
@@ -1223,6 +1232,7 @@ function normalizeLearningDataset(payload) {
     missCount: row[idx['미암기횟수']],
     updatedAt: row[idx['업데이트일시']],
     revision: row[idx['수정버전']],
+    lastMissedAt: row[idx['최종미암기일시']],
     dirty: false,
   })).filter(state => state.topicId);
 }
@@ -1238,6 +1248,7 @@ function serializeLearningState(state) {
     missCount: Number(state.missCount || 0),
     updatedAt: state.updatedAt || new Date().toISOString(),
     revision: Number(state.revision || 0),
+    lastMissedAt: state.lastMissedAt || '',
   };
 }
 
@@ -1363,7 +1374,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.6-stage3-unified-paging-last-topic';
+const APP_VERSION = '3.0.7-stage3-daily-learning-count';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2191,16 +2202,38 @@ async function toggleFavorite() {
 
 async function recordLearningResult(result) {
   if (!currentTopicId) return;
+
   const current = getLearningState(currentTopicId);
   const now = new Date().toISOString();
+  const todayKey = localDateKey();
+  const reviewedToday = Boolean(current.lastStudiedAt) && localDateKey(current.lastStudiedAt) === todayKey;
+  const missedToday = Boolean(current.lastMissedAt) && localDateKey(current.lastMissedAt) === todayKey;
+
   const patch = {
+    // 기억함/다시보기는 현재 상태를 선택하는 기능이다.
     studyStatus: result,
     lastStudiedAt: now,
-    reviewCount: Number(current.reviewCount || 0) + 1,
-    missCount: Number(current.missCount || 0) + (result === '미암기' ? 1 : 0),
+    // 같은 날 같은 토픽은 복습횟수를 최대 1회만 증가시킨다.
+    reviewCount: Number(current.reviewCount || 0) + (reviewedToday ? 0 : 1),
+    // 미암기 역시 같은 날 같은 토픽은 최대 1회만 누적한다.
+    missCount: Number(current.missCount || 0) + (result === '미암기' && !missedToday ? 1 : 0),
   };
-  await updateLearningState(currentTopicId, patch);
-  showToast(result === '암기' ? '기억함으로 기록했습니다.' : '다시보기 대상으로 기록했습니다.');
+
+  if (result === '미암기') {
+    patch.lastMissedAt = now;
+  }
+
+  const next = await updateLearningState(currentTopicId, patch);
+
+  if (result === '암기') {
+    showToast(reviewedToday
+      ? '오늘 복습은 이미 기록되어 현재 상태만 기억함으로 변경했습니다.'
+      : `기억함으로 기록했습니다. · 복습 ${next.reviewCount}회`);
+  } else {
+    showToast(reviewedToday && missedToday
+      ? '오늘 복습·미암기는 이미 기록되어 현재 상태만 다시보기로 변경했습니다.'
+      : `다시보기로 기록했습니다. · 복습 ${next.reviewCount}회 · 미암기 ${next.missCount}회`);
+  }
 }
 
 async function savePersonalMemo() {
@@ -2378,7 +2411,8 @@ function learningProgressIsSet(state) {
     state.studyStatus === '미암기' ||
     Number(state.reviewCount || 0) > 0 ||
     Number(state.missCount || 0) > 0 ||
-    Boolean(clean(state.lastStudiedAt))
+    Boolean(clean(state.lastStudiedAt)) ||
+    Boolean(clean(state.lastMissedAt))
   );
 }
 
@@ -2389,6 +2423,7 @@ function buildResetLearningState(state, updatedAt) {
     lastStudiedAt: '',
     reviewCount: 0,
     missCount: 0,
+    lastMissedAt: '',
     updatedAt,
     revision: Number(state.revision || 0) + 1,
     dirty: true,
@@ -2415,6 +2450,7 @@ async function resetCurrentLearningProgress() {
     lastStudiedAt: '',
     reviewCount: 0,
     missCount: 0,
+    lastMissedAt: '',
   });
   renderLearningDashboard();
   showToast(`${currentTopicId} 학습기록을 초기화했습니다.`);
