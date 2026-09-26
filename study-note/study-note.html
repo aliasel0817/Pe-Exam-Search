@@ -595,7 +595,7 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
 
           <label class="field-label" for="searchInput">검색어</label>
-          <input id="searchInput" name="topicSearchQuery" class="field" type="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="예: 클라우드;가상화  (; = OR)">
+          <input id="searchInput" name="peTopicSearchInput" class="field" type="search" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore="true" aria-autocomplete="none" readonly placeholder="예: 클라우드;가상화  (; = OR)">
           <p class="search-help">여러 검색어는 세미콜론(;)으로 구분하면 OR 조건으로 조회합니다.</p>
 
           <label class="field-label" for="searchTargetButton">검색대상</label>
@@ -1315,7 +1315,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.1-stage3-learning-event-fix';
+const APP_VERSION = '3.0.2-stage3-search-autofill-prevent';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1343,14 +1343,9 @@ async function init() {
   bindElements();
   bindEvents();
 
-  // Chrome/브라우저 자동입력이 설정용 Apps Script URL을 검색어 칸에 잘못 넣는 경우를 방어한다.
-  const sanitizeSearchAutofill = () => {
-    if (clearAccidentalSearchAutofill()) applyFilters({ preserveCurrent: true });
-  };
-  document.addEventListener('pointerdown', sanitizeSearchAutofill, true);
-  window.addEventListener('pageshow', () => setTimeout(sanitizeSearchAutofill, 0));
-  setTimeout(sanitizeSearchAutofill, 250);
-  setTimeout(sanitizeSearchAutofill, 1200);
+  // Chrome/브라우저가 설정용 Apps Script URL을 검색어 칸에 복원하지 못하도록
+  // 검색창을 사용자가 실제로 조작하기 전까지 readonly로 보호한다.
+  installSearchAutofillGuard();
 
   updateSearchTargetLabel();
   updateNetworkStatus();
@@ -1450,9 +1445,6 @@ function bindEvents() {
   };
   els.searchInput.addEventListener('input', handleSearchInput);
   els.searchInput.addEventListener('change', handleSearchInput);
-  els.searchInput.addEventListener('focus', () => {
-    if (clearAccidentalSearchAutofill()) applyFilters();
-  });
   els.searchTargetButton.addEventListener('click', event => {
     event.stopPropagation();
     toggleSearchTargetMenu();
@@ -1752,6 +1744,46 @@ function closeImportanceMenu() {
 function isAppsScriptUrlText(value) {
   const text = clean(value);
   return /^https:\/\/script\.google\.com\/macros\/s\//i.test(text);
+}
+
+function installSearchAutofillGuard() {
+  if (!els.searchInput) return;
+
+  let unlockedByUser = false;
+  let guardTimer = null;
+  let stopTimer = null;
+
+  const clearBeforeUserInput = () => {
+    if (unlockedByUser) return;
+    if (els.searchInput.value) els.searchInput.value = '';
+  };
+
+  const unlockForUser = () => {
+    if (unlockedByUser) return;
+    clearBeforeUserInput();
+    unlockedByUser = true;
+    els.searchInput.readOnly = false;
+    if (guardTimer) window.clearInterval(guardTimer);
+    if (stopTimer) window.clearTimeout(stopTimer);
+  };
+
+  // HTML 단계에서도 readonly이지만 JS 초기화 직후 다시 명시한다.
+  els.searchInput.readOnly = true;
+  els.searchInput.value = '';
+
+  // 마우스/터치, 키보드 Tab 이동 모두 실제 사용자 조작으로 본다.
+  els.searchInput.addEventListener('pointerdown', unlockForUser, { once: true });
+  els.searchInput.addEventListener('focus', unlockForUser, { once: true });
+
+  // 브라우저가 pageshow 이후 늦게 폼 값을 복원하는 경우까지 차단한다.
+  window.addEventListener('pageshow', () => {
+    clearBeforeUserInput();
+  });
+
+  guardTimer = window.setInterval(clearBeforeUserInput, 50);
+  stopTimer = window.setTimeout(() => {
+    if (guardTimer) window.clearInterval(guardTimer);
+  }, 3000);
 }
 
 function clearAccidentalSearchAutofill() {
