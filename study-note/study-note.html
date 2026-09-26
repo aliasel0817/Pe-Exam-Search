@@ -1315,7 +1315,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '3.0.0-stage3-learning';
+const APP_VERSION = '3.0.1-stage3-learning-event-fix';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1329,6 +1329,11 @@ let filteredTopics = [];
 let visibleCount = PAGE_SIZE;
 let currentTopicId = null;
 let manageMode = 'edit';
+
+// 3단계 학습기능 상태값은 명시적으로 선언한다.
+let learningStateMap = new Map();
+let recallMode = false;
+let learningView = 'recent';
 
 const els = {};
 
@@ -1413,6 +1418,31 @@ function bindEvents() {
   els.manageForm.addEventListener('submit', saveManagedTopic);
   els.deactivateTopicBtn.addEventListener('click', deactivateCurrentTopic);
   els.manageCategory.addEventListener('change', updateManageCategoryHint);
+
+  // 3단계 학습기능 이벤트 연결
+  els.favoriteBtn.addEventListener('click', toggleFavorite);
+  els.rememberBtn.addEventListener('click', () => recordLearningResult('암기'));
+  els.missBtn.addEventListener('click', () => recordLearningResult('미암기'));
+  els.recallToggleBtn.addEventListener('click', toggleRecallMode);
+  els.saveMemoBtn.addEventListener('click', savePersonalMemo);
+  els.closeLearningBtn.addEventListener('click', closeLearningDashboard);
+  els.syncLearningBtn.addEventListener('click', syncLearningStates);
+
+  document.querySelectorAll('[data-reveal-field]').forEach(button => {
+    button.addEventListener('click', () => revealRecallField(button.dataset.revealField));
+  });
+
+  document.querySelectorAll('[data-learning-view]').forEach(button => {
+    button.addEventListener('click', () => {
+      learningView = button.dataset.learningView || 'recent';
+      renderLearningDashboard();
+    });
+  });
+
+  // 학습 현황 팝업은 X 또는 바깥 영역 클릭으로 닫을 수 있다.
+  els.learningModal.addEventListener('click', event => {
+    if (event.target === els.learningModal) closeLearningDashboard();
+  });
 
   const handleSearchInput = () => {
     clearAccidentalSearchAutofill();
