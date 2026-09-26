@@ -432,13 +432,18 @@ button { -webkit-tap-highlight-color: transparent; }
               </select>
             </div>
             <div>
-              <label class="field-label" for="importanceFilter">중요도</label>
-              <select id="importanceFilter" class="field">
-                <option value="ALL">전체</option>
-                <option value="상">상</option>
-                <option value="중">중</option>
-                <option value="하">하</option>
-              </select>
+              <label class="field-label" for="importanceButton">중요도</label>
+              <div id="importanceSelect" class="search-target-select">
+                <button id="importanceButton" class="search-target-button" type="button" aria-haspopup="true" aria-expanded="false">
+                  <span id="importanceLabel">전체 3개</span>
+                  <span class="arrow" aria-hidden="true">▼</span>
+                </button>
+                <div id="importanceMenu" class="search-target-menu hidden" role="group" aria-label="중요도 다중 선택">
+                  <label class="search-target-option"><input class="importance-check" type="checkbox" value="상" checked> 상</label>
+                  <label class="search-target-option"><input class="importance-check" type="checkbox" value="중" checked> 중</label>
+                  <label class="search-target-option"><input class="importance-check" type="checkbox" value="하" checked> 하</label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -812,7 +817,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '1.1.1-stage1-mobile-fix';
+const APP_VERSION = '1.1.2-stage1-importance-multi';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
@@ -857,7 +862,7 @@ async function init() {
 function bindElements() {
   const ids = [
     'networkBadge','syncLabel','refreshBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
-    'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceFilter','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
+    'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'loadMoreBtn','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
@@ -892,7 +897,18 @@ function bindEvents() {
   });
   document.addEventListener('click', closeSearchTargetMenu);
   els.studyTargetFilter.addEventListener('change', () => applyFilters());
-  els.importanceFilter.addEventListener('change', () => applyFilters());
+  els.importanceButton.addEventListener('click', event => {
+    event.stopPropagation();
+    toggleImportanceMenu();
+  });
+  els.importanceMenu.addEventListener('click', event => event.stopPropagation());
+  document.querySelectorAll('.importance-check').forEach(check => {
+    check.addEventListener('change', () => {
+      updateImportanceLabel();
+      applyFilters();
+    });
+  });
+  document.addEventListener('click', closeImportanceMenu);
   els.domainFilter.addEventListener('change', () => {
     populateCategoryFilter();
     applyFilters();
@@ -912,7 +928,7 @@ function bindEvents() {
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
 
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closeSearchTargetMenu();
+    if (event.key === 'Escape') { closeSearchTargetMenu(); closeImportanceMenu(); }
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || !currentTopicId) return;
     if (event.key === 'ArrowLeft') moveTopic(-1);
     if (event.key === 'ArrowRight' || event.key === ' ') {
@@ -1059,6 +1075,7 @@ function updateSearchTargetLabel() {
 
 function toggleSearchTargetMenu() {
   const willOpen = els.searchTargetMenu.classList.contains('hidden');
+  closeImportanceMenu();
   els.searchTargetMenu.classList.toggle('hidden', !willOpen);
   els.searchTargetSelect.classList.toggle('open', willOpen);
   els.searchTargetButton.setAttribute('aria-expanded', String(willOpen));
@@ -1070,13 +1087,49 @@ function closeSearchTargetMenu() {
   els.searchTargetButton.setAttribute('aria-expanded', 'false');
 }
 
+function getImportanceChecks() {
+  return [...document.querySelectorAll('.importance-check')];
+}
+
+function getSelectedImportance() {
+  return getImportanceChecks().filter(check => check.checked).map(check => check.value);
+}
+
+function updateImportanceLabel() {
+  const checks = getImportanceChecks();
+  const selected = checks.filter(check => check.checked);
+  if (selected.length === checks.length) {
+    els.importanceLabel.textContent = `전체 ${checks.length}개`;
+  } else if (selected.length === 0) {
+    els.importanceLabel.textContent = '선택 없음';
+  } else {
+    els.importanceLabel.textContent = selected.map(check => check.value).join(', ');
+  }
+}
+
+function toggleImportanceMenu() {
+  const willOpen = els.importanceMenu.classList.contains('hidden');
+  closeSearchTargetMenu();
+  els.importanceMenu.classList.toggle('hidden', !willOpen);
+  els.importanceSelect.classList.toggle('open', willOpen);
+  els.importanceButton.setAttribute('aria-expanded', String(willOpen));
+}
+
+function closeImportanceMenu() {
+  els.importanceMenu.classList.add('hidden');
+  els.importanceSelect.classList.remove('open');
+  els.importanceButton.setAttribute('aria-expanded', 'false');
+}
+
 function resetFilters({ render = true } = {}) {
   els.searchInput.value = '';
   getSearchTargetChecks().forEach(check => { check.checked = true; });
   updateSearchTargetLabel();
   closeSearchTargetMenu();
   els.studyTargetFilter.value = 'Y';
-  els.importanceFilter.value = 'ALL';
+  getImportanceChecks().forEach(check => { check.checked = true; });
+  updateImportanceLabel();
+  closeImportanceMenu();
   els.domainFilter.value = 'ALL';
   populateCategoryFilter();
   els.categoryFilter.value = 'ALL';
@@ -1090,13 +1143,14 @@ function applyFilters({ preserveCurrent = false } = {}) {
     .filter(Boolean);
   const searchTargets = getSelectedSearchTargets();
   const target = els.studyTargetFilter.value;
-  const importance = els.importanceFilter.value;
+  const selectedImportance = getSelectedImportance();
   const domain = els.domainFilter.value;
   const category = els.categoryFilter.value;
 
   filteredTopics = allTopics.filter(topic => {
     if (target !== 'ALL' && topic.studyTarget !== target) return false;
-    if (importance !== 'ALL' && topic.importance !== importance) return false;
+    if (!selectedImportance.length) return false;
+    if (!selectedImportance.includes(topic.importance)) return false;
     if (domain !== 'ALL' && topic.domain !== domain) return false;
     if (category !== 'ALL' && topic.categoryCode !== category) return false;
     if (!searchTerms.length) return true;
