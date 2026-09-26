@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="description" content="정보관리기술사 학습노트">
+  <title>정보관리기술사 학습노트</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232563eb%22%2F%3E%3Cpath%20d%3D%22M17%2015h25a5%205%200%200%201%205%205v29H22a5%205%200%200%201-5-5V15Z%22%20fill%3D%22white%22%2F%3E%3Cpath%20d%3D%22M24%2024h16M24%2031h16M24%2038h11%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E">
+  <style>
+:root {
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --text: #172033;
+  --muted: #667085;
+  --line: #dbe2ea;
+  --primary: #2563eb;
+  --primary-strong: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --danger-soft: #fff1f2;
+  --danger: #be123c;
+  --success-soft: #ecfdf3;
+  --success: #047857;
+  --warning-soft: #fff7ed;
+  --warning: #c2410c;
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --radius: 14px;
+  --topbar-h: 72px;
+  --bottom-nav-h: 66px;
+}
+
+* { box-sizing: border-box; }
+html { height: 100%; }
+body {
+  min-height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+.hidden { display: none !important; }
+.mobile-only { display: none; }
+.muted { color: var(--muted); }
+.preserve-lines { white-space: pre-wrap; }
+
+.app-shell { min-height: 100vh; }
+.topbar {
+  height: var(--topbar-h);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 18px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+.brand-area { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-area h1 { margin: 0; font-size: 1.12rem; line-height: 1.25; white-space: nowrap; }
+.top-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: .76rem; color: var(--muted); }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+
+.workspace {
+  min-height: calc(100vh - var(--topbar-h));
+  display: grid;
+  grid-template-columns: minmax(310px, 390px) minmax(0, 1fr);
+}
+.sidebar {
+  height: calc(100vh - var(--topbar-h));
+  position: sticky;
+  top: var(--topbar-h);
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+}
+.panel { background: var(--surface); }
+.filter-panel { padding: 15px; border-bottom: 1px solid var(--line); }
+.list-panel { min-height: 0; display: flex; flex: 1; flex-direction: column; }
+.section-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.section-title-row h2 { margin: 0; font-size: .95rem; }
+.sticky-list-title { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+
+.field-label { display: block; margin: 12px 0 6px; color: #475467; font-size: .78rem; font-weight: 700; }
+.field {
+  width: 100%;
+  height: 42px;
+  padding: 0 11px;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid #cfd8e3;
+  border-radius: 9px;
+  outline: none;
+}
+.field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+.filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn, .icon-btn, .nav-btn, .text-btn {
+  border: 0;
+  cursor: pointer;
+  color: var(--text);
+}
+.btn {
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  font-weight: 700;
+}
+.btn:hover { background: #f8fafc; }
+.btn.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+.btn.primary:hover { background: var(--primary-strong); }
+.btn.wide { width: calc(100% - 24px); margin: 10px 12px 14px; }
+.btn:disabled, .nav-btn:disabled { cursor: not-allowed; opacity: .42; }
+.icon-btn { width: 40px; height: 40px; border-radius: 9px; background: transparent; font-size: 1.2rem; }
+.icon-btn:hover { background: #eef2f6; }
+.text-btn { background: transparent; color: var(--primary); font-size: .78rem; font-weight: 700; }
+
+.status-chip, .count-chip, .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-chip { padding: 3px 7px; background: #eef2f6; color: #475467; }
+.status-chip.online { background: var(--success-soft); color: var(--success); }
+.status-chip.offline { background: var(--warning-soft); color: var(--warning); }
+.count-chip { min-width: 44px; padding: 4px 8px; background: #eef2f6; color: #475467; font-size: .76rem; }
+
+.topic-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.topic-item {
+  width: 100%;
+  display: block;
+  padding: 12px 14px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #edf1f5;
+  background: #fff;
+  cursor: pointer;
+}
+.topic-item:hover { background: #f8fbff; }
+.topic-item.active { background: var(--primary-soft); box-shadow: inset 3px 0 0 var(--primary); }
+.topic-item-title { display: block; font-weight: 800; line-height: 1.35; }
+.topic-item-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 6px; color: var(--muted); font-size: .73rem; }
+.mini-badge { padding: 2px 5px; border-radius: 5px; background: #f1f5f9; }
+.mini-badge.target-n { background: var(--danger-soft); color: var(--danger); }
+
+.content { min-width: 0; padding: 22px; padding-bottom: calc(28px + var(--bottom-nav-h)); }
+.empty-state {
+  max-width: 680px;
+  margin: 10vh auto 0;
+  padding: 34px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.empty-icon { font-size: 2.6rem; }
+.empty-state h2 { margin: 12px 0 8px; }
+.empty-state p { margin: 8px 0; line-height: 1.65; }
+.empty-actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; }
+
+.topic-detail { max-width: 980px; margin: 0 auto; }
+.detail-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.topic-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { padding: 5px 9px; color: #475467; background: #edf2f7; font-size: .76rem; }
+.badge.strong { background: #dbeafe; color: #1d4ed8; }
+.badge.target-n { background: var(--danger-soft); color: var(--danger); }
+.detail-counter { color: var(--muted); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.topic-header { margin: 0 0 20px; }
+.eyebrow { margin-bottom: 6px; color: var(--primary); font-size: .8rem; font-weight: 800; }
+.topic-header h2 { margin: 0 0 7px; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.28; letter-spacing: -.02em; }
+.study-card {
+  margin: 12px 0;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, .035);
+}
+.study-card.emphasis-card { border-color: #bfdbfe; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); }
+.study-card h3 { margin: 0 0 10px; color: #475467; font-size: .8rem; letter-spacing: .02em; }
+.study-text { font-size: 1.02rem; line-height: 1.75; overflow-wrap: anywhere; }
+.meta-grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.meta-grid > div { padding: 10px 0; border-bottom: 1px solid #eef2f6; }
+.meta-grid > div:nth-child(odd) { padding-right: 16px; }
+.meta-grid dt { margin-bottom: 5px; color: var(--muted); font-size: .73rem; font-weight: 700; }
+.meta-grid dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.detail-bottom-spacer { height: 10px; }
+
+.bottom-nav {
+  position: fixed;
+  left: minmax(0px, 0px);
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  min-height: var(--bottom-nav-h);
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 9px 18px;
+  padding-bottom: calc(9px + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,.96);
+  border-top: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+.nav-btn { min-width: 110px; min-height: 42px; padding: 8px 15px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-weight: 800; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, .5);
+}
+.modal-card { width: min(620px, 100%); padding: 20px; background: #fff; border-radius: 16px; box-shadow: 0 22px 70px rgba(15, 23, 42, .25); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.modal-head h2 { margin: 0 0 5px; }
+.modal-head p { margin: 0; font-size: .82rem; }
+.help-text { margin: 7px 0 0; color: var(--muted); font-size: .75rem; }
+.settings-status { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+.settings-status > div { padding: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
+.settings-status span, .settings-status strong { display: block; }
+.settings-status span { margin-bottom: 4px; color: var(--muted); font-size: .7rem; }
+.settings-status strong { font-size: .82rem; overflow-wrap: anywhere; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255,255,255,.9);
+}
+.spinner { width: 40px; height: 40px; border: 4px solid #dbeafe; border-top-color: var(--primary); border-radius: 50%; animation: spin .85s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-nav-h) + 18px + env(safe-area-inset-bottom));
+  z-index: 250;
+  max-width: min(90vw, 620px);
+  transform: translateX(-50%);
+  padding: 11px 15px;
+  color: #fff;
+  background: #111827;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: .87rem;
+}
+
+.sidebar-backdrop { display: none; }
+.sidebar-head { padding: 10px 12px; border-bottom: 1px solid var(--line); align-items: center; justify-content: space-between; }
+
+@media (max-width: 980px) {
+  .workspace { grid-template-columns: 330px minmax(0, 1fr); }
+  .content { padding: 18px; }
+  .meta-grid { grid-template-columns: 1fr; }
+  .meta-grid > div:nth-child(odd) { padding-right: 0; }
+}
+
+@media (max-width: 760px) {
+  :root { --topbar-h: 72px; }
+  .mobile-only { display: inline-flex; }
+  .topbar { padding-left: 10px; padding-right: 10px; }
+  .brand-area h1 { font-size: .98rem; }
+  .top-meta { gap: 5px; font-size: .69rem; }
+  .top-actions .btn:not(.primary) { display: none; }
+  .top-actions .btn { padding: 7px 9px; font-size: .78rem; }
+  .workspace { display: block; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 80;
+    width: min(88vw, 390px);
+    height: 100dvh;
+    transform: translateX(-104%);
+    transition: transform .2s ease;
+    box-shadow: 18px 0 40px rgba(15, 23, 42, .18);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-head { display: flex; padding-top: calc(10px + env(safe-area-inset-top)); }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 75;
+    background: rgba(15, 23, 42, .42);
+  }
+  .sidebar-backdrop.open { display: block; }
+  .content { padding: 13px 11px calc(var(--bottom-nav-h) + 22px); }
+  .empty-state { margin-top: 5vh; padding: 24px 17px; }
+  .empty-actions { flex-direction: column; }
+  .empty-actions .btn { width: 100%; }
+  .study-card { padding: 16px 15px; border-radius: 12px; }
+  .detail-toolbar { align-items: flex-start; }
+  .detail-counter { padding-top: 4px; }
+  .bottom-nav { justify-content: space-between; padding-left: 12px; padding-right: 12px; }
+  .nav-btn { min-width: 0; flex: 1; }
+  .settings-status { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .filter-grid { grid-template-columns: 1fr; gap: 0; }
+  .top-meta #syncLabel { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+  </style>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand-area">
+        <button id="openSidebarBtn" class="icon-btn mobile-only" type="button" aria-label="검색 및 목록 열기">☰</button>
+        <div>
+          <h1>정보관리기술사 학습노트</h1>
+          <div class="top-meta">
+            <span id="networkBadge" class="status-chip">상태 확인 중</span>
+            <span id="syncLabel">MASTER 미수신</span>
+          </div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="refreshBtn" class="btn primary" type="button">⟳ MASTER 갱신</button>
+        <button id="settingsBtn" class="btn" type="button">⚙ 설정</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside id="sidebar" class="sidebar" aria-label="토픽 검색 및 목록">
+        <div class="sidebar-head mobile-only">
+          <strong>검색 · 토픽 목록</strong>
+          <button id="closeSidebarBtn" class="icon-btn" type="button" aria-label="닫기">✕</button>
+        </div>
+
+        <section class="panel filter-panel">
+          <div class="section-title-row">
+            <h2>검색</h2>
+            <button id="resetBtn" class="text-btn" type="button">초기화</button>
+          </div>
+
+          <label class="field-label" for="searchInput">검색어</label>
+          <input id="searchInput" class="field" type="search" autocomplete="off" placeholder="토픽명·개념·키워드·암기법 검색">
+
+          <div class="filter-grid">
+            <div>
+              <label class="field-label" for="studyTargetFilter">학습대상</label>
+              <select id="studyTargetFilter" class="field">
+                <option value="Y" selected>Y</option>
+                <option value="N">N</option>
+                <option value="ALL">전체</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="importanceFilter">중요도</label>
+              <select id="importanceFilter" class="field">
+                <option value="ALL">전체</option>
+                <option value="상">상</option>
+                <option value="중">중</option>
+                <option value="하">하</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-grid">
+            <div>
+              <label class="field-label" for="domainFilter">도메인</label>
+              <select id="domainFilter" class="field">
+                <option value="ALL">전체</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="categoryFilter">대분류</label>
+              <select id="categoryFilter" class="field">
+                <option value="ALL">전체</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel list-panel">
+          <div class="section-title-row sticky-list-title">
+            <h2>토픽 목록</h2>
+            <span id="resultCount" class="count-chip">0건</span>
+          </div>
+          <div id="topicList" class="topic-list" role="listbox" aria-label="토픽 검색 결과"></div>
+          <button id="loadMoreBtn" class="btn wide hidden" type="button">더 보기</button>
+        </section>
+      </aside>
+
+      <div id="sidebarBackdrop" class="sidebar-backdrop mobile-only"></div>
+
+      <main class="content">
+        <section id="emptyState" class="empty-state">
+          <div class="empty-icon">📘</div>
+          <h2>학습 데이터를 준비해 주세요.</h2>
+          <p>처음 한 번만 Google Spreadsheet의 텍스트 데이터를 받아 기기에 저장합니다.</p>
+          <p class="muted">이후 조회·검색·이동은 로컬 IndexedDB를 사용하므로 모바일 데이터가 소모되지 않습니다.</p>
+          <div class="empty-actions">
+            <button id="emptySettingsBtn" class="btn" type="button">Apps Script URL 설정</button>
+            <button id="emptyRefreshBtn" class="btn primary" type="button">최초 데이터 받기</button>
+          </div>
+        </section>
+
+        <article id="topicDetail" class="topic-detail hidden" aria-live="polite">
+          <div class="detail-toolbar">
+            <div class="topic-badges">
+              <span id="detailTopicId" class="badge strong">-</span>
+              <span id="detailDomain" class="badge">-</span>
+              <span id="detailCategoryCode" class="badge">-</span>
+              <span id="detailTopicOrder" class="badge">-</span>
+              <span id="detailImportance" class="badge">-</span>
+              <span id="detailStudyTarget" class="badge">-</span>
+            </div>
+            <div class="detail-counter" id="detailCounter">0 / 0</div>
+          </div>
+
+          <header class="topic-header">
+            <div id="detailCategory" class="eyebrow">대분류</div>
+            <h2 id="detailTitle">토픽명</h2>
+            <div id="detailDomainName" class="muted"></div>
+          </header>
+
+          <section class="study-card emphasis-card">
+            <h3>개념</h3>
+            <div id="detailConcept" class="study-text"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>키워드</h3>
+            <div id="detailKeywords" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>암기법</h3>
+            <div id="detailMnemonic" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>관련토픽</h3>
+            <div id="detailRelated" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card metadata-card">
+            <h3>페이지 · 참고정보</h3>
+            <dl class="meta-grid">
+              <div><dt>서브노트페이지</dt><dd id="detailSubnotePages">-</dd></div>
+              <div><dt>교재페이지</dt><dd id="detailTextbookPages">-</dd></div>
+              <div><dt>상태</dt><dd id="detailStatus">-</dd></div>
+              <div><dt>원본도메인</dt><dd id="detailSourceDomain">-</dd></div>
+              <div><dt>학습제외사유</dt><dd id="detailExclusionReason">-</dd></div>
+              <div><dt>비고</dt><dd id="detailNotes">-</dd></div>
+            </dl>
+          </section>
+
+          <div class="detail-bottom-spacer"></div>
+        </article>
+      </main>
+    </div>
+
+    <nav id="bottomNav" class="bottom-nav hidden" aria-label="토픽 이동">
+      <button id="prevBtn" class="nav-btn" type="button">← 이전</button>
+      <button id="listBtn" class="nav-btn mobile-only" type="button">☰ 목록</button>
+      <button id="nextBtn" class="nav-btn" type="button">다음 →</button>
+    </nav>
+  </div>
+
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="settingsTitle">학습노트 설정</h2>
+          <p class="muted">Apps Script Web App URL은 이 브라우저에만 저장됩니다.</p>
+        </div>
+        <button id="closeSettingsBtn" class="icon-btn" type="button" aria-label="설정 닫기">✕</button>
+      </div>
+
+      <label class="field-label" for="apiUrlInput">Google Apps Script Web App URL</label>
+      <input id="apiUrlInput" class="field" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec">
+      <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data</p>
+
+      <div class="settings-status">
+        <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
+        <div><span>마지막 MASTER 갱신</span><strong id="settingsLastSync">없음</strong></div>
+        <div><span>앱 버전</span><strong id="settingsAppVersion">-</strong></div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="testApiBtn" class="btn" type="button">연결 확인</button>
+        <button id="saveSettingsBtn" class="btn primary" type="button">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadingOverlay" class="loading-overlay hidden" aria-live="assertive">
+    <div class="spinner" aria-hidden="true"></div>
+    <strong id="loadingMessage">처리 중...</strong>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script type="module">
+// IndexedDB
+const DB_NAME = 'pe-study-note-db';
+const DB_VERSION = 1;
+const TOPIC_STORE = 'topics';
+const META_STORE = 'meta';
+
+function requestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionDone(transaction) {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error('IndexedDB transaction aborted'));
+  });
+}
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(TOPIC_STORE)) {
+        const store = db.createObjectStore(TOPIC_STORE, { keyPath: 'topicId' });
+        store.createIndex('domainOrder', 'domainOrder', { unique: false });
+        store.createIndex('domain', 'domain', { unique: false });
+        store.createIndex('categoryCode', 'categoryCode', { unique: false });
+        store.createIndex('studyTarget', 'studyTarget', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(META_STORE)) {
+        db.createObjectStore(META_STORE, { keyPath: 'key' });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getAllTopics(db) {
+  const tx = db.transaction(TOPIC_STORE, 'readonly');
+  const rows = await requestToPromise(tx.objectStore(TOPIC_STORE).getAll());
+  await transactionDone(tx);
+  return rows;
+}
+
+async function getTopic(db, topicId) {
+  const tx = db.transaction(TOPIC_STORE, 'readonly');
+  const row = await requestToPromise(tx.objectStore(TOPIC_STORE).get(topicId));
+  await transactionDone(tx);
+  return row || null;
+}
+
+async function replaceAllTopics(db, topics, meta) {
+  const tx = db.transaction([TOPIC_STORE, META_STORE], 'readwrite');
+  const topicStore = tx.objectStore(TOPIC_STORE);
+  const metaStore = tx.objectStore(META_STORE);
+
+  topicStore.clear();
+  for (const topic of topics) topicStore.put(topic);
+
+  const metaEntries = {
+    topicCount: topics.length,
+    lastMasterSyncAt: meta.lastMasterSyncAt,
+    serverGeneratedAt: meta.serverGeneratedAt || '',
+    spreadsheetName: meta.spreadsheetName || '',
+    sheetName: meta.sheetName || '',
+    schemaVersion: meta.schemaVersion || 1,
+  };
+
+  for (const [key, value] of Object.entries(metaEntries)) {
+    metaStore.put({ key, value });
+  }
+
+  await transactionDone(tx);
+}
+
+async function getMeta(db, key, fallback = null) {
+  const tx = db.transaction(META_STORE, 'readonly');
+  const row = await requestToPromise(tx.objectStore(META_STORE).get(key));
+  await transactionDone(tx);
+  return row ? row.value : fallback;
+}
+
+async function getAllMeta(db) {
+  const tx = db.transaction(META_STORE, 'readonly');
+  const rows = await requestToPromise(tx.objectStore(META_STORE).getAll());
+  await transactionDone(tx);
+  return Object.fromEntries(rows.map(({ key, value }) => [key, value]));
+}
+
+
+// Apps Script API / data normalization
+const REQUIRED_HEADERS = [
+  '통합ID', '구분', '도메인', '도메인명', '대분류', '대분류코드', '코드',
+  '중요도', '통합토픽', '개념', '키워드', '암기법', '관련토픽', '이미지',
+  '상태', '원본도메인', '서브노트페이지', '교재페이지', '원본/연결행수',
+  '다중도메인', '비고', '학습대상', '학습제외사유'
+];
+
+const FIELD_MAP = {
+  '통합ID': 'topicId',
+  '구분': 'domainOrder',
+  '도메인': 'domain',
+  '도메인명': 'domainName',
+  '대분류': 'categoryName',
+  '대분류코드': 'categoryCode',
+  '코드': 'topicOrder',
+  '중요도': 'importance',
+  '통합토픽': 'topicName',
+  '개념': 'concept',
+  '키워드': 'keywords',
+  '암기법': 'mnemonic',
+  '관련토픽': 'relatedTopics',
+  '이미지': 'imageRefs',
+  '상태': 'status',
+  '원본도메인': 'sourceDomain',
+  '서브노트페이지': 'subnotePages',
+  '교재페이지': 'textbookPages',
+  '원본/연결행수': 'sourceLinkCount',
+  '다중도메인': 'multiDomain',
+  '비고': 'notes',
+  '학습대상': 'studyTarget',
+  '학습제외사유': 'studyExclusionReason'
+};
+
+function clean(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function categorySortNumber(code) {
+  const match = clean(code).match(/(\d+)$/);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function normalizeApiUrl(value) {
+  return clean(value).replace(/\/+$/, '');
+}
+
+function isLikelyAppsScriptUrl(value) {
+  const url = normalizeApiUrl(value);
+  return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/i.test(url);
+}
+
+async function fetchHealth(apiUrl) {
+  const url = `${normalizeApiUrl(apiUrl)}?action=health&_=${Date.now()}`;
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`연결 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || 'Apps Script 응답이 올바르지 않습니다.');
+  return json;
+}
+
+async function fetchMasterDataset(apiUrl) {
+  const url = `${normalizeApiUrl(apiUrl)}?action=topics&_=${Date.now()}`;
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`MASTER 다운로드 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || 'MASTER 응답이 올바르지 않습니다.');
+  return json;
+}
+
+function validateAndNormalizeDataset(payload) {
+  const headers = Array.isArray(payload.headers) ? payload.headers.map(clean) : [];
+  const rows = Array.isArray(payload.rows) ? payload.rows : [];
+
+  const missing = REQUIRED_HEADERS.filter(header => !headers.includes(header));
+  if (missing.length) throw new Error(`필수 컬럼 누락: ${missing.join(', ')}`);
+  if (rows.length === 0) throw new Error('암기장 데이터가 비어 있습니다.');
+
+  const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+  const topicIds = new Set();
+  const topics = [];
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    if (!Array.isArray(row)) throw new Error(`${rowIndex + 2}행 데이터 형식이 올바르지 않습니다.`);
+
+    const topic = {};
+    for (const [header, fieldName] of Object.entries(FIELD_MAP)) {
+      topic[fieldName] = clean(row[headerIndex[header]]);
+    }
+
+    if (!topic.topicId) throw new Error(`${rowIndex + 2}행의 통합ID가 비어 있습니다.`);
+    if (topicIds.has(topic.topicId)) throw new Error(`중복 통합ID: ${topic.topicId}`);
+    topicIds.add(topic.topicId);
+
+    topic.domainOrder = toNumber(topic.domainOrder, 9999);
+    topic.topicOrder = toNumber(topic.topicOrder, 9999);
+    topic.categorySortOrder = categorySortNumber(topic.categoryCode);
+    topic.sourceLinkCount = toNumber(topic.sourceLinkCount, 0);
+    topic.studyTarget = topic.studyTarget.toUpperCase() || 'Y';
+
+    topics.push(topic);
+  }
+
+  topics.sort(compareTopics);
+
+  return {
+    topics,
+    meta: {
+      schemaVersion: Number(payload.schemaVersion || 1),
+      serverGeneratedAt: clean(payload.generatedAt),
+      spreadsheetName: clean(payload.spreadsheetName),
+      sheetName: clean(payload.sheetName),
+    }
+  };
+}
+
+function compareTopics(a, b) {
+  return (
+    a.domainOrder - b.domainOrder ||
+    a.categorySortOrder - b.categorySortOrder ||
+    a.categoryCode.localeCompare(b.categoryCode, 'ko', { numeric: true }) ||
+    a.topicOrder - b.topicOrder ||
+    a.topicId.localeCompare(b.topicId, 'en', { numeric: true })
+  );
+}
+
+
+// Study Note application
+
+const APP_VERSION = '1.0.1-stage1-simple';
+const API_URL_KEY = 'peStudyNote.apiUrl';
+const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
+const PAGE_SIZE = 120;
+
+let db;
+let allTopics = [];
+let filteredTopics = [];
+let visibleCount = PAGE_SIZE;
+let currentTopicId = null;
+
+const els = {};
+
+window.addEventListener('DOMContentLoaded', init);
+
+async function init() {
+  bindElements();
+  bindEvents();
+  updateNetworkStatus();
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Service worker registration failed:', error));
+  }
+
+  db = await openDatabase();
+  allTopics = await getAllTopics(db);
+  allTopics.sort(compareTopics);
+  await renderMeta();
+
+  if (allTopics.length) {
+    populateDomainFilter();
+    applyFilters({ preserveCurrent: true });
+    showTopicById(localStorage.getItem(LAST_TOPIC_KEY) || filteredTopics[0]?.topicId);
+  } else {
+    showEmptyState();
+  }
+}
+
+function bindElements() {
+  const ids = [
+    'networkBadge','syncLabel','refreshBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
+    'searchInput','studyTargetFilter','importanceFilter','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
+    'loadMoreBtn','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
+    'detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
+    'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated',
+    'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
+    'settingsModal','closeSettingsBtn','apiUrlInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
+    'testApiBtn','saveSettingsBtn','loadingOverlay','loadingMessage','toast'
+  ];
+  for (const id of ids) els[id] = document.getElementById(id);
+}
+
+function bindEvents() {
+  els.refreshBtn.addEventListener('click', refreshMaster);
+  els.emptyRefreshBtn.addEventListener('click', refreshMaster);
+  els.settingsBtn.addEventListener('click', openSettings);
+  els.emptySettingsBtn.addEventListener('click', openSettings);
+  els.closeSettingsBtn.addEventListener('click', closeSettings);
+  els.settingsModal.addEventListener('click', event => { if (event.target === els.settingsModal) closeSettings(); });
+  els.saveSettingsBtn.addEventListener('click', saveSettings);
+  els.testApiBtn.addEventListener('click', testApiConnection);
+
+  els.searchInput.addEventListener('input', () => applyFilters());
+  els.studyTargetFilter.addEventListener('change', () => applyFilters());
+  els.importanceFilter.addEventListener('change', () => applyFilters());
+  els.domainFilter.addEventListener('change', () => {
+    populateCategoryFilter();
+    applyFilters();
+  });
+  els.categoryFilter.addEventListener('change', () => applyFilters());
+  els.resetBtn.addEventListener('click', resetFilters);
+  els.loadMoreBtn.addEventListener('click', () => {
+    visibleCount += PAGE_SIZE;
+    renderTopicList();
+  });
+
+  els.prevBtn.addEventListener('click', () => moveTopic(-1));
+  els.nextBtn.addEventListener('click', () => moveTopic(1));
+  els.listBtn.addEventListener('click', openSidebar);
+  els.openSidebarBtn.addEventListener('click', openSidebar);
+  els.closeSidebarBtn.addEventListener('click', closeSidebar);
+  els.sidebarBackdrop.addEventListener('click', closeSidebar);
+
+  document.addEventListener('keydown', event => {
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement || !currentTopicId) return;
+    if (event.key === 'ArrowLeft') moveTopic(-1);
+    if (event.key === 'ArrowRight' || event.key === ' ') {
+      event.preventDefault();
+      moveTopic(1);
+    }
+  });
+}
+
+async function renderMeta() {
+  const meta = await getAllMeta(db);
+  const last = meta.lastMasterSyncAt ? formatDateTime(meta.lastMasterSyncAt) : 'MASTER 미수신';
+  els.syncLabel.textContent = meta.lastMasterSyncAt ? `갱신 ${last}` : 'MASTER 미수신';
+  els.settingsTopicCount.textContent = Number(meta.topicCount || allTopics.length).toLocaleString();
+  els.settingsLastSync.textContent = meta.lastMasterSyncAt ? last : '없음';
+  els.settingsAppVersion.textContent = APP_VERSION;
+}
+
+function updateNetworkStatus() {
+  const online = navigator.onLine;
+  els.networkBadge.textContent = online ? '온라인' : '오프라인';
+  els.networkBadge.classList.toggle('online', online);
+  els.networkBadge.classList.toggle('offline', !online);
+}
+
+function getApiUrl() {
+  return normalizeApiUrl(localStorage.getItem(API_URL_KEY) || '');
+}
+
+function openSettings() {
+  els.apiUrlInput.value = getApiUrl();
+  els.settingsModal.classList.remove('hidden');
+}
+
+function closeSettings() {
+  els.settingsModal.classList.add('hidden');
+}
+
+function saveSettings() {
+  const value = normalizeApiUrl(els.apiUrlInput.value);
+  if (value && !isLikelyAppsScriptUrl(value)) {
+    showToast('Apps Script Web App URL 형식을 확인해 주세요.');
+    return;
+  }
+  if (value) localStorage.setItem(API_URL_KEY, value);
+  else localStorage.removeItem(API_URL_KEY);
+  closeSettings();
+  showToast('설정을 저장했습니다.');
+}
+
+async function testApiConnection() {
+  const value = normalizeApiUrl(els.apiUrlInput.value);
+  if (!isLikelyAppsScriptUrl(value)) return showToast('Apps Script Web App URL을 먼저 확인해 주세요.');
+  setLoading(true, 'Google Spreadsheet 연결 확인 중...');
+  try {
+    const result = await fetchHealth(value);
+    showToast(`연결 성공 · ${result.spreadsheetName}/${result.sheetName} · ${Number(result.topicCount || 0).toLocaleString()}건`);
+  } catch (error) {
+    showToast(error.message || '연결 확인에 실패했습니다.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function refreshMaster() {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) {
+    openSettings();
+    showToast('먼저 Apps Script Web App URL을 설정해 주세요.');
+    return;
+  }
+  if (!navigator.onLine) return showToast('오프라인 상태에서는 MASTER를 갱신할 수 없습니다.');
+
+  setLoading(true, 'Google Spreadsheet의 MASTER 텍스트를 받는 중...');
+  try {
+    const payload = await fetchMasterDataset(apiUrl);
+    setLoading(true, '데이터 검증 및 로컬 저장 중...');
+    const { topics, meta } = validateAndNormalizeDataset(payload);
+
+    if (topics.length < 3000) {
+      throw new Error(`수신 토픽 수가 비정상적으로 적습니다. (${topics.length.toLocaleString()}건) 기존 캐시를 유지합니다.`);
+    }
+
+    const lastMasterSyncAt = new Date().toISOString();
+    await replaceAllTopics(db, topics, { ...meta, lastMasterSyncAt });
+    allTopics = topics;
+    populateDomainFilter();
+    resetFilters({ render: false });
+    applyFilters({ preserveCurrent: true });
+    await renderMeta();
+
+    const preferredId = currentTopicId && allTopics.some(t => t.topicId === currentTopicId)
+      ? currentTopicId
+      : (localStorage.getItem(LAST_TOPIC_KEY) || filteredTopics[0]?.topicId);
+    showTopicById(preferredId);
+    showToast(`MASTER 갱신 완료 · ${topics.length.toLocaleString()}개 토픽`);
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || 'MASTER 갱신에 실패했습니다. 기존 캐시는 유지됩니다.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function populateDomainFilter() {
+  const current = els.domainFilter.value || 'ALL';
+  const domains = [...new Map(allTopics.map(topic => [topic.domain, { code: topic.domain, name: topic.domainName, order: topic.domainOrder }])).values()]
+    .sort((a, b) => a.order - b.order);
+  els.domainFilter.innerHTML = '<option value="ALL">전체</option>' + domains.map(d => `<option value="${escapeHtml(d.code)}">${escapeHtml(d.code)} · ${escapeHtml(d.name)}</option>`).join('');
+  els.domainFilter.value = domains.some(d => d.code === current) ? current : 'ALL';
+  populateCategoryFilter();
+}
+
+function populateCategoryFilter() {
+  const selectedDomain = els.domainFilter.value;
+  const current = els.categoryFilter.value || 'ALL';
+  const source = selectedDomain === 'ALL' ? allTopics : allTopics.filter(t => t.domain === selectedDomain);
+  const categories = [...new Map(source.map(t => [t.categoryCode, { code: t.categoryCode, name: t.categoryName, order: t.categorySortOrder, domainOrder: t.domainOrder }])).values()]
+    .sort((a, b) => a.domainOrder - b.domainOrder || a.order - b.order || a.code.localeCompare(b.code, 'ko', { numeric: true }));
+  els.categoryFilter.innerHTML = '<option value="ALL">전체</option>' + categories.map(c => `<option value="${escapeHtml(c.code)}">${escapeHtml(c.code)} · ${escapeHtml(c.name)}</option>`).join('');
+  els.categoryFilter.value = categories.some(c => c.code === current) ? current : 'ALL';
+}
+
+function resetFilters({ render = true } = {}) {
+  els.searchInput.value = '';
+  els.studyTargetFilter.value = 'Y';
+  els.importanceFilter.value = 'ALL';
+  els.domainFilter.value = 'ALL';
+  populateCategoryFilter();
+  els.categoryFilter.value = 'ALL';
+  if (render) applyFilters();
+}
+
+function applyFilters({ preserveCurrent = false } = {}) {
+  const query = normalizeSearchText(els.searchInput.value);
+  const target = els.studyTargetFilter.value;
+  const importance = els.importanceFilter.value;
+  const domain = els.domainFilter.value;
+  const category = els.categoryFilter.value;
+
+  filteredTopics = allTopics.filter(topic => {
+    if (target !== 'ALL' && topic.studyTarget !== target) return false;
+    if (importance !== 'ALL' && topic.importance !== importance) return false;
+    if (domain !== 'ALL' && topic.domain !== domain) return false;
+    if (category !== 'ALL' && topic.categoryCode !== category) return false;
+    if (!query) return true;
+
+    const haystack = normalizeSearchText([
+      topic.topicName, topic.concept, topic.keywords, topic.mnemonic,
+      topic.relatedTopics, topic.categoryName, topic.categoryCode,
+      topic.subnotePages, topic.textbookPages
+    ].join(' '));
+    return haystack.includes(query);
+  }).sort(compareTopics);
+
+  visibleCount = PAGE_SIZE;
+  renderTopicList();
+
+  if (!filteredTopics.length) {
+    clearDetailForNoResults();
+    return;
+  }
+
+  if (preserveCurrent && currentTopicId && filteredTopics.some(t => t.topicId === currentTopicId)) {
+    showTopicById(currentTopicId, { scrollList: false });
+  } else if (!currentTopicId || !filteredTopics.some(t => t.topicId === currentTopicId)) {
+    showTopicById(filteredTopics[0].topicId, { scrollList: false });
+  } else {
+    updateNavigation();
+  }
+}
+
+function renderTopicList() {
+  els.resultCount.textContent = `${filteredTopics.length.toLocaleString()}건`;
+  const rows = filteredTopics.slice(0, visibleCount);
+  els.topicList.innerHTML = rows.map(topic => {
+    const active = topic.topicId === currentTopicId ? ' active' : '';
+    const targetClass = topic.studyTarget === 'N' ? ' target-n' : '';
+    return `<button class="topic-item${active}" type="button" role="option" data-topic-id="${escapeHtml(topic.topicId)}" aria-selected="${topic.topicId === currentTopicId}">
+      <span class="topic-item-title">${escapeHtml(topic.topicName || '(토픽명 없음)')}</span>
+      <span class="topic-item-meta">
+        <span class="mini-badge">${escapeHtml(topic.topicId)}</span>
+        <span class="mini-badge">${escapeHtml(topic.domain)}</span>
+        <span class="mini-badge">${escapeHtml(topic.categoryCode)}</span>
+        <span class="mini-badge">코드 ${escapeHtml(topic.topicOrder)}</span>
+        <span class="mini-badge">${escapeHtml(topic.importance || '-')}</span>
+        <span class="mini-badge${targetClass}">${escapeHtml(topic.studyTarget)}</span>
+      </span>
+    </button>`;
+  }).join('');
+
+  els.topicList.querySelectorAll('.topic-item').forEach(button => {
+    button.addEventListener('click', () => {
+      showTopicById(button.dataset.topicId);
+      if (window.matchMedia('(max-width: 760px)').matches) closeSidebar();
+    });
+  });
+
+  els.loadMoreBtn.classList.toggle('hidden', visibleCount >= filteredTopics.length);
+}
+
+function showTopicById(topicId, { scrollList = true } = {}) {
+  const topic = filteredTopics.find(t => t.topicId === topicId);
+  if (!topic) {
+    if (filteredTopics.length) return showTopicById(filteredTopics[0].topicId, { scrollList });
+    return clearDetailForNoResults();
+  }
+
+  const topicIndex = filteredTopics.findIndex(t => t.topicId === topic.topicId);
+  if (topicIndex >= visibleCount) {
+    visibleCount = Math.ceil((topicIndex + 1) / PAGE_SIZE) * PAGE_SIZE;
+  }
+
+  currentTopicId = topic.topicId;
+  localStorage.setItem(LAST_TOPIC_KEY, topic.topicId);
+  els.emptyState.classList.add('hidden');
+  els.topicDetail.classList.remove('hidden');
+  els.bottomNav.classList.remove('hidden');
+
+  setText('detailTopicId', topic.topicId);
+  setText('detailDomain', `${topic.domain} · ${topic.domainName}`);
+  setText('detailCategoryCode', topic.categoryCode);
+  setText('detailTopicOrder', `코드 ${topic.topicOrder}`);
+  setText('detailImportance', `중요도 ${topic.importance || '-'}`);
+  setText('detailStudyTarget', `학습대상 ${topic.studyTarget}`);
+  els.detailStudyTarget.classList.toggle('target-n', topic.studyTarget === 'N');
+  setText('detailCategory', `${topic.categoryCode} · ${topic.categoryName}`);
+  setText('detailTitle', topic.topicName || '(토픽명 없음)');
+  setText('detailDomainName', `${topic.domain} (${topic.domainName})`);
+  setText('detailConcept', topic.concept || '-');
+  setText('detailKeywords', topic.keywords || '-');
+  setText('detailMnemonic', topic.mnemonic || '-');
+  setText('detailRelated', topic.relatedTopics || '-');
+  setText('detailSubnotePages', topic.subnotePages || '-');
+  setText('detailTextbookPages', topic.textbookPages || '-');
+  setText('detailStatus', topic.status || '-');
+  setText('detailSourceDomain', topic.sourceDomain || '-');
+  setText('detailExclusionReason', topic.studyExclusionReason || '-');
+  setText('detailNotes', topic.notes || '-');
+
+  updateNavigation();
+  renderTopicList();
+  if (scrollList) {
+    requestAnimationFrame(() => els.topicList.querySelector(`[data-topic-id="${cssEscape(topic.topicId)}"]`)?.scrollIntoView({ block: 'nearest' }));
+  }
+}
+
+function clearDetailForNoResults() {
+  currentTopicId = null;
+  els.emptyState.classList.remove('hidden');
+  els.topicDetail.classList.add('hidden');
+  els.bottomNav.classList.add('hidden');
+  els.emptyState.querySelector('h2').textContent = allTopics.length ? '검색 결과가 없습니다.' : '학습 데이터를 준비해 주세요.';
+  els.emptyState.querySelector('p').textContent = allTopics.length
+    ? '검색조건을 변경하거나 초기화해 주세요.'
+    : '처음 한 번만 Google Spreadsheet의 텍스트 데이터를 받아 기기에 저장합니다.';
+}
+
+function showEmptyState() {
+  filteredTopics = [];
+  els.topicList.innerHTML = '';
+  els.resultCount.textContent = '0건';
+  clearDetailForNoResults();
+}
+
+function moveTopic(direction) {
+  if (!currentTopicId || !filteredTopics.length) return;
+  const index = filteredTopics.findIndex(t => t.topicId === currentTopicId);
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= filteredTopics.length) return;
+  showTopicById(filteredTopics[nextIndex].topicId);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateNavigation() {
+  const index = filteredTopics.findIndex(t => t.topicId === currentTopicId);
+  els.prevBtn.disabled = index <= 0;
+  els.nextBtn.disabled = index < 0 || index >= filteredTopics.length - 1;
+  els.detailCounter.textContent = index >= 0 ? `${(index + 1).toLocaleString()} / ${filteredTopics.length.toLocaleString()}` : '-';
+}
+
+function openSidebar() {
+  els.sidebar.classList.add('open');
+  els.sidebarBackdrop.classList.add('open');
+}
+function closeSidebar() {
+  els.sidebar.classList.remove('open');
+  els.sidebarBackdrop.classList.remove('open');
+}
+
+function setLoading(show, message = '처리 중...') {
+  els.loadingMessage.textContent = message;
+  els.loadingOverlay.classList.toggle('hidden', !show);
+}
+
+let toastTimer;
+function showToast(message) {
+  clearTimeout(toastTimer);
+  els.toast.textContent = message;
+  els.toast.classList.remove('hidden');
+  toastTimer = setTimeout(() => els.toast.classList.add('hidden'), 3800);
+}
+
+function setText(id, value) {
+  els[id].textContent = value ?? '';
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+function normalizeSearchText(value) {
+  return String(value || '').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return CSS.escape(value);
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+  </script>
+</body>
+</html>

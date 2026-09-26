@@ -1,0 +1,20 @@
+{
+  "name": "정보관리기술사 학습노트",
+  "short_name": "학습노트",
+  "description": "정보관리기술사 암기장 + 학습장",
+  "lang": "ko-KR",
+  "id": "./study-note.html",
+  "start_url": "./study-note.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAACP0lEQVR42u3d0VHDMBBF0VjjEmjBaSyURWW0YIqgAn6SYO0+nVOBrdysNIwdtuNx3uBZwxIgIASEgBAQCAgBISAEBAJCQAgIAYGAEBACQkAgIASEgBAQAgIBISAEhIBAQAgIAZFsL3hN318fPpi/3D9/Sl3PVuTnXUTTNKb5AUmndUYzA5JOQEZDPRlmredQj4Y6bWHSCdvOhnqMopZnIDKMyK8Fl632UI+GqgeknuCGnIGoHZDxkz2ETCAKB2T8xA8hEwgBISAE5AC04jHIBEJACAgBISAQEAJCQAgIBISAEBACAgEhIASEgEBACAgBISAEBAJCQPSy9730av814hV9X8Ic6nE7tjAEtMzMD7ud3aJjC0NACAgBgYAQEAJCQCAgBISAEBAICAEhIAQEAuJl3soowVsZ6ln0dmxhLBmQtzKcgTRkAiEgS4CAEBACQkAgIASEgBAQCAgBISAEBAJCQFTiofoSPFSvnkVvxxbGkgF5qN4ZSEMmEAKyBAgIASEgBAQCQkAICAGBgBAQAkJAICAEhIAQEAgIASEgBISA3i7s5dHW/u+zMIEQEAJCQI5Byx2ATCDKB2QIBY8fE4gOARlCqePnugmkoch6Lt3CNJRXjzMQrQIyhPLWeTse5/V36OcNY76iY5H7VE/aGUhDGes5ZwuzncV8FecHJKPWU7xKQGJquvVXDIhG/CERASEgBISAQEAICAEhIBAQAkJACAgEhIAQEAICASEgBISAEBAICAEhIAQEAkJAVPcLQBKAoY8BqNUAAAAASUVORK5CYII=",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
