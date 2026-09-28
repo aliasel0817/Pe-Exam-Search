@@ -1204,6 +1204,7 @@ function openDatabase() {
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('로컬 데이터베이스 업그레이드가 다른 탭/창에 의해 대기 중입니다. 열려 있는 학습노트 탭을 닫고 다시 시도해 주세요.'));
   });
 }
 
@@ -1839,7 +1840,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.3.0-stage4-3-reference-pdf-navigation';
+const APP_VERSION = '4.3.1-stage4-3-db-init-fix';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1850,6 +1851,7 @@ const LEARNING_PAGE_SIZE = 30;
 const RECALL_MODE_KEY = 'peStudyNote.recallMode';
 
 let db;
+let dbReadyPromise = null;
 let allTopics = [];
 let filteredTopics = [];
 let topicPage = 1;
@@ -1892,8 +1894,30 @@ const els = {};
 
 window.addEventListener('DOMContentLoaded', init);
 
+async function ensureDatabaseReady() {
+  if (db) return db;
+  if (!dbReadyPromise) {
+    dbReadyPromise = openDatabase()
+      .then(openedDb => {
+        db = openedDb;
+        return db;
+      })
+      .catch(error => {
+        dbReadyPromise = null;
+        throw error;
+      });
+  }
+  return dbReadyPromise;
+}
+
+function setInitialDataButtonsDisabled(disabled) {
+  if (els.refreshBtn) els.refreshBtn.disabled = disabled;
+  if (els.emptyRefreshBtn) els.emptyRefreshBtn.disabled = disabled;
+}
+
 async function init() {
   bindElements();
+  setInitialDataButtonsDisabled(true);
   bindEvents();
 
   // Chrome/브라우저가 설정용 Apps Script URL을 검색어 칸에 복원하지 못하도록
@@ -1910,15 +1934,24 @@ async function init() {
     navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Service worker registration failed:', error));
   }
 
-  db = await openDatabase();
-  allTopics = await getAllTopics(db);
-  allTopics.sort(compareTopics);
-  allAttachments = await getAllAttachments(db);
-  allReferencePdfLinks = await getAllReferencePdfLinks(db);
-  allReferencePdfPages = await getAllReferencePdfPages(db);
-  learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
-  recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
-  await renderMeta();
+  try {
+    db = await ensureDatabaseReady();
+    allTopics = await getAllTopics(db);
+    allTopics.sort(compareTopics);
+    allAttachments = await getAllAttachments(db);
+    allReferencePdfLinks = await getAllReferencePdfLinks(db);
+    allReferencePdfPages = await getAllReferencePdfPages(db);
+    learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
+    recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
+    await renderMeta();
+  } catch (error) {
+    console.error('IndexedDB initialization failed:', error);
+    showEmptyState();
+    showToast(`로컬 저장소 초기화 실패 · ${error?.message || error}`);
+    return;
+  } finally {
+    setInitialDataButtonsDisabled(false);
+  }
 
   if (allTopics.length) {
     // 마지막으로 보던 토픽을 필터가 첫 토픽을 자동선택하기 전에 먼저 복원한다.
@@ -2253,6 +2286,14 @@ async function testApiConnection() {
 }
 
 async function refreshMaster() {
+  try {
+    await ensureDatabaseReady();
+  } catch (error) {
+    console.error('IndexedDB preparation failed:', error);
+    showToast(`로컬 저장소를 준비할 수 없습니다. · ${error?.message || error}`);
+    return;
+  }
+
   const apiUrl = getApiUrl();
   if (!apiUrl) {
     openSettings();
