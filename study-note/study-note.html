@@ -613,6 +613,25 @@ button { -webkit-tap-highlight-color: transparent; }
   .pdf-frame-wrap { height: calc(95dvh - 245px); min-height: 360px; }
 }
 
+
+/* ===== 4-2단계 원본 교재/서브노트 PDF ===== */
+.reference-pdf-help { margin: 9px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
+.reference-pdf-viewer-body { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
+.reference-pdf-controls { display: grid; grid-template-columns: auto minmax(180px, 1fr) auto; gap: 9px; align-items: center; }
+.reference-pdf-page-select { height: 40px; min-width: 0; }
+.reference-pdf-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; }
+.reference-pdf-toolbar strong { min-width: 0; overflow-wrap: anywhere; font-size: .78rem; }
+.reference-pdf-toolbar .btn { flex: 0 0 auto; text-decoration: none; }
+.reference-pdf-frame-wrap { flex: 1; min-height: 460px; }
+.reference-pdf-frame { width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+@media (max-width: 760px) {
+  .reference-pdf-controls { grid-template-columns: 1fr 1fr; }
+  .reference-pdf-page-select { grid-column: 1 / -1; grid-row: 1; }
+  .reference-pdf-toolbar { align-items: flex-start; flex-direction: column; }
+  .reference-pdf-toolbar .btn { width: 100%; text-align: center; }
+  .reference-pdf-frame-wrap { min-height: 360px; }
+}
+
   </style>
 </head>
 <body>
@@ -795,6 +814,15 @@ button { -webkit-tap-highlight-color: transparent; }
           <section class="study-card">
             <h3>관련토픽</h3>
             <div id="detailRelated" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <div class="card-head"><h3>원본 학습자료</h3><span id="detailReferencePdfStatus" class="muted"></span></div>
+            <div class="attachment-summary">
+              <div class="attachment-summary-row"><strong id="detailSubnotePdfCount">서브노트 0개</strong><button id="openSubnotePdfBtn" class="btn" type="button" disabled>서브노트 보기</button></div>
+              <div class="attachment-summary-row"><strong id="detailTextbookPdfCount">교재 0개</strong><button id="openTextbookPdfBtn" class="btn" type="button" disabled>교재 보기</button></div>
+            </div>
+            <p class="reference-pdf-help">Google Sheets의 페이지 연결정보만 로컬에 저장하며, PDF 파일은 보기 버튼을 누를 때 Google Drive에서 불러옵니다.</p>
           </section>
 
           <section class="study-card">
@@ -998,6 +1026,31 @@ button { -webkit-tap-highlight-color: transparent; }
     </div>
   </div>
 
+  <div id="referencePdfViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="referencePdfViewerTitle">
+    <div class="modal-card media-viewer-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="referencePdfViewerTitle">원본 학습자료</h2>
+          <p id="referencePdfViewerSubtitle" class="muted"></p>
+        </div>
+        <button id="closeReferencePdfViewerBtn" class="icon-btn" type="button" aria-label="원본 PDF 닫기">✕</button>
+      </div>
+      <div class="reference-pdf-viewer-body">
+        <div class="reference-pdf-controls">
+          <button id="referencePdfPrevBtn" class="btn" type="button">← 이전 페이지</button>
+          <select id="referencePdfPageSelect" class="field reference-pdf-page-select" aria-label="원본 PDF 페이지 선택"></select>
+          <button id="referencePdfNextBtn" class="btn" type="button">다음 페이지 →</button>
+        </div>
+        <div class="reference-pdf-toolbar">
+          <strong id="referencePdfCounter"></strong>
+          <a id="referencePdfOpenDriveLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">Drive에서 열기 ↗</a>
+        </div>
+        <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
+      </div>
+      <div class="media-viewer-actions"><button id="closeReferencePdfViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
+    </div>
+  </div>
+
   <div id="learningModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="learningTitle">
     <div class="modal-card learning-dashboard-card">
       <div class="modal-head">
@@ -1055,11 +1108,12 @@ button { -webkit-tap-highlight-color: transparent; }
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const TOPIC_STORE = 'topics';
 const META_STORE = 'meta';
 const LEARNING_STORE = 'learningStates';
 const ATTACHMENT_STORE = 'attachments';
+const REFERENCE_PDF_STORE = 'referencePdfLinks';
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -1102,6 +1156,12 @@ function openDatabase() {
         const attachmentStore = db.createObjectStore(ATTACHMENT_STORE, { keyPath: 'attachmentId' });
         attachmentStore.createIndex('topicId', 'topicId', { unique: false });
         attachmentStore.createIndex('type', 'type', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(REFERENCE_PDF_STORE)) {
+        const referencePdfStore = db.createObjectStore(REFERENCE_PDF_STORE, { keyPath: 'connectionId' });
+        referencePdfStore.createIndex('topicId', 'topicId', { unique: false });
+        referencePdfStore.createIndex('sourceType', 'sourceType', { unique: false });
+        referencePdfStore.createIndex('topicSource', ['topicId', 'sourceType'], { unique: false });
       }
     };
 
@@ -1212,6 +1272,54 @@ async function putAttachment(db, attachment) {
 async function removeAttachment(db, attachmentId) {
   const tx = db.transaction(ATTACHMENT_STORE, 'readwrite');
   tx.objectStore(ATTACHMENT_STORE).delete(attachmentId);
+  await transactionDone(tx);
+}
+
+
+async function getAllReferencePdfLinks(db) {
+  const tx = db.transaction(REFERENCE_PDF_STORE, 'readonly');
+  const rows = await requestToPromise(tx.objectStore(REFERENCE_PDF_STORE).getAll());
+  await transactionDone(tx);
+  return rows;
+}
+
+async function replaceAllReferencePdfLinks(db, links) {
+  const tx = db.transaction(REFERENCE_PDF_STORE, 'readwrite');
+  const store = tx.objectStore(REFERENCE_PDF_STORE);
+  store.clear();
+  for (const link of links) store.put(link);
+  await transactionDone(tx);
+}
+
+async function replaceReferenceDataAtomic(db, topics, attachments, referencePdfLinks, meta) {
+  const tx = db.transaction([TOPIC_STORE, META_STORE, ATTACHMENT_STORE, REFERENCE_PDF_STORE], 'readwrite');
+  const topicStore = tx.objectStore(TOPIC_STORE);
+  const metaStore = tx.objectStore(META_STORE);
+  const attachmentStore = tx.objectStore(ATTACHMENT_STORE);
+  const referencePdfStore = tx.objectStore(REFERENCE_PDF_STORE);
+
+  topicStore.clear();
+  attachmentStore.clear();
+  referencePdfStore.clear();
+  for (const topic of topics) topicStore.put(topic);
+  for (const attachment of attachments) attachmentStore.put(attachment);
+  for (const link of referencePdfLinks) referencePdfStore.put(link);
+
+  const metaEntries = {
+    topicCount: topics.length,
+    lastMasterSyncAt: meta.lastMasterSyncAt,
+    serverGeneratedAt: meta.serverGeneratedAt || '',
+    spreadsheetName: meta.spreadsheetName || '',
+    sheetName: meta.sheetName || '',
+    schemaVersion: meta.schemaVersion || 1,
+    lastAttachmentSyncAt: meta.lastMasterSyncAt,
+    lastReferencePdfSyncAt: meta.lastMasterSyncAt,
+    referencePdfCount: referencePdfLinks.length,
+    referencePdfExpectedCount: Number(meta.referencePdfExpectedCount || 0),
+    referencePdfMissingCount: Number(meta.referencePdfMissingCount || 0),
+    referencePdfStaleCount: Number(meta.referencePdfStaleCount || 0),
+  };
+  for (const [key, value] of Object.entries(metaEntries)) metaStore.put({ key, value });
   await transactionDone(tx);
 }
 
@@ -1326,6 +1434,89 @@ async function fetchAttachments(apiUrl, topicId = '') {
   const json = await response.json();
   if (!json || json.ok !== true) throw new Error(json?.message || '첨부자료 응답이 올바르지 않습니다.');
   return normalizeAttachmentDataset(json);
+}
+
+
+const REFERENCE_PDF_HEADERS = ['연결ID','통합ID','출처유형','원본열','페이지토큰','페이지번호','Drive파일ID','파일명'];
+
+async function fetchReferencePdfLinks(apiUrl, topicId = '') {
+  const topicPart = topicId ? `&topicId=${encodeURIComponent(topicId)}` : '';
+  const url = `${normalizeApiUrl(apiUrl)}?action=pdfPageLinks${topicPart}&_=${Date.now()}`;
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`원본 PDF 연결정보 조회 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || '원본 PDF 연결정보 응답이 올바르지 않습니다.');
+  return normalizeReferencePdfDataset(json);
+}
+
+function normalizeReferencePdfDataset(payload) {
+  const headers = Array.isArray(payload?.headers) ? payload.headers.map(clean) : [];
+  const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+  const missing = REFERENCE_PDF_HEADERS.filter(header => !headers.includes(header));
+  if (missing.length) throw new Error(`원본 PDF 연결 필수 컬럼 누락: ${missing.join(', ')}`);
+  const idx = Object.fromEntries(headers.map((header, index) => [header, index]));
+  const seen = new Set();
+  return rows.map((row, rowIndex) => {
+    const item = {
+      connectionId: clean(row[idx['연결ID']]),
+      topicId: clean(row[idx['통합ID']]),
+      sourceType: clean(row[idx['출처유형']]),
+      sourceColumn: clean(row[idx['원본열']]).toUpperCase(),
+      pageToken: clean(row[idx['페이지토큰']]),
+      pageNumber: toNumber(row[idx['페이지번호']], 0),
+      driveFileId: clean(row[idx['Drive파일ID']]),
+      fileName: clean(row[idx['파일명']]),
+    };
+    if (!item.connectionId || !item.topicId || !item.pageToken || !item.driveFileId) {
+      throw new Error(`원본 PDF 연결 ${rowIndex + 2}행의 필수값이 비어 있습니다.`);
+    }
+    if (seen.has(item.connectionId)) throw new Error(`원본 PDF 연결ID 중복: ${item.connectionId}`);
+    seen.add(item.connectionId);
+    if (!['서브노트','교재'].includes(item.sourceType)) throw new Error(`${item.connectionId} · 출처유형 오류`);
+    if (!['P','Q'].includes(item.sourceColumn)) throw new Error(`${item.connectionId} · 원본열 오류`);
+    if (!/^[A-Za-z0-9_-]{10,}$/.test(item.driveFileId)) throw new Error(`${item.connectionId} · Drive파일ID 형식 오류`);
+    return item;
+  });
+}
+
+function splitPageTokens(value) {
+  return clean(value).split(/[,;\n]+/).map(token => clean(token)).filter(Boolean);
+}
+
+function referencePdfKey(topicId, sourceType, pageToken) {
+  return `${topicId}\u0001${sourceType}\u0001${pageToken}`;
+}
+
+function reconcileReferencePdfLinks(topics, links) {
+  const expected = new Map();
+  for (const topic of topics) {
+    for (const token of splitPageTokens(topic.subnotePages)) {
+      const key = referencePdfKey(topic.topicId, '서브노트', token);
+      expected.set(key, (expected.get(key) || 0) + 1);
+    }
+    for (const token of splitPageTokens(topic.textbookPages)) {
+      const key = referencePdfKey(topic.topicId, '교재', token);
+      expected.set(key, (expected.get(key) || 0) + 1);
+    }
+  }
+
+  const remaining = new Map(expected);
+  const validLinks = [];
+  let staleCount = 0;
+  for (const link of links) {
+    const key = referencePdfKey(link.topicId, link.sourceType, link.pageToken);
+    const count = remaining.get(key) || 0;
+    if (count > 0) {
+      validLinks.push(link);
+      if (count === 1) remaining.delete(key);
+      else remaining.set(key, count - 1);
+    } else {
+      staleCount++;
+    }
+  }
+  const missingCount = [...remaining.values()].reduce((sum, count) => sum + count, 0);
+  const expectedCount = [...expected.values()].reduce((sum, count) => sum + count, 0);
+  return { links: validLinks, expectedCount, missingCount, staleCount };
 }
 
 async function fetchMediaContent(apiUrl, attachmentId) {
@@ -1538,7 +1729,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.1.1-stage4-1-idb-migration';
+const APP_VERSION = '4.2.0-stage4-2-dynamic-reference-pdf';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1557,6 +1748,10 @@ if (![30, 50, 100].includes(topicPageSize)) topicPageSize = DEFAULT_TOPIC_PAGE_S
 let currentTopicId = null;
 let manageMode = 'edit';
 let allAttachments = [];
+let allReferencePdfLinks = [];
+let activeReferencePdfLinks = [];
+let activeReferencePdfIndex = 0;
+let activeReferencePdfSourceType = '';
 let pendingAttachmentFiles = { I: [], P: [] };
 let pendingAttachmentDeletes = new Set();
 let mediaViewerObjectUrls = [];
@@ -1598,6 +1793,7 @@ async function init() {
   allTopics = await getAllTopics(db);
   allTopics.sort(compareTopics);
   allAttachments = await getAllAttachments(db);
+  allReferencePdfLinks = await getAllReferencePdfLinks(db);
   learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
   recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
   await renderMeta();
@@ -1631,10 +1827,10 @@ function bindElements() {
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
-    'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
+    'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -1673,6 +1869,14 @@ function bindEvents() {
   els.closeMediaViewerBtn.addEventListener('click', closeMediaViewer);
   els.closeMediaViewerBottomBtn.addEventListener('click', closeMediaViewer);
   els.mediaViewerModal.addEventListener('keydown', event => event.stopPropagation());
+  els.openSubnotePdfBtn.addEventListener('click', () => openReferencePdfViewer('서브노트'));
+  els.openTextbookPdfBtn.addEventListener('click', () => openReferencePdfViewer('교재'));
+  els.closeReferencePdfViewerBtn.addEventListener('click', closeReferencePdfViewer);
+  els.closeReferencePdfViewerBottomBtn.addEventListener('click', closeReferencePdfViewer);
+  els.referencePdfPrevBtn.addEventListener('click', () => loadReferencePdfAtIndex(activeReferencePdfIndex - 1));
+  els.referencePdfNextBtn.addEventListener('click', () => loadReferencePdfAtIndex(activeReferencePdfIndex + 1));
+  els.referencePdfPageSelect.addEventListener('change', () => loadReferencePdfAtIndex(Number(els.referencePdfPageSelect.value)));
+  els.referencePdfViewerModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 3단계 학습기능 이벤트 연결
   els.favoriteBtn.addEventListener('click', toggleFavorite);
@@ -1790,6 +1994,10 @@ function bindEvents() {
         event.preventDefault();
         return;
       }
+      if (!els.referencePdfViewerModal.classList.contains('hidden')) {
+        event.preventDefault();
+        return;
+      }
       if (!els.manageModal.classList.contains('hidden')) {
         event.preventDefault();
         return;
@@ -1815,6 +2023,7 @@ function bindEvents() {
       !els.settingsModal.classList.contains('hidden') ||
       !els.manageModal.classList.contains('hidden') ||
       !els.mediaViewerModal.classList.contains('hidden') ||
+      !els.referencePdfViewerModal.classList.contains('hidden') ||
       !els.learningModal.classList.contains('hidden') ||
       els.sidebar.classList.contains('open');
 
@@ -1899,7 +2108,10 @@ async function testApiConnection() {
   setLoading(true, 'Google Spreadsheet 연결 확인 중...');
   try {
     const result = await fetchHealth(value);
-    showToast(`연결 성공 · ${result.spreadsheetName}/${result.sheetName} · ${Number(result.topicCount || 0).toLocaleString()}건`);
+    const pdfInfo = result.pdfPageLinkSheetReady
+      ? ` · PDF연결 ${Number(result.pdfPageLinkCount || 0).toLocaleString()}건`
+      : ' · PDF연결 시트 없음';
+    showToast(`연결 성공 · ${result.spreadsheetName}/${result.sheetName} · ${Number(result.topicCount || 0).toLocaleString()}건${pdfInfo}`);
   } catch (error) {
     showToast(error.message || '연결 확인에 실패했습니다.');
   } finally {
@@ -1918,9 +2130,10 @@ async function refreshMaster() {
 
   setLoading(true, 'Google Spreadsheet의 MASTER 텍스트를 받는 중...');
   try {
-    const [payload, attachments] = await Promise.all([
+    const [payload, attachments, referencePdfLinks] = await Promise.all([
       fetchMasterDataset(apiUrl),
       fetchAttachments(apiUrl),
+      fetchReferencePdfLinks(apiUrl),
     ]);
     setLoading(true, '데이터 검증 및 로컬 저장 중...');
     const { topics, meta } = validateAndNormalizeDataset(payload);
@@ -1929,12 +2142,18 @@ async function refreshMaster() {
       throw new Error(`수신 토픽 수가 비정상적으로 적습니다. (${topics.length.toLocaleString()}건) 기존 캐시를 유지합니다.`);
     }
 
+    const referencePdfResult = reconcileReferencePdfLinks(topics, referencePdfLinks);
     const lastMasterSyncAt = new Date().toISOString();
-    await replaceAllTopics(db, topics, { ...meta, lastMasterSyncAt });
-    await replaceAllAttachments(db, attachments);
-    await setMeta(db, 'lastAttachmentSyncAt', lastMasterSyncAt);
+    await replaceReferenceDataAtomic(db, topics, attachments, referencePdfResult.links, {
+      ...meta,
+      lastMasterSyncAt,
+      referencePdfExpectedCount: referencePdfResult.expectedCount,
+      referencePdfMissingCount: referencePdfResult.missingCount,
+      referencePdfStaleCount: referencePdfResult.staleCount,
+    });
     allTopics = topics;
     allAttachments = attachments;
+    allReferencePdfLinks = referencePdfResult.links;
     populateDomainFilter();
     resetFilters({ render: false });
     applyFilters({ preserveCurrent: true });
@@ -1944,7 +2163,10 @@ async function refreshMaster() {
       ? currentTopicId
       : (localStorage.getItem(LAST_TOPIC_KEY) || filteredTopics[0]?.topicId);
     showTopicById(preferredId);
-    showToast(`MASTER 갱신 완료 · ${topics.length.toLocaleString()}개 토픽 · 첨부 ${attachments.length.toLocaleString()}개`);
+    const pdfWarning = referencePdfResult.missingCount || referencePdfResult.staleCount
+      ? ` · P/Q 미연결 ${referencePdfResult.missingCount.toLocaleString()} · 오래된 연결 ${referencePdfResult.staleCount.toLocaleString()}`
+      : '';
+    showToast(`MASTER 갱신 완료 · ${topics.length.toLocaleString()}개 토픽 · 첨부 ${attachments.length.toLocaleString()}개 · 원본PDF ${referencePdfResult.links.length.toLocaleString()}개${pdfWarning}`);
   } catch (error) {
     console.error(error);
     showToast(error.message || 'MASTER 갱신에 실패했습니다. 기존 캐시는 유지됩니다.');
@@ -2269,6 +2491,7 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setText('detailSourceDomain', topic.sourceDomain || '-');
   setText('detailExclusionReason', topic.studyExclusionReason || '-');
   setText('detailNotes', topic.notes || '-');
+  renderReferencePdfSummary();
   renderAttachmentSummary();
   renderCurrentLearningState();
   resetRecallForTopic();
@@ -2885,6 +3108,7 @@ async function saveManagedTopic(event) {
     }
 
     closeManage();
+    renderReferencePdfSummary();
     renderAttachmentSummary();
     showToast(wasAdd
       ? `새 토픽 추가 완료 · ${topic.topicId}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`
@@ -2892,11 +3116,89 @@ async function saveManagedTopic(event) {
   } catch (error) {
     console.error(error);
     renderManageAttachments();
+    renderReferencePdfSummary();
     renderAttachmentSummary();
     showToast(error.message || '토픽/첨부자료 저장에 실패했습니다. 성공한 작업은 유지됩니다.');
   } finally {
     setLoading(false);
   }
+}
+
+
+function getTopicReferencePdfLinks(topicId, sourceType = '') {
+  const topic = allTopics.find(item => item.topicId === topicId);
+  if (!topic) return [];
+  const pageValue = sourceType === '서브노트' ? topic.subnotePages : sourceType === '교재' ? topic.textbookPages : '';
+  const allowedTokens = sourceType ? new Set(splitPageTokens(pageValue)) : null;
+  return allReferencePdfLinks
+    .filter(item => item.topicId === topicId && (!sourceType || item.sourceType === sourceType) && (!allowedTokens || allowedTokens.has(item.pageToken)))
+    .sort((a, b) => a.connectionId.localeCompare(b.connectionId, 'en', { numeric: true }));
+}
+
+function renderReferencePdfSummary() {
+  if (!currentTopicId) return;
+  const topic = allTopics.find(item => item.topicId === currentTopicId);
+  if (!topic) return;
+  const subnoteLinks = getTopicReferencePdfLinks(currentTopicId, '서브노트');
+  const textbookLinks = getTopicReferencePdfLinks(currentTopicId, '교재');
+  const expectedSubnote = splitPageTokens(topic.subnotePages).length;
+  const expectedTextbook = splitPageTokens(topic.textbookPages).length;
+  const linked = subnoteLinks.length + textbookLinks.length;
+  const expected = expectedSubnote + expectedTextbook;
+
+  els.detailSubnotePdfCount.textContent = `서브노트 ${subnoteLinks.length.toLocaleString()}개`;
+  els.detailTextbookPdfCount.textContent = `교재 ${textbookLinks.length.toLocaleString()}개`;
+  els.openSubnotePdfBtn.disabled = subnoteLinks.length === 0;
+  els.openTextbookPdfBtn.disabled = textbookLinks.length === 0;
+  els.detailReferencePdfStatus.textContent = expected === linked ? `연결 ${linked.toLocaleString()} / ${expected.toLocaleString()}` : `연결 ${linked.toLocaleString()} / ${expected.toLocaleString()} · 확인 필요`;
+}
+
+function openReferencePdfViewer(sourceType) {
+  if (!navigator.onLine) return showToast('원본 PDF는 온라인 상태에서 Google Drive로부터 불러옵니다.');
+  const items = getTopicReferencePdfLinks(currentTopicId, sourceType);
+  if (!items.length) return showToast(`${sourceType} PDF 연결정보가 없습니다.`);
+  activeReferencePdfLinks = items.slice();
+  activeReferencePdfIndex = 0;
+  activeReferencePdfSourceType = sourceType;
+  els.referencePdfViewerTitle.textContent = `${sourceType} 원본 PDF`;
+  els.referencePdfViewerSubtitle.textContent = `${currentTopicId} · ${items.length.toLocaleString()}페이지 · PDF 바이너리는 필요할 때만 Drive에서 로드`;
+  els.referencePdfPageSelect.innerHTML = items.map((item, index) => `<option value="${index}">${escapeHtml(item.pageToken)} · ${escapeHtml(item.fileName || item.driveFileId)}</option>`).join('');
+  els.referencePdfViewerModal.classList.remove('hidden');
+  loadReferencePdfAtIndex(0);
+}
+
+function closeReferencePdfViewer() {
+  els.referencePdfViewerModal.classList.add('hidden');
+  const frame = els.referencePdfFrameWrap.querySelector('iframe');
+  if (frame) frame.src = 'about:blank';
+  els.referencePdfFrameWrap.innerHTML = '<div class="media-placeholder">페이지를 선택해 주세요.</div>';
+  els.referencePdfPageSelect.innerHTML = '';
+  els.referencePdfOpenDriveLink.href = '#';
+  activeReferencePdfLinks = [];
+  activeReferencePdfIndex = 0;
+  activeReferencePdfSourceType = '';
+}
+
+function drivePreviewUrl(fileId) {
+  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
+}
+
+function driveViewUrl(fileId) {
+  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
+}
+
+function loadReferencePdfAtIndex(index) {
+  if (!activeReferencePdfLinks.length) return;
+  const bounded = Math.max(0, Math.min(Number(index) || 0, activeReferencePdfLinks.length - 1));
+  activeReferencePdfIndex = bounded;
+  const item = activeReferencePdfLinks[bounded];
+  els.referencePdfPageSelect.value = String(bounded);
+  els.referencePdfPrevBtn.disabled = bounded === 0;
+  els.referencePdfNextBtn.disabled = bounded >= activeReferencePdfLinks.length - 1;
+  els.referencePdfCounter.textContent = `${bounded + 1} / ${activeReferencePdfLinks.length} · ${item.pageToken} · ${item.fileName || item.driveFileId}`;
+  els.referencePdfOpenDriveLink.href = driveViewUrl(item.driveFileId);
+  els.referencePdfFrameWrap.innerHTML = `<iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${item.pageToken}`)}" loading="eager"></iframe>`;
+  els.referencePdfFrameWrap.querySelector('iframe').src = drivePreviewUrl(item.driveFileId);
 }
 
 function getTopicAttachments(topicId, type = '') {
