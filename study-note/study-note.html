@@ -660,7 +660,7 @@ button { -webkit-tap-highlight-color: transparent; }
   touch-action: pan-x pan-y;
 }
 .reference-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
-.reference-pdf-canvas-stage {
+.reference-pdf-image-stage {
   box-sizing: border-box;
   min-width: 100%;
   min-height: 100%;
@@ -670,10 +670,26 @@ button { -webkit-tap-highlight-color: transparent; }
   place-items: center;
   padding: 12px;
 }
-.reference-pdf-canvas {
+.reference-pdf-page-image {
   display: block;
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
   background: #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.reference-pdf-image-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #d1d5db;
+  background: #27272a;
+  pointer-events: none;
 }
 .reference-pdf-floating-toolbar {
   position: absolute;
@@ -743,7 +759,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .reference-pdf-toolbar-main { flex-wrap: wrap; }
   .reference-pdf-toolbar-main .btn { min-height: 36px; padding: 6px 10px; }
   .reference-pdf-modal-card > .media-viewer-actions { padding-top: 6px; }
-  .reference-pdf-canvas-stage { padding: 8px; }
+  .reference-pdf-image-stage { padding: 8px; }
   .reference-pdf-floating-toolbar { bottom: 7px; gap: 3px; max-width: calc(100% - 12px); padding: 5px 6px; }
   .reference-pdf-floating-toolbar button { width: 32px; height: 32px; min-width: 32px; }
   .reference-pdf-floating-toolbar .pdf-tool-fit { width: auto; min-width: 36px; padding: 0 6px; }
@@ -1666,16 +1682,6 @@ async function fetchReferencePdfPages(apiUrl) {
   return normalizeReferencePdfPages(json);
 }
 
-async function fetchReferencePdfContent(apiUrl, sourceType, pageToken) {
-  const url = `${normalizeApiUrl(apiUrl)}?action=referencePdfContent&sourceType=${encodeURIComponent(sourceType)}&pageToken=${encodeURIComponent(pageToken)}&_=${Date.now()}`;
-  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
-  if (!response.ok) throw new Error(`원본 PDF 파일 조회 실패: HTTP ${response.status}`);
-  const json = await response.json();
-  if (!json || json.ok !== true) throw new Error(json?.message || '원본 PDF 파일 응답이 올바르지 않습니다.');
-  if (!json.base64) throw new Error('원본 PDF 파일 데이터가 비어 있습니다.');
-  return json;
-}
-
 function referencePdfPageId(sourceType, pageToken) {
   return `${clean(sourceType)}${clean(pageToken)}`;
 }
@@ -1959,7 +1965,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.3.3-stage4-3-pdf-pan-zoom';
+const APP_VERSION = '4.3.4-stage4-3-fast-pan-viewer';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1985,19 +1991,12 @@ let activeReferencePdfLinks = [];
 let activeReferencePdfIndex = 0;
 let activeReferencePdfSourceType = '';
 let activeReferencePdfCurrentPage = null;
-let activeReferencePdfDocument = null;
-let activeReferencePdfDocumentPage = null;
-let activeReferencePdfRenderTask = null;
 let activeReferencePdfFitScale = 1;
 let activeReferencePdfZoomFactor = 1;
 let referencePdfLoadSerial = 0;
-let pdfJsReadyPromise = null;
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 4;
 const REFERENCE_PDF_ZOOM_STEP = 0.25;
-const PDFJS_VERSION = '3.11.174';
-const PDFJS_SCRIPT_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`;
-const PDFJS_WORKER_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
 const REFERENCE_PDF_PAGE_KEY_SEQUENCES = [
   ['SW-1','SW-2','SW-3'],
   ['AL-1','AL-2'],
@@ -3535,15 +3534,6 @@ function renderReferencePdfRegisteredOptions() {
 function closeReferencePdfViewer() {
   els.referencePdfViewerModal.classList.add('hidden');
   referencePdfLoadSerial++;
-  if (activeReferencePdfRenderTask) {
-    try { activeReferencePdfRenderTask.cancel(); } catch (error) { /* noop */ }
-    activeReferencePdfRenderTask = null;
-  }
-  if (activeReferencePdfDocument) {
-    try { activeReferencePdfDocument.destroy(); } catch (error) { /* noop */ }
-  }
-  activeReferencePdfDocument = null;
-  activeReferencePdfDocumentPage = null;
   activeReferencePdfFitScale = 1;
   activeReferencePdfZoomFactor = 1;
   const frame = els.referencePdfFrameWrap.querySelector('iframe');
@@ -3630,61 +3620,24 @@ function setReferencePdfSelectForCurrentPage(page, registeredIndex) {
   els.referencePdfPageSelect.value = '__sequential__';
 }
 
-function ensurePdfJsReady() {
-  if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
-    return Promise.resolve(window.pdfjsLib);
-  }
-  if (pdfJsReadyPromise) return pdfJsReadyPromise;
-  pdfJsReadyPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-study-note-pdfjs="1"]');
-    if (existing) {
-      existing.addEventListener('load', () => {
-        if (!window.pdfjsLib) return reject(new Error('PDF 뷰어 모듈을 초기화할 수 없습니다.'));
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
-        resolve(window.pdfjsLib);
-      }, { once: true });
-      existing.addEventListener('error', () => reject(new Error('PDF 뷰어 모듈을 불러올 수 없습니다.')), { once: true });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = PDFJS_SCRIPT_URL;
-    script.async = true;
-    script.crossOrigin = 'anonymous';
-    script.dataset.studyNotePdfjs = '1';
-    script.onload = () => {
-      if (!window.pdfjsLib) return reject(new Error('PDF 뷰어 모듈을 초기화할 수 없습니다.'));
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
-      resolve(window.pdfjsLib);
-    };
-    script.onerror = () => reject(new Error('PDF 뷰어 모듈을 불러올 수 없습니다.'));
-    document.head.appendChild(script);
-  }).catch(error => {
-    pdfJsReadyPromise = null;
-    throw error;
-  });
-  return pdfJsReadyPromise;
+function driveThumbnailUrl(fileId) {
+  const width = window.innerWidth <= 600 ? 2400 : window.innerWidth <= 1200 ? 3200 : 4000;
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width}`;
 }
 
-function base64ToBytes(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function referencePdfViewerMarkup() {
+function referencePdfViewerMarkup(page) {
   return `
-    <div class="reference-pdf-pan-scroller" tabindex="0" aria-label="PDF 화면. PC에서는 스크롤바 또는 마우스 드래그로 이동할 수 있습니다.">
-      <div class="reference-pdf-canvas-stage"><canvas class="reference-pdf-canvas" aria-label="원본 PDF 페이지"></canvas></div>
+    <div class="reference-pdf-pan-scroller" tabindex="0" aria-label="PDF page. Use scrollbars, mouse drag, or touch drag to move around the enlarged page.">
+      <div class="reference-pdf-image-stage"><img class="reference-pdf-page-image" draggable="false" alt="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}"></div>
     </div>
-    <div class="reference-pdf-floating-toolbar" role="toolbar" aria-label="PDF 확대 축소">
-      <span class="pdf-tool-page">1 / 1</span><span class="pdf-tool-page-label">페이지</span>
+    <div class="reference-pdf-image-loading">\uc6d0\ubcf8 \ud398\uc774\uc9c0 \ubd88\ub7ec\uc624\ub294 \uc911...</div>
+    <div class="reference-pdf-floating-toolbar" role="toolbar" aria-label="PDF zoom controls">
+      <span class="pdf-tool-page">1 / 1</span><span class="pdf-tool-page-label">\ud398\uc774\uc9c0</span>
       <span class="pdf-tool-separator" aria-hidden="true"></span>
-      <button type="button" data-reference-pdf-zoom="out" aria-label="PDF 축소">−</button>
+      <button type="button" data-reference-pdf-zoom="out" aria-label="PDF zoom out">-</button>
       <span class="pdf-tool-zoom">100%</span>
-      <button type="button" data-reference-pdf-zoom="in" aria-label="PDF 확대">＋</button>
-      <button type="button" class="pdf-tool-fit" data-reference-pdf-zoom="fit" aria-label="PDF 화면 맞춤">맞춤</button>
+      <button type="button" data-reference-pdf-zoom="in" aria-label="PDF zoom in">+</button>
+      <button type="button" class="pdf-tool-fit" data-reference-pdf-zoom="fit" aria-label="Fit PDF to screen">\ub9de\ucda4</button>
     </div>`;
 }
 
@@ -3697,7 +3650,6 @@ function installReferencePdfPanHandlers(scroller) {
   let startScrollTop = 0;
 
   scroller.addEventListener('pointerdown', event => {
-    // 터치는 브라우저의 관성 스크롤을 사용하고, PC 마우스는 직접 드래그 이동을 지원한다.
     if (event.pointerType !== 'mouse' || event.button !== 0) return;
     dragging = true;
     pointerId = event.pointerId;
@@ -3731,52 +3683,31 @@ function installReferencePdfPanHandlers(scroller) {
   scroller.addEventListener('lostpointercapture', finish);
 }
 
-function computeReferencePdfFitScale(pdfPage, scroller) {
-  const unitViewport = pdfPage.getViewport({ scale: 1 });
+function computeReferencePdfFitScale(image, scroller) {
+  const naturalWidth = Math.max(1, image.naturalWidth || 1);
+  const naturalHeight = Math.max(1, image.naturalHeight || 1);
   const availableWidth = Math.max(120, scroller.clientWidth - 28);
   const availableHeight = Math.max(120, scroller.clientHeight - 28);
-  const fit = Math.min(availableWidth / unitViewport.width, availableHeight / unitViewport.height);
-  return Math.max(0.1, fit);
+  return Math.max(0.05, Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight));
 }
 
-async function renderActiveReferencePdfCanvas({ preserveCenter = true } = {}) {
-  if (!activeReferencePdfDocumentPage) return;
+function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   const scroller = els.referencePdfFrameWrap.querySelector('.reference-pdf-pan-scroller');
-  const canvas = els.referencePdfFrameWrap.querySelector('.reference-pdf-canvas');
+  const image = els.referencePdfFrameWrap.querySelector('.reference-pdf-page-image');
   const zoomLabel = els.referencePdfFrameWrap.querySelector('.pdf-tool-zoom');
-  if (!scroller || !canvas) return;
+  if (!scroller || !image || !image.complete || !image.naturalWidth || !image.naturalHeight) return;
 
   const oldWidth = Math.max(scroller.scrollWidth, 1);
   const oldHeight = Math.max(scroller.scrollHeight, 1);
   const centerXRatio = (scroller.scrollLeft + scroller.clientWidth / 2) / oldWidth;
   const centerYRatio = (scroller.scrollTop + scroller.clientHeight / 2) / oldHeight;
 
-  activeReferencePdfFitScale = computeReferencePdfFitScale(activeReferencePdfDocumentPage, scroller);
-  const cssScale = activeReferencePdfFitScale * activeReferencePdfZoomFactor;
-  const deviceScale = Math.min(window.devicePixelRatio || 1, 2);
-  const cssViewport = activeReferencePdfDocumentPage.getViewport({ scale: cssScale });
-  const renderViewport = activeReferencePdfDocumentPage.getViewport({ scale: cssScale * deviceScale });
-
-  canvas.width = Math.max(1, Math.floor(renderViewport.width));
-  canvas.height = Math.max(1, Math.floor(renderViewport.height));
-  canvas.style.width = `${Math.max(1, Math.floor(cssViewport.width))}px`;
-  canvas.style.height = `${Math.max(1, Math.floor(cssViewport.height))}px`;
-
-  if (activeReferencePdfRenderTask) {
-    try { activeReferencePdfRenderTask.cancel(); } catch (error) { /* noop */ }
-  }
-  const context = canvas.getContext('2d', { alpha: false });
-  activeReferencePdfRenderTask = activeReferencePdfDocumentPage.render({ canvasContext: context, viewport: renderViewport });
-  try {
-    await activeReferencePdfRenderTask.promise;
-  } catch (error) {
-    if (error?.name !== 'RenderingCancelledException') throw error;
-    return;
-  } finally {
-    activeReferencePdfRenderTask = null;
-  }
-
+  activeReferencePdfFitScale = computeReferencePdfFitScale(image, scroller);
+  const scale = activeReferencePdfFitScale * activeReferencePdfZoomFactor;
+  image.style.width = `${Math.max(1, Math.round(image.naturalWidth * scale))}px`;
+  image.style.height = `${Math.max(1, Math.round(image.naturalHeight * scale))}px`;
   if (zoomLabel) zoomLabel.textContent = `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
+
   requestAnimationFrame(() => {
     if (preserveCenter) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
@@ -3788,11 +3719,11 @@ async function renderActiveReferencePdfCanvas({ preserveCenter = true } = {}) {
   });
 }
 
-async function setReferencePdfZoomFactor(nextFactor) {
+function setReferencePdfZoomFactor(nextFactor) {
   const bounded = Math.max(REFERENCE_PDF_ZOOM_MIN, Math.min(REFERENCE_PDF_ZOOM_MAX, nextFactor));
   if (Math.abs(bounded - activeReferencePdfZoomFactor) < 0.001) return;
   activeReferencePdfZoomFactor = bounded;
-  await renderActiveReferencePdfCanvas({ preserveCenter: true });
+  renderActiveReferencePdfImage({ preserveCenter: true });
   const out = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="out"]');
   const inn = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="in"]');
   if (out) out.disabled = activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
@@ -3807,23 +3738,21 @@ function bindReferencePdfViewerControls() {
   const fit = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="fit"]');
   if (out) out.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor - REFERENCE_PDF_ZOOM_STEP));
   if (inn) inn.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor + REFERENCE_PDF_ZOOM_STEP));
-  if (fit) fit.addEventListener('click', async () => {
+  if (fit) fit.addEventListener('click', () => {
     activeReferencePdfZoomFactor = 1;
-    await renderActiveReferencePdfCanvas({ preserveCenter: false });
+    renderActiveReferencePdfImage({ preserveCenter: false });
     if (out) out.disabled = false;
     if (inn) inn.disabled = false;
   });
 }
 
-function renderReferencePdfFallback(page, message) {
-  els.referencePdfFrameWrap.innerHTML = `
-    <iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}" loading="eager" allowfullscreen></iframe>
-    <div class="reference-pdf-load-error" style="position:absolute;left:10px;right:10px;top:10px;z-index:3;pointer-events:none;min-height:0;padding:8px;background:rgba(0,0,0,.62);border-radius:8px;">${escapeHtml(message)} · Drive 내장 뷰어로 표시합니다.</div>`;
+function renderReferencePdfFallback(page) {
+  els.referencePdfFrameWrap.innerHTML = `<iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}" loading="eager" allowfullscreen></iframe>`;
   const frame = els.referencePdfFrameWrap.querySelector('iframe');
   frame.src = drivePreviewUrl(page.driveFileId);
 }
 
-async function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
+function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   if (!page || !page.driveFileId) return;
   const loadSerial = ++referencePdfLoadSerial;
   activeReferencePdfCurrentPage = page;
@@ -3838,45 +3767,29 @@ async function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   els.referencePdfSequentialLabel.textContent = `${page.pageToken} · ${page.fileName || page.driveFileId}`;
 
   const registeredText = Number.isInteger(registeredIndex) && registeredIndex >= 0
-    ? `등록 ${registeredIndex + 1} / ${activeReferencePdfLinks.length}`
-    : `등록페이지 밖 순차보기 · 기준 등록 ${activeReferencePdfIndex + 1} / ${activeReferencePdfLinks.length}`;
-  els.referencePdfCounter.textContent = `${registeredText} · 현재 ${page.pageToken}`;
+    ? `\ub4f1\ub85d ${registeredIndex + 1} / ${activeReferencePdfLinks.length}`
+    : `\ub4f1\ub85d\ud398\uc774\uc9c0 \ubc16 \uc21c\ucc28\ubcf4\uae30 · \uae30\uc900 \ub4f1\ub85d ${activeReferencePdfIndex + 1} / ${activeReferencePdfLinks.length}`;
+  els.referencePdfCounter.textContent = `${registeredText} · \ud604\uc7ac ${page.pageToken}`;
   els.referencePdfOpenDriveLink.href = driveViewUrl(page.driveFileId);
-  els.referencePdfFrameWrap.innerHTML = '<div class="media-placeholder" style="height:100%;min-height:0;">원본 PDF 불러오는 중...</div>';
+  activeReferencePdfZoomFactor = 1;
+  activeReferencePdfFitScale = 1;
+  els.referencePdfFrameWrap.innerHTML = referencePdfViewerMarkup(page);
+  bindReferencePdfViewerControls();
 
-  if (activeReferencePdfRenderTask) {
-    try { activeReferencePdfRenderTask.cancel(); } catch (error) { /* noop */ }
-    activeReferencePdfRenderTask = null;
-  }
-  if (activeReferencePdfDocument) {
-    try { activeReferencePdfDocument.destroy(); } catch (error) { /* noop */ }
-    activeReferencePdfDocument = null;
-    activeReferencePdfDocumentPage = null;
-  }
-
-  try {
-    const [pdfjsLib, payload] = await Promise.all([
-      ensurePdfJsReady(),
-      fetchReferencePdfContent(getApiUrl(), page.sourceType, page.pageToken),
-    ]);
+  const image = els.referencePdfFrameWrap.querySelector('.reference-pdf-page-image');
+  const loading = els.referencePdfFrameWrap.querySelector('.reference-pdf-image-loading');
+  image.addEventListener('load', () => {
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
-    const loadingTask = pdfjsLib.getDocument({ data: base64ToBytes(payload.base64) });
-    activeReferencePdfDocument = await loadingTask.promise;
-    if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) {
-      try { activeReferencePdfDocument.destroy(); } catch (error) { /* noop */ }
-      activeReferencePdfDocument = null;
-      return;
-    }
-    activeReferencePdfDocumentPage = await activeReferencePdfDocument.getPage(1);
-    activeReferencePdfZoomFactor = 1;
-    els.referencePdfFrameWrap.innerHTML = referencePdfViewerMarkup();
-    bindReferencePdfViewerControls();
-    await renderActiveReferencePdfCanvas({ preserveCenter: false });
-  } catch (error) {
-    console.error('원본 PDF 커스텀 뷰어 실패:', error);
+    if (loading) loading.remove();
+    renderActiveReferencePdfImage({ preserveCenter: false });
+  }, { once: true });
+  image.addEventListener('error', () => {
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
-    renderReferencePdfFallback(page, error.message || 'PDF 뷰어를 초기화할 수 없습니다.');
-  }
+    console.warn('Drive high-resolution page preview failed; falling back to embedded Drive PDF viewer.');
+    renderReferencePdfFallback(page);
+    showToast('\uace0\ud574\uc0c1\ub3c4 \ud398\uc774\uc9c0 \ubbf8\ub9ac\ubcf4\uae30\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud574 Drive PDF \ubdf0\uc5b4\ub85c \uc804\ud658\ud588\uc2b5\ub2c8\ub2e4.');
+  }, { once: true });
+  image.src = driveThumbnailUrl(page.driveFileId);
 }
 
 function getTopicAttachments(topicId, type = '') {
