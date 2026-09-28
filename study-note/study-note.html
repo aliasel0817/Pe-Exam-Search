@@ -664,10 +664,9 @@ button { -webkit-tap-highlight-color: transparent; }
   box-sizing: border-box;
   min-width: 100%;
   min-height: 100%;
-  width: max-content;
-  height: max-content;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 12px;
 }
 .reference-pdf-page-image {
@@ -691,44 +690,42 @@ button { -webkit-tap-highlight-color: transparent; }
   background: #27272a;
   pointer-events: none;
 }
-.reference-pdf-floating-toolbar {
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  z-index: 5;
-  transform: translateX(-50%);
+.reference-pdf-bottom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.reference-pdf-bottom-zoom {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  max-width: calc(100% - 24px);
-  padding: 6px 8px;
-  color: #fff;
-  background: rgba(31, 31, 31, .92);
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.32);
+  min-width: 0;
+}
+.reference-pdf-bottom-zoom .pdf-tool-page,
+.reference-pdf-bottom-zoom .pdf-tool-zoom {
+  color: #475467;
+  font-size: .75rem;
+  font-weight: 800;
   white-space: nowrap;
 }
-.reference-pdf-floating-toolbar .pdf-tool-page,
-.reference-pdf-floating-toolbar .pdf-tool-zoom { font-size: .75rem; font-weight: 800; }
-.reference-pdf-floating-toolbar .pdf-tool-separator { width: 1px; height: 24px; background: rgba(255,255,255,.25); }
-.reference-pdf-floating-toolbar button {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  color: #fff;
-  background: transparent;
-  font: inherit;
-  font-size: 1.2rem;
-  cursor: pointer;
+.reference-pdf-bottom-zoom .pdf-tool-separator {
+  width: 1px;
+  height: 24px;
+  background: #d8dee8;
 }
-.reference-pdf-floating-toolbar button:hover { background: rgba(255,255,255,.14); }
-.reference-pdf-floating-toolbar button:disabled { opacity: .35; cursor: not-allowed; }
-.reference-pdf-floating-toolbar .pdf-tool-fit { width: auto; min-width: 40px; padding: 0 8px; border-radius: 999px; font-size: .72rem; font-weight: 800; }
+.reference-pdf-bottom-zoom .btn {
+  min-height: 34px;
+  padding: 5px 10px;
+}
+.reference-pdf-bottom-zoom .pdf-zoom-step {
+  width: 36px;
+  min-width: 36px;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 1.1rem;
+}
+.reference-pdf-bottom-zoom .pdf-tool-fit { min-width: 48px; }
 .reference-pdf-load-error {
   min-height: 100%;
   display: grid;
@@ -760,10 +757,13 @@ button { -webkit-tap-highlight-color: transparent; }
   .reference-pdf-toolbar-main .btn { min-height: 36px; padding: 6px 10px; }
   .reference-pdf-modal-card > .media-viewer-actions { padding-top: 6px; }
   .reference-pdf-image-stage { padding: 8px; }
-  .reference-pdf-floating-toolbar { bottom: 7px; gap: 3px; max-width: calc(100% - 12px); padding: 5px 6px; }
-  .reference-pdf-floating-toolbar button { width: 32px; height: 32px; min-width: 32px; }
-  .reference-pdf-floating-toolbar .pdf-tool-fit { width: auto; min-width: 36px; padding: 0 6px; }
-  .reference-pdf-floating-toolbar .pdf-tool-page-label { display: none; }
+  .reference-pdf-bottom-actions { gap: 6px; }
+  .reference-pdf-bottom-zoom { gap: 3px; }
+  .reference-pdf-bottom-zoom .btn { min-height: 32px; padding: 4px 7px; font-size: .72rem; }
+  .reference-pdf-bottom-zoom .pdf-zoom-step { width: 32px; min-width: 32px; padding-left: 0; padding-right: 0; font-size: 1rem; }
+  .reference-pdf-bottom-zoom .pdf-tool-page,
+  .reference-pdf-bottom-zoom .pdf-tool-separator { display: none; }
+  .reference-pdf-bottom-zoom .pdf-tool-zoom { min-width: 42px; text-align: center; }
 }
 @media (max-height: 700px) {
   .reference-pdf-modal-card { height: calc(100dvh - 8px); max-height: calc(100dvh - 8px); padding-top: 10px; padding-bottom: 8px; }
@@ -1202,7 +1202,17 @@ button { -webkit-tap-highlight-color: transparent; }
         </div>
         <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
       </div>
-      <div class="media-viewer-actions"><button id="closeReferencePdfViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
+      <div class="media-viewer-actions reference-pdf-bottom-actions">
+        <div class="reference-pdf-bottom-zoom" role="toolbar" aria-label="PDF 배율 조절">
+          <span class="pdf-tool-page">1 / 1 페이지</span>
+          <span class="pdf-tool-separator" aria-hidden="true"></span>
+          <button id="referencePdfZoomOutBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 축소">−</button>
+          <span id="referencePdfZoomLabel" class="pdf-tool-zoom">250%</span>
+          <button id="referencePdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
+          <button id="referencePdfZoomFitBtn" class="btn pdf-tool-fit" type="button">맞춤</button>
+        </div>
+        <button id="closeReferencePdfViewerBottomBtn" class="btn primary" type="button">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -1965,7 +1975,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.3.5-stage4-3-default-zoom-250';
+const APP_VERSION = '4.3.6-stage4-3-zoom250-footer';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2113,7 +2123,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2166,6 +2176,13 @@ function bindEvents() {
   });
   els.referencePdfSequentialPrevBtn.addEventListener('click', () => moveReferencePdfSequential(-1));
   els.referencePdfSequentialNextBtn.addEventListener('click', () => moveReferencePdfSequential(1));
+  els.referencePdfZoomOutBtn.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor - REFERENCE_PDF_ZOOM_STEP));
+  els.referencePdfZoomInBtn.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor + REFERENCE_PDF_ZOOM_STEP));
+  els.referencePdfZoomFitBtn.addEventListener('click', () => {
+    activeReferencePdfZoomFactor = 1;
+    updateReferencePdfZoomUi();
+    renderActiveReferencePdfImage({ preserveCenter: false });
+  });
   els.referencePdfViewerModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 3단계 학습기능 이벤트 연결
@@ -3546,6 +3563,8 @@ function closeReferencePdfViewer() {
   activeReferencePdfIndex = 0;
   activeReferencePdfSourceType = '';
   activeReferencePdfCurrentPage = null;
+  activeReferencePdfZoomFactor = REFERENCE_PDF_DEFAULT_ZOOM;
+  updateReferencePdfZoomUi();
 }
 
 function drivePreviewUrl(fileId) {
@@ -3632,14 +3651,7 @@ function referencePdfViewerMarkup(page) {
       <div class="reference-pdf-image-stage"><img class="reference-pdf-page-image" draggable="false" alt="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}"></div>
     </div>
     <div class="reference-pdf-image-loading">\uc6d0\ubcf8 \ud398\uc774\uc9c0 \ubd88\ub7ec\uc624\ub294 \uc911...</div>
-    <div class="reference-pdf-floating-toolbar" role="toolbar" aria-label="PDF zoom controls">
-      <span class="pdf-tool-page">1 / 1</span><span class="pdf-tool-page-label">\ud398\uc774\uc9c0</span>
-      <span class="pdf-tool-separator" aria-hidden="true"></span>
-      <button type="button" data-reference-pdf-zoom="out" aria-label="PDF zoom out">-</button>
-      <span class="pdf-tool-zoom">${Math.round(activeReferencePdfZoomFactor * 100)}%</span>
-      <button type="button" data-reference-pdf-zoom="in" aria-label="PDF zoom in">+</button>
-      <button type="button" class="pdf-tool-fit" data-reference-pdf-zoom="fit" aria-label="Fit PDF to screen">\ub9de\ucda4</button>
-    </div>`;
+    `;
 }
 
 function installReferencePdfPanHandlers(scroller) {
@@ -3695,8 +3707,8 @@ function computeReferencePdfFitScale(image, scroller) {
 function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   const scroller = els.referencePdfFrameWrap.querySelector('.reference-pdf-pan-scroller');
   const image = els.referencePdfFrameWrap.querySelector('.reference-pdf-page-image');
-  const zoomLabel = els.referencePdfFrameWrap.querySelector('.pdf-tool-zoom');
-  if (!scroller || !image || !image.complete || !image.naturalWidth || !image.naturalHeight) return;
+  const stage = els.referencePdfFrameWrap.querySelector('.reference-pdf-image-stage');
+  if (!scroller || !stage || !image || !image.complete || !image.naturalWidth || !image.naturalHeight) return;
 
   const oldWidth = Math.max(scroller.scrollWidth, 1);
   const oldHeight = Math.max(scroller.scrollHeight, 1);
@@ -3705,9 +3717,16 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
 
   activeReferencePdfFitScale = computeReferencePdfFitScale(image, scroller);
   const scale = activeReferencePdfFitScale * activeReferencePdfZoomFactor;
-  image.style.width = `${Math.max(1, Math.round(image.naturalWidth * scale))}px`;
-  image.style.height = `${Math.max(1, Math.round(image.naturalHeight * scale))}px`;
-  if (zoomLabel) zoomLabel.textContent = `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
+  const displayWidth = Math.max(1, Math.round(image.naturalWidth * scale));
+  const displayHeight = Math.max(1, Math.round(image.naturalHeight * scale));
+  const stagePadding = window.innerWidth <= 760 ? 16 : 24;
+
+  // 표시 배율과 실제 이미지 크기/스크롤 영역을 함께 확정해 250%가 실제 화면에도 반영되게 한다.
+  image.style.width = `${displayWidth}px`;
+  image.style.height = `${displayHeight}px`;
+  stage.style.width = `${Math.max(scroller.clientWidth, displayWidth + stagePadding)}px`;
+  stage.style.height = `${Math.max(scroller.clientHeight, displayHeight + stagePadding)}px`;
+  updateReferencePdfZoomUi();
 
   requestAnimationFrame(() => {
     if (preserveCenter) {
@@ -3720,31 +3739,27 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   });
 }
 
+function updateReferencePdfZoomUi() {
+  if (els.referencePdfZoomLabel) els.referencePdfZoomLabel.textContent = `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
+  if (els.referencePdfZoomOutBtn) els.referencePdfZoomOutBtn.disabled = activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
+  if (els.referencePdfZoomInBtn) els.referencePdfZoomInBtn.disabled = activeReferencePdfZoomFactor >= REFERENCE_PDF_ZOOM_MAX;
+}
+
 function setReferencePdfZoomFactor(nextFactor) {
   const bounded = Math.max(REFERENCE_PDF_ZOOM_MIN, Math.min(REFERENCE_PDF_ZOOM_MAX, nextFactor));
-  if (Math.abs(bounded - activeReferencePdfZoomFactor) < 0.001) return;
+  if (Math.abs(bounded - activeReferencePdfZoomFactor) < 0.001) {
+    updateReferencePdfZoomUi();
+    return;
+  }
   activeReferencePdfZoomFactor = bounded;
+  updateReferencePdfZoomUi();
   renderActiveReferencePdfImage({ preserveCenter: true });
-  const out = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="out"]');
-  const inn = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="in"]');
-  if (out) out.disabled = activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
-  if (inn) inn.disabled = activeReferencePdfZoomFactor >= REFERENCE_PDF_ZOOM_MAX;
 }
 
 function bindReferencePdfViewerControls() {
   const scroller = els.referencePdfFrameWrap.querySelector('.reference-pdf-pan-scroller');
   if (scroller) installReferencePdfPanHandlers(scroller);
-  const out = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="out"]');
-  const inn = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="in"]');
-  const fit = els.referencePdfFrameWrap.querySelector('[data-reference-pdf-zoom="fit"]');
-  if (out) out.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor - REFERENCE_PDF_ZOOM_STEP));
-  if (inn) inn.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor + REFERENCE_PDF_ZOOM_STEP));
-  if (fit) fit.addEventListener('click', () => {
-    activeReferencePdfZoomFactor = 1;
-    renderActiveReferencePdfImage({ preserveCenter: false });
-    if (out) out.disabled = false;
-    if (inn) inn.disabled = false;
-  });
+  updateReferencePdfZoomUi();
 }
 
 function renderReferencePdfFallback(page) {
@@ -3774,6 +3789,7 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   els.referencePdfOpenDriveLink.href = driveViewUrl(page.driveFileId);
   activeReferencePdfZoomFactor = REFERENCE_PDF_DEFAULT_ZOOM;
   activeReferencePdfFitScale = 1;
+  updateReferencePdfZoomUi();
   els.referencePdfFrameWrap.innerHTML = referencePdfViewerMarkup(page);
   bindReferencePdfViewerControls();
 
