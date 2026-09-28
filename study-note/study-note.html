@@ -616,33 +616,70 @@ button { -webkit-tap-highlight-color: transparent; }
 
 /* ===== 4-3단계 원본 교재/서브노트 PDF ===== */
 .reference-pdf-help { margin: 9px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
-.reference-pdf-viewer-body { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 14px; }
-.reference-pdf-controls { display: grid; grid-template-columns: auto minmax(180px, 1fr) auto; gap: 9px; align-items: center; }
+#referencePdfViewerModal { padding: 12px; overflow: hidden; }
+.reference-pdf-modal-card {
+  width: min(1100px, 100%);
+  height: min(92dvh, 980px);
+  max-height: calc(100dvh - 24px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.reference-pdf-modal-card > .modal-head,
+.reference-pdf-modal-card > .media-viewer-actions { flex: 0 0 auto; }
+.reference-pdf-viewer-body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin-top: 12px; overflow: hidden; }
+.reference-pdf-controls { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(180px, 1fr) auto; gap: 9px; align-items: center; }
 .reference-pdf-control-caption { grid-column: 1 / -1; color: var(--muted); font-size: .7rem; font-weight: 800; }
 .reference-pdf-page-select { height: 40px; min-width: 0; }
-.reference-pdf-sequential-controls { display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; gap: 9px; align-items: center; margin-top: 9px; padding-top: 9px; border-top: 1px solid #eef2f6; }
+.reference-pdf-sequential-controls { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; gap: 9px; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f6; }
 .reference-pdf-sequential-label { min-width: 0; text-align: center; color: #475467; font-size: .76rem; overflow-wrap: anywhere; }
-.reference-pdf-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 0; }
-.reference-pdf-toolbar-main { min-width: 0; display: flex; align-items: center; gap: 8px; flex: 1 1 360px; }
+.reference-pdf-toolbar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
+.reference-pdf-toolbar-main { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 1 1 100%; }
 .reference-pdf-toolbar strong { min-width: 0; overflow-wrap: anywhere; font-size: .78rem; }
 .reference-pdf-toolbar .btn { flex: 0 0 auto; text-decoration: none; }
-.reference-pdf-zoom-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.reference-pdf-zoom-controls .btn { min-height: 34px; padding: 5px 9px; }
-.reference-pdf-zoom-label { min-width: 50px; text-align: center; color: #475467; font-size: .76rem; font-weight: 800; }
-.reference-pdf-frame-wrap { flex: 1; min-height: 460px; position: relative; overflow: auto; overscroll-behavior: contain; background: #eef2f6; border: 1px solid var(--line); border-radius: 10px; touch-action: pan-x pan-y; }
-.reference-pdf-zoom-stage { position: relative; min-width: 1px; min-height: 1px; }
-.reference-pdf-frame { position: absolute; left: 0; top: 0; border: 0; background: #fff; transform-origin: 0 0; }
+.reference-pdf-frame-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 0;
+  position: relative;
+  overflow: hidden;
+  background: #eef2f6;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.reference-pdf-frame { display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: #fff; }
 @media (max-width: 760px) {
-  .reference-pdf-controls { grid-template-columns: 1fr 1fr; }
+  #referencePdfViewerModal { padding: 6px; align-items: center; }
+  .reference-pdf-modal-card {
+    width: 100%;
+    height: calc(100dvh - 12px);
+    max-height: calc(100dvh - 12px);
+    padding: 12px;
+    border-radius: 13px;
+  }
+  .reference-pdf-viewer-body { margin-top: 8px; }
+  .reference-pdf-controls { grid-template-columns: 1fr 1fr; gap: 6px; }
   .reference-pdf-control-caption { grid-column: 1 / -1; }
-  .reference-pdf-page-select { grid-column: 1 / -1; grid-row: 2; }
-  .reference-pdf-sequential-controls { grid-template-columns: 1fr 1fr; }
+  .reference-pdf-page-select { grid-column: 1 / -1; grid-row: 2; height: 38px; }
+  .reference-pdf-controls .btn,
+  .reference-pdf-sequential-controls .btn { min-height: 36px; padding: 6px 8px; }
+  .reference-pdf-sequential-controls { grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; padding-top: 6px; }
   .reference-pdf-sequential-label { grid-column: 1 / -1; grid-row: 1; }
-  .reference-pdf-toolbar { align-items: stretch; flex-direction: column; }
-  .reference-pdf-toolbar-main { flex: 0 0 auto; align-items: flex-start; flex-direction: column; }
-  .reference-pdf-toolbar-main .btn { width: 100%; text-align: center; }
-  .reference-pdf-zoom-controls { justify-content: center; }
-  .reference-pdf-frame-wrap { min-height: 360px; }
+  .reference-pdf-toolbar { padding: 6px 0; }
+  .reference-pdf-toolbar-main { flex-wrap: wrap; }
+  .reference-pdf-toolbar-main .btn { min-height: 36px; padding: 6px 10px; }
+  .reference-pdf-modal-card > .media-viewer-actions { padding-top: 6px; }
+}
+@media (max-height: 700px) {
+  .reference-pdf-modal-card { height: calc(100dvh - 8px); max-height: calc(100dvh - 8px); padding-top: 10px; padding-bottom: 8px; }
+  .reference-pdf-modal-card .modal-head h2 { margin-bottom: 2px; font-size: 1.05rem; }
+  .reference-pdf-modal-card .modal-head p { font-size: .72rem; }
+  .reference-pdf-viewer-body { margin-top: 6px; }
+  .reference-pdf-control-caption { display: none; }
+  .reference-pdf-sequential-controls { margin-top: 5px; padding-top: 5px; }
+  .reference-pdf-toolbar { padding: 5px 0; }
+  .reference-pdf-modal-card > .media-viewer-actions { padding-top: 5px; }
 }
 
   </style>
@@ -1043,7 +1080,7 @@ button { -webkit-tap-highlight-color: transparent; }
   </div>
 
   <div id="referencePdfViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="referencePdfViewerTitle">
-    <div class="modal-card media-viewer-card">
+    <div class="modal-card reference-pdf-modal-card">
       <div class="modal-head">
         <div>
           <h2 id="referencePdfViewerTitle">원본 학습자료</h2>
@@ -1067,12 +1104,6 @@ button { -webkit-tap-highlight-color: transparent; }
           <div class="reference-pdf-toolbar-main">
             <strong id="referencePdfCounter"></strong>
             <a id="referencePdfOpenDriveLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">Drive에서 열기 ↗</a>
-          </div>
-          <div class="reference-pdf-zoom-controls" aria-label="PDF 화면 확대 축소">
-            <button id="referencePdfZoomOutBtn" class="btn" type="button">− 축소</button>
-            <span id="referencePdfZoomLabel" class="reference-pdf-zoom-label">100%</span>
-            <button id="referencePdfZoomInBtn" class="btn" type="button">＋ 확대</button>
-            <button id="referencePdfZoomResetBtn" class="btn" type="button">맞춤</button>
           </div>
         </div>
         <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
@@ -1840,7 +1871,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.3.1-stage4-3-db-init-fix';
+const APP_VERSION = '4.3.2-stage4-3-pdf-layer-fit';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -1866,10 +1897,6 @@ let activeReferencePdfLinks = [];
 let activeReferencePdfIndex = 0;
 let activeReferencePdfSourceType = '';
 let activeReferencePdfCurrentPage = null;
-let referencePdfZoom = 1;
-const REFERENCE_PDF_ZOOM_MIN = 0.5;
-const REFERENCE_PDF_ZOOM_MAX = 2;
-const REFERENCE_PDF_ZOOM_STEP = 0.25;
 const REFERENCE_PDF_PAGE_KEY_SEQUENCES = [
   ['SW-1','SW-2','SW-3'],
   ['AL-1','AL-2'],
@@ -1985,7 +2012,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfZoomOutBtn','referencePdfZoomInBtn','referencePdfZoomResetBtn','referencePdfZoomLabel','referencePdfFrameWrap','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2038,11 +2065,7 @@ function bindEvents() {
   });
   els.referencePdfSequentialPrevBtn.addEventListener('click', () => moveReferencePdfSequential(-1));
   els.referencePdfSequentialNextBtn.addEventListener('click', () => moveReferencePdfSequential(1));
-  els.referencePdfZoomOutBtn.addEventListener('click', () => setReferencePdfZoom(referencePdfZoom - REFERENCE_PDF_ZOOM_STEP));
-  els.referencePdfZoomInBtn.addEventListener('click', () => setReferencePdfZoom(referencePdfZoom + REFERENCE_PDF_ZOOM_STEP));
-  els.referencePdfZoomResetBtn.addEventListener('click', () => setReferencePdfZoom(1));
   els.referencePdfViewerModal.addEventListener('keydown', event => event.stopPropagation());
-  window.addEventListener('resize', () => { if (!els.referencePdfViewerModal.classList.contains('hidden')) applyReferencePdfZoom(); });
 
   // 3단계 학습기능 이벤트 연결
   els.favoriteBtn.addEventListener('click', toggleFavorite);
@@ -3397,7 +3420,6 @@ function openReferencePdfViewer(sourceType) {
   activeReferencePdfIndex = 0;
   activeReferencePdfSourceType = sourceType;
   activeReferencePdfCurrentPage = null;
-  referencePdfZoom = 1;
   els.referencePdfViewerTitle.textContent = `${sourceType} 원본 PDF`;
   els.referencePdfViewerSubtitle.textContent = `${currentTopicId} · 등록 ${items.length.toLocaleString()}페이지 · 원본 앞/뒤 페이지도 순차 확인 가능`;
   renderReferencePdfRegisteredOptions();
@@ -3420,7 +3442,6 @@ function closeReferencePdfViewer() {
   activeReferencePdfIndex = 0;
   activeReferencePdfSourceType = '';
   activeReferencePdfCurrentPage = null;
-  referencePdfZoom = 1;
 }
 
 function drivePreviewUrl(fileId) {
@@ -3514,43 +3535,9 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
     : `등록페이지 밖 순차보기 · 기준 등록 ${activeReferencePdfIndex + 1} / ${activeReferencePdfLinks.length}`;
   els.referencePdfCounter.textContent = `${registeredText} · 현재 ${page.pageToken}`;
   els.referencePdfOpenDriveLink.href = driveViewUrl(page.driveFileId);
-  els.referencePdfFrameWrap.innerHTML = `<div class="reference-pdf-zoom-stage"><iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}" loading="eager"></iframe></div>`;
+  els.referencePdfFrameWrap.innerHTML = `<iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}" loading="eager" allowfullscreen></iframe>`;
   const frame = els.referencePdfFrameWrap.querySelector('iframe');
   frame.src = drivePreviewUrl(page.driveFileId);
-  frame.addEventListener('load', applyReferencePdfZoom, { once: true });
-  requestAnimationFrame(applyReferencePdfZoom);
-  updateReferencePdfZoomControls();
-  els.referencePdfFrameWrap.scrollTo({ left: 0, top: 0 });
-}
-
-function setReferencePdfZoom(value) {
-  const next = Math.max(REFERENCE_PDF_ZOOM_MIN, Math.min(REFERENCE_PDF_ZOOM_MAX, Math.round(value * 100) / 100));
-  referencePdfZoom = next;
-  applyReferencePdfZoom();
-  updateReferencePdfZoomControls();
-}
-
-function updateReferencePdfZoomControls() {
-  els.referencePdfZoomLabel.textContent = `${Math.round(referencePdfZoom * 100)}%`;
-  els.referencePdfZoomOutBtn.disabled = referencePdfZoom <= REFERENCE_PDF_ZOOM_MIN;
-  els.referencePdfZoomInBtn.disabled = referencePdfZoom >= REFERENCE_PDF_ZOOM_MAX;
-}
-
-function applyReferencePdfZoom() {
-  const wrap = els.referencePdfFrameWrap;
-  const stage = wrap.querySelector('.reference-pdf-zoom-stage');
-  const frame = wrap.querySelector('.reference-pdf-frame');
-  if (!stage || !frame) return;
-  const baseWidth = Math.max(320, wrap.clientWidth - 2);
-  const baseHeight = Math.max(360, wrap.clientHeight - 2);
-  const scaledWidth = Math.round(baseWidth * referencePdfZoom);
-  const scaledHeight = Math.round(baseHeight * referencePdfZoom);
-  stage.style.width = `${scaledWidth}px`;
-  stage.style.height = `${scaledHeight}px`;
-  stage.style.margin = referencePdfZoom < 1 ? '0 auto' : '0';
-  frame.style.width = `${baseWidth}px`;
-  frame.style.height = `${baseHeight}px`;
-  frame.style.transform = `scale(${referencePdfZoom})`;
 }
 
 function getTopicAttachments(topicId, type = '') {
