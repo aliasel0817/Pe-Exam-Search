@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#2563eb">
   <meta name="description" content="정보관리기술사 학습노트">
   <title>정보관리기술사 학습노트</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232563eb%22%2F%3E%3Cpath%20d%3D%22M17%2015h25a5%205%200%200%201%205%205v29H22a5%205%200%200%201-5-5V15Z%22%20fill%3D%22white%22%2F%3E%3Cpath%20d%3D%22M24%2024h16M24%2031h16M24%2038h11%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E">
   <style>
@@ -776,6 +777,39 @@ button { -webkit-tap-highlight-color: transparent; }
   .reference-pdf-modal-card > .media-viewer-actions { padding-top: 5px; }
 }
 
+  
+.security-status-chip.active { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+.security-status-chip.pending { background: #fffaeb; border-color: #fedf89; color: #b54708; }
+.security-status-chip.locked { background: #f2f4f7; border-color: #d0d5dd; color: #475467; }
+.security-card { width: min(760px, calc(100vw - 24px)); max-height: min(860px, calc(100dvh - 24px)); overflow: auto; }
+.security-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 16px; }
+.security-summary > div { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.security-summary span, .security-summary strong { display: block; }
+.security-summary span { color: var(--muted); font-size: .7rem; margin-bottom: 4px; }
+.security-summary strong { font-size: .82rem; overflow-wrap: anywhere; }
+.security-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.security-section h3 { margin: 0 0 8px; font-size: .92rem; }
+.security-login-box { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfe; }
+.security-login-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.security-device-list { display: grid; gap: 8px; margin-top: 8px; }
+.security-device-item { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
+.security-device-main { min-width: 0; }
+.security-device-main strong, .security-device-main small { display: block; overflow-wrap: anywhere; }
+.security-device-main small { margin-top: 3px; color: var(--muted); font-size: .7rem; line-height: 1.4; }
+.security-device-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.security-device-badge { display: inline-flex; margin-left: 6px; padding: 2px 6px; border-radius: 999px; font-size: .64rem; font-weight: 700; vertical-align: middle; }
+.security-device-badge.active { background: #ecfdf3; color: #067647; }
+.security-device-badge.pending { background: #fffaeb; color: #b54708; }
+.security-device-badge.revoked { background: #fef3f2; color: #b42318; }
+.security-warning { margin-top: 8px; padding: 9px 10px; border-radius: 9px; background: #fff7ed; color: #9a3412; font-size: .75rem; line-height: 1.45; }
+.security-inline-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+@media (max-width: 700px) {
+  .security-summary { grid-template-columns: 1fr; }
+  .security-device-item { grid-template-columns: 1fr; }
+  .security-device-actions { justify-content: stretch; }
+  .security-device-actions .btn { flex: 1 1 auto; }
+}
+
   </style>
 </head>
 <body>
@@ -787,6 +821,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <h1>정보관리기술사 학습노트</h1>
           <div class="top-meta">
             <span id="networkBadge" class="status-chip">상태 확인 중</span>
+            <span id="securityBadge" class="status-chip security-status-chip locked">🔒 관리 미인증</span>
             <span id="syncLabel">MASTER 미수신</span>
           </div>
         </div>
@@ -1024,9 +1059,12 @@ button { -webkit-tap-highlight-color: transparent; }
       <input id="apiUrlInput" name="studyNoteApiUrl" class="field" type="text" inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="https://script.google.com/macros/s/.../exec">
       <p class="help-text">Google Spreadsheet: 내 드라이브/topic/topic_study_data · 입력값을 지우고 저장하면 공용 기본 URL을 사용합니다.</p>
 
-      <label class="field-label" for="adminPinInput">관리 PIN (토픽 관리 · 학습정보 동기화)</label>
-      <input id="adminPinInput" class="field" type="password" inputmode="numeric" maxlength="6" placeholder="6자리 관리 PIN">
-      <p class="help-text">토픽 관리와 학습정보 동기화에 사용하며 이 기기 브라우저에 저장됩니다.</p>
+      <label class="field-label">관리 보안</label>
+      <div class="security-inline-actions">
+        <strong id="settingsSecurityStatus">관리 미인증</strong>
+        <button id="openSecurityBtn" class="btn" type="button">🔐 인증 · 신뢰기기 관리</button>
+      </div>
+      <p class="help-text">v4.4.0부터 일반 쓰기 작업은 Google 계정 + 신뢰기기 세션으로 보호합니다. 6자리 관리 PIN은 최초 등록/긴급 복구에만 사용하며 브라우저에 새로 저장하지 않습니다.</p>
 
       <div class="settings-status">
         <div><span>로컬 토픽</span><strong id="settingsTopicCount">0</strong></div>
@@ -1037,6 +1075,54 @@ button { -webkit-tap-highlight-color: transparent; }
       <div class="modal-actions">
         <button id="testApiBtn" class="btn" type="button">연결 확인</button>
         <button id="saveSettingsBtn" class="btn primary" type="button">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="securityModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="securityTitle">
+    <div class="modal-card security-card">
+      <div class="modal-head">
+        <div>
+          <h2 id="securityTitle">관리 보안 · 신뢰기기</h2>
+          <p class="muted">읽기는 그대로 사용할 수 있고, 추가·수정·삭제·동기화는 ACTIVE 신뢰기기에서만 허용됩니다.</p>
+        </div>
+        <button id="closeSecurityBtn" class="icon-btn" type="button" aria-label="보안 설정 닫기">✕</button>
+      </div>
+
+      <div class="security-summary">
+        <div><span>현재 상태</span><strong id="securityCurrentStatus">확인 중</strong></div>
+        <div><span>현재 기기</span><strong id="securityCurrentDevice">-</strong></div>
+        <div><span>세션 만료</span><strong id="securitySessionExpires">-</strong></div>
+      </div>
+
+      <section id="securityRegistrationSection" class="security-section">
+        <h3>이 기기 등록 / 복구</h3>
+        <div class="security-login-box">
+          <label class="field-label" for="securityDeviceNameInput">기기 이름</label>
+          <input id="securityDeviceNameInput" class="field" type="text" maxlength="80" placeholder="예: 집 PC, iPhone, Galaxy Tab">
+          <label class="field-label" for="securityRecoveryPinInput">초기/긴급복구 관리 PIN</label>
+          <input id="securityRecoveryPinInput" class="field" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="최초 등록 또는 긴급 복구 때만 입력">
+          <p id="securityRegistrationHint" class="help-text">새 기기는 Google 인증 후 기존 신뢰기기의 승인을 받아 ACTIVE가 됩니다.</p>
+          <div class="security-login-actions">
+            <button id="securityGoogleRegisterBtn" class="btn primary" type="button">Google로 이 기기 등록</button>
+            <button id="securityRecoveryBtn" class="btn" type="button">Google + 관리 PIN으로 긴급 복구</button>
+            <button id="securityCheckApprovalBtn" class="btn hidden" type="button">승인 상태 확인</button>
+          </div>
+          <div id="securityRegistrationMessage" class="security-warning hidden"></div>
+        </div>
+      </section>
+
+      <section id="securityDevicesSection" class="security-section hidden">
+        <div class="section-title-row">
+          <h3>등록 기기</h3>
+          <button id="securityRefreshDevicesBtn" class="btn" type="button">새로고침</button>
+        </div>
+        <p class="help-text">PENDING 기기를 승인하거나 분실/미사용 기기를 차단할 수 있습니다. 차단 즉시 해당 기기의 쓰기 권한이 무효화됩니다.</p>
+        <div id="securityDeviceList" class="security-device-list"></div>
+      </section>
+
+      <div class="modal-actions">
+        <button id="securityCloseBottomBtn" class="btn primary" type="button">닫기</button>
       </div>
     </div>
   </div>
@@ -1853,8 +1939,8 @@ function serializeLearningState(state) {
   };
 }
 
-async function fetchLearningStates(apiUrl, adminPin) {
-  const url = `${normalizeApiUrl(apiUrl)}?action=learningStates&adminPin=${encodeURIComponent(adminPin)}&_=${Date.now()}`;
+async function fetchLearningStates(apiUrl) {
+  const url = await buildSignedGetUrl(apiUrl, 'learningStates', {});
   const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
   if (!response.ok) throw new Error(`학습정보 조회 실패: HTTP ${response.status}`);
   const json = await response.json();
@@ -1886,33 +1972,141 @@ function createRequestId() {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-async function fetchMutationStatus(apiUrl, requestId) {
-  const url = `${normalizeApiUrl(apiUrl)}?action=mutationStatus&requestId=${encodeURIComponent(requestId)}&_=${Date.now()}`;
-  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+function randomHex(byteLength = 32) {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+}
+
+function bytesToBase64Url(bytes) {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function jsonToBase64Url(value) {
+  return bytesToBase64Url(new TextEncoder().encode(JSON.stringify(value || {})));
+}
+
+async function sha256HexClient(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value)));
+  return [...new Uint8Array(digest)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+async function hmacSha256HexClient(value, keyText) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(keyText)), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(String(value)));
+  return [...new Uint8Array(signature)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function getOrCreateDeviceId() {
+  let id = clean(localStorage.getItem(SECURITY_DEVICE_ID_KEY) || '');
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(id)) {
+    id = `dev_${randomHex(24)}`;
+    localStorage.setItem(SECURITY_DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+function getSecuritySession() {
+  try {
+    const raw = localStorage.getItem(SECURITY_SESSION_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw);
+    if (!value?.deviceId || !value?.sessionToken) return null;
+    return value;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveSecuritySession(value) {
+  localStorage.setItem(SECURITY_SESSION_KEY, JSON.stringify(value));
+  if (value?.deviceName) localStorage.setItem(SECURITY_DEVICE_NAME_KEY, value.deviceName);
+}
+
+function clearSecuritySession() {
+  localStorage.removeItem(SECURITY_SESSION_KEY);
+  securityState.authenticated = false;
+  securityState.status = 'UNREGISTERED';
+  securityState.device = null;
+  updateSecurityUi();
+}
+
+async function requireSecuritySessionForSigning() {
+  const session = getSecuritySession();
+  if (!session?.sessionToken || !session?.deviceId) throw new Error('이 기기의 관리 인증이 필요합니다.');
+  return session;
+}
+
+async function buildSignedGetUrl(apiUrl, action, data = {}) {
+  const session = await requireSecuritySessionForSigning();
+  const timestamp = String(Date.now());
+  const nonce = randomHex(16);
+  const authPayload = jsonToBase64Url(data);
+  const canonical = `GET\n${String(action).toLowerCase()}\n${session.deviceId}\n${timestamp}\n${nonce}\n${authPayload}`;
+  const keyHash = await sha256HexClient(session.sessionToken);
+  const signature = await hmacSha256HexClient(canonical, keyHash);
+  const query = new URLSearchParams({ action, deviceId: session.deviceId, timestamp, nonce, authPayload, signature, _: String(Date.now()) });
+  return `${normalizeApiUrl(apiUrl)}?${query.toString()}`;
+}
+
+async function fetchMutationStatus(apiUrl, requestId, pollKey) {
+  const query = new URLSearchParams({ action: 'mutationStatus', requestId, pollKey, _: String(Date.now()) });
+  const response = await fetch(`${normalizeApiUrl(apiUrl)}?${query.toString()}`, { method: 'GET', cache: 'no-store', redirect: 'follow' });
   if (!response.ok) throw new Error(`처리상태 확인 실패: HTTP ${response.status}`);
   return response.json();
 }
 
-async function sendMutation(apiUrl, payload) {
-  const requestId = createRequestId();
-  const body = JSON.stringify({ ...payload, requestId });
-  await fetch(normalizeApiUrl(apiUrl), {
-    method: 'POST',
-    mode: 'no-cors',
-    cache: 'no-store',
-    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body,
-  });
-
+async function pollMutationResult(apiUrl, requestId, pollKey, timeoutMs = 20000) {
   const startedAt = Date.now();
-  while (Date.now() - startedAt < 15000) {
+  while (Date.now() - startedAt < timeoutMs) {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const status = await fetchMutationStatus(apiUrl, requestId);
+    const status = await fetchMutationStatus(apiUrl, requestId, pollKey);
     if (!status.done) continue;
-    if (!status.ok) throw new Error(status.message || 'Spreadsheet 저장에 실패했습니다.');
+    if (!status.ok) throw new Error(status.message || '서버 처리에 실패했습니다.');
     return status;
   }
-  throw new Error('Spreadsheet 저장 확인 시간이 초과되었습니다. 다시 확인해 주세요.');
+  throw new Error('서버 처리 확인 시간이 초과되었습니다. 다시 확인해 주세요.');
+}
+
+async function sendPublicMutation(apiUrl, action, data = {}) {
+  const requestId = createRequestId();
+  const pollKey = randomHex(32);
+  const body = JSON.stringify({ action, requestId, pollKey, data });
+  await fetch(normalizeApiUrl(apiUrl), {
+    method: 'POST', mode: 'no-cors', cache: 'no-store',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body,
+  });
+  return pollMutationResult(apiUrl, requestId, pollKey, 25000);
+}
+
+async function sendSecureMutation(apiUrl, action, data = {}) {
+  const session = await requireSecuritySessionForSigning();
+  const requestId = createRequestId();
+  const pollKey = randomHex(32);
+  const timestamp = String(Date.now());
+  const nonce = randomHex(16);
+  const signedPayload = JSON.stringify(data || {});
+  const canonical = `POST\n${String(action).toLowerCase()}\n${session.deviceId}\n${requestId}\n${pollKey}\n${timestamp}\n${nonce}\n${signedPayload}`;
+  const keyHash = await sha256HexClient(session.sessionToken);
+  const signature = await hmacSha256HexClient(canonical, keyHash);
+  const body = JSON.stringify({
+    action, requestId, pollKey, signedPayload,
+    auth: { deviceId: session.deviceId, timestamp, nonce, signature },
+  });
+  await fetch(normalizeApiUrl(apiUrl), {
+    method: 'POST', mode: 'no-cors', cache: 'no-store',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body,
+  });
+  return pollMutationResult(apiUrl, requestId, pollKey);
+}
+
+async function sendMutation(apiUrl, payload) {
+  const { action, ...data } = payload || {};
+  if (!action) throw new Error('action이 없습니다.');
+  return sendSecureMutation(apiUrl, action, data);
 }
 
 function validateAndNormalizeDataset(payload) {
@@ -1975,10 +2169,14 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.3.7-stage4-3-zoom1000';
+const APP_VERSION = '4.4.0-trusted-device-security';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
-const ADMIN_PIN_KEY = 'peStudyNote.adminPin';
+const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
+const GOOGLE_OAUTH_CLIENT_ID = '1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com';
+const SECURITY_DEVICE_ID_KEY = 'peStudyNote.security.deviceId.v1';
+const SECURITY_SESSION_KEY = 'peStudyNote.security.session.v1';
+const SECURITY_DEVICE_NAME_KEY = 'peStudyNote.security.deviceName.v1';
 const LAST_TOPIC_KEY = 'peStudyNote.lastTopicId';
 const TOPIC_PAGE_SIZE_KEY = 'peStudyNote.topicPageSize';
 const DEFAULT_TOPIC_PAGE_SIZE = 50;
@@ -1994,6 +2192,9 @@ let topicPageSize = Number(localStorage.getItem(TOPIC_PAGE_SIZE_KEY)) || DEFAULT
 if (![30, 50, 100].includes(topicPageSize)) topicPageSize = DEFAULT_TOPIC_PAGE_SIZE;
 let currentTopicId = null;
 let manageMode = 'edit';
+let securityState = { authenticated: false, status: 'UNKNOWN', device: null, ownerConfigured: false, oauthReady: false };
+let googleSecurityCodeClient = null;
+let pendingGoogleSecurityRequest = null;
 let allAttachments = [];
 let allReferencePdfLinks = [];
 let allReferencePdfPages = [];
@@ -2082,6 +2283,7 @@ async function init() {
     learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
     recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
     await renderMeta();
+  refreshSecurityState().catch(error => console.warn('Security session restore failed:', error));
   } catch (error) {
     console.error('IndexedDB initialization failed:', error);
     showEmptyState();
@@ -2116,14 +2318,14 @@ async function init() {
 
 function bindElements() {
   const ids = [
-    'networkBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
+    'networkBadge','securityBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
-    'settingsModal','closeSettingsBtn','apiUrlInput','adminPinInput','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2141,6 +2343,14 @@ function bindEvents() {
   els.settingsModal.addEventListener('click', event => { if (event.target === els.settingsModal) closeSettings(); });
   els.saveSettingsBtn.addEventListener('click', saveSettings);
   els.testApiBtn.addEventListener('click', testApiConnection);
+  els.openSecurityBtn.addEventListener('click', openSecurityModal);
+  els.closeSecurityBtn.addEventListener('click', closeSecurityModal);
+  els.securityCloseBottomBtn.addEventListener('click', closeSecurityModal);
+  els.securityGoogleRegisterBtn.addEventListener('click', () => beginGoogleDeviceRegistration(false));
+  els.securityRecoveryBtn.addEventListener('click', () => beginGoogleDeviceRegistration(true));
+  els.securityCheckApprovalBtn.addEventListener('click', () => refreshSecurityState({ showToastOnChange: true }));
+  els.securityRefreshDevicesBtn.addEventListener('click', refreshSecurityDevices);
+  els.securityModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 관리 팝업은 바깥 영역 클릭이나 ESC로 닫히지 않는다.
   // 사용자가 명시적으로 상단 X 또는 하단 취소를 누르거나 저장/처리가 성공했을 때만 닫는다.
@@ -2382,7 +2592,7 @@ function getApiUrl() {
 
 function openSettings() {
   els.apiUrlInput.value = getApiUrl();
-  els.adminPinInput.value = localStorage.getItem(ADMIN_PIN_KEY) || '';
+  updateSecurityUi();
   els.settingsModal.classList.remove('hidden');
 }
 
@@ -2398,15 +2608,298 @@ function saveSettings() {
   }
   if (value && value !== normalizeApiUrl(DEFAULT_API_URL)) localStorage.setItem(API_URL_KEY, value);
   else localStorage.removeItem(API_URL_KEY);
-  const adminPin = clean(els.adminPinInput.value);
-  if (adminPin && !/^\d{6}$/.test(adminPin)) {
-    showToast('관리 PIN은 숫자 6자리로 입력해 주세요.');
-    return;
-  }
-  if (adminPin) localStorage.setItem(ADMIN_PIN_KEY, adminPin);
-  else localStorage.removeItem(ADMIN_PIN_KEY);
   closeSettings();
   showToast(value ? '설정을 저장했습니다.' : '공용 기본 Apps Script URL을 사용합니다.');
+}
+
+
+function detectDefaultDeviceName() {
+  const ua = navigator.userAgent || '';
+  const platform = navigator.userAgentData?.platform || navigator.platform || '';
+  let os = '기기';
+  if (/iPhone/i.test(ua)) os = 'iPhone';
+  else if (/iPad/i.test(ua)) os = 'iPad';
+  else if (/Android/i.test(ua)) os = /SM-|Galaxy/i.test(ua) ? 'Galaxy/Android' : 'Android';
+  else if (/Windows/i.test(ua) || /Win/i.test(platform)) os = 'Windows PC';
+  else if (/Mac/i.test(platform)) os = 'Mac';
+  let browser = 'Browser';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/CriOS|Chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\//i.test(ua) && !/Chrome|CriOS|Edg\//i.test(ua)) browser = 'Safari';
+  return `${os} · ${browser}`;
+}
+
+function hasActiveSecuritySession() {
+  return securityState.authenticated === true && securityState.status === 'ACTIVE' && Boolean(getSecuritySession()?.sessionToken);
+}
+
+function updateSecurityUi() {
+  const status = securityState.status || 'UNKNOWN';
+  const active = securityState.authenticated && status === 'ACTIVE';
+  const pending = status === 'PENDING';
+  if (els.securityBadge) {
+    els.securityBadge.classList.toggle('active', active);
+    els.securityBadge.classList.toggle('pending', pending);
+    els.securityBadge.classList.toggle('locked', !active && !pending);
+    els.securityBadge.textContent = active ? '🔐 신뢰기기' : pending ? '⏳ 승인 대기' : '🔒 관리 미인증';
+  }
+  if (els.settingsSecurityStatus) els.settingsSecurityStatus.textContent = active ? '신뢰기기 인증됨' : pending ? '새 기기 승인 대기' : '관리 미인증';
+  if (els.securityCurrentStatus) els.securityCurrentStatus.textContent = active ? 'ACTIVE · 쓰기 허용' : pending ? 'PENDING · 승인 필요' : '미인증 · 읽기만 가능';
+  if (els.securityCurrentDevice) els.securityCurrentDevice.textContent = securityState.device?.deviceName || localStorage.getItem(SECURITY_DEVICE_NAME_KEY) || detectDefaultDeviceName();
+  if (els.securitySessionExpires) els.securitySessionExpires.textContent = securityState.device?.sessionExpiresAt ? formatDateTime(securityState.device.sessionExpiresAt) : '-';
+  if (els.securityDeviceNameInput && !els.securityDeviceNameInput.value) els.securityDeviceNameInput.value = localStorage.getItem(SECURITY_DEVICE_NAME_KEY) || detectDefaultDeviceName();
+  if (els.securityCheckApprovalBtn) els.securityCheckApprovalBtn.classList.toggle('hidden', !pending);
+  if (els.securityDevicesSection) els.securityDevicesSection.classList.toggle('hidden', !active);
+  if (els.securityRegistrationHint) {
+    if (!securityState.oauthReady) els.securityRegistrationHint.textContent = '서버 보안 설정이 아직 완료되지 않았습니다. Apps Script Script Properties 설정 후 진행하세요.';
+    else if (!securityState.ownerConfigured) els.securityRegistrationHint.textContent = '최초 관리자 등록입니다. Google 인증과 기존 6자리 관리 PIN이 모두 필요합니다.';
+    else if (pending) els.securityRegistrationHint.textContent = '이 기기는 승인 대기 중입니다. 기존 ACTIVE 신뢰기기에서 승인한 후 “승인 상태 확인”을 누르세요.';
+    else if (active) els.securityRegistrationHint.textContent = '현재 기기는 ACTIVE 신뢰기기입니다. Google 재인증을 하면 이 기기 세션을 재발급할 수 있습니다.';
+    else els.securityRegistrationHint.textContent = '새 기기는 Google 인증 후 기존 ACTIVE 신뢰기기의 승인을 받아야 합니다. 모든 기기를 잃어버린 경우에만 긴급 복구를 사용하세요.';
+  }
+}
+
+async function refreshSecurityState({ showToastOnChange = false } = {}) {
+  const previous = securityState.status;
+  try {
+    const health = await fetchHealth(getApiUrl());
+    securityState.ownerConfigured = Boolean(health.securityOwnerConfigured);
+    securityState.oauthReady = Boolean(health.oauthClientSecretConfigured && health.allowedAdminEmailConfigured);
+  } catch (error) {
+    if (!navigator.onLine) return false;
+  }
+  const session = getSecuritySession();
+  if (!session) {
+    securityState.authenticated = false;
+    securityState.status = 'UNREGISTERED';
+    securityState.device = null;
+    updateSecurityUi();
+    return false;
+  }
+  try {
+    const url = await buildSignedGetUrl(getApiUrl(), 'securityStatus', {});
+    const response = await fetch(url, { cache: 'no-store', redirect: 'follow' });
+    const json = await response.json();
+    if (!json?.ok) throw new Error(json?.message || '보안 상태 확인 실패');
+    securityState.authenticated = Boolean(json.authenticated);
+    securityState.status = clean(json.status) || 'UNKNOWN';
+    securityState.device = json.device || null;
+    securityState.ownerConfigured = Boolean(json.ownerConfigured);
+    securityState.oauthReady = Boolean(json.oauthReady);
+    if (securityState.device?.deviceName) localStorage.setItem(SECURITY_DEVICE_NAME_KEY, securityState.device.deviceName);
+    updateSecurityUi();
+    if (showToastOnChange && previous !== securityState.status) showToast(securityState.status === 'ACTIVE' ? '이 기기가 승인되어 관리 기능을 사용할 수 있습니다.' : `현재 기기 상태: ${securityState.status}`);
+    return securityState.authenticated;
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (/차단|만료|등록되지 않은|서명 검증|세션 키|키 저장소/.test(message)) clearSecuritySession();
+    updateSecurityUi();
+    if (showToastOnChange) showToast(message);
+    return false;
+  }
+}
+
+async function ensureActiveSecuritySession({ openModal = true } = {}) {
+  if (hasActiveSecuritySession()) return true;
+  if (navigator.onLine && getSecuritySession()) await refreshSecurityState();
+  if (hasActiveSecuritySession()) return true;
+  if (openModal) openSecurityModal();
+  return false;
+}
+
+async function openSecurityModal() {
+  els.securityModal.classList.remove('hidden');
+  els.securityRegistrationMessage.classList.add('hidden');
+  if (!els.securityDeviceNameInput.value) els.securityDeviceNameInput.value = localStorage.getItem(SECURITY_DEVICE_NAME_KEY) || detectDefaultDeviceName();
+  const legacyPin = clean(localStorage.getItem(LEGACY_ADMIN_PIN_KEY) || '');
+  if (legacyPin && /^\d{6}$/.test(legacyPin) && !els.securityRecoveryPinInput.value) els.securityRecoveryPinInput.value = legacyPin;
+  await refreshSecurityState();
+  if (hasActiveSecuritySession()) await refreshSecurityDevices();
+  updateSecurityUi();
+}
+
+function closeSecurityModal() {
+  els.securityModal.classList.add('hidden');
+  els.securityRecoveryPinInput.value = '';
+}
+
+async function ensureGoogleSecurityClient(recoveryRequested) {
+  const started = Date.now();
+  while (!(window.google?.accounts?.oauth2) && Date.now() - started < 8000) await new Promise(resolve => setTimeout(resolve, 100));
+  if (!window.google?.accounts?.oauth2) throw new Error('Google 인증 라이브러리를 불러오지 못했습니다. 인터넷 연결 후 다시 시도해 주세요.');
+  pendingGoogleSecurityRequest = { recoveryRequested };
+  googleSecurityCodeClient = google.accounts.oauth2.initCodeClient({
+    client_id: GOOGLE_OAUTH_CLIENT_ID,
+    scope: 'openid email profile',
+    ux_mode: 'popup',
+    select_account: true,
+    callback: handleGoogleSecurityCode,
+    error_callback: error => {
+      console.error(error);
+      setLoading(false);
+      showSecurityRegistrationMessage('Google 로그인 창이 취소되었거나 열리지 않았습니다.');
+    },
+  });
+  return googleSecurityCodeClient;
+}
+
+async function beginGoogleDeviceRegistration(recoveryRequested) {
+  if (!navigator.onLine) return showToast('온라인 상태에서 Google 인증을 진행해 주세요.');
+  if (!securityState.oauthReady) return showToast('먼저 Apps Script의 OAuth Client Secret과 허용 관리자 이메일 Script Properties 설정을 완료해 주세요.');
+  const deviceName = clean(els.securityDeviceNameInput.value) || detectDefaultDeviceName();
+  const pin = clean(els.securityRecoveryPinInput.value);
+  if ((!securityState.ownerConfigured || recoveryRequested) && !/^\d{6}$/.test(pin)) {
+    return showToast('최초 등록/긴급 복구에는 기존 관리 PIN 6자리가 필요합니다.');
+  }
+  localStorage.setItem(SECURITY_DEVICE_NAME_KEY, deviceName);
+  try {
+    const client = await ensureGoogleSecurityClient(recoveryRequested);
+    setLoading(true, 'Google 계정 인증을 기다리는 중...');
+    client.requestCode();
+  } catch (error) {
+    setLoading(false);
+    showToast(error.message || 'Google 인증을 시작할 수 없습니다.');
+  }
+}
+
+async function handleGoogleSecurityCode(response) {
+  if (response?.error) {
+    setLoading(false);
+    return showSecurityRegistrationMessage(`Google 인증 실패: ${response.error}`);
+  }
+  try {
+    setLoading(true, 'Google 계정과 기기 권한을 확인하는 중...');
+    const recoveryRequested = Boolean(pendingGoogleSecurityRequest?.recoveryRequested);
+    const deviceId = getOrCreateDeviceId();
+    const deviceName = clean(els.securityDeviceNameInput.value) || detectDefaultDeviceName();
+    const result = await sendPublicMutation(getApiUrl(), 'registerDevice', {
+      code: response.code,
+      redirectUri: window.location.origin,
+      deviceId,
+      deviceName,
+      browserInfo: navigator.userAgent || '',
+      platform: navigator.userAgentData?.platform || navigator.platform || '',
+      adminPin: clean(els.securityRecoveryPinInput.value),
+      recoveryRequested,
+    });
+    saveSecuritySession({
+      deviceId: result.deviceId,
+      sessionToken: result.sessionToken,
+      deviceName: result.deviceName,
+      status: result.status,
+      sessionExpiresAt: result.sessionExpiresAt,
+    });
+    securityState.status = result.status;
+    securityState.authenticated = result.status === 'ACTIVE';
+    securityState.device = { deviceId: result.deviceId, deviceName: result.deviceName, sessionExpiresAt: result.sessionExpiresAt };
+    securityState.ownerConfigured = true;
+    if (result.status === 'ACTIVE') {
+      localStorage.removeItem(LEGACY_ADMIN_PIN_KEY);
+      els.securityRecoveryPinInput.value = '';
+      showSecurityRegistrationMessage('이 기기가 ACTIVE 신뢰기기로 등록되었습니다. 이제 관리 작업 시 매번 로그인할 필요가 없습니다.');
+      await refreshSecurityDevices();
+    } else {
+      showSecurityRegistrationMessage('Google 인증은 완료되었습니다. 이 기기는 PENDING 상태이며 기존 ACTIVE 기기에서 승인해야 합니다.');
+    }
+    updateSecurityUi();
+  } catch (error) {
+    console.error(error);
+    showSecurityRegistrationMessage(error.message || '기기 등록에 실패했습니다.');
+  } finally {
+    setLoading(false);
+    pendingGoogleSecurityRequest = null;
+  }
+}
+
+function showSecurityRegistrationMessage(message) {
+  els.securityRegistrationMessage.textContent = message;
+  els.securityRegistrationMessage.classList.remove('hidden');
+}
+
+async function fetchSecurityDevices() {
+  const url = await buildSignedGetUrl(getApiUrl(), 'securityDevices', {});
+  const response = await fetch(url, { cache: 'no-store', redirect: 'follow' });
+  const json = await response.json();
+  if (!json?.ok) throw new Error(json?.message || '등록 기기 조회에 실패했습니다.');
+  return Array.isArray(json.devices) ? json.devices : [];
+}
+
+async function refreshSecurityDevices() {
+  if (!hasActiveSecuritySession()) return;
+  try {
+    const devices = await fetchSecurityDevices();
+    renderSecurityDevices(devices);
+  } catch (error) {
+    showToast(error.message || '등록 기기 조회에 실패했습니다.');
+  }
+}
+
+function renderSecurityDevices(devices) {
+  if (!devices.length) {
+    els.securityDeviceList.innerHTML = '<div class="empty-mini">등록된 기기가 없습니다.</div>';
+    return;
+  }
+  els.securityDeviceList.innerHTML = devices.map(device => {
+    const statusClass = String(device.status || '').toLowerCase();
+    const statusLabel = escapeHtml(device.status || '-');
+    const current = device.current ? ' · 현재 기기' : '';
+    const dates = `마지막 사용 ${escapeHtml(device.lastAccessAt ? formatDateTime(device.lastAccessAt) : '-')} · 등록 ${escapeHtml(device.registeredAt ? formatDateTime(device.registeredAt) : '-')}`;
+    const approve = device.status === 'PENDING' ? `<button class="btn security-approve-device" data-device-id="${escapeHtml(device.deviceId)}" type="button">승인</button>` : '';
+    const rename = device.status !== 'REVOKED' ? `<button class="btn security-rename-device" data-device-id="${escapeHtml(device.deviceId)}" data-device-name="${escapeHtml(device.deviceName)}" type="button">이름변경</button>` : '';
+    const revoke = device.status !== 'REVOKED' ? `<button class="btn danger security-revoke-device" data-device-id="${escapeHtml(device.deviceId)}" data-current="${device.current ? '1' : '0'}" type="button">접속 차단</button>` : '';
+    return `<div class="security-device-item"><div class="security-device-main"><strong>${escapeHtml(device.deviceName || '내 기기')}<span class="security-device-badge ${statusClass}">${statusLabel}</span>${current}</strong><small>${escapeHtml(device.platform || '')} · ${escapeHtml(device.browserInfo || '')}</small><small>${dates}</small></div><div class="security-device-actions">${approve}${rename}${revoke}</div></div>`;
+  }).join('');
+  els.securityDeviceList.querySelectorAll('.security-approve-device').forEach(btn => btn.addEventListener('click', () => approveSecurityDevice(btn.dataset.deviceId)));
+  els.securityDeviceList.querySelectorAll('.security-revoke-device').forEach(btn => btn.addEventListener('click', () => revokeSecurityDevice(btn.dataset.deviceId, btn.dataset.current === '1')));
+  els.securityDeviceList.querySelectorAll('.security-rename-device').forEach(btn => btn.addEventListener('click', () => renameSecurityDevice(btn.dataset.deviceId, btn.dataset.deviceName)));
+}
+
+async function approveSecurityDevice(deviceId) {
+  if (!await ensureActiveSecuritySession()) return;
+  setLoading(true, '새 기기를 승인하는 중...');
+  try {
+    await sendSecureMutation(getApiUrl(), 'approveDevice', { targetDeviceId: deviceId });
+    showToast('새 기기 승인을 완료했습니다.');
+    await refreshSecurityDevices();
+  } catch (error) { showToast(error.message || '기기 승인에 실패했습니다.'); }
+  finally { setLoading(false); }
+}
+
+async function revokeSecurityDevice(deviceId, isCurrent) {
+  if (!await ensureActiveSecuritySession()) return;
+  const message = isCurrent ? '현재 사용 중인 기기를 차단하면 즉시 관리 권한이 해제됩니다. 계속할까요?' : '이 기기의 관리 접근을 즉시 차단할까요?';
+  if (!window.confirm(message)) return;
+  setLoading(true, '기기 접근을 차단하는 중...');
+  try {
+    const result = await sendSecureMutation(getApiUrl(), 'revokeDevice', { targetDeviceId: deviceId });
+    if (result.selfRevoked) {
+      clearSecuritySession();
+      showToast('현재 기기의 관리 권한을 차단했습니다.');
+    } else {
+      showToast('선택한 기기의 관리 권한을 차단했습니다.');
+      await refreshSecurityDevices();
+    }
+  } catch (error) { showToast(error.message || '기기 차단에 실패했습니다.'); }
+  finally { setLoading(false); }
+}
+
+async function renameSecurityDevice(deviceId, currentName) {
+  if (!await ensureActiveSecuritySession()) return;
+  const name = window.prompt('기기 이름을 입력하세요.', currentName || '');
+  if (name == null) return;
+  const cleanName = clean(name);
+  if (!cleanName) return showToast('기기 이름을 입력해 주세요.');
+  setLoading(true, '기기 이름을 변경하는 중...');
+  try {
+    await sendSecureMutation(getApiUrl(), 'renameDevice', { targetDeviceId: deviceId, deviceName: cleanName });
+    if (deviceId === getSecuritySession()?.deviceId) {
+      localStorage.setItem(SECURITY_DEVICE_NAME_KEY, cleanName);
+      securityState.device = { ...(securityState.device || {}), deviceName: cleanName };
+      updateSecurityUi();
+    }
+    await refreshSecurityDevices();
+  } catch (error) { showToast(error.message || '기기 이름 변경에 실패했습니다.'); }
+  finally { setLoading(false); }
 }
 
 async function testApiConnection() {
@@ -2418,7 +2911,8 @@ async function testApiConnection() {
     const pdfInfo = result.pdfPageLinkSheetReady && result.pdfPageFileSheetReady
       ? ` · PDF연결 ${Number(result.pdfPageLinkCount || 0).toLocaleString()}건 · 원본페이지 ${Number(result.pdfPageFileCount || 0).toLocaleString()}건`
       : ' · 원본 PDF 시트 확인 필요';
-    showToast(`연결 성공 · ${result.spreadsheetName}/${result.sheetName} · ${Number(result.topicCount || 0).toLocaleString()}건${pdfInfo}`);
+    const securityInfo = result.oauthClientSecretConfigured && result.allowedAdminEmailConfigured ? (result.securityOwnerConfigured ? ' · 보안 ACTIVE 준비' : ' · 보안 최초등록 대기') : ' · 보안 Script Properties 설정 필요';
+    showToast(`연결 성공 · ${result.spreadsheetName}/${result.sheetName} · ${Number(result.topicCount || 0).toLocaleString()}건${pdfInfo}${securityInfo}`);
   } catch (error) {
     showToast(error.message || '연결 확인에 실패했습니다.');
   } finally {
@@ -2913,13 +3407,10 @@ async function markLearningStateClean(topicId, expectedUpdatedAt) {
 }
 
 async function syncSingleLearningState(state) {
-  if (!navigator.onLine) return false;
-  const adminPin = getAdminPin();
-  if (!adminPin) return false;
+  if (!navigator.onLine || !hasActiveSecuritySession()) return false;
   const expectedUpdatedAt = state.updatedAt;
   await sendMutation(getApiUrl(), {
     action: 'saveLearningStates',
-    adminPin,
     states: [serializeLearningState(state)],
   });
   await markLearningStateClean(state.topicId, expectedUpdatedAt);
@@ -3213,7 +3704,7 @@ async function resetAllLearningProgress() {
   renderTopicList();
   renderLearningDashboard();
 
-  const canSyncNow = navigator.onLine && Boolean(getAdminPin());
+  const canSyncNow = navigator.onLine && hasActiveSecuritySession();
   if (canSyncNow) {
     showToast(`전체 학습기록 ${resetStates.length.toLocaleString()}건 초기화 · 서버 동기화 중`);
     try {
@@ -3229,11 +3720,7 @@ async function resetAllLearningProgress() {
 
 async function syncLearningStates() {
   if (!navigator.onLine) return showToast('오프라인 상태에서는 학습정보를 동기화할 수 없습니다.');
-  const adminPin = getAdminPin();
-  if (!adminPin) {
-    openSettings();
-    return showToast('설정에서 관리 PIN 6자리를 먼저 저장해 주세요.');
-  }
+  if (!await ensureActiveSecuritySession()) return showToast('학습정보 서버 동기화는 신뢰기기 인증 후 사용할 수 있습니다.');
 
   setLoading(true, '학습정보를 동기화하는 중...');
   try {
@@ -3242,13 +3729,12 @@ async function syncLearningStates() {
       const batch = dirtyStates.slice(i, i + 50);
       await sendMutation(getApiUrl(), {
         action: 'saveLearningStates',
-        adminPin,
         states: batch.map(serializeLearningState),
       });
       for (const state of batch) await markLearningStateClean(state.topicId, state.updatedAt);
     }
 
-    const remoteStates = await fetchLearningStates(getApiUrl(), adminPin);
+    const remoteStates = await fetchLearningStates(getApiUrl());
     for (const remote of remoteStates) {
       const local = learningStateMap.get(remote.topicId);
       if (local?.dirty) continue;
@@ -3271,10 +3757,6 @@ async function syncLearningStates() {
   }
 }
 
-function getAdminPin() {
-  return clean(localStorage.getItem(ADMIN_PIN_KEY) || '');
-}
-
 function buildCategoryOptions() {
   const categories = [...new Map(allTopics.map(topic => [topic.categoryCode, {
     categoryCode: topic.categoryCode,
@@ -3293,11 +3775,10 @@ function buildCategoryOptions() {
   ).join('');
 }
 
-function openManage(mode = 'edit') {
+async function openManage(mode = 'edit') {
   if (!allTopics.length) return showToast('먼저 MASTER 데이터를 받아 주세요.');
-  if (!getAdminPin()) {
-    openSettings();
-    showToast('2단계 쓰기 기능을 사용하려면 설정에서 관리 PIN 6자리를 먼저 저장해 주세요.');
+  if (!await ensureActiveSecuritySession()) {
+    showToast('토픽 추가·수정은 신뢰기기 인증 후 사용할 수 있습니다.');
     return;
   }
   buildCategoryOptions();
@@ -3440,8 +3921,7 @@ function collectManageFields() {
 async function saveManagedTopic(event) {
   event.preventDefault();
   if (!navigator.onLine) return showToast('오프라인 상태에서는 Spreadsheet와 첨부자료를 수정할 수 없습니다.');
-  const adminPin = getAdminPin();
-  if (!adminPin) return showToast('관리 PIN을 먼저 설정해 주세요.');
+  if (!await ensureActiveSecuritySession()) return showToast('신뢰기기 인증이 필요합니다.');
   const fields = collectManageFields();
   if (!fields.topicName) return showToast('토픽명을 입력해 주세요.');
   if (!fields.status) return showToast('상태를 선택해 주세요.');
@@ -3450,8 +3930,8 @@ async function saveManagedTopic(event) {
 
   const wasAdd = manageMode === 'add';
   const payload = wasAdd
-    ? { action: 'addTopic', adminPin, categoryCode: els.manageCategory.value, fields }
-    : { action: 'updateTopic', adminPin, topicId: currentTopicId, fields };
+    ? { action: 'addTopic', categoryCode: els.manageCategory.value, fields }
+    : { action: 'updateTopic', topicId: currentTopicId, fields };
 
   setLoading(true, wasAdd ? '새 토픽을 추가하는 중...' : '토픽을 저장하는 중...');
   try {
@@ -3466,7 +3946,7 @@ async function saveManagedTopic(event) {
     const changeCount = pendingAttachmentDeletes.size + pendingAttachmentFiles.I.length + pendingAttachmentFiles.P.length;
     if (changeCount) {
       setLoading(true, `첨부자료 저장 중 · ${changeCount}개 작업`);
-      await applyPendingAttachmentChanges(topic.topicId, adminPin);
+      await applyPendingAttachmentChanges(topic.topicId);
     }
 
     closeManage();
@@ -3940,9 +4420,9 @@ function readFileAsDataUrl(file) {
   });
 }
 
-async function applyPendingAttachmentChanges(topicId, adminPin) {
+async function applyPendingAttachmentChanges(topicId) {
   for (const attachmentId of [...pendingAttachmentDeletes]) {
-    await sendMutation(getApiUrl(), { action: 'deleteAttachment', adminPin, attachmentId });
+    await sendMutation(getApiUrl(), { action: 'deleteAttachment', attachmentId });
     pendingAttachmentDeletes.delete(attachmentId);
     allAttachments = allAttachments.filter(item => item.attachmentId !== attachmentId);
     await removeAttachment(db, attachmentId);
@@ -3955,7 +4435,6 @@ async function applyPendingAttachmentChanges(topicId, adminPin) {
       const dataUrl = await readFileAsDataUrl(file);
       const status = await sendMutation(getApiUrl(), {
         action: 'uploadAttachment',
-        adminPin,
         topicId,
         type,
         fileName: file.name,
@@ -4107,8 +4586,7 @@ async function deactivateCurrentTopic() {
   const topic = allTopics.find(item => item.topicId === currentTopicId);
   if (!topic) return;
   if (!navigator.onLine) return showToast('오프라인 상태에서는 Spreadsheet를 수정할 수 없습니다.');
-  const adminPin = getAdminPin();
-  if (!adminPin) return showToast('관리 PIN을 먼저 설정해 주세요.');
+  if (!await ensureActiveSecuritySession()) return showToast('신뢰기기 인증이 필요합니다.');
   const confirmed = window.confirm(`${topic.topicName}\n\n행을 삭제하지 않고 학습대상만 N으로 변경합니다. 계속할까요?`);
   if (!confirmed) return;
 
@@ -4116,7 +4594,6 @@ async function deactivateCurrentTopic() {
   try {
     const status = await sendMutation(getApiUrl(), {
       action: 'deactivateTopic',
-      adminPin,
       topicId: topic.topicId,
       reason: clean(els.manageExclusionReason.value),
     });
