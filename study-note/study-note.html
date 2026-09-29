@@ -491,8 +491,45 @@ button { -webkit-tap-highlight-color: transparent; }
     overscroll-behavior: contain;
   }
   .list-panel { min-height: 0; overflow: hidden; }
-  .topic-list { min-height: 0; -webkit-overflow-scrolling: touch; }
-  .topic-pager { padding-top: 7px; padding-bottom: 8px; }
+  /* 태블릿 토픽 pager: 조작부 1행 + 범위정보 1행의 정확한 2행 구조.
+     줄어든 pager 높이는 flex:1인 topic-list가 그대로 가져간다. */
+  .topic-list { flex: 1 1 auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+  .topic-pager {
+    display: grid;
+    grid-template-columns: minmax(54px, 1fr) auto minmax(54px, 1fr) 74px;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 5px;
+    row-gap: 4px;
+    padding: 5px 7px 6px;
+  }
+  .topic-pager .btn {
+    min-width: 0;
+    min-height: 36px;
+    padding: 6px 5px;
+    font-size: .74rem;
+    white-space: nowrap;
+  }
+  .topic-pager .pager-center { gap: 2px; font-size: .74rem; }
+  .topic-pager .pager-page-input {
+    width: 38px;
+    height: 32px;
+    padding: 3px 4px;
+    border-radius: 7px;
+  }
+  .topic-pager .topic-page-size {
+    width: 74px;
+    min-width: 0;
+    height: 32px;
+    padding: 3px 4px;
+    font-size: .70rem;
+  }
+  .topic-pager .pager-range {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    line-height: 1.25;
+  }
 }
 @media (min-width: 761px) and (max-width: 1280px) and (max-height: 860px) {
   .topbar { padding-left: 12px; padding-right: 12px; }
@@ -2224,7 +2261,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.4-security-ttl-tablet';
+const APP_VERSION = '4.4.5-security-ttl-tablet-pager';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
