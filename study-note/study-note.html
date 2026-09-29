@@ -30,7 +30,9 @@
   --radius: 14px;
   --topbar-h: 72px;
   --bottom-nav-h: 66px;
+  --app-vh: 100dvh;
 }
+
 
 * { box-sizing: border-box; }
 html { height: 100%; }
@@ -49,7 +51,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .muted { color: var(--muted); }
 .preserve-lines { white-space: pre-wrap; }
 
-.app-shell { min-height: 100vh; }
+.app-shell { min-height: var(--app-vh, 100dvh); }
 .topbar {
   height: var(--topbar-h);
   position: sticky;
@@ -71,12 +73,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .top-actions { display: flex; align-items: center; gap: 8px; }
 
 .workspace {
-  min-height: calc(100vh - var(--topbar-h));
+  min-height: calc(var(--app-vh, 100dvh) - var(--topbar-h));
   display: grid;
   grid-template-columns: minmax(310px, 390px) minmax(0, 1fr);
 }
 .sidebar {
-  height: calc(100vh - var(--topbar-h));
+  height: calc(var(--app-vh, 100dvh) - var(--topbar-h));
   position: sticky;
   top: var(--topbar-h);
   overflow: hidden;
@@ -474,20 +476,30 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 @media (min-width: 761px) and (max-width: 1280px) {
-  /* 태블릿: 검색조건을 충분히 보여주면서 토픽 목록 높이도 확보 */
+  /* 태블릿: 브라우저 상단/하단 바가 보여도 검색과 목록이 같이 보이도록 비율을 낮춘다. */
+  .workspace { grid-template-columns: minmax(280px, 350px) minmax(0, 1fr); }
   .sidebar {
     display: grid;
-    grid-template-rows: clamp(400px, 54dvh, 520px) minmax(220px, 1fr);
+    grid-template-rows: clamp(300px, 45dvh, 430px) minmax(180px, 1fr);
     overflow: hidden;
   }
   .filter-panel {
     min-height: 0;
+    padding: 12px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
   .list-panel { min-height: 0; overflow: hidden; }
   .topic-list { min-height: 0; -webkit-overflow-scrolling: touch; }
+}
+@media (min-width: 761px) and (max-width: 1280px) and (max-height: 860px) {
+  .topbar { padding-left: 12px; padding-right: 12px; }
+  .top-actions { gap: 6px; }
+  .top-actions .btn { padding: 7px 10px; }
+  .sidebar { grid-template-rows: clamp(260px, 42dvh, 360px) minmax(160px, 1fr); }
+  .filter-panel { padding: 10px 11px; }
+  .field-label { margin-top: 10px; }
 }
 
 @media (max-width: 760px) {
@@ -814,7 +826,7 @@ button { -webkit-tap-highlight-color: transparent; }
 </head>
 <body>
   <div id="app" class="app-shell">
-    <header class="topbar">
+    <header id="topbar" class="topbar">
       <div class="brand-area">
         <button id="openSidebarBtn" class="icon-btn mobile-only" type="button" aria-label="검색 및 목록 열기">☰</button>
         <div>
@@ -2055,18 +2067,45 @@ async function buildSignedGetUrl(apiUrl, action, data = {}) {
 async function fetchMutationStatus(apiUrl, requestId, pollKey) {
   const query = new URLSearchParams({ action: 'mutationStatus', requestId, pollKey, _: String(Date.now()) });
   const response = await fetch(`${normalizeApiUrl(apiUrl)}?${query.toString()}`, { method: 'GET', cache: 'no-store', redirect: 'follow' });
-  if (!response.ok) throw new Error(`처리상태 확인 실패: HTTP ${response.status}`);
-  return response.json();
+  if (!response.ok) {
+    const error = new Error(`처리상태 확인 실패: HTTP ${response.status}`);
+    error.transient = response.status === 429 || response.status >= 500;
+    throw error;
+  }
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (parseError) {
+    const error = new Error('처리상태 응답이 일시적으로 올바른 JSON 형식이 아닙니다.');
+    error.transient = true;
+    error.responsePreview = text.replace(/\s+/g, ' ').slice(0, 120);
+    throw error;
+  }
 }
 
 async function pollMutationResult(apiUrl, requestId, pollKey, timeoutMs = 20000) {
   const startedAt = Date.now();
+  let lastTransientError = null;
   while (Date.now() - startedAt < timeoutMs) {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const status = await fetchMutationStatus(apiUrl, requestId, pollKey);
+    let status;
+    try {
+      status = await fetchMutationStatus(apiUrl, requestId, pollKey);
+      lastTransientError = null;
+    } catch (error) {
+      if (error?.transient) {
+        lastTransientError = error;
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+      throw error;
+    }
     if (!status.done) continue;
     if (!status.ok) throw new Error(status.message || '서버 처리에 실패했습니다.');
     return status;
+  }
+  if (lastTransientError) {
+    throw new Error('서버 처리는 요청되었지만 결과 확인 응답이 일시적으로 불안정합니다. 잠시 후 상태를 다시 확인해 주세요.');
   }
   throw new Error('서버 처리 확인 시간이 초과되었습니다. 다시 확인해 주세요.');
 }
@@ -2169,7 +2208,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.1-security-registration-fix';
+const APP_VERSION = '4.4.3-security-ux';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2193,6 +2232,8 @@ if (![30, 50, 100].includes(topicPageSize)) topicPageSize = DEFAULT_TOPIC_PAGE_S
 let currentTopicId = null;
 let manageMode = 'edit';
 let securityState = { authenticated: false, status: 'UNKNOWN', device: null, ownerConfigured: false, oauthReady: false, oauthReadyKnown: false };
+let securityStateRefreshPromise = null;
+let manageOpenInFlight = false;
 let googleSecurityCodeClient = null;
 let pendingGoogleSecurityRequest = null;
 let allAttachments = [];
@@ -2265,9 +2306,13 @@ async function init() {
   els.topicPageSize.value = String(topicPageSize);
 
   updateSearchTargetLabel();
+  syncViewportMetrics();
+  restoreSecurityStateFromLocalSession();
   updateNetworkStatus();
   window.addEventListener('online', updateNetworkStatus);
   window.addEventListener('offline', updateNetworkStatus);
+  window.addEventListener('resize', syncViewportMetrics);
+  window.addEventListener('orientationchange', () => setTimeout(syncViewportMetrics, 120));
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Service worker registration failed:', error));
@@ -2318,7 +2363,7 @@ async function init() {
 
 function bindElements() {
   const ids = [
-    'networkBadge','securityBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
+    'topbar','networkBadge','securityBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
@@ -2629,6 +2674,36 @@ function detectDefaultDeviceName() {
   return `${os} · ${browser}`;
 }
 
+function syncViewportMetrics() {
+  const vh = Math.max(window.innerHeight || 0, 320);
+  document.documentElement.style.setProperty('--app-vh', `${vh}px`);
+  const topbar = els.topbar || document.getElementById('topbar');
+  if (topbar) document.documentElement.style.setProperty('--topbar-h', `${Math.max(topbar.offsetHeight || 72, 60)}px`);
+}
+
+function restoreSecurityStateFromLocalSession() {
+  const session = getSecuritySession();
+  if (!session?.deviceId || !session?.sessionToken) {
+    updateSecurityUi();
+    return false;
+  }
+  securityState.authenticated = session.status === 'ACTIVE';
+  securityState.status = clean(session.status) || 'ACTIVE';
+  securityState.device = {
+    deviceId: session.deviceId,
+    deviceName: session.deviceName || localStorage.getItem(SECURITY_DEVICE_NAME_KEY) || detectDefaultDeviceName(),
+    sessionExpiresAt: session.sessionExpiresAt || '',
+  };
+  updateSecurityUi();
+  return true;
+}
+
+function setManageGateBusy(busy) {
+  manageOpenInFlight = Boolean(busy);
+  if (els.manageBtn) els.manageBtn.disabled = busy;
+  if (els.detailManageBtn) els.detailManageBtn.disabled = busy;
+}
+
 function hasActiveSecuritySession() {
   return securityState.authenticated === true && securityState.status === 'ACTIVE' && Boolean(getSecuritySession()?.sessionToken);
 }
@@ -2661,45 +2736,60 @@ function updateSecurityUi() {
 }
 
 async function refreshSecurityState({ showToastOnChange = false } = {}) {
-  const previous = securityState.status;
+  if (securityStateRefreshPromise) return securityStateRefreshPromise;
+  securityStateRefreshPromise = (async () => {
+    const previous = securityState.status;
+    try {
+      const health = await fetchHealth(getApiUrl());
+      securityState.ownerConfigured = Boolean(health.securityOwnerConfigured);
+      securityState.oauthReady = Boolean(health.oauthClientIdConfigured && health.oauthClientSecretConfigured && health.allowedAdminEmailConfigured);
+      securityState.oauthReadyKnown = true;
+    } catch (error) {
+      console.warn('Security health check failed:', error);
+      if (!navigator.onLine) return false;
+    }
+    const session = getSecuritySession();
+    if (!session) {
+      securityState.authenticated = false;
+      securityState.status = 'UNREGISTERED';
+      securityState.device = null;
+      updateSecurityUi();
+      return false;
+    }
+    try {
+      const url = await buildSignedGetUrl(getApiUrl(), 'securityStatus', {});
+      const response = await fetch(url, { cache: 'no-store', redirect: 'follow' });
+      const json = await response.json();
+      if (!json?.ok) throw new Error(json?.message || '보안 상태 확인 실패');
+      securityState.authenticated = Boolean(json.authenticated);
+      securityState.status = clean(json.status) || 'UNKNOWN';
+      securityState.device = json.device || null;
+      securityState.ownerConfigured = Boolean(json.ownerConfigured);
+      securityState.oauthReady = Boolean(json.oauthReady);
+      securityState.oauthReadyKnown = true;
+      saveSecuritySession({
+        deviceId: session.deviceId,
+        sessionToken: session.sessionToken,
+        deviceName: securityState.device?.deviceName || session.deviceName || localStorage.getItem(SECURITY_DEVICE_NAME_KEY) || detectDefaultDeviceName(),
+        status: securityState.status,
+        sessionExpiresAt: securityState.device?.sessionExpiresAt || session.sessionExpiresAt || '',
+      });
+      if (securityState.device?.deviceName) localStorage.setItem(SECURITY_DEVICE_NAME_KEY, securityState.device.deviceName);
+      updateSecurityUi();
+      if (showToastOnChange && previous !== securityState.status) showToast(securityState.status === 'ACTIVE' ? '이 기기가 승인되어 관리 기능을 사용할 수 있습니다.' : `현재 기기 상태: ${securityState.status}`);
+      return securityState.authenticated;
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (/차단|만료|등록되지 않은|서명 검증|세션 키|키 저장소/.test(message)) clearSecuritySession();
+      updateSecurityUi();
+      if (showToastOnChange) showToast(message);
+      return false;
+    }
+  })();
   try {
-    const health = await fetchHealth(getApiUrl());
-    securityState.ownerConfigured = Boolean(health.securityOwnerConfigured);
-    securityState.oauthReady = Boolean(health.oauthClientIdConfigured && health.oauthClientSecretConfigured && health.allowedAdminEmailConfigured);
-    securityState.oauthReadyKnown = true;
-  } catch (error) {
-    console.warn('Security health check failed:', error);
-    if (!navigator.onLine) return false;
-  }
-  const session = getSecuritySession();
-  if (!session) {
-    securityState.authenticated = false;
-    securityState.status = 'UNREGISTERED';
-    securityState.device = null;
-    updateSecurityUi();
-    return false;
-  }
-  try {
-    const url = await buildSignedGetUrl(getApiUrl(), 'securityStatus', {});
-    const response = await fetch(url, { cache: 'no-store', redirect: 'follow' });
-    const json = await response.json();
-    if (!json?.ok) throw new Error(json?.message || '보안 상태 확인 실패');
-    securityState.authenticated = Boolean(json.authenticated);
-    securityState.status = clean(json.status) || 'UNKNOWN';
-    securityState.device = json.device || null;
-    securityState.ownerConfigured = Boolean(json.ownerConfigured);
-    securityState.oauthReady = Boolean(json.oauthReady);
-    securityState.oauthReadyKnown = true;
-    if (securityState.device?.deviceName) localStorage.setItem(SECURITY_DEVICE_NAME_KEY, securityState.device.deviceName);
-    updateSecurityUi();
-    if (showToastOnChange && previous !== securityState.status) showToast(securityState.status === 'ACTIVE' ? '이 기기가 승인되어 관리 기능을 사용할 수 있습니다.' : `현재 기기 상태: ${securityState.status}`);
-    return securityState.authenticated;
-  } catch (error) {
-    const message = String(error?.message || error);
-    if (/차단|만료|등록되지 않은|서명 검증|세션 키|키 저장소/.test(message)) clearSecuritySession();
-    updateSecurityUi();
-    if (showToastOnChange) showToast(message);
-    return false;
+    return await securityStateRefreshPromise;
+  } finally {
+    securityStateRefreshPromise = null;
   }
 }
 
@@ -3781,13 +3871,27 @@ function buildCategoryOptions() {
 
 async function openManage(mode = 'edit') {
   if (!allTopics.length) return showToast('먼저 MASTER 데이터를 받아 주세요.');
-  if (!await ensureActiveSecuritySession()) {
-    showToast('토픽 추가·수정은 신뢰기기 인증 후 사용할 수 있습니다.');
-    return;
+  if (manageOpenInFlight) return;
+  setManageGateBusy(true);
+  try {
+    let allowed = hasActiveSecuritySession();
+    if (!allowed) {
+      setLoading(true, '신뢰기기 상태를 확인하는 중...');
+      allowed = await ensureActiveSecuritySession();
+    } else if (navigator.onLine) {
+      refreshSecurityState().catch(error => console.warn('Background security refresh failed:', error));
+    }
+    if (!allowed) {
+      showToast('토픽 추가·수정은 신뢰기기 인증 후 사용할 수 있습니다.');
+      return;
+    }
+    buildCategoryOptions();
+    els.manageModal.classList.remove('hidden');
+    switchManageMode(mode);
+  } finally {
+    setLoading(false);
+    setManageGateBusy(false);
   }
-  buildCategoryOptions();
-  els.manageModal.classList.remove('hidden');
-  switchManageMode(mode);
 }
 
 function closeManage() {
