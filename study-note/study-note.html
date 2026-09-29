@@ -2169,7 +2169,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.0-trusted-device-security';
+const APP_VERSION = '4.4.1-security-registration-fix';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2192,7 +2192,7 @@ let topicPageSize = Number(localStorage.getItem(TOPIC_PAGE_SIZE_KEY)) || DEFAULT
 if (![30, 50, 100].includes(topicPageSize)) topicPageSize = DEFAULT_TOPIC_PAGE_SIZE;
 let currentTopicId = null;
 let manageMode = 'edit';
-let securityState = { authenticated: false, status: 'UNKNOWN', device: null, ownerConfigured: false, oauthReady: false };
+let securityState = { authenticated: false, status: 'UNKNOWN', device: null, ownerConfigured: false, oauthReady: false, oauthReadyKnown: false };
 let googleSecurityCodeClient = null;
 let pendingGoogleSecurityRequest = null;
 let allAttachments = [];
@@ -2651,7 +2651,8 @@ function updateSecurityUi() {
   if (els.securityCheckApprovalBtn) els.securityCheckApprovalBtn.classList.toggle('hidden', !pending);
   if (els.securityDevicesSection) els.securityDevicesSection.classList.toggle('hidden', !active);
   if (els.securityRegistrationHint) {
-    if (!securityState.oauthReady) els.securityRegistrationHint.textContent = '서버 보안 설정이 아직 완료되지 않았습니다. Apps Script Script Properties 설정 후 진행하세요.';
+    if (!securityState.oauthReadyKnown) els.securityRegistrationHint.textContent = '서버 보안 설정 상태를 확인하지 못했습니다. 등록을 누르면 서버에서 다시 검증합니다.';
+    else if (!securityState.oauthReady) els.securityRegistrationHint.textContent = '서버 보안 설정이 아직 완료되지 않았습니다. Apps Script Script Properties 설정 후 진행하세요.';
     else if (!securityState.ownerConfigured) els.securityRegistrationHint.textContent = '최초 관리자 등록입니다. Google 인증과 기존 6자리 관리 PIN이 모두 필요합니다.';
     else if (pending) els.securityRegistrationHint.textContent = '이 기기는 승인 대기 중입니다. 기존 ACTIVE 신뢰기기에서 승인한 후 “승인 상태 확인”을 누르세요.';
     else if (active) els.securityRegistrationHint.textContent = '현재 기기는 ACTIVE 신뢰기기입니다. Google 재인증을 하면 이 기기 세션을 재발급할 수 있습니다.';
@@ -2664,8 +2665,10 @@ async function refreshSecurityState({ showToastOnChange = false } = {}) {
   try {
     const health = await fetchHealth(getApiUrl());
     securityState.ownerConfigured = Boolean(health.securityOwnerConfigured);
-    securityState.oauthReady = Boolean(health.oauthClientSecretConfigured && health.allowedAdminEmailConfigured);
+    securityState.oauthReady = Boolean(health.oauthClientIdConfigured && health.oauthClientSecretConfigured && health.allowedAdminEmailConfigured);
+    securityState.oauthReadyKnown = true;
   } catch (error) {
+    console.warn('Security health check failed:', error);
     if (!navigator.onLine) return false;
   }
   const session = getSecuritySession();
@@ -2686,6 +2689,7 @@ async function refreshSecurityState({ showToastOnChange = false } = {}) {
     securityState.device = json.device || null;
     securityState.ownerConfigured = Boolean(json.ownerConfigured);
     securityState.oauthReady = Boolean(json.oauthReady);
+    securityState.oauthReadyKnown = true;
     if (securityState.device?.deviceName) localStorage.setItem(SECURITY_DEVICE_NAME_KEY, securityState.device.deviceName);
     updateSecurityUi();
     if (showToastOnChange && previous !== securityState.status) showToast(securityState.status === 'ACTIVE' ? '이 기기가 승인되어 관리 기능을 사용할 수 있습니다.' : `현재 기기 상태: ${securityState.status}`);
@@ -2745,7 +2749,7 @@ async function ensureGoogleSecurityClient(recoveryRequested) {
 
 async function beginGoogleDeviceRegistration(recoveryRequested) {
   if (!navigator.onLine) return showToast('온라인 상태에서 Google 인증을 진행해 주세요.');
-  if (!securityState.oauthReady) return showToast('먼저 Apps Script의 OAuth Client Secret과 허용 관리자 이메일 Script Properties 설정을 완료해 주세요.');
+  if (securityState.oauthReadyKnown && !securityState.oauthReady) return showToast('먼저 Apps Script의 OAuth Client Secret과 허용 관리자 이메일 Script Properties 설정을 완료해 주세요.');
   const deviceName = clean(els.securityDeviceNameInput.value) || detectDefaultDeviceName();
   const pin = clean(els.securityRecoveryPinInput.value);
   if ((!securityState.ownerConfigured || recoveryRequested) && !/^\d{6}$/.test(pin)) {
