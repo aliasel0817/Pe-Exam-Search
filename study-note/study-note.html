@@ -766,6 +766,50 @@ button { -webkit-tap-highlight-color: transparent; }
 .reference-pdf-sequential-label { min-width: 0; text-align: center; color: #475467; font-size: .75rem; overflow-wrap: anywhere; }
 .reference-pdf-sequential-counter { min-width: 0; color: #475467; font-size: .76rem; font-weight: 800; white-space: nowrap; text-align: right; }
 .reference-pdf-open-drive-link { text-decoration: none; white-space: nowrap; }
+@media (min-width: 761px) {
+  .reference-pdf-modal-card { padding: 13px 18px 12px; }
+  .reference-pdf-modal-card > .modal-head { align-items: center; gap: 10px; }
+  .reference-pdf-modal-card > .modal-head > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "title topic"
+      "meta meta";
+    column-gap: 12px;
+    row-gap: 1px;
+    align-items: baseline;
+  }
+  #referencePdfViewerTitle {
+    grid-area: title;
+    margin: 0;
+    font-size: 1.2rem;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  #referencePdfViewerTopicName {
+    grid-area: topic;
+    margin: 0;
+    max-width: none;
+    min-width: 0;
+    font-size: .82rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #referencePdfViewerSubtitle {
+    grid-area: meta;
+    margin: 1px 0 0;
+    font-size: .72rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .reference-pdf-modal-card > .modal-head > .icon-btn { align-self: start; }
+}
 .reference-pdf-frame-wrap {
   flex: 1 1 0;
   min-height: 0;
@@ -2415,7 +2459,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.10-reference-pdf-compact';
+const APP_VERSION = '4.4.11-reference-pdf-compact-header';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
