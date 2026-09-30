@@ -371,6 +371,26 @@ button { -webkit-tap-highlight-color: transparent; }
 .reference-page-upload-row input[type="file"] { min-width: 0; width: 100%; font-size: .7rem; }
 .reference-page-upload-note { grid-column: 1 / -1; color: var(--muted); font-size: .65rem; overflow-wrap: anywhere; }
 .reference-page-file-ready { color: #067647; font-weight: 800; }
+.reference-material-register { margin-top: 10px; border-top: 1px solid #e5eaf0; padding-top: 10px; }
+.reference-material-register summary { cursor: pointer; color: #344054; font-size: .74rem; font-weight: 900; user-select: none; }
+.reference-material-register[open] summary { margin-bottom: 10px; }
+.reference-material-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.reference-material-grid label { min-width: 0; }
+.reference-material-grid label > span { display: block; margin-bottom: 5px; color: #475467; font-size: .67rem; font-weight: 800; }
+.reference-material-grid .full { grid-column: 1 / -1; }
+.reference-material-grid input[type="file"] { width: 100%; min-width: 0; padding: 8px; border: 1px solid #cfd8e3; border-radius: 9px; background: #fff; font-size: .7rem; }
+.reference-material-plan { margin: 8px 0; padding: 9px 10px; border: 1px dashed #cfd8e3; border-radius: 9px; background: #fff; color: var(--muted); font-size: .68rem; line-height: 1.5; }
+.reference-material-plan.ready { border-color: #abefc6; background: #f6fef9; color: #067647; }
+.reference-material-plan.warn { border-color: #fedf89; background: #fffcf5; color: #b54708; }
+.reference-material-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.reference-page-status.supplement { color: #175cd3; background: #eff8ff; border: 1px solid #b2ddff; }
+.reference-page-status.revision { color: #7a5af8; background: #f4f3ff; border: 1px solid #d9d6fe; }
+.reference-page-item.replaced { opacity: .72; }
+@media (max-width: 760px) {
+  .reference-material-grid { grid-template-columns: 1fr; }
+  .reference-material-grid .full { grid-column: auto; }
+  .reference-material-actions .btn { width: 100%; }
+}
 @media (max-width: 760px) {
   .reference-page-add-row { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
   .reference-page-add-btn { grid-column: 1 / -1; width: 100%; }
@@ -1300,6 +1320,19 @@ button { -webkit-tap-highlight-color: transparent; }
               <button id="manageSubnotePageAddBtn" class="btn reference-page-add-btn" type="button">페이지 추가</button>
             </div>
             <div id="manageSubnotePageList" class="reference-page-list"></div>
+            <details class="reference-material-register" id="manageSubnoteNewMaterialPanel">
+              <summary>새 PDF 자료 등록 (원본 누락 / 보강 / 개정 / 새 원본)</summary>
+              <div class="reference-material-grid">
+                <label><span>자료 유형</span><select id="manageSubnoteMaterialType" class="field"><option value="missing-original">기존 원본의 누락 페이지</option><option value="supplement">보강 페이지</option><option value="revision">개정 페이지</option><option value="new-original">새 원본/새 문서</option></select></label>
+                <label><span>기준 페이지키</span><select id="manageSubnoteMaterialBaseKey" class="field"></select></label>
+                <label id="manageSubnoteMaterialPageWrap"><span id="manageSubnoteMaterialPageLabel">실제 페이지번호</span><input id="manageSubnoteMaterialPageNumber" class="field" type="number" min="1" step="1" placeholder="예: 103"></label>
+                <label id="manageSubnoteMaterialPositionWrap" class="hidden"><span>보강 삽입 위치</span><select id="manageSubnoteMaterialPosition" class="field"><option value="뒤">기준 페이지 뒤</option><option value="앞">기준 페이지 앞</option></select></label>
+                <label><span>페이지키 직접 지정 (선택)</span><input id="manageSubnoteMaterialPageKeyOverride" class="field" type="text" maxlength="40" placeholder="비우면 자동 추천"></label>
+                <label class="full"><span>1페이지 PDF 파일</span><input id="manageSubnoteMaterialFile" type="file" accept="application/pdf,.pdf"></label>
+              </div>
+              <div id="manageSubnoteMaterialPlan" class="reference-material-plan">자료 유형과 기준 정보를 입력한 뒤 PDF를 선택하고 ‘등록 준비 추가’를 누르세요.</div>
+              <div class="reference-material-actions"><button id="manageSubnoteMaterialPrepareBtn" class="btn primary" type="button">등록 준비 추가</button></div>
+            </details>
           </div>
           <div class="reference-page-manager">
             <div class="reference-page-manager-head">
@@ -1321,6 +1354,19 @@ button { -webkit-tap-highlight-color: transparent; }
               <button id="manageTextbookPageAddBtn" class="btn reference-page-add-btn" type="button">페이지 추가</button>
             </div>
             <div id="manageTextbookPageList" class="reference-page-list"></div>
+            <details class="reference-material-register" id="manageTextbookNewMaterialPanel">
+              <summary>새 PDF 자료 등록 (원본 누락 / 보강 / 개정 / 새 원본)</summary>
+              <div class="reference-material-grid">
+                <label><span>자료 유형</span><select id="manageTextbookMaterialType" class="field"><option value="missing-original">기존 원본의 누락 페이지</option><option value="supplement">보강 페이지</option><option value="revision">개정 페이지</option><option value="new-original">새 원본/새 문서</option></select></label>
+                <label><span>기준 페이지키</span><select id="manageTextbookMaterialBaseKey" class="field"></select></label>
+                <label id="manageTextbookMaterialPageWrap"><span id="manageTextbookMaterialPageLabel">실제 페이지번호</span><input id="manageTextbookMaterialPageNumber" class="field" type="number" min="1" step="1" placeholder="예: 103"></label>
+                <label id="manageTextbookMaterialPositionWrap" class="hidden"><span>보강 삽입 위치</span><select id="manageTextbookMaterialPosition" class="field"><option value="뒤">기준 페이지 뒤</option><option value="앞">기준 페이지 앞</option></select></label>
+                <label><span>페이지키 직접 지정 (선택)</span><input id="manageTextbookMaterialPageKeyOverride" class="field" type="text" maxlength="40" placeholder="비우면 자동 추천"></label>
+                <label class="full"><span>1페이지 PDF 파일</span><input id="manageTextbookMaterialFile" type="file" accept="application/pdf,.pdf"></label>
+              </div>
+              <div id="manageTextbookMaterialPlan" class="reference-material-plan">자료 유형과 기준 정보를 입력한 뒤 PDF를 선택하고 ‘등록 준비 추가’를 누르세요.</div>
+              <div class="reference-material-actions"><button id="manageTextbookMaterialPrepareBtn" class="btn primary" type="button">등록 준비 추가</button></div>
+            </details>
           </div>
           <div class="full">
             <p id="manageReferencePdfHint" class="manage-hint">등록된 페이지는 그대로 연결하고, 아직 없는 페이지는 해당 행에서 1페이지 PDF를 선택하면 저장 전에 자동 등록합니다.</p>
@@ -1895,6 +1941,7 @@ function normalizeReferencePdfDataset(payload) {
 }
 
 const REFERENCE_PDF_PAGE_HEADERS = ['출처유형','페이지키','페이지번호','페이지토큰','페이지Drive파일ID','페이지파일명'];
+const REFERENCE_PDF_FLOW_HEADERS = ['자료유형','기준페이지키','기준페이지토큰','삽입위치','대체대상페이지토큰','논리순서','판본','활성여부'];
 
 async function fetchReferencePdfPages(apiUrl) {
   const url = `${normalizeApiUrl(apiUrl)}?action=pdfPageFiles&_=${Date.now()}`;
@@ -1924,6 +1971,14 @@ function normalizeReferencePdfPages(payload) {
       pageToken: clean(row[idx['페이지토큰']]),
       driveFileId: clean(row[idx['페이지Drive파일ID']]),
       fileName: clean(row[idx['페이지파일명']]),
+      materialType: idx['자료유형'] === undefined ? '원본' : (clean(row[idx['자료유형']]) || '원본'),
+      basePageKey: idx['기준페이지키'] === undefined ? clean(row[idx['페이지키']]) : (clean(row[idx['기준페이지키']]) || clean(row[idx['페이지키']])),
+      anchorPageToken: idx['기준페이지토큰'] === undefined ? '' : clean(row[idx['기준페이지토큰']]),
+      insertionPosition: idx['삽입위치'] === undefined ? '' : clean(row[idx['삽입위치']]),
+      replacementTarget: idx['대체대상페이지토큰'] === undefined ? '' : clean(row[idx['대체대상페이지토큰']]),
+      logicalOrder: idx['논리순서'] === undefined ? 0 : toNumber(row[idx['논리순서']], 0),
+      versionTag: idx['판본'] === undefined ? '' : clean(row[idx['판본']]),
+      active: idx['활성여부'] === undefined ? 'Y' : (clean(row[idx['활성여부']]) || 'Y'),
     };
     item.pageId = referencePdfPageId(item.sourceType, item.pageToken);
     if (!['서브노트','교재'].includes(item.sourceType) || !item.pageKey || !item.pageNumber || !item.pageToken || !item.driveFileId) {
@@ -2334,7 +2389,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.7-reference-pdf-manage-ui';
+const APP_VERSION = '4.4.8-logical-pdf-flow';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2512,7 +2567,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2564,6 +2619,10 @@ function bindEvents() {
       addManageReferencePages(input === els.manageSubnotePageNumbers ? '서브노트' : '교재');
     });
   }
+  els.manageSubnoteMaterialType.addEventListener('change', () => updateManageReferenceMaterialUi('서브노트'));
+  els.manageTextbookMaterialType.addEventListener('change', () => updateManageReferenceMaterialUi('교재'));
+  els.manageSubnoteMaterialPrepareBtn.addEventListener('click', () => prepareManageReferenceMaterial('서브노트'));
+  els.manageTextbookMaterialPrepareBtn.addEventListener('click', () => prepareManageReferenceMaterial('교재'));
   els.manageImageFiles.addEventListener('change', () => queueManageFiles('I', els.manageImageFiles.files));
   els.managePdfFiles.addEventListener('change', () => queueManageFiles('P', els.managePdfFiles.files));
   els.openImagesBtn.addEventListener('click', () => openMediaViewer('I'));
@@ -4165,6 +4224,10 @@ function fillManageForm(topic) {
   els.manageExclusionReason.value = topic.studyExclusionReason || '';
   els.manageNotes.value = topic.notes || '';
   renderManageReferencePageEditors({ preserveSelection: false });
+  els.manageSubnoteMaterialType.value = 'missing-original';
+  els.manageTextbookMaterialType.value = 'missing-original';
+  updateManageReferenceMaterialUi('서브노트');
+  updateManageReferenceMaterialUi('교재');
   updateManageReferencePdfHint();
 }
 
@@ -4185,6 +4248,10 @@ function clearManageFormForAdd() {
   els.manageExclusionReason.value = '';
   els.manageNotes.value = '';
   renderManageReferencePageEditors({ preserveSelection: false });
+  els.manageSubnoteMaterialType.value = 'new-original';
+  els.manageTextbookMaterialType.value = 'new-original';
+  updateManageReferenceMaterialUi('서브노트');
+  updateManageReferenceMaterialUi('교재');
   updateManageReferencePdfHint();
 }
 
@@ -4205,6 +4272,8 @@ function resetPendingReferencePdfState() {
   pendingReferencePdfFiles = new Map();
   if (els.manageSubnotePageNumbers) els.manageSubnotePageNumbers.value = '';
   if (els.manageTextbookPageNumbers) els.manageTextbookPageNumbers.value = '';
+  if (els.manageSubnoteMaterialFile) els.manageSubnoteMaterialFile.value = '';
+  if (els.manageTextbookMaterialFile) els.manageTextbookMaterialFile.value = '';
 }
 
 function referencePdfCatalogFromLocal() {
@@ -4258,6 +4327,8 @@ function normalizeReferencePdfCatalog(payload) {
       maxPage: Number(item?.maxPage) || 0,
       pageCount: Number(item?.pageCount) || 0,
       ranges: Array.isArray(item?.ranges) ? item.ranges : [],
+      basePageKey: clean(item?.basePageKey) || pageKey,
+      materialType: clean(item?.materialType) || '원본',
     });
   }
   return normalized.sort((a, b) => a.sourceType.localeCompare(b.sourceType, 'ko') || a.pageKey.localeCompare(b.pageKey, 'en', { numeric: true }));
@@ -4322,6 +4393,12 @@ function manageReferenceEditorConfig(sourceType) {
       };
 }
 
+function manageReferenceMaterialConfig(sourceType) {
+  return sourceType === '서브노트'
+    ? { type: els.manageSubnoteMaterialType, baseKey: els.manageSubnoteMaterialBaseKey, pageWrap: els.manageSubnoteMaterialPageWrap, pageLabel: els.manageSubnoteMaterialPageLabel, pageNumber: els.manageSubnoteMaterialPageNumber, positionWrap: els.manageSubnoteMaterialPositionWrap, position: els.manageSubnoteMaterialPosition, keyOverride: els.manageSubnoteMaterialPageKeyOverride, file: els.manageSubnoteMaterialFile, plan: els.manageSubnoteMaterialPlan }
+    : { type: els.manageTextbookMaterialType, baseKey: els.manageTextbookMaterialBaseKey, pageWrap: els.manageTextbookMaterialPageWrap, pageLabel: els.manageTextbookMaterialPageLabel, pageNumber: els.manageTextbookMaterialPageNumber, positionWrap: els.manageTextbookMaterialPositionWrap, position: els.manageTextbookMaterialPosition, keyOverride: els.manageTextbookMaterialPageKeyOverride, file: els.manageTextbookMaterialFile, plan: els.manageTextbookMaterialPlan };
+}
+
 function pageKeyForCategory(sourceType) {
   const sample = allTopics.find(topic => topic.categoryCode === els.manageCategory.value);
   const domain = clean(sample?.domain).toUpperCase();
@@ -4348,6 +4425,130 @@ function populateManageReferencePageKeys(sourceType, { preserveSelection = true 
     const tokenKey = clean(token.split(':')[0]).toUpperCase();
     const preferred = keys.some(item => item.pageKey === tokenKey) ? tokenKey : pageKeyForCategory(sourceType);
     if (preferred) cfg.keySelect.value = preferred;
+  }
+}
+
+function populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection = true } = {}) {
+  const cfg = manageReferenceMaterialConfig(sourceType);
+  const current = preserveSelection ? clean(cfg.baseKey.value).toUpperCase() : '';
+  const keys = referencePdfPageCatalog.filter(item => item.sourceType === sourceType && item.pageCount > 0);
+  cfg.baseKey.innerHTML = keys.map(item => `<option value="${escapeHtml(item.pageKey)}">${escapeHtml(item.pageKey)} · ${Number(item.pageCount || 0).toLocaleString()}페이지</option>`).join('');
+  if (current && keys.some(item => item.pageKey === current)) cfg.baseKey.value = current;
+  else {
+    const preferred = pageKeyForCategory(sourceType);
+    if (preferred && keys.some(item => item.pageKey === preferred)) cfg.baseKey.value = preferred;
+  }
+  updateManageReferenceMaterialUi(sourceType);
+}
+
+function updateManageReferenceMaterialUi(sourceType) {
+  const cfg = manageReferenceMaterialConfig(sourceType);
+  const type = clean(cfg.type.value) || 'missing-original';
+  cfg.positionWrap.classList.toggle('hidden', type !== 'supplement');
+  cfg.pageWrap.classList.toggle('hidden', type === 'new-original');
+  cfg.pageLabel.textContent = type === 'missing-original' ? '실제 페이지번호' : type === 'supplement' ? '보강 기준 원본 페이지번호' : type === 'revision' ? '개정 대상 원본 페이지번호' : '페이지번호';
+  cfg.pageNumber.placeholder = type === 'missing-original' ? '예: 613' : '예: 103';
+  cfg.plan.className = 'reference-material-plan';
+  cfg.plan.textContent = type === 'missing-original'
+    ? '기존 교재/서브노트의 실제 누락 페이지번호를 그대로 사용합니다.'
+    : type === 'supplement'
+      ? '기준 원본 페이지 앞/뒤에 보강페이지를 논리적으로 삽입합니다. 기존 페이지번호는 변경하지 않습니다.'
+      : type === 'revision'
+        ? '기준 원본 페이지를 대체하는 최신 개정페이지를 등록합니다. 기존 원본 파일은 보존됩니다.'
+        : '현재 분류의 도메인을 기준으로 새 페이지키와 첫 페이지번호 1을 자동 추천합니다.';
+}
+
+function resetManageReferenceMaterialForm(sourceType) {
+  const cfg = manageReferenceMaterialConfig(sourceType);
+  cfg.type.value = 'missing-original';
+  cfg.pageNumber.value = '';
+  cfg.position.value = '뒤';
+  cfg.keyOverride.value = '';
+  cfg.file.value = '';
+  populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection: false });
+}
+
+function getManageDomainPrefix() {
+  const sample = allTopics.find(topic => topic.categoryCode === els.manageCategory.value);
+  return clean(sample?.domain).toUpperCase();
+}
+
+async function fetchReferencePdfRegistrationPlan(apiUrl, data) {
+  const url = await buildSignedGetUrl(apiUrl, 'referencePdfRegistrationPlan', data);
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`PDF 등록 계획 조회 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json || json.ok !== true) throw new Error(json?.message || 'PDF 등록 계획 응답이 올바르지 않습니다.');
+  return json;
+}
+
+function pendingReferencePdfEntry(sourceType, pageToken) {
+  const value = pendingReferencePdfFiles.get(`${sourceType}\u0001${pageToken}`);
+  if (!value) return null;
+  if (value instanceof File) return { file: value, plan: null };
+  return value;
+}
+
+async function prepareManageReferenceMaterial(sourceType) {
+  if (!navigator.onLine) return showToast('새 PDF 자료 등록 준비는 온라인 상태에서만 가능합니다.');
+  const cfg = manageReferenceMaterialConfig(sourceType);
+  const file = cfg.file.files?.[0];
+  try {
+    validatePendingReferencePdfFile(file);
+    const pageCount = await detectPdfPageCount(file);
+    if (pageCount !== 1) throw new Error(`${file.name} · ${pageCount || '확인 불가'}페이지입니다. 1페이지 PDF만 등록할 수 있습니다.`);
+    const materialType = clean(cfg.type.value) || 'missing-original';
+    const basePageKey = clean(cfg.baseKey.value).toUpperCase();
+    if (!basePageKey) throw new Error(`${sourceType} 기준 페이지키를 선택해 주세요.`);
+    const pageNumber = Number(cfg.pageNumber.value) || 0;
+    if (materialType !== 'new-original' && pageNumber < 1) throw new Error('기준/실제 페이지번호를 입력해 주세요.');
+    const plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), {
+      sourceType,
+      materialType,
+      basePageKey,
+      requestedPageNumber: materialType === 'missing-original' ? pageNumber : '',
+      anchorPageNumber: ['supplement','revision'].includes(materialType) ? pageNumber : '',
+      insertionPosition: clean(cfg.position.value) || '뒤',
+      requestedPageKey: clean(cfg.keyOverride.value).toUpperCase(),
+      domainPrefix: getManageDomainPrefix(),
+    });
+    if (plan.exists) {
+      const current = splitPageTokens(manageReferenceEditorConfig(sourceType).hidden.value);
+      if (!current.includes(plan.pageToken)) current.push(plan.pageToken);
+      setManageReferenceTokens(sourceType, current);
+      cfg.plan.className = 'reference-material-plan ready';
+      cfg.plan.textContent = `${plan.pageToken}은 이미 등록되어 있어 기존 PDF를 연결합니다.`;
+      renderManageReferencePageEditor(sourceType, { preserveSelection: true });
+      updateManageReferencePdfHint();
+      cfg.file.value = '';
+      return;
+    }
+    if (['supplement','new-original'].includes(materialType)) {
+      while (pendingReferencePdfFiles.has(`${sourceType}\u0001${plan.pageToken}`) || getReferencePdfPage(sourceType, plan.pageToken)) {
+        plan.pageNumber = Number(plan.pageNumber || 0) + 1;
+        plan.pageToken = `${plan.pageKey}:${plan.pageNumber}`;
+        plan.storedFileName = expectedReferencePdfFileName(plan.pageKey, plan.pageNumber);
+        if (materialType === 'supplement') plan.logicalOrder = Number(plan.logicalOrder || 0) + 1;
+      }
+    }
+    pendingReferencePdfFiles.set(`${sourceType}\u0001${plan.pageToken}`, { file, plan, pageCount });
+    const current = splitPageTokens(manageReferenceEditorConfig(sourceType).hidden.value);
+    if (!current.includes(plan.pageToken)) current.push(plan.pageToken);
+    setManageReferenceTokens(sourceType, current);
+    cfg.plan.className = 'reference-material-plan ready';
+    const relationText = plan.materialType === '보강'
+      ? ` · ${plan.anchorPageToken} ${plan.insertionPosition} · 순서 ${plan.logicalOrder}`
+      : plan.materialType === '개정'
+        ? ` · ${plan.replacementTarget} 대체 · ${plan.versionTag || '개정'}`
+        : '';
+    cfg.plan.textContent = `${plan.pageToken} → ${plan.storedFileName}${relationText}${plan.allowCreatePageKey ? ' · 새 페이지키/Drive 폴더 자동 생성' : ''}`;
+    renderManageReferencePageEditor(sourceType, { preserveSelection: true });
+    updateManageReferencePdfHint();
+    cfg.file.value = '';
+  } catch (error) {
+    cfg.plan.className = 'reference-material-plan warn';
+    cfg.plan.textContent = error.message || 'PDF 등록 준비에 실패했습니다.';
+    showToast(error.message || 'PDF 등록 준비에 실패했습니다.');
   }
 }
 
@@ -4433,7 +4634,13 @@ function handleManageReferenceFileSelection(sourceType, pageToken, input) {
   if (!file) return;
   try {
     validatePendingReferencePdfFile(file);
-    pendingReferencePdfFiles.set(`${sourceType}\u0001${pageToken}`, file);
+    const parts = pageTokenParts(pageToken);
+    const existingEntry = pendingReferencePdfEntry(sourceType, pageToken);
+    pendingReferencePdfFiles.set(`${sourceType}\u0001${pageToken}`, {
+      file,
+      pageCount: existingEntry?.pageCount || null,
+      plan: existingEntry?.plan || { materialType: '원본', rawMaterialType: 'missing-original', basePageKey: parts?.pageKey || '', pageKey: parts?.pageKey || '', pageNumber: parts?.pageNumber || 0, pageToken, allowCreatePageKey: false, anchorPageToken: '', insertionPosition: '', replacementTarget: '', logicalOrder: 0, versionTag: '' }
+    });
     renderManageReferencePageEditor(sourceType, { preserveSelection: true });
     updateManageReferencePdfHint();
   } catch (error) {
@@ -4454,16 +4661,21 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
     const parts = pageTokenParts(pageToken);
     const page = getReferencePdfPage(sourceType, pageToken);
     const mapped = parts ? Boolean(referencePdfCatalogItem(sourceType, parts.pageKey)) : false;
-    const pendingFile = pendingReferencePdfFiles.get(`${sourceType}\u0001${pageToken}`) || null;
+    const pendingEntry = pendingReferencePdfEntry(sourceType, pageToken);
+    const pendingFile = pendingEntry?.file || null;
+    const pendingPlan = pendingEntry?.plan || null;
     const expectedName = parts ? expectedReferencePdfFileName(parts.pageKey, parts.pageNumber) : '';
-    const statusClass = page ? 'registered' : mapped ? 'pending' : 'unmapped';
-    const statusText = page ? 'PDF 등록됨' : mapped ? (pendingFile ? '업로드 준비' : 'PDF 필요') : '페이지키 매핑 없음';
+    const canCreateKey = Boolean(pendingPlan?.allowCreatePageKey);
+    const statusClass = page ? (page.materialType === '보강' ? 'supplement' : page.materialType === '개정' ? 'revision' : 'registered') : (mapped || canCreateKey) ? 'pending' : 'unmapped';
+    const statusText = page ? (page.materialType === '보강' ? '보강 PDF' : page.materialType === '개정' ? '개정 PDF' : 'PDF 등록됨') : (mapped || canCreateKey) ? (pendingFile ? '업로드 준비' : 'PDF 필요') : '페이지키 매핑 없음';
+    const relationMeta = page?.materialType === '보강' ? ` · 기준 ${page.anchorPageToken || '-'} ${page.insertionPosition || ''} · 순서 ${page.logicalOrder || 0}` : page?.materialType === '개정' ? ` · ${page.replacementTarget || '-'} 대체 · ${page.versionTag || '개정'}` : '';
+    const planMeta = pendingPlan?.materialType === '보강' ? ` · 보강 ${pendingPlan.anchorPageToken} ${pendingPlan.insertionPosition} · 순서 ${pendingPlan.logicalOrder || 0}` : pendingPlan?.materialType === '개정' ? ` · 개정 ${pendingPlan.replacementTarget} 대체 · ${pendingPlan.versionTag || ''}` : '';
     const metaText = page
-      ? `${page.fileName || expectedName}`
-      : mapped
-        ? `저장될 파일명: ${expectedName}`
+      ? `${page.fileName || expectedName}${relationMeta}`
+      : (mapped || canCreateKey)
+        ? `저장될 파일명: ${pendingPlan?.storedFileName || expectedName}${planMeta}${canCreateKey ? ' · 새 페이지키/폴더 생성' : ''}`
         : '이 페이지키는 현재 Drive 폴더와 연결되어 있지 않습니다.';
-    const uploadRow = !page && mapped ? `<div class="reference-page-upload-row">
+    const uploadRow = !page && (mapped || canCreateKey) ? `<div class="reference-page-upload-row">
         <input type="file" accept="application/pdf,.pdf" data-reference-page-file="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}">
         <button class="btn compact" type="button" data-reference-clear-file="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}"${pendingFile ? '' : ' disabled'}>선택 취소</button>
         <div class="reference-page-upload-note">${pendingFile
@@ -4504,6 +4716,8 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
 function renderManageReferencePageEditors(options = {}) {
   renderManageReferencePageEditor('서브노트', options);
   renderManageReferencePageEditor('교재', options);
+  populateManageReferenceMaterialBaseKeys('서브노트', options);
+  populateManageReferenceMaterialBaseKeys('교재', options);
 }
 
 async function detectPdfPageCount(file) {
@@ -4537,6 +4751,14 @@ function referencePdfPageFromUploadStatus(status) {
     pageToken,
     driveFileId,
     fileName: clean(status?.storedFileName),
+    materialType: clean(status?.materialType) || '원본',
+    basePageKey: clean(status?.basePageKey) || pageKey,
+    anchorPageToken: clean(status?.anchorPageToken),
+    insertionPosition: clean(status?.insertionPosition),
+    replacementTarget: clean(status?.replacementTarget),
+    logicalOrder: Number(status?.logicalOrder) || 0,
+    versionTag: clean(status?.versionTag),
+    active: clean(status?.active) || 'Y',
   };
 }
 
@@ -4577,13 +4799,16 @@ async function uploadPendingManageReferencePages(fields) {
   let reusedCount = 0;
   for (const item of missing) {
     if (!item.pageKey || !item.pageNumber) throw new Error(`${item.sourceType} ${item.pageToken} · 페이지토큰 형식이 올바르지 않습니다.`);
-    if (!referencePdfCatalogItem(item.sourceType, item.pageKey)) {
+    const pendingForItem = pendingReferencePdfEntry(item.sourceType, item.pageToken);
+    if (!referencePdfCatalogItem(item.sourceType, item.pageKey) && !pendingForItem?.plan?.allowCreatePageKey) {
       throw new Error(`${item.sourceType} ${item.pageKey} · Drive 폴더 매핑이 없습니다.`);
     }
-    const file = pendingReferencePdfFiles.get(`${item.sourceType}\u0001${item.pageToken}`);
+    const pendingEntry = pendingReferencePdfEntry(item.sourceType, item.pageToken);
+    const file = pendingEntry?.file || null;
+    const plan = pendingEntry?.plan || null;
     if (!file) throw new Error(`${item.sourceType} ${item.pageToken} · 등록된 PDF가 없어 1페이지 PDF 파일 선택이 필요합니다.`);
     validatePendingReferencePdfFile(file);
-    const pageCount = await detectPdfPageCount(file);
+    const pageCount = pendingEntry?.pageCount || await detectPdfPageCount(file);
     if (pageCount !== 1) {
       throw new Error(`${file.name} · ${pageCount || '확인 불가'}페이지로 확인되었습니다. 원본 페이지 등록은 1페이지 PDF만 허용합니다.`);
     }
@@ -4598,6 +4823,14 @@ async function uploadPendingManageReferencePages(fields) {
         fileName: file.name,
         pageCount,
         dataUrl,
+        materialType: plan?.rawMaterialType || 'missing-original',
+        basePageKey: plan?.basePageKey || item.pageKey,
+        anchorPageToken: plan?.anchorPageToken || '',
+        insertionPosition: plan?.insertionPosition || '',
+        replacementTarget: plan?.replacementTarget || '',
+        logicalOrder: plan?.logicalOrder || 0,
+        versionTag: plan?.versionTag || '',
+        allowCreatePageKey: Boolean(plan?.allowCreatePageKey),
       });
       const page = referencePdfPageFromUploadStatus(status);
       if (!page.driveFileId) throw new Error(`${item.pageToken} · 업로드 결과의 Drive 파일ID를 확인할 수 없습니다.`);
@@ -4666,8 +4899,9 @@ function updateManageReferencePdfHint() {
   for (const [sourceType, pageToken] of tokens) {
     if (getReferencePdfPage(sourceType, pageToken)) { registered++; continue; }
     const parts = pageTokenParts(pageToken);
-    if (!parts || !referencePdfCatalogItem(sourceType, parts.pageKey)) { unmapped++; continue; }
-    if (pendingReferencePdfFiles.has(`${sourceType}\u0001${pageToken}`)) uploadReady++;
+    const pendingEntry = pendingReferencePdfEntry(sourceType, pageToken);
+    if (!parts || (!referencePdfCatalogItem(sourceType, parts.pageKey) && !pendingEntry?.plan?.allowCreatePageKey)) { unmapped++; continue; }
+    if (pendingEntry?.file) uploadReady++;
     else missingFile++;
   }
   const parts = [`연결 예정 ${tokens.length}페이지`, `기존 ${registered}`];
@@ -4704,7 +4938,7 @@ async function saveManagedTopic(event) {
 
   const unresolved = collectMissingManageReferencePages(fields).filter(item =>
     !item?.pageKey ||
-    !referencePdfCatalogItem(item.sourceType, item.pageKey) ||
+    (!referencePdfCatalogItem(item.sourceType, item.pageKey) && !pendingReferencePdfEntry(item.sourceType, item.pageToken)?.plan?.allowCreatePageKey) ||
     (!referencePdfCatalogHasPage(item.sourceType, item.pageKey, item.pageNumber) &&
       !pendingReferencePdfFiles.has(`${item.sourceType}\u0001${item.pageToken}`))
   );
@@ -4751,9 +4985,9 @@ async function saveManagedTopic(event) {
     renderReferencePdfSummary();
     renderAttachmentSummary();
     const referenceUploadText = referenceUploadResult.uploadedCount
-      ? ` · 신규 원본PDF ${referenceUploadResult.uploadedCount}페이지 등록`
+      ? ` · 신규 PDF ${referenceUploadResult.uploadedCount}페이지 등록`
       : referenceUploadResult.reusedCount
-        ? ` · 기존 원본PDF ${referenceUploadResult.reusedCount}페이지 재사용`
+        ? ` · 기존 PDF ${referenceUploadResult.reusedCount}페이지 재사용`
         : '';
     showToast(wasAdd
       ? `새 토픽 추가 완료 · ${topic.topicId} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`
@@ -4817,19 +5051,30 @@ function openReferencePdfViewer(sourceType) {
   const items = getTopicReferencePdfLinks(currentTopicId, sourceType);
   if (!items.length) return showToast(`${sourceType} PDF 연결정보가 없습니다.`);
   if (!allReferencePdfPages.length) return showToast('원본 페이지 목록이 없습니다. MASTER 갱신을 먼저 실행해 주세요.');
-  activeReferencePdfLinks = items.slice();
+  const effectiveSeen = new Set();
+  activeReferencePdfLinks = items.filter(item => {
+    const effective = referencePdfPageFromLink(item);
+    const key = `${effective?.sourceType || item.sourceType}\u0001${effective?.pageToken || item.pageToken}`;
+    if (effectiveSeen.has(key)) return false;
+    effectiveSeen.add(key);
+    return true;
+  });
   activeReferencePdfIndex = 0;
   activeReferencePdfSourceType = sourceType;
   activeReferencePdfCurrentPage = null;
   els.referencePdfViewerTitle.textContent = `${sourceType} 원본 PDF`;
-  els.referencePdfViewerSubtitle.textContent = `${currentTopicId} · 등록 ${items.length.toLocaleString()}페이지 · 원본 앞/뒤 페이지도 순차 확인 가능`;
+  els.referencePdfViewerSubtitle.textContent = `${currentTopicId} · 등록 ${activeReferencePdfLinks.length.toLocaleString()}페이지 · 보강/개정 포함 논리순서로 앞/뒤 이동`;
   renderReferencePdfRegisteredOptions();
   els.referencePdfViewerModal.classList.remove('hidden');
   loadReferencePdfAtIndex(0);
 }
 
 function renderReferencePdfRegisteredOptions() {
-  els.referencePdfPageSelect.innerHTML = activeReferencePdfLinks.map((item, index) => `<option value="${index}">${escapeHtml(item.pageToken)} · ${escapeHtml(item.fileName || item.driveFileId)}</option>`).join('');
+  els.referencePdfPageSelect.innerHTML = activeReferencePdfLinks.map((item, index) => {
+    const effective = referencePdfPageFromLink(item);
+    const label = effective && effective.pageToken !== item.pageToken ? `${item.pageToken} → ${effective.pageToken}` : item.pageToken;
+    return `<option value="${index}">${escapeHtml(label)} · ${escapeHtml(effective?.fileName || item.fileName || item.driveFileId)}</option>`;
+  }).join('');
 }
 
 function closeReferencePdfViewer() {
@@ -4858,19 +5103,42 @@ function driveViewUrl(fileId) {
   return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
 }
 
+function referencePdfActiveRevisionFor(sourceType, originalPageToken) {
+  const candidates = allReferencePdfPages.filter(item => item.sourceType === sourceType && item.materialType === '개정' && item.active !== 'N' && item.replacementTarget === originalPageToken);
+  if (!candidates.length) return null;
+  return candidates.sort((a, b) => referencePdfVersionRank(b) - referencePdfVersionRank(a) || (b.logicalOrder || 0) - (a.logicalOrder || 0))[0];
+}
+
+function referencePdfVersionRank(page) {
+  const match = clean(page?.versionTag).match(/R(\d+)/i) || clean(page?.pageKey).match(/-R(\d+)$/i);
+  return match ? Number(match[1]) || 0 : Number(page?.logicalOrder) || 0;
+}
+
+function resolveReferencePdfEffectivePage(page) {
+  if (!page) return page;
+  if (page.materialType === '개정') return page.active === 'N' && page.replacementTarget ? (referencePdfActiveRevisionFor(page.sourceType, page.replacementTarget) || page) : page;
+  const revision = referencePdfActiveRevisionFor(page.sourceType, page.pageToken);
+  return revision || page;
+}
+
 function referencePdfPageFromLink(link) {
   const page = getReferencePdfPage(link.sourceType, link.pageToken);
-  if (page) return page;
-  const match = clean(link.pageToken).match(/^(.+):(\d+)$/);
-  return {
-    pageId: referencePdfPageId(link.sourceType, link.pageToken),
-    sourceType: link.sourceType,
-    pageKey: match ? match[1] : '',
-    pageNumber: link.pageNumber || (match ? Number(match[2]) : 0),
-    pageToken: link.pageToken,
-    driveFileId: link.driveFileId,
-    fileName: link.fileName,
-  };
+  const raw = page || (() => {
+    const match = clean(link.pageToken).match(/^(.+):(\d+)$/);
+    return {
+      pageId: referencePdfPageId(link.sourceType, link.pageToken),
+      sourceType: link.sourceType,
+      pageKey: match ? match[1] : '',
+      pageNumber: link.pageNumber || (match ? Number(match[2]) : 0),
+      pageToken: link.pageToken,
+      driveFileId: link.driveFileId,
+      fileName: link.fileName,
+      materialType: '원본',
+      basePageKey: match ? match[1] : '',
+      active: 'Y',
+    };
+  })();
+  return resolveReferencePdfEffectivePage(raw);
 }
 
 function loadReferencePdfAtIndex(index) {
@@ -4881,31 +5149,64 @@ function loadReferencePdfAtIndex(index) {
   loadReferencePdfPage(referencePdfPageFromLink(link), { registeredIndex: bounded });
 }
 
-function findReferencePdfSequentialPage(page, delta) {
-  if (!page || !page.pageKey || !page.pageNumber || ![-1, 1].includes(delta)) return null;
-  const targetNumber = page.pageNumber + delta;
-  const sameFilePage = allReferencePdfPages.find(item => item.sourceType === page.sourceType && item.pageKey === page.pageKey && item.pageNumber === targetNumber);
-  if (sameFilePage) return sameFilePage;
+function referencePdfRootPageKey(page) {
+  if (!page) return '';
+  return clean(page.basePageKey || page.pageKey).toUpperCase();
+}
 
-  // SW/AL/AI 교재는 원본 PDF가 여러 파일로 분리되어 있으므로 파일 경계에서도 순차 이동을 이어간다.
-  if (page.sourceType !== '교재') return null;
-  const sequence = REFERENCE_PDF_PAGE_KEY_SEQUENCES.find(keys => keys.includes(page.pageKey));
-  if (!sequence) return null;
-  const currentKeyIndex = sequence.indexOf(page.pageKey);
-  const nextKeyIndex = currentKeyIndex + delta;
-  if (nextKeyIndex < 0 || nextKeyIndex >= sequence.length) return null;
-  const nextKey = sequence[nextKeyIndex];
-  const candidates = allReferencePdfPages
-    .filter(item => item.sourceType === page.sourceType && item.pageKey === nextKey)
-    .sort((a, b) => a.pageNumber - b.pageNumber);
-  if (!candidates.length) return null;
-  return delta > 0 ? candidates[0] : candidates[candidates.length - 1];
+function referencePdfBaseSequenceKeys(rootKey) {
+  const sequence = REFERENCE_PDF_PAGE_KEY_SEQUENCES.find(keys => keys.includes(rootKey));
+  return sequence ? sequence.slice() : [rootKey];
+}
+
+function sortReferencePdfSupplements(a, b) {
+  return (Number(a.logicalOrder) || 0) - (Number(b.logicalOrder) || 0) || a.pageKey.localeCompare(b.pageKey, 'en', { numeric: true }) || a.pageNumber - b.pageNumber;
+}
+
+function buildReferencePdfLogicalSequence(page) {
+  const rootKey = referencePdfRootPageKey(page);
+  if (!rootKey) return [];
+  const baseKeys = referencePdfBaseSequenceKeys(rootKey);
+  const keyOrder = new Map(baseKeys.map((key, index) => [key, index]));
+  const basePages = allReferencePdfPages
+    .filter(item => item.sourceType === page.sourceType && item.materialType === '원본' && item.active !== 'N' && keyOrder.has(item.pageKey))
+    .sort((a, b) => keyOrder.get(a.pageKey) - keyOrder.get(b.pageKey) || a.pageNumber - b.pageNumber);
+  const supplements = allReferencePdfPages.filter(item => item.sourceType === page.sourceType && item.materialType === '보강' && item.active !== 'N');
+  const result = [];
+  for (const original of basePages) {
+    const before = supplements.filter(item => item.anchorPageToken === original.pageToken && item.insertionPosition === '앞').sort(sortReferencePdfSupplements);
+    const after = supplements.filter(item => item.anchorPageToken === original.pageToken && item.insertionPosition !== '앞').sort(sortReferencePdfSupplements);
+    result.push(...before);
+    result.push(referencePdfActiveRevisionFor(original.sourceType, original.pageToken) || original);
+    result.push(...after);
+  }
+  return result;
+}
+
+function findReferencePdfSequentialPage(page, delta) {
+  if (!page || ![-1, 1].includes(delta)) return null;
+  const sequence = buildReferencePdfLogicalSequence(page);
+  if (!sequence.length) return null;
+  let currentToken = page.pageToken;
+  if (page.materialType === '원본') {
+    const effective = resolveReferencePdfEffectivePage(page);
+    currentToken = effective?.pageToken || currentToken;
+  } else if (page.materialType === '개정' && page.active === 'N' && page.replacementTarget) {
+    currentToken = (referencePdfActiveRevisionFor(page.sourceType, page.replacementTarget) || page).pageToken;
+  }
+  let index = sequence.findIndex(item => item.pageToken === currentToken && item.sourceType === page.sourceType);
+  if (index < 0 && page.replacementTarget) index = sequence.findIndex(item => item.pageToken === page.replacementTarget && item.sourceType === page.sourceType);
+  if (index < 0) return null;
+  return sequence[index + delta] || null;
 }
 
 function moveReferencePdfSequential(delta) {
   const nextPage = findReferencePdfSequentialPage(activeReferencePdfCurrentPage, delta);
   if (!nextPage) return showToast(delta < 0 ? '이 원본 파일의 이전 페이지가 없습니다.' : '이 원본 파일의 다음 페이지가 없습니다.');
-  const registeredIndex = activeReferencePdfLinks.findIndex(link => link.pageToken === nextPage.pageToken && link.sourceType === nextPage.sourceType);
+  const registeredIndex = activeReferencePdfLinks.findIndex(link => {
+    const effective = referencePdfPageFromLink(link);
+    return effective?.pageToken === nextPage.pageToken && effective?.sourceType === nextPage.sourceType;
+  });
   loadReferencePdfPage(nextPage, { registeredIndex: registeredIndex >= 0 ? registeredIndex : null });
 }
 
@@ -5063,7 +5364,8 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   const nextSequential = findReferencePdfSequentialPage(page, 1);
   els.referencePdfSequentialPrevBtn.disabled = !prevSequential;
   els.referencePdfSequentialNextBtn.disabled = !nextSequential;
-  els.referencePdfSequentialLabel.textContent = `${page.pageToken} · ${page.fileName || page.driveFileId}`;
+  const flowLabel = page.materialType === '보강' ? `보강 · 기준 ${page.anchorPageToken || '-'}` : page.materialType === '개정' ? `개정 ${page.versionTag || ''} · ${page.replacementTarget || '-'} 대체` : '원본';
+  els.referencePdfSequentialLabel.textContent = `${page.pageToken} · ${flowLabel} · ${page.fileName || page.driveFileId}`;
 
   const registeredText = Number.isInteger(registeredIndex) && registeredIndex >= 0
     ? `\ub4f1\ub85d ${registeredIndex + 1} / ${activeReferencePdfLinks.length}`
