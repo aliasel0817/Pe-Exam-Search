@@ -2459,7 +2459,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.13-pdf-sequential-nav-fix';
+const APP_VERSION = '4.4.14-pdf-file-replace';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2516,6 +2516,7 @@ let pendingAttachmentDeletes = new Set();
 let referencePdfPageCatalog = [];
 let referencePdfPageCatalogLoadedAt = 0;
 let pendingReferencePdfFiles = new Map();
+let pendingReferencePdfReplacements = new Map();
 const MAX_REFERENCE_PAGE_BYTES = 8 * 1024 * 1024;
 let mediaViewerObjectUrls = [];
 let mediaImageObserver = null;
@@ -4469,6 +4470,7 @@ function updateManageCategoryHint() {
 
 function resetPendingReferencePdfState() {
   pendingReferencePdfFiles = new Map();
+  pendingReferencePdfReplacements = new Map();
   if (els.manageSubnotePageNumbers) els.manageSubnotePageNumbers.value = '';
   if (els.manageTextbookPageNumbers) els.manageTextbookPageNumbers.value = '';
   if (els.manageSubnoteMaterialFile) els.manageSubnoteMaterialFile.value = '';
@@ -4486,7 +4488,7 @@ function primeManageReferencePdfCatalogFromLocal() {
 
 function refreshManageReferencePdfCatalogControls() {
   // 사용자가 새 PDF 등록 준비를 시작한 뒤에는 백그라운드 갱신이 입력 상태를 건드리지 않는다.
-  if (pendingReferencePdfFiles.size) return;
+  if (pendingReferencePdfFiles.size || pendingReferencePdfReplacements.size) return;
   for (const sourceType of ['서브노트', '교재']) {
     populateManageReferencePageKeys(sourceType, { preserveSelection: true });
     populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection: true, refreshUi: false });
@@ -4839,6 +4841,7 @@ function removeManageReferencePage(sourceType, pageToken) {
   const cfg = manageReferenceEditorConfig(sourceType);
   setManageReferenceTokens(sourceType, splitPageTokens(cfg.hidden.value).filter(token => token !== pageToken));
   pendingReferencePdfFiles.delete(`${sourceType}\u0001${pageToken}`);
+  pendingReferencePdfReplacements.delete(`${sourceType}\u0001${pageToken}`);
   renderManageReferencePageEditor(sourceType, { preserveSelection: true });
   updateManageReferencePdfHint();
 }
@@ -4877,6 +4880,61 @@ function handleManageReferenceFileSelection(sourceType, pageToken, input) {
   }
 }
 
+
+async function handleManageReferenceReplacementSelection(sourceType, pageToken, input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    validatePendingReferencePdfFile(file);
+    const page = getReferencePdfPage(sourceType, pageToken);
+    if (!page) throw new Error(`${sourceType} ${pageToken} · 교체할 기존 PDF 페이지를 찾을 수 없습니다.`);
+    const pageCount = await detectPdfPageCount(file);
+    if (pageCount !== 1) throw new Error(`${file.name} · ${pageCount || '확인 불가'}페이지입니다. 교체는 1페이지 PDF만 허용합니다.`);
+    pendingReferencePdfReplacements.set(`${sourceType}\u0001${pageToken}`, { file, pageCount });
+    renderManageReferencePageEditor(sourceType, { preserveSelection: true });
+    updateManageReferencePdfHint();
+  } catch (error) {
+    input.value = '';
+    showToast(error.message);
+  }
+}
+
+async function applyPendingReferencePdfReplacements() {
+  if (!pendingReferencePdfReplacements.size) return { replacedCount: 0, warningCount: 0 };
+  let replacedCount = 0;
+  let warningCount = 0;
+  for (const [key, entry] of Array.from(pendingReferencePdfReplacements.entries())) {
+    const sep = key.indexOf('\u0001');
+    const sourceType = key.slice(0, sep);
+    const pageToken = key.slice(sep + 1);
+    const parts = pageTokenParts(pageToken);
+    if (!parts) throw new Error(`${sourceType} ${pageToken} · 페이지토큰 형식이 올바르지 않습니다.`);
+    const dataUrl = await readFileAsDataUrl(entry.file);
+    const status = await sendMutation(getApiUrl(), {
+      action: 'replaceReferencePdfPage',
+      sourceType,
+      pageKey: parts.pageKey,
+      pageNumber: parts.pageNumber,
+      fileName: entry.file.name,
+      pageCount: entry.pageCount,
+      dataUrl,
+    });
+    if (!status.driveFileId) throw new Error(`${sourceType} ${pageToken} · 교체 결과의 Drive 파일ID를 확인할 수 없습니다.`);
+    if (status.oldFileCleanup === false) warningCount++;
+    pendingReferencePdfReplacements.delete(key);
+    replacedCount++;
+  }
+  await refreshReferencePdfPagesFromServer();
+  const links = await fetchReferencePdfLinks(getApiUrl());
+  const reconciled = reconcileReferencePdfLinks(allTopics, links, allReferencePdfPages);
+  if (reconciled.missingCount || reconciled.staleCount) throw new Error(`PDF 교체 후 전체 연결 검증 실패 · 미연결 ${reconciled.missingCount} · 불일치 ${reconciled.staleCount}`);
+  allReferencePdfLinks = reconciled.links;
+  await replaceAllReferencePdfLinks(db, allReferencePdfLinks);
+  renderManageReferencePageEditors({ preserveSelection: true });
+  renderReferencePdfSummary();
+  return { replacedCount, warningCount };
+}
+
 function renderManageReferencePageEditor(sourceType, { preserveSelection = true } = {}) {
   const cfg = manageReferenceEditorConfig(sourceType);
   populateManageReferencePageKeys(sourceType, { preserveSelection });
@@ -4910,6 +4968,14 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
           ? `<span class="reference-page-file-ready">${escapeHtml(pendingFile.name)}</span> → ${escapeHtml(expectedName)} · ${formatFileSize(pendingFile.size)}`
           : '의미 없는 원본 파일명이어도 괜찮습니다. 저장할 때 규칙 파일명으로 자동 변경됩니다.'}</div>
       </div>` : '';
+    const replacement = page ? pendingReferencePdfReplacements.get(`${sourceType}\u0001${pageToken}`) : null;
+    const replaceRow = page ? `<div class="reference-page-upload-row">
+        <input type="file" accept="application/pdf,.pdf" data-reference-replace-file="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}">
+        <button class="btn compact" type="button" data-reference-clear-replacement="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}"${replacement ? '' : ' disabled'}>교체 취소</button>
+        <div class="reference-page-upload-note">${replacement
+          ? `<span class="reference-page-file-ready">교체 대기: ${escapeHtml(replacement.file.name)}</span> → ${escapeHtml(page.fileName || expectedName)} · ${formatFileSize(replacement.file.size)}`
+          : '파일 교체: 페이지토큰·연결·논리순서는 유지하고 PDF 파일만 바꿉니다.'}</div>
+      </div>` : '';
     return `<div class="reference-page-item">
       <div class="reference-page-item-main">
         <div class="reference-page-item-title">
@@ -4923,6 +4989,7 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
         <button class="btn compact danger" type="button" data-reference-page-remove="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}">연결 해제</button>
       </div>
       ${uploadRow}
+      ${replaceRow}
     </div>`;
   }).join('');
 
@@ -4935,6 +5002,16 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
   cfg.list.querySelectorAll('[data-reference-clear-file]').forEach(button => {
     button.addEventListener('click', () => {
       pendingReferencePdfFiles.delete(`${button.dataset.referenceSource}\u0001${button.dataset.referenceClearFile}`);
+      renderManageReferencePageEditor(button.dataset.referenceSource, { preserveSelection: true });
+      updateManageReferencePdfHint();
+    });
+  });
+  cfg.list.querySelectorAll('[data-reference-replace-file]').forEach(input => {
+    input.addEventListener('change', () => handleManageReferenceReplacementSelection(input.dataset.referenceSource, input.dataset.referenceReplaceFile, input));
+  });
+  cfg.list.querySelectorAll('[data-reference-clear-replacement]').forEach(button => {
+    button.addEventListener('click', () => {
+      pendingReferencePdfReplacements.delete(`${button.dataset.referenceSource}\u0001${button.dataset.referenceClearReplacement}`);
       renderManageReferencePageEditor(button.dataset.referenceSource, { preserveSelection: true });
       updateManageReferencePdfHint();
     });
@@ -5202,6 +5279,12 @@ async function saveManagedTopic(event) {
       throw new Error(`원본 PDF 페이지 등록/확인 실패: ${referencePageCheck.missing.join(', ')}`);
     }
 
+    let referenceReplaceResult = { replacedCount: 0, warningCount: 0 };
+    if (pendingReferencePdfReplacements.size) {
+      setLoading(true, `원본 PDF 파일 교체 중 · ${pendingReferencePdfReplacements.size}개`);
+      referenceReplaceResult = await applyPendingReferencePdfReplacements();
+    }
+
     setLoading(true, wasAdd ? '새 토픽을 추가하는 중...' : '토픽을 저장하는 중...');
     const status = await sendMutation(getApiUrl(), payload);
     const topic = normalizeSingleRow(status.headers, status.row);
@@ -5226,9 +5309,12 @@ async function saveManagedTopic(event) {
         ? ` · 기존 PDF ${referenceUploadResult.reusedCount}페이지 재사용`
         : '';
     const categoryText = status.categoryCreated ? ` · 새 대분류 ${status.categoryCode} 생성` : '';
+    const replacementText = referenceReplaceResult.replacedCount
+      ? ` · PDF 교체 ${referenceReplaceResult.replacedCount}페이지${referenceReplaceResult.warningCount ? ` (기존파일 정리 확인 ${referenceReplaceResult.warningCount})` : ''}`
+      : '';
     showToast(wasAdd
-      ? `새 토픽 추가 완료 · ${topic.topicId}${categoryText} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`
-      : `토픽 수정 완료 · ${topic.topicId} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`);
+      ? `새 토픽 추가 완료 · ${topic.topicId}${categoryText} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${replacementText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`
+      : `토픽 수정 완료 · ${topic.topicId} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${replacementText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`);
   } catch (error) {
     console.error(error);
     renderManageAttachments();
