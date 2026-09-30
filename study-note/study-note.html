@@ -757,16 +757,15 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .reference-pdf-modal-card > .modal-head,
 .reference-pdf-modal-card > .media-viewer-actions { flex: 0 0 auto; }
-.reference-pdf-viewer-body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin-top: 12px; overflow: hidden; }
-.reference-pdf-controls { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(180px, 1fr) auto; gap: 9px; align-items: center; }
-.reference-pdf-control-caption { grid-column: 1 / -1; color: var(--muted); font-size: .7rem; font-weight: 800; }
-.reference-pdf-page-select { height: 40px; min-width: 0; }
-.reference-pdf-sequential-controls { flex: 0 0 auto; display: grid; grid-template-columns: auto minmax(150px, 1fr) auto; gap: 9px; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f6; }
-.reference-pdf-sequential-label { min-width: 0; text-align: center; color: #475467; font-size: .76rem; overflow-wrap: anywhere; }
-.reference-pdf-toolbar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
-.reference-pdf-toolbar-main { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 1 1 100%; }
-.reference-pdf-toolbar strong { min-width: 0; overflow-wrap: anywhere; font-size: .78rem; }
-.reference-pdf-toolbar .btn { flex: 0 0 auto; text-decoration: none; }
+.reference-pdf-viewer-body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin-top: 10px; overflow: hidden; }
+.reference-pdf-topbar { flex: 0 0 auto; display: grid; gap: 6px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f8fafc; }
+.reference-pdf-controls { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto auto; gap: 8px; align-items: center; }
+.reference-pdf-control-caption { display: none; }
+.reference-pdf-page-select { height: 38px; min-width: 0; }
+.reference-pdf-sequential-controls { display: grid; grid-template-columns: auto minmax(140px, 1fr) auto auto; gap: 8px; align-items: center; }
+.reference-pdf-sequential-label { min-width: 0; text-align: center; color: #475467; font-size: .75rem; overflow-wrap: anywhere; }
+.reference-pdf-sequential-counter { min-width: 0; color: #475467; font-size: .76rem; font-weight: 800; white-space: nowrap; text-align: right; }
+.reference-pdf-open-drive-link { text-decoration: none; white-space: nowrap; }
 .reference-pdf-frame-wrap {
   flex: 1 1 0;
   min-height: 0;
@@ -874,16 +873,15 @@ button { -webkit-tap-highlight-color: transparent; }
     border-radius: 13px;
   }
   .reference-pdf-viewer-body { margin-top: 8px; }
+  .reference-pdf-topbar { gap: 6px; padding: 7px 8px; }
   .reference-pdf-controls { grid-template-columns: 1fr 1fr; gap: 6px; }
-  .reference-pdf-control-caption { grid-column: 1 / -1; }
   .reference-pdf-page-select { grid-column: 1 / -1; grid-row: 2; height: 38px; }
+  .reference-pdf-open-drive-link { grid-column: 1 / -1; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; }
   .reference-pdf-controls .btn,
   .reference-pdf-sequential-controls .btn { min-height: 36px; padding: 6px 8px; }
-  .reference-pdf-sequential-controls { grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; padding-top: 6px; }
+  .reference-pdf-sequential-controls { grid-template-columns: 1fr 1fr; gap: 6px; }
   .reference-pdf-sequential-label { grid-column: 1 / -1; grid-row: 1; }
-  .reference-pdf-toolbar { padding: 6px 0; }
-  .reference-pdf-toolbar-main { flex-wrap: wrap; }
-  .reference-pdf-toolbar-main .btn { min-height: 36px; padding: 6px 10px; }
+  .reference-pdf-sequential-counter { grid-column: 1 / -1; text-align: left; font-size: .73rem; }
   .reference-pdf-modal-card > .media-viewer-actions { padding-top: 6px; }
   .reference-pdf-image-stage { padding: 8px; }
   .reference-pdf-bottom-actions { gap: 6px; }
@@ -900,8 +898,7 @@ button { -webkit-tap-highlight-color: transparent; }
   .reference-pdf-modal-card .modal-head p { font-size: .72rem; }
   .reference-pdf-viewer-body { margin-top: 6px; }
   .reference-pdf-control-caption { display: none; }
-  .reference-pdf-sequential-controls { margin-top: 5px; padding-top: 5px; }
-  .reference-pdf-toolbar { padding: 5px 0; }
+  .reference-pdf-topbar { gap: 5px; padding: 6px 8px; }
   .reference-pdf-modal-card > .media-viewer-actions { padding-top: 5px; }
 }
 
@@ -1473,21 +1470,19 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="closeReferencePdfViewerBtn" class="icon-btn" type="button" aria-label="원본 PDF 닫기">✕</button>
       </div>
       <div class="reference-pdf-viewer-body">
-        <div class="reference-pdf-controls">
-          <span class="reference-pdf-control-caption">토픽에 등록된 페이지 이동</span>
-          <button id="referencePdfPrevBtn" class="btn" type="button">← 등록 이전</button>
-          <select id="referencePdfPageSelect" class="field reference-pdf-page-select" aria-label="토픽에 등록된 원본 PDF 페이지 선택"></select>
-          <button id="referencePdfNextBtn" class="btn" type="button">등록 다음 →</button>
-        </div>
-        <div class="reference-pdf-sequential-controls">
-          <button id="referencePdfSequentialPrevBtn" class="btn" type="button">← 원본 앞 1페이지</button>
-          <strong id="referencePdfSequentialLabel" class="reference-pdf-sequential-label">원본 연속 이동</strong>
-          <button id="referencePdfSequentialNextBtn" class="btn" type="button">원본 뒤 1페이지 →</button>
-        </div>
-        <div class="reference-pdf-toolbar">
-          <div class="reference-pdf-toolbar-main">
-            <strong id="referencePdfCounter"></strong>
-            <a id="referencePdfOpenDriveLink" class="btn" href="#" target="_blank" rel="noopener noreferrer">Drive에서 열기 ↗</a>
+        <div class="reference-pdf-topbar">
+          <div class="reference-pdf-controls">
+            <span class="reference-pdf-control-caption">토픽에 등록된 페이지 이동</span>
+            <button id="referencePdfPrevBtn" class="btn" type="button">← 등록 이전</button>
+            <select id="referencePdfPageSelect" class="field reference-pdf-page-select" aria-label="토픽에 등록된 원본 PDF 페이지 선택"></select>
+            <button id="referencePdfNextBtn" class="btn" type="button">등록 다음 →</button>
+            <a id="referencePdfOpenDriveLink" class="btn reference-pdf-open-drive-link" href="#" target="_blank" rel="noopener noreferrer">Drive에서 열기 ↗</a>
+          </div>
+          <div class="reference-pdf-sequential-controls">
+            <button id="referencePdfSequentialPrevBtn" class="btn" type="button">← 원본 앞 1페이지</button>
+            <strong id="referencePdfSequentialLabel" class="reference-pdf-sequential-label">원본 연속 이동</strong>
+            <button id="referencePdfSequentialNextBtn" class="btn" type="button">원본 뒤 1페이지 →</button>
+            <strong id="referencePdfCounter" class="reference-pdf-sequential-counter"></strong>
           </div>
         </div>
         <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
@@ -2420,7 +2415,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.9-category-viewer-topic';
+const APP_VERSION = '4.4.10-reference-pdf-compact';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
