@@ -2459,7 +2459,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.11-reference-pdf-compact-header';
+const APP_VERSION = '4.4.12-manage-fast-open';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -4350,10 +4350,19 @@ async function openManage(mode = 'edit') {
       showToast('토픽 추가·수정은 신뢰기기 인증 후 사용할 수 있습니다.');
       return;
     }
+
     buildCategoryOptions();
-    await ensureManageReferencePdfCatalog();
+    primeManageReferencePdfCatalogFromLocal();
     els.manageModal.classList.remove('hidden');
     switchManageMode(mode);
+
+    // 관리창은 로컬 PDF 카탈로그로 즉시 표시하고, 서버 최신 목록은 렌더링 이후 백그라운드 갱신한다.
+    // 네트워크/Apps Script 응답이 느려도 팝업 표시를 막지 않는다.
+    requestAnimationFrame(() => {
+      refreshManageReferencePdfCatalogInBackground().catch(error =>
+        console.warn('Background PDF catalog refresh failed:', error)
+      );
+    });
   } finally {
     setLoading(false);
     setManageGateBusy(false);
@@ -4464,6 +4473,36 @@ function resetPendingReferencePdfState() {
   if (els.manageTextbookPageNumbers) els.manageTextbookPageNumbers.value = '';
   if (els.manageSubnoteMaterialFile) els.manageSubnoteMaterialFile.value = '';
   if (els.manageTextbookMaterialFile) els.manageTextbookMaterialFile.value = '';
+}
+
+function primeManageReferencePdfCatalogFromLocal() {
+  // 이미 카탈로그가 있으면 서버에서 받은 최신/이전 값을 즉시 재사용한다.
+  // 첫 진입처럼 비어 있을 때만 IndexedDB에서 로드된 1페이지 PDF 목록으로 빠르게 구성한다.
+  if (referencePdfPageCatalog.length) return referencePdfPageCatalog;
+  const localCatalog = referencePdfCatalogFromLocal();
+  if (localCatalog.length) referencePdfPageCatalog = localCatalog;
+  return referencePdfPageCatalog;
+}
+
+function refreshManageReferencePdfCatalogControls() {
+  // 사용자가 새 PDF 등록 준비를 시작한 뒤에는 백그라운드 갱신이 입력 상태를 건드리지 않는다.
+  if (pendingReferencePdfFiles.size) return;
+  for (const sourceType of ['서브노트', '교재']) {
+    populateManageReferencePageKeys(sourceType, { preserveSelection: true });
+    populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection: true, refreshUi: false });
+  }
+  updateManageReferencePdfHint();
+}
+
+async function refreshManageReferencePdfCatalogInBackground() {
+  if (!navigator.onLine) return referencePdfPageCatalog;
+  const beforeLoadedAt = referencePdfPageCatalogLoadedAt;
+  const catalog = await ensureManageReferencePdfCatalog();
+  if (els.manageModal.classList.contains('hidden')) return catalog;
+  // 10분 캐시가 그대로 재사용된 경우에는 DOM을 다시 그릴 필요가 없다.
+  if (referencePdfPageCatalogLoadedAt === beforeLoadedAt && beforeLoadedAt > 0) return catalog;
+  refreshManageReferencePdfCatalogControls();
+  return catalog;
 }
 
 function referencePdfCatalogFromLocal() {
@@ -4618,7 +4657,7 @@ function populateManageReferencePageKeys(sourceType, { preserveSelection = true 
   }
 }
 
-function populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection = true } = {}) {
+function populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection = true, refreshUi = true } = {}) {
   const cfg = manageReferenceMaterialConfig(sourceType);
   const current = preserveSelection ? clean(cfg.baseKey.value).toUpperCase() : '';
   const keys = referencePdfPageCatalog.filter(item => item.sourceType === sourceType && item.pageCount > 0);
@@ -4628,7 +4667,7 @@ function populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection
     const preferred = pageKeyForCategory(sourceType);
     if (preferred && keys.some(item => item.pageKey === preferred)) cfg.baseKey.value = preferred;
   }
-  updateManageReferenceMaterialUi(sourceType);
+  if (refreshUi) updateManageReferenceMaterialUi(sourceType);
 }
 
 function updateManageReferenceMaterialUi(sourceType) {
