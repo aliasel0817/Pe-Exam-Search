@@ -339,6 +339,21 @@ button { -webkit-tap-highlight-color: transparent; }
 .btn.danger:hover { background: #ffe4e6; }
 .admin-pin-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 .manage-hint { margin: 5px 0 0; color: var(--muted); font-size: .73rem; line-height: 1.45; }
+.manage-category-select-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.manage-category-select-row .btn { white-space: nowrap; }
+.manage-new-category-panel { margin-top: 8px; padding: 10px; border: 1px solid #bfdbfe; border-radius: 10px; background: #f8fbff; }
+.manage-new-category-grid { display: grid; grid-template-columns: minmax(110px, .7fr) minmax(0, 1.3fr); gap: 8px; }
+.manage-new-category-grid label > span { display: block; margin-bottom: 5px; color: #475467; font-size: .68rem; font-weight: 800; }
+.manage-new-category-preview { margin-top: 8px; color: var(--muted); font-size: .69rem; line-height: 1.45; }
+.manage-new-category-preview strong { color: var(--primary-strong); }
+.manage-new-category-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 8px; }
+.viewer-topic-name { margin: 2px 0 3px; max-width: min(72vw, 760px); color: #344054; font-size: .84rem; line-height: 1.35; font-weight: 800; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .manage-category-select-row { grid-template-columns: minmax(0, 1fr); }
+  .manage-category-select-row .btn { width: 100%; }
+  .manage-new-category-grid { grid-template-columns: 1fr; }
+  .viewer-topic-name { max-width: 76vw; font-size: .78rem; }
+}
 
 .reference-page-manager {
   margin-top: 10px;
@@ -1263,7 +1278,21 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
           <div>
             <label class="field-label" for="manageCategory">대분류</label>
-            <select id="manageCategory" class="field"></select>
+            <div class="manage-category-select-row">
+              <select id="manageCategory" class="field"></select>
+              <button id="manageAddCategoryBtn" class="btn compact hidden" type="button">＋ 대분류 추가</button>
+            </div>
+            <div id="manageNewCategoryPanel" class="manage-new-category-panel hidden">
+              <div class="manage-new-category-grid">
+                <label><span>도메인</span><select id="manageNewCategoryDomain" class="field"></select></label>
+                <label><span>새 대분류명</span><input id="manageNewCategoryName" class="field" type="text" maxlength="100" placeholder="예: 신규 전략·정책 영역"></label>
+              </div>
+              <div class="manage-new-category-preview">예상 대분류코드 <strong id="manageNewCategoryCodePreview">-</strong> · 실제 저장 시 서버가 중복을 다시 확인해 최종 코드를 발급합니다.</div>
+              <div class="manage-new-category-actions">
+                <button id="manageNewCategoryCancelBtn" class="btn compact" type="button">취소</button>
+                <button id="manageNewCategoryApplyBtn" class="btn compact primary" type="button">등록 준비</button>
+              </div>
+            </div>
           </div>
           <div>
             <label class="field-label" for="manageImportance">중요도</label>
@@ -1423,6 +1452,7 @@ button { -webkit-tap-highlight-color: transparent; }
       <div class="modal-head">
         <div>
           <h2 id="mediaViewerTitle">첨부자료</h2>
+          <div id="mediaViewerTopicName" class="viewer-topic-name"></div>
           <p id="mediaViewerSubtitle" class="muted"></p>
         </div>
         <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="첨부자료 닫기">✕</button>
@@ -1437,6 +1467,7 @@ button { -webkit-tap-highlight-color: transparent; }
       <div class="modal-head">
         <div>
           <h2 id="referencePdfViewerTitle">원본 학습자료</h2>
+          <div id="referencePdfViewerTopicName" class="viewer-topic-name"></div>
           <p id="referencePdfViewerSubtitle" class="muted"></p>
         </div>
         <button id="closeReferencePdfViewerBtn" class="icon-btn" type="button" aria-label="원본 PDF 닫기">✕</button>
@@ -2389,7 +2420,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.8-logical-pdf-flow';
+const APP_VERSION = '4.4.9-category-viewer-topic';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2414,6 +2445,8 @@ let topicPageSize = Number(localStorage.getItem(TOPIC_PAGE_SIZE_KEY)) || DEFAULT
 if (![30, 50, 100].includes(topicPageSize)) topicPageSize = DEFAULT_TOPIC_PAGE_SIZE;
 let currentTopicId = null;
 let manageMode = 'edit';
+let pendingNewCategory = null;
+const NEW_CATEGORY_OPTION_VALUE = '__NEW_CATEGORY__';
 let securityState = { authenticated: false, status: 'UNKNOWN', device: null, ownerConfigured: false, oauthReady: false, oauthReadyKnown: false };
 let securityStateRefreshPromise = null;
 let securityStateRefreshForce = false;
@@ -2567,7 +2600,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2610,6 +2643,10 @@ function bindEvents() {
     updateManageCategoryHint();
     renderManageReferencePageEditors({ preserveSelection: false });
   });
+  els.manageAddCategoryBtn.addEventListener('click', openManageNewCategoryPanel);
+  els.manageNewCategoryCancelBtn.addEventListener('click', closeManageNewCategoryPanel);
+  els.manageNewCategoryApplyBtn.addEventListener('click', applyManageNewCategory);
+  els.manageNewCategoryDomain.addEventListener('change', updateManageNewCategoryPreview);
   els.manageSubnotePageAddBtn.addEventListener('click', () => addManageReferencePages('서브노트'));
   els.manageTextbookPageAddBtn.addEventListener('click', () => addManageReferencePages('교재'));
   for (const input of [els.manageSubnotePageNumbers, els.manageTextbookPageNumbers]) {
@@ -4136,7 +4173,43 @@ async function syncLearningStates() {
   }
 }
 
+function getManageDomainOptions() {
+  return [...new Map(allTopics.map(topic => [topic.domain, {
+    domain: clean(topic.domain).toUpperCase(),
+    domainName: topic.domainName,
+    domainOrder: Number(topic.domainOrder) || 9999,
+  }])).values()]
+    .filter(item => item.domain)
+    .sort((a, b) => a.domainOrder - b.domainOrder || a.domain.localeCompare(b.domain, 'en', { numeric: true }));
+}
+
+function nextCategoryCodePreview(domain) {
+  const normalized = clean(domain).toUpperCase();
+  if (!normalized) return '-';
+  let maxNumber = 0;
+  for (const topic of allTopics) {
+    if (clean(topic.domain).toUpperCase() !== normalized) continue;
+    const code = clean(topic.categoryCode).toUpperCase();
+    const prefix = `${normalized}-`;
+    if (!code.startsWith(prefix)) continue;
+    const suffix = code.slice(prefix.length);
+    if (/^\d+$/.test(suffix)) maxNumber = Math.max(maxNumber, Number(suffix) || 0);
+  }
+  return `${normalized}-${String(maxNumber + 1).padStart(2, '0')}`;
+}
+
+function buildManageNewCategoryDomainOptions(preferredDomain = '') {
+  const domains = getManageDomainOptions();
+  els.manageNewCategoryDomain.innerHTML = domains.map(item =>
+    `<option value="${escapeHtml(item.domain)}">${escapeHtml(item.domain)} · ${escapeHtml(item.domainName)}</option>`
+  ).join('');
+  const preferred = clean(preferredDomain).toUpperCase();
+  if (preferred && domains.some(item => item.domain === preferred)) els.manageNewCategoryDomain.value = preferred;
+  updateManageNewCategoryPreview();
+}
+
 function buildCategoryOptions() {
+  pendingNewCategory = null;
   const categories = [...new Map(allTopics.map(topic => [topic.categoryCode, {
     categoryCode: topic.categoryCode,
     categoryName: topic.categoryName,
@@ -4152,6 +4225,74 @@ function buildCategoryOptions() {
   els.manageCategory.innerHTML = categories.map(item =>
     `<option value="${escapeHtml(item.categoryCode)}">${escapeHtml(item.categoryCode)} · ${escapeHtml(item.categoryName)} (${escapeHtml(item.domain)})</option>`
   ).join('');
+  buildManageNewCategoryDomainOptions();
+  closeManageNewCategoryPanel();
+}
+
+function selectedManageCategoryContext() {
+  if (manageMode === 'add' && els.manageCategory.value === NEW_CATEGORY_OPTION_VALUE && pendingNewCategory) {
+    return { ...pendingNewCategory, isNew: true };
+  }
+  const sample = allTopics.find(topic => topic.categoryCode === els.manageCategory.value);
+  return sample ? {
+    domain: clean(sample.domain).toUpperCase(),
+    domainName: sample.domainName,
+    domainOrder: Number(sample.domainOrder) || 9999,
+    categoryCode: sample.categoryCode,
+    categoryName: sample.categoryName,
+    isNew: false,
+  } : null;
+}
+
+function openManageNewCategoryPanel() {
+  if (manageMode !== 'add') return showToast('새 대분류는 새 토픽 등록에서 추가할 수 있습니다.');
+  const current = selectedManageCategoryContext();
+  const preferredDomain = current?.domain || allTopics.find(item => item.topicId === currentTopicId)?.domain || '';
+  buildManageNewCategoryDomainOptions(preferredDomain);
+  els.manageNewCategoryName.value = pendingNewCategory?.categoryName || '';
+  els.manageNewCategoryPanel.classList.remove('hidden');
+  updateManageNewCategoryPreview();
+  els.manageNewCategoryName.focus();
+}
+
+function closeManageNewCategoryPanel() {
+  els.manageNewCategoryPanel.classList.add('hidden');
+}
+
+function updateManageNewCategoryPreview() {
+  const domain = clean(els.manageNewCategoryDomain?.value).toUpperCase();
+  if (els.manageNewCategoryCodePreview) els.manageNewCategoryCodePreview.textContent = nextCategoryCodePreview(domain);
+}
+
+function applyManageNewCategory() {
+  if (manageMode !== 'add') return showToast('새 대분류는 새 토픽 등록에서 추가할 수 있습니다.');
+  const domain = clean(els.manageNewCategoryDomain.value).toUpperCase();
+  const categoryName = clean(els.manageNewCategoryName.value);
+  if (!domain) return showToast('도메인을 선택해 주세요.');
+  if (!categoryName) return showToast('새 대분류명을 입력해 주세요.');
+  const domains = getManageDomainOptions();
+  const domainInfo = domains.find(item => item.domain === domain);
+  if (!domainInfo) return showToast('선택한 도메인을 MASTER에서 찾을 수 없습니다.');
+  const duplicate = allTopics.some(topic => clean(topic.domain).toUpperCase() === domain && clean(topic.categoryName) === categoryName);
+  if (duplicate) return showToast('같은 도메인에 동일한 대분류명이 이미 있습니다. 기존 대분류를 선택해 주세요.');
+  pendingNewCategory = {
+    domain,
+    domainName: domainInfo.domainName,
+    domainOrder: domainInfo.domainOrder,
+    categoryName,
+    categoryCode: nextCategoryCodePreview(domain),
+  };
+  let option = els.manageCategory.querySelector(`option[value="${NEW_CATEGORY_OPTION_VALUE}"]`);
+  if (!option) {
+    option = document.createElement('option');
+    option.value = NEW_CATEGORY_OPTION_VALUE;
+    els.manageCategory.appendChild(option);
+  }
+  option.textContent = `새 대분류 · ${pendingNewCategory.categoryCode} 예상 · ${categoryName} (${domain})`;
+  els.manageCategory.value = NEW_CATEGORY_OPTION_VALUE;
+  closeManageNewCategoryPanel();
+  updateManageCategoryHint();
+  renderManageReferencePageEditors({ preserveSelection: false });
 }
 
 async function openManage(mode = 'edit') {
@@ -4182,6 +4323,7 @@ async function openManage(mode = 'edit') {
 
 function closeManage() {
   els.manageModal.classList.add('hidden');
+  pendingNewCategory = null;
   resetPendingAttachmentState();
   resetPendingReferencePdfState();
 }
@@ -4194,6 +4336,8 @@ function switchManageMode(mode) {
   els.addModeBtn.classList.toggle('active', manageMode === 'add');
   els.deactivateTopicBtn.classList.toggle('hidden', manageMode !== 'edit');
   els.manageCategory.disabled = manageMode === 'edit';
+  els.manageAddCategoryBtn.classList.toggle('hidden', manageMode !== 'add');
+  if (manageMode !== 'add') closeManageNewCategoryPanel();
 
   if (manageMode === 'edit') {
     const topic = allTopics.find(item => item.topicId === currentTopicId);
@@ -4232,6 +4376,10 @@ function fillManageForm(topic) {
 }
 
 function clearManageFormForAdd() {
+  pendingNewCategory = null;
+  const newOption = els.manageCategory.querySelector(`option[value="${NEW_CATEGORY_OPTION_VALUE}"]`);
+  if (newOption) newOption.remove();
+  closeManageNewCategoryPanel();
   const current = allTopics.find(item => item.topicId === currentTopicId);
   els.manageTopicId.value = '자동 발급';
   els.manageCategory.value = current?.categoryCode || els.manageCategory.options[0]?.value || '';
@@ -4256,15 +4404,18 @@ function clearManageFormForAdd() {
 }
 
 function updateManageCategoryHint() {
-  const categoryCode = els.manageCategory.value;
-  const sample = allTopics.find(topic => topic.categoryCode === categoryCode);
-  if (!sample) {
+  const context = selectedManageCategoryContext();
+  if (!context) {
     els.manageCategoryHint.textContent = '';
     return;
   }
+  if (context.isNew) {
+    els.manageCategoryHint.textContent = `새 대분류 등록 준비: ${context.domain} · ${context.categoryCode} 예상 · ${context.categoryName}. 새 토픽 저장 시 서버가 중복을 다시 확인하고 최종 대분류코드를 자동 발급합니다.`;
+    return;
+  }
   els.manageCategoryHint.textContent = manageMode === 'edit'
-    ? `현재 분류: ${sample.domain} · ${sample.categoryCode} · ${sample.categoryName} (2단계에서는 기존 토픽의 대분류 이동은 수정하지 않음)`
-    : `신규 토픽은 ${sample.domain} · ${sample.categoryCode} · ${sample.categoryName}의 마지막 코드 다음 번호로 추가됩니다.`;
+    ? `현재 분류: ${context.domain} · ${context.categoryCode} · ${context.categoryName} (기존 토픽의 대분류는 변경하지 않음)`
+    : `신규 토픽은 ${context.domain} · ${context.categoryCode} · ${context.categoryName}의 마지막 코드 다음 번호로 추가됩니다.`;
 }
 
 
@@ -4400,8 +4551,8 @@ function manageReferenceMaterialConfig(sourceType) {
 }
 
 function pageKeyForCategory(sourceType) {
-  const sample = allTopics.find(topic => topic.categoryCode === els.manageCategory.value);
-  const domain = clean(sample?.domain).toUpperCase();
+  const context = selectedManageCategoryContext();
+  const domain = clean(context?.domain).toUpperCase();
   const keys = referencePdfPageCatalog.filter(item => item.sourceType === sourceType).map(item => item.pageKey);
   if (!keys.length) return '';
   if (domain && keys.includes(domain)) return domain;
@@ -4469,8 +4620,7 @@ function resetManageReferenceMaterialForm(sourceType) {
 }
 
 function getManageDomainPrefix() {
-  const sample = allTopics.find(topic => topic.categoryCode === els.manageCategory.value);
-  return clean(sample?.domain).toUpperCase();
+  return clean(selectedManageCategoryContext()?.domain).toUpperCase();
 }
 
 async function fetchReferencePdfRegistrationPlan(apiUrl, data) {
@@ -4948,8 +5098,14 @@ async function saveManagedTopic(event) {
   }
 
   const wasAdd = manageMode === 'add';
+  const creatingNewCategory = wasAdd && els.manageCategory.value === NEW_CATEGORY_OPTION_VALUE && pendingNewCategory;
   const payload = wasAdd
-    ? { action: 'addTopic', categoryCode: els.manageCategory.value, fields }
+    ? {
+        action: 'addTopic',
+        categoryCode: creatingNewCategory ? '' : els.manageCategory.value,
+        newCategory: creatingNewCategory ? { domain: pendingNewCategory.domain, categoryName: pendingNewCategory.categoryName } : null,
+        fields,
+      }
     : { action: 'updateTopic', topicId: currentTopicId, fields };
 
   setLoading(true, wasAdd ? '새 토픽을 추가하는 중...' : '토픽을 저장하는 중...');
@@ -4989,8 +5145,9 @@ async function saveManagedTopic(event) {
       : referenceUploadResult.reusedCount
         ? ` · 기존 PDF ${referenceUploadResult.reusedCount}페이지 재사용`
         : '';
+    const categoryText = status.categoryCreated ? ` · 새 대분류 ${status.categoryCode} 생성` : '';
     showToast(wasAdd
-      ? `새 토픽 추가 완료 · ${topic.topicId} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`
+      ? `새 토픽 추가 완료 · ${topic.topicId}${categoryText} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`
       : `토픽 수정 완료 · ${topic.topicId} · 원본PDF ${Number(status.referencePdfLinkCount || 0)}페이지${referenceUploadText}${changeCount ? ` · 첨부 ${changeCount}건 반영` : ''}`);
   } catch (error) {
     console.error(error);
@@ -5062,7 +5219,9 @@ function openReferencePdfViewer(sourceType) {
   activeReferencePdfIndex = 0;
   activeReferencePdfSourceType = sourceType;
   activeReferencePdfCurrentPage = null;
+  const topic = allTopics.find(item => item.topicId === currentTopicId);
   els.referencePdfViewerTitle.textContent = `${sourceType} 원본 PDF`;
+  els.referencePdfViewerTopicName.textContent = topic?.topicName || '';
   els.referencePdfViewerSubtitle.textContent = `${currentTopicId} · 등록 ${activeReferencePdfLinks.length.toLocaleString()}페이지 · 보강/개정 포함 논리순서로 앞/뒤 이동`;
   renderReferencePdfRegisteredOptions();
   els.referencePdfViewerModal.classList.remove('hidden');
@@ -5510,6 +5669,8 @@ function adoptAddedTopicForAttachmentRetry(topic) {
   els.editModeBtn.classList.add('active');
   els.addModeBtn.classList.remove('active');
   els.deactivateTopicBtn.classList.remove('hidden');
+  buildCategoryOptions();
+  els.manageAddCategoryBtn.classList.add('hidden');
   els.manageCategory.disabled = true;
   fillManageForm(topic);
   updateManageCategoryHint();
@@ -5576,7 +5737,9 @@ function openMediaViewer(type) {
   const items = getTopicAttachments(currentTopicId, type);
   if (!items.length) return showToast(type === 'I' ? '등록된 이미지가 없습니다.' : '등록된 PDF가 없습니다.');
   cleanupMediaViewerObjects();
+  const topic = allTopics.find(item => item.topicId === currentTopicId);
   els.mediaViewerTitle.textContent = type === 'I' ? '이미지 첨부자료' : 'PDF 첨부자료';
+  els.mediaViewerTopicName.textContent = topic?.topicName || '';
   els.mediaViewerSubtitle.textContent = `${currentTopicId} · ${items.length.toLocaleString()}개`;
   els.mediaViewerModal.classList.remove('hidden');
   if (type === 'I') renderImageViewer(items);
