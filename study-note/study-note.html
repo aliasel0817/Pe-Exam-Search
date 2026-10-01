@@ -1223,7 +1223,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
           <section class="study-card emphasis-card recall-card" data-recall-card="concept">
             <div class="card-head"><h3>개념</h3><button class="text-btn reveal-btn" type="button" data-reveal-field="concept">보기</button></div>
-            <div id="detailConcept" class="study-text recall-content"></div>
+            <div id="detailConcept" class="study-text preserve-lines recall-content"></div>
           </section>
 
           <section class="study-card recall-card" data-recall-card="keywords">
@@ -1260,7 +1260,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
           <section class="study-card">
             <div class="card-head"><h3>개인메모</h3></div>
-            <textarea id="personalMemoInput" class="textarea-field" placeholder="이 토픽에 대한 개인 메모를 입력하세요."></textarea>
+            <textarea id="personalMemoInput" class="textarea-field preserve-lines" placeholder="이 토픽에 대한 개인 메모를 입력하세요."></textarea>
             <div class="memo-actions">
               <span id="memoStatus" class="memo-status">저장된 메모 없음</span>
               <button id="saveMemoBtn" class="btn" type="button">메모 저장</button>
@@ -1275,7 +1275,7 @@ button { -webkit-tap-highlight-color: transparent; }
               <div><dt>상태</dt><dd id="detailStatus">-</dd></div>
               <div><dt>원본도메인</dt><dd id="detailSourceDomain">-</dd></div>
               <div><dt>학습제외사유</dt><dd id="detailExclusionReason">-</dd></div>
-              <div><dt>비고</dt><dd id="detailNotes">-</dd></div>
+              <div><dt>비고</dt><dd id="detailNotes" class="preserve-lines">-</dd></div>
             </dl>
           </section>
 
@@ -1433,19 +1433,19 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
           <div class="full">
             <label class="field-label" for="manageConcept">개념</label>
-            <textarea id="manageConcept" class="textarea-field"></textarea>
+            <textarea id="manageConcept" class="textarea-field preserve-lines"></textarea>
           </div>
           <div class="full">
             <label class="field-label" for="manageKeywords">키워드</label>
-            <textarea id="manageKeywords" class="textarea-field"></textarea>
+            <textarea id="manageKeywords" class="textarea-field preserve-lines"></textarea>
           </div>
           <div class="full">
             <label class="field-label" for="manageMnemonic">암기법</label>
-            <textarea id="manageMnemonic" class="textarea-field"></textarea>
+            <textarea id="manageMnemonic" class="textarea-field preserve-lines"></textarea>
           </div>
           <div class="full">
             <label class="field-label" for="manageRelated">관련토픽</label>
-            <textarea id="manageRelated" class="textarea-field"></textarea>
+            <textarea id="manageRelated" class="textarea-field preserve-lines"></textarea>
           </div>
           <div class="reference-page-manager">
             <div class="reference-page-manager-head">
@@ -1532,7 +1532,7 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
           <div class="full">
             <label class="field-label" for="manageNotes">비고</label>
-            <textarea id="manageNotes" class="textarea-field"></textarea>
+            <textarea id="manageNotes" class="textarea-field preserve-lines"></textarea>
           </div>
           <div class="full attachment-manager">
             <h3>첨부자료</h3>
@@ -2564,7 +2564,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.18-attachment-viewer-controls';
+const APP_VERSION = '4.4.19-multiline-study-text';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
