@@ -731,10 +731,83 @@ button { -webkit-tap-highlight-color: transparent; }
 .media-viewer-image { width: 100%; height: auto; display: block; border-radius: 8px; background: #fff; }
 .media-placeholder { min-height: 150px; display: grid; place-items: center; padding: 20px; color: var(--muted); text-align: center; background: #f8fafc; border: 1px dashed #d8e0ea; border-radius: 10px; }
 .pdf-viewer-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 8px; }
-.pdf-viewer-controls strong { text-align: center; overflow-wrap: anywhere; font-size: .78rem; }
+.pdf-viewer-controls strong { min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
 .attachment-pdf-page-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-bottom: 8px; }
-.attachment-pdf-page-controls strong { text-align: center; color: #475467; font-size: .76rem; }
+.attachment-pdf-page-controls strong { min-width: 0; text-align: center; color: #475467; font-size: .76rem; white-space: nowrap; }
 .pdf-frame-wrap { height: calc(min(92dvh, 980px) - 250px); min-height: 420px; position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #27272a; }
+@media (min-width: 761px) {
+  /* 첨부 PDF: 상단 전체를 헤더 1줄 + 이동도구 1줄의 정확한 2줄로 압축한다. */
+  #mediaViewerModal { padding: 12px; overflow: hidden; }
+  #mediaViewerModal .media-viewer-card {
+    width: min(1120px, 100%);
+    height: min(calc(100dvh - 24px), 980px);
+    padding: 12px 16px;
+  }
+  #mediaViewerModal .modal-head { flex: 0 0 auto; align-items: center; gap: 8px; min-height: 36px; }
+  #mediaViewerModal .modal-head > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  #mediaViewerTitle { flex: 0 0 auto; margin: 0; font-size: 1.08rem; line-height: 1.2; }
+  #mediaViewerTopicName {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    font-size: .80rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #mediaViewerSubtitle { flex: 0 0 auto; margin: 0; font-size: .72rem; line-height: 1.2; white-space: nowrap; }
+  #mediaViewerModal .modal-head > .icon-btn { flex: 0 0 auto; width: 36px; height: 36px; }
+  #mediaViewerModal .media-viewer-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 6px;
+    margin-top: 5px;
+    padding: 0;
+    overflow: hidden;
+  }
+  #mediaViewerModal .pdf-viewer-controls,
+  #mediaViewerModal .attachment-pdf-page-controls {
+    min-width: 0;
+    margin: 0;
+    gap: 5px;
+  }
+  #mediaViewerModal .pdf-viewer-controls { grid-column: 1; grid-row: 1; }
+  #mediaViewerModal .attachment-pdf-page-controls { grid-column: 2; grid-row: 1; }
+  #mediaViewerModal .pdf-viewer-controls .btn,
+  #mediaViewerModal .attachment-pdf-page-controls .btn {
+    min-width: 0;
+    min-height: 34px;
+    padding: 5px 8px;
+    font-size: .73rem;
+    white-space: nowrap;
+  }
+  #mediaViewerModal .pdf-viewer-controls strong,
+  #mediaViewerModal .attachment-pdf-page-controls strong { font-size: .72rem; }
+  #mediaViewerModal .pdf-frame-wrap {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+  #mediaViewerModal .attachment-pdf-bottom {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding-top: 0;
+  }
+  #mediaViewerModal .media-viewer-actions { flex: 0 0 auto; padding-top: 6px; }
+}
 .attachment-pdf-pan-scroller { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; background: #27272a; cursor: grab; touch-action: none; }
 .attachment-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
 .attachment-pdf-stage { box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
