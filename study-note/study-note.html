@@ -734,7 +734,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .media-image-list { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .media-image-item { width: 100%; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
 .media-image-item figcaption { margin-bottom: 9px; color: #475467; font-size: .76rem; font-weight: 800; }
-.media-viewer-image { width: 100%; max-width: none; height: auto; display: block; border-radius: 8px; background: #fff; }
+.media-image-zoom-wrap { width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; border-radius: 8px; background: #fff; }
+.media-viewer-image { width: 100%; max-width: none; height: auto; display: block; border-radius: 8px; background: #fff; user-select: none; -webkit-user-drag: none; transform-origin: 0 0; }
+.media-image-zoom-hint { margin: 7px 2px 0; color: var(--muted); font-size: .67rem; text-align: right; }
 .media-placeholder { min-height: 150px; display: grid; place-items: center; padding: 20px; color: var(--muted); text-align: center; background: #f8fafc; border: 1px dashed #d8e0ea; border-radius: 10px; }
 
 /* 첨부 PDF는 이미지 첨부와 별도 프레임을 사용한다. */
@@ -774,11 +776,13 @@ button { -webkit-tap-highlight-color: transparent; }
 .attachment-pdf-stage { box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
 .attachment-pdf-canvas { display: block; max-width: none; max-height: none; width: auto; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); user-select: none; }
 .attachment-pdf-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; color: #d1d5db; text-align: center; background: #27272a; pointer-events: none; }
-.attachment-pdf-bottom { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; padding-top: 7px; }
+.attachment-pdf-footer { flex: 0 0 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line); }
+.attachment-pdf-bottom { min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 7px; flex-wrap: nowrap; }
 .attachment-pdf-bottom .btn { min-height: 34px; padding: 5px 10px; }
 .attachment-pdf-bottom .pdf-zoom-step { width: 36px; min-width: 36px; padding-left: 0; padding-right: 0; font-size: 1.1rem; }
 .attachment-pdf-zoom-label { min-width: 48px; text-align: center; color: #475467; font-size: .76rem; font-weight: 800; }
-.attachment-pdf-pinch-hint { color: var(--muted); font-size: .68rem; white-space: nowrap; }
+.attachment-pdf-pinch-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: .68rem; white-space: nowrap; }
+.attachment-pdf-footer > .btn.primary { flex: 0 0 auto; margin-left: auto; }
 
 @media (max-width: 760px) {
   .attachment-summary, .attachment-manager-grid { grid-template-columns: 1fr; }
@@ -808,7 +812,11 @@ button { -webkit-tap-highlight-color: transparent; }
   .attachment-pdf-nav-group:last-child { justify-content: flex-end; }
   .attachment-pdf-navigation .btn { flex: 1 1 0; padding: 5px 6px; font-size: .69rem; }
   .attachment-pdf-stage { padding: 8px; }
-  .attachment-pdf-pinch-hint { flex-basis: 100%; text-align: center; }
+  .attachment-pdf-footer { gap: 6px; padding-top: 5px; }
+  .attachment-pdf-bottom { gap: 4px; }
+  .attachment-pdf-bottom .btn { min-height: 32px; padding: 4px 7px; font-size: .72rem; }
+  .attachment-pdf-bottom .pdf-zoom-step { width: 32px; min-width: 32px; padding-left: 0; padding-right: 0; }
+  .attachment-pdf-pinch-hint { display: none; }
   .media-viewer-actions { padding-top: 5px; }
 }
 
@@ -1587,7 +1595,16 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="PDF 첨부자료 닫기">✕</button>
       </div>
       <div id="mediaViewerBody" class="attachment-pdf-viewer-body"></div>
-      <div class="media-viewer-actions"><button id="closeMediaViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
+      <div class="attachment-pdf-footer">
+        <div class="attachment-pdf-bottom" aria-label="첨부 PDF 확대 축소">
+          <button id="pdfZoomOutBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 축소">−</button>
+          <span id="pdfZoomLabel" class="attachment-pdf-zoom-label">250%</span>
+          <button id="pdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
+          <button id="pdfZoomFitBtn" class="btn" type="button">맞춤</button>
+          <span class="attachment-pdf-pinch-hint">모바일·태블릿: 두 손가락 확대/축소</span>
+        </div>
+        <button id="closeMediaViewerBottomBtn" class="btn primary" type="button">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -2547,7 +2564,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.17-attachment-viewer-layout';
+const APP_VERSION = '4.4.18-attachment-viewer-controls';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -6182,7 +6199,10 @@ function renderImageViewer(items) {
   els.imageViewerBody.innerHTML = `<div class="media-image-list">${items.map((item, index) => `
     <figure class="media-image-item" data-media-image-id="${escapeHtml(item.attachmentId)}">
       <figcaption>이미지 ${index + 1} / ${items.length} · ${escapeHtml(item.fileName)}</figcaption>
-      <div class="media-placeholder">화면에 가까워지면 이미지를 불러옵니다.</div>
+      <div class="media-image-zoom-wrap">
+        <div class="media-placeholder">화면에 가까워지면 이미지를 불러옵니다.</div>
+      </div>
+      <div class="media-image-zoom-hint">모바일·태블릿: 이미지 위에서 두 손가락 확대/축소</div>
     </figure>`).join('')}</div>`;
 
   const loadFigure = async figure => {
@@ -6199,6 +6219,7 @@ function renderImageViewer(items) {
       img.alt = payload.fileName || '첨부 이미지';
       img.src = url;
       placeholder.replaceWith(img);
+      installAttachmentImageZoom(figure, img);
       figure.dataset.loaded = '1';
     } catch (error) {
       placeholder.textContent = `불러오기 실패 · ${error.message || error}`;
@@ -6215,6 +6236,86 @@ function renderImageViewer(items) {
     figures.forEach(figure => mediaImageObserver.observe(figure));
   } else {
     figures.forEach(loadFigure);
+  }
+}
+
+function installAttachmentImageZoom(figure, image) {
+  const wrap = figure?.querySelector('.media-image-zoom-wrap');
+  if (!wrap || !image) return;
+
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 10;
+  let zoom = 1;
+  let pinchStartDistance = 0;
+  let pinchStartZoom = 1;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragStartScrollLeft = 0;
+
+  const distance = touches => {
+    if (!touches || touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const applyZoom = nextZoom => {
+    const bounded = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextZoom) || 1));
+    if (Math.abs(bounded - zoom) < 0.002) return;
+    const oldScrollWidth = Math.max(wrap.scrollWidth, 1);
+    const centerRatio = (wrap.scrollLeft + wrap.clientWidth / 2) / oldScrollWidth;
+    zoom = bounded;
+    image.style.width = `${zoom * 100}%`;
+    image.style.height = 'auto';
+    figure.dataset.imageZoom = zoom.toFixed(3);
+    requestAnimationFrame(() => {
+      wrap.scrollLeft = Math.max(0, centerRatio * wrap.scrollWidth - wrap.clientWidth / 2);
+    });
+  };
+
+  wrap.addEventListener('touchstart', event => {
+    if (event.touches.length >= 2) {
+      pinchStartDistance = distance(event.touches);
+      pinchStartZoom = zoom;
+      return;
+    }
+    if (event.touches.length === 1 && zoom > 1) {
+      dragStartX = event.touches[0].clientX;
+      dragStartY = event.touches[0].clientY;
+      dragStartScrollLeft = wrap.scrollLeft;
+    }
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', event => {
+    if (event.touches.length >= 2 && pinchStartDistance > 0) {
+      event.preventDefault();
+      const currentDistance = distance(event.touches);
+      if (currentDistance > 0) applyZoom(pinchStartZoom * currentDistance / pinchStartDistance);
+      return;
+    }
+    if (event.touches.length === 1 && zoom > 1) {
+      const dx = event.touches[0].clientX - dragStartX;
+      const dy = event.touches[0].clientY - dragStartY;
+      if (Math.abs(dx) > Math.abs(dy) + 3) {
+        event.preventDefault();
+        wrap.scrollLeft = Math.max(0, dragStartScrollLeft - dx);
+      }
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', event => {
+    if (event.touches.length < 2) pinchStartDistance = 0;
+    if (!event.touches.length) {
+      dragStartX = 0;
+      dragStartY = 0;
+    }
+  }, { passive: true });
+
+  // iOS Safari의 제스처 기본 확대가 팝업 전체에 적용되지 않도록 이미지 영역에서만 차단한다.
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    wrap.addEventListener(type, event => {
+      if (event.cancelable) event.preventDefault();
+    }, { passive: false });
   }
 }
 
@@ -6265,21 +6366,14 @@ function renderPdfViewer(items) {
         <button id="pdfPageNextBtn" class="btn" type="button">다음 페이지 →</button>
       </div>
     </div>
-    <div id="pdfViewerFrameWrap" class="pdf-frame-wrap"><div class="media-placeholder">PDF 불러오는 중...</div></div>
-    <div class="attachment-pdf-bottom">
-      <button id="pdfZoomOutBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 축소">−</button>
-      <span id="pdfZoomLabel" class="attachment-pdf-zoom-label">250%</span>
-      <button id="pdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
-      <button id="pdfZoomFitBtn" class="btn" type="button">맞춤</button>
-      <span class="attachment-pdf-pinch-hint">모바일·태블릿: 두 손가락 확대/축소</span>
-    </div>`;
+    <div id="pdfViewerFrameWrap" class="pdf-frame-wrap"><div class="media-placeholder">PDF 불러오는 중...</div></div>`;
   els.mediaViewerBody.querySelector('#pdfPrevBtn').addEventListener('click', () => loadPdfAtIndex(activePdfIndex - 1));
   els.mediaViewerBody.querySelector('#pdfNextBtn').addEventListener('click', () => loadPdfAtIndex(activePdfIndex + 1));
   els.mediaViewerBody.querySelector('#pdfPagePrevBtn').addEventListener('click', () => loadAttachmentPdfPage(activeAttachmentPdfPageNumber - 1));
   els.mediaViewerBody.querySelector('#pdfPageNextBtn').addEventListener('click', () => loadAttachmentPdfPage(activeAttachmentPdfPageNumber + 1));
-  els.mediaViewerBody.querySelector('#pdfZoomOutBtn').addEventListener('click', () => setAttachmentPdfZoomFactor(activeAttachmentPdfZoomFactor - ATTACHMENT_PDF_ZOOM_STEP));
-  els.mediaViewerBody.querySelector('#pdfZoomInBtn').addEventListener('click', () => setAttachmentPdfZoomFactor(activeAttachmentPdfZoomFactor + ATTACHMENT_PDF_ZOOM_STEP));
-  els.mediaViewerBody.querySelector('#pdfZoomFitBtn').addEventListener('click', () => setAttachmentPdfZoomFactor(1));
+  els.mediaViewerModal.querySelector('#pdfZoomOutBtn').onclick = () => setAttachmentPdfZoomFactor(activeAttachmentPdfZoomFactor - ATTACHMENT_PDF_ZOOM_STEP);
+  els.mediaViewerModal.querySelector('#pdfZoomInBtn').onclick = () => setAttachmentPdfZoomFactor(activeAttachmentPdfZoomFactor + ATTACHMENT_PDF_ZOOM_STEP);
+  els.mediaViewerModal.querySelector('#pdfZoomFitBtn').onclick = () => setAttachmentPdfZoomFactor(1);
   loadPdfAtIndex(0);
 }
 
@@ -6290,9 +6384,9 @@ function updateAttachmentPdfViewerUi() {
   const pageCounter = els.pdfPageCounter;
   const pagePrev = els.mediaViewerBody.querySelector('#pdfPagePrevBtn');
   const pageNext = els.mediaViewerBody.querySelector('#pdfPageNextBtn');
-  const zoomLabel = els.mediaViewerBody.querySelector('#pdfZoomLabel');
-  const zoomOut = els.mediaViewerBody.querySelector('#pdfZoomOutBtn');
-  const zoomIn = els.mediaViewerBody.querySelector('#pdfZoomInBtn');
+  const zoomLabel = els.mediaViewerModal.querySelector('#pdfZoomLabel');
+  const zoomOut = els.mediaViewerModal.querySelector('#pdfZoomOutBtn');
+  const zoomIn = els.mediaViewerModal.querySelector('#pdfZoomInBtn');
   const item = activePdfAttachments[activePdfIndex];
   if (counter && item) counter.textContent = `${activePdfIndex + 1} / ${activePdfAttachments.length} · ${item.fileName}`;
   if (prev) prev.disabled = activePdfIndex === 0;
