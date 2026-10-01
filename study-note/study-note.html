@@ -722,114 +722,95 @@ button { -webkit-tap-highlight-color: transparent; }
 .manage-attachment-item.pending-add { border-style: dashed; background: #f0fdf4; }
 .attachment-empty { margin: 8px 0 0; color: var(--muted); font-size: .73rem; }
 .btn.compact { min-height: 32px; padding: 5px 9px; font-size: .72rem; white-space: nowrap; }
-.media-viewer-card { width: min(1000px, 100%); height: min(92dvh, 980px); display: flex; flex-direction: column; overflow: hidden; }
-.media-viewer-body { flex: 1; min-height: 0; overflow: auto; margin-top: 14px; padding: 4px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.media-viewer-actions { display: flex; justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--line); }
-.media-image-list { display: grid; gap: 18px; }
-.media-image-item { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+#imageViewerModal { padding: 12px; overflow: hidden; }
+.image-viewer-card { width: min(1200px, 100%); height: min(92dvh, 980px); display: flex; flex-direction: column; overflow: hidden; }
+.image-viewer-head { flex: 0 0 auto; align-items: center; gap: 10px; }
+.image-viewer-head-main { min-width: 0; flex: 1 1 auto; display: flex; align-items: baseline; gap: 10px; }
+#imageViewerTitle { flex: 0 0 auto; margin: 0; font-size: 1.08rem; line-height: 1.2; }
+#imageViewerTopicName { flex: 1 1 auto; min-width: 0; max-width: none; margin: 0; font-size: .80rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#imageViewerSubtitle { flex: 0 0 auto; color: var(--muted); font-size: .72rem; line-height: 1.2; white-space: nowrap; }
+.image-viewer-body { flex: 1; min-height: 0; overflow: auto; margin-top: 10px; padding: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.media-viewer-actions { flex: 0 0 auto; display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--line); }
+.media-image-list { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.media-image-item { width: 100%; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
 .media-image-item figcaption { margin-bottom: 9px; color: #475467; font-size: .76rem; font-weight: 800; }
-.media-viewer-image { width: 100%; height: auto; display: block; border-radius: 8px; background: #fff; }
+.media-viewer-image { width: 100%; max-width: none; height: auto; display: block; border-radius: 8px; background: #fff; }
 .media-placeholder { min-height: 150px; display: grid; place-items: center; padding: 20px; color: var(--muted); text-align: center; background: #f8fafc; border: 1px dashed #d8e0ea; border-radius: 10px; }
-.pdf-viewer-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 8px; }
-.pdf-viewer-controls strong { min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
-.attachment-pdf-page-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-bottom: 8px; }
-.attachment-pdf-page-controls strong { min-width: 0; text-align: center; color: #475467; font-size: .76rem; white-space: nowrap; }
-.pdf-frame-wrap { height: calc(min(92dvh, 980px) - 250px); min-height: 420px; position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #27272a; }
-@media (min-width: 761px) {
-  /* 첨부 PDF: 상단 전체를 헤더 1줄 + 이동도구 1줄의 정확한 2줄로 압축한다. */
-  #mediaViewerModal { padding: 12px; overflow: hidden; }
-  #mediaViewerModal .media-viewer-card {
-    width: min(1120px, 100%);
-    height: min(calc(100dvh - 24px), 980px);
-    padding: 12px 16px;
-  }
-  #mediaViewerModal .modal-head { flex: 0 0 auto; align-items: center; gap: 8px; min-height: 36px; }
-  #mediaViewerModal .modal-head > div:first-child {
-    min-width: 0;
-    flex: 1 1 auto;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    white-space: nowrap;
-  }
-  #mediaViewerTitle { flex: 0 0 auto; margin: 0; font-size: 1.08rem; line-height: 1.2; }
-  #mediaViewerTopicName {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: none;
-    margin: 0;
-    font-size: .80rem;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  #mediaViewerSubtitle { flex: 0 0 auto; margin: 0; font-size: .72rem; line-height: 1.2; white-space: nowrap; }
-  #mediaViewerModal .modal-head > .icon-btn { flex: 0 0 auto; width: 36px; height: 36px; }
-  #mediaViewerModal .media-viewer-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    column-gap: 10px;
-    row-gap: 6px;
-    margin-top: 5px;
-    padding: 0;
-    overflow: hidden;
-  }
-  #mediaViewerModal .pdf-viewer-controls,
-  #mediaViewerModal .attachment-pdf-page-controls {
-    min-width: 0;
-    margin: 0;
-    gap: 5px;
-  }
-  #mediaViewerModal .pdf-viewer-controls { grid-column: 1; grid-row: 1; }
-  #mediaViewerModal .attachment-pdf-page-controls { grid-column: 2; grid-row: 1; }
-  #mediaViewerModal .pdf-viewer-controls .btn,
-  #mediaViewerModal .attachment-pdf-page-controls .btn {
-    min-width: 0;
-    min-height: 34px;
-    padding: 5px 8px;
-    font-size: .73rem;
-    white-space: nowrap;
-  }
-  #mediaViewerModal .pdf-viewer-controls strong,
-  #mediaViewerModal .attachment-pdf-page-controls strong { font-size: .72rem; }
-  #mediaViewerModal .pdf-frame-wrap {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-  }
-  #mediaViewerModal .attachment-pdf-bottom {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    padding-top: 0;
-  }
-  #mediaViewerModal .media-viewer-actions { flex: 0 0 auto; padding-top: 6px; }
+
+/* 첨부 PDF는 이미지 첨부와 별도 프레임을 사용한다. */
+#mediaViewerModal { padding: 12px; overflow: hidden; }
+.attachment-pdf-viewer-card {
+  width: min(1200px, 100%);
+  height: min(calc(100dvh - 24px), 980px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px 16px;
 }
+.attachment-pdf-modal-head {
+  flex: 0 0 auto;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+.attachment-pdf-head-main { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+#mediaViewerTitle { flex: 0 0 auto; margin: 0; font-size: 1.08rem; line-height: 1.2; }
+#mediaViewerTopicName { flex: 1 1 auto; min-width: 0; max-width: none; margin: 0; font-size: .80rem; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attachment-pdf-head-meta { min-width: 0; display: flex; align-items: center; gap: 18px; color: #475467; font-size: .72rem; white-space: nowrap; }
+#mediaViewerSubtitle { margin: 0; color: var(--muted); font-size: .72rem; }
+.attachment-pdf-file-meta { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-pdf-page-meta { white-space: nowrap; }
+.attachment-pdf-modal-head > .icon-btn { flex: 0 0 auto; width: 36px; height: 36px; }
+.attachment-pdf-viewer-body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin-top: 3px; overflow: hidden; }
+.attachment-pdf-navigation { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0 7px; }
+.attachment-pdf-nav-group { display: flex; align-items: center; gap: 6px; }
+.attachment-pdf-navigation .btn { min-width: 0; min-height: 34px; padding: 5px 10px; font-size: .73rem; white-space: nowrap; }
+.pdf-frame-wrap { flex: 1 1 0; width: 100%; height: 0; min-height: 0; position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #27272a; }
 .attachment-pdf-pan-scroller { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; background: #27272a; cursor: grab; touch-action: none; }
 .attachment-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
 .attachment-pdf-stage { box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
 .attachment-pdf-canvas { display: block; max-width: none; max-height: none; width: auto; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); user-select: none; }
 .attachment-pdf-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; color: #d1d5db; text-align: center; background: #27272a; pointer-events: none; }
-.attachment-pdf-bottom { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; padding-top: 8px; }
+.attachment-pdf-bottom { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; padding-top: 7px; }
 .attachment-pdf-bottom .btn { min-height: 34px; padding: 5px 10px; }
 .attachment-pdf-bottom .pdf-zoom-step { width: 36px; min-width: 36px; padding-left: 0; padding-right: 0; font-size: 1.1rem; }
 .attachment-pdf-zoom-label { min-width: 48px; text-align: center; color: #475467; font-size: .76rem; font-weight: 800; }
 .attachment-pdf-pinch-hint { color: var(--muted); font-size: .68rem; white-space: nowrap; }
+
 @media (max-width: 760px) {
   .attachment-summary, .attachment-manager-grid { grid-template-columns: 1fr; }
-  .media-viewer-card { width: 100%; height: 95dvh; padding: 14px; }
-  .pdf-viewer-controls { grid-template-columns: 1fr 1fr; }
-  .pdf-viewer-controls strong { grid-column: 1 / -1; grid-row: 1; }
-  .attachment-pdf-page-controls { grid-template-columns: 1fr auto 1fr; }
-  .attachment-pdf-page-controls .btn { min-width: 0; padding-left: 7px; padding-right: 7px; }
-  .pdf-frame-wrap { height: calc(95dvh - 300px); min-height: 300px; }
+  #imageViewerModal { padding: 6px; overflow: hidden; }
+  .image-viewer-card { width: 100%; height: calc(100dvh - 12px); padding: 12px; }
+  .image-viewer-head { gap: 7px; }
+  .image-viewer-head-main { gap: 7px; }
+  #imageViewerTitle { font-size: 1rem; }
+  #imageViewerTopicName { font-size: .75rem; }
+  #imageViewerSubtitle { font-size: .68rem; }
+  .image-viewer-body { margin-top: 7px; }
+  .media-image-item { padding: 8px; }
+
+  #mediaViewerModal { padding: 6px; }
+  .attachment-pdf-viewer-card { width: 100%; height: calc(100dvh - 12px); padding: 10px 10px 8px; border-radius: 13px; }
+  .attachment-pdf-modal-head { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+  .attachment-pdf-head-main { grid-column: 1; min-width: 0; gap: 6px; }
+  .attachment-pdf-head-main #mediaViewerTitle { font-size: 1rem; }
+  .attachment-pdf-head-main #mediaViewerTopicName { font-size: .74rem; }
+  .attachment-pdf-head-meta { grid-column: 1 / -1; grid-row: 2; gap: 10px; overflow-x: auto; padding-bottom: 1px; scrollbar-width: none; }
+  .attachment-pdf-head-meta::-webkit-scrollbar { display: none; }
+  .attachment-pdf-file-meta { max-width: 50vw; }
+  .attachment-pdf-modal-head > .icon-btn { grid-column: 2; grid-row: 1; }
+  .attachment-pdf-viewer-body { margin-top: 2px; }
+  .attachment-pdf-navigation { gap: 6px; padding-bottom: 6px; }
+  .attachment-pdf-nav-group { flex: 1 1 0; gap: 4px; }
+  .attachment-pdf-nav-group:last-child { justify-content: flex-end; }
+  .attachment-pdf-navigation .btn { flex: 1 1 0; padding: 5px 6px; font-size: .69rem; }
   .attachment-pdf-stage { padding: 8px; }
   .attachment-pdf-pinch-hint { flex-basis: 100%; text-align: center; }
+  .media-viewer-actions { padding-top: 5px; }
 }
-
 
 /* ===== 4-3단계 원본 교재/서브노트 PDF ===== */
 .reference-pdf-help { margin: 9px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
@@ -1576,17 +1557,36 @@ button { -webkit-tap-highlight-color: transparent; }
   </div>
 
 
-  <div id="mediaViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="mediaViewerTitle">
-    <div class="modal-card media-viewer-card">
-      <div class="modal-head">
-        <div>
-          <h2 id="mediaViewerTitle">첨부자료</h2>
-          <div id="mediaViewerTopicName" class="viewer-topic-name"></div>
-          <p id="mediaViewerSubtitle" class="muted"></p>
+  <div id="imageViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="imageViewerTitle">
+    <div class="modal-card image-viewer-card">
+      <div class="modal-head image-viewer-head">
+        <div class="image-viewer-head-main">
+          <h2 id="imageViewerTitle">이미지 첨부자료</h2>
+          <div id="imageViewerTopicName" class="viewer-topic-name"></div>
         </div>
-        <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="첨부자료 닫기">✕</button>
+        <span id="imageViewerSubtitle" class="muted"></span>
+        <button id="closeImageViewerBtn" class="icon-btn" type="button" aria-label="이미지 첨부자료 닫기">✕</button>
       </div>
-      <div id="mediaViewerBody" class="media-viewer-body"></div>
+      <div id="imageViewerBody" class="image-viewer-body"></div>
+      <div class="media-viewer-actions"><button id="closeImageViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
+    </div>
+  </div>
+
+  <div id="mediaViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="mediaViewerTitle">
+    <div class="modal-card attachment-pdf-viewer-card">
+      <div class="attachment-pdf-modal-head">
+        <div class="attachment-pdf-head-main">
+          <h2 id="mediaViewerTitle">PDF 첨부자료</h2>
+          <div id="mediaViewerTopicName" class="viewer-topic-name"></div>
+        </div>
+        <div class="attachment-pdf-head-meta">
+          <span id="mediaViewerSubtitle" class="muted"></span>
+          <strong id="pdfViewerCounter" class="attachment-pdf-file-meta"></strong>
+          <strong id="pdfPageCounter" class="attachment-pdf-page-meta"></strong>
+        </div>
+        <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="PDF 첨부자료 닫기">✕</button>
+      </div>
+      <div id="mediaViewerBody" class="attachment-pdf-viewer-body"></div>
       <div class="media-viewer-actions"><button id="closeMediaViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
     </div>
   </div>
@@ -2547,7 +2547,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.14-pdf-file-replace';
+const APP_VERSION = '4.4.17-attachment-viewer-layout';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2742,7 +2742,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2806,6 +2806,9 @@ function bindEvents() {
   els.managePdfFiles.addEventListener('change', () => queueManageFiles('P', els.managePdfFiles.files));
   els.openImagesBtn.addEventListener('click', () => openMediaViewer('I'));
   els.openPdfsBtn.addEventListener('click', () => openMediaViewer('P'));
+  els.closeImageViewerBtn.addEventListener('click', closeMediaViewer);
+  els.closeImageViewerBottomBtn.addEventListener('click', closeMediaViewer);
+  els.imageViewerModal.addEventListener('keydown', event => event.stopPropagation());
   els.closeMediaViewerBtn.addEventListener('click', closeMediaViewer);
   els.closeMediaViewerBottomBtn.addEventListener('click', closeMediaViewer);
   els.mediaViewerModal.addEventListener('keydown', event => event.stopPropagation());
@@ -2942,7 +2945,7 @@ function bindEvents() {
       closeImportanceMenu();
 
       // 첨부자료 뷰어와 토픽 관리 팝업은 ESC로 닫지 않는다. 명시적인 닫기 버튼만 사용한다.
-      if (!els.mediaViewerModal.classList.contains('hidden')) {
+      if (!els.imageViewerModal.classList.contains('hidden') || !els.mediaViewerModal.classList.contains('hidden')) {
         event.preventDefault();
         return;
       }
@@ -2974,6 +2977,7 @@ function bindEvents() {
     const overlayOpen =
       !els.settingsModal.classList.contains('hidden') ||
       !els.manageModal.classList.contains('hidden') ||
+      !els.imageViewerModal.classList.contains('hidden') ||
       !els.mediaViewerModal.classList.contains('hidden') ||
       !els.referencePdfViewerModal.classList.contains('hidden') ||
       !els.learningModal.classList.contains('hidden') ||
@@ -6119,18 +6123,29 @@ function openMediaViewer(type) {
   const items = getTopicAttachments(currentTopicId, type);
   if (!items.length) return showToast(type === 'I' ? '등록된 이미지가 없습니다.' : '등록된 PDF가 없습니다.');
   cleanupMediaViewerObjects();
+  els.imageViewerModal.classList.add('hidden');
+  els.mediaViewerModal.classList.add('hidden');
   const topic = allTopics.find(item => item.topicId === currentTopicId);
-  els.mediaViewerTitle.textContent = type === 'I' ? '이미지 첨부자료' : 'PDF 첨부자료';
+  if (type === 'I') {
+    els.imageViewerTitle.textContent = '이미지 첨부자료';
+    els.imageViewerTopicName.textContent = topic?.topicName || '';
+    els.imageViewerSubtitle.textContent = `${currentTopicId} · ${items.length.toLocaleString()}개`;
+    els.imageViewerModal.classList.remove('hidden');
+    renderImageViewer(items);
+    return;
+  }
+  els.mediaViewerTitle.textContent = 'PDF 첨부자료';
   els.mediaViewerTopicName.textContent = topic?.topicName || '';
   els.mediaViewerSubtitle.textContent = `${currentTopicId} · ${items.length.toLocaleString()}개`;
   els.mediaViewerModal.classList.remove('hidden');
-  if (type === 'I') renderImageViewer(items);
-  else renderPdfViewer(items);
+  renderPdfViewer(items);
 }
 
 function closeMediaViewer() {
+  els.imageViewerModal.classList.add('hidden');
   els.mediaViewerModal.classList.add('hidden');
   cleanupMediaViewerObjects();
+  els.imageViewerBody.innerHTML = '';
   els.mediaViewerBody.innerHTML = '';
 }
 
@@ -6164,7 +6179,7 @@ function cleanupMediaViewerObjects() {
 }
 
 function renderImageViewer(items) {
-  els.mediaViewerBody.innerHTML = `<div class="media-image-list">${items.map((item, index) => `
+  els.imageViewerBody.innerHTML = `<div class="media-image-list">${items.map((item, index) => `
     <figure class="media-image-item" data-media-image-id="${escapeHtml(item.attachmentId)}">
       <figcaption>이미지 ${index + 1} / ${items.length} · ${escapeHtml(item.fileName)}</figcaption>
       <div class="media-placeholder">화면에 가까워지면 이미지를 불러옵니다.</div>
@@ -6177,7 +6192,7 @@ function renderImageViewer(items) {
     placeholder.textContent = '이미지 불러오는 중...';
     try {
       const payload = await fetchMediaContent(getApiUrl(), figure.dataset.mediaImageId);
-      if (els.mediaViewerModal.classList.contains('hidden')) return;
+      if (els.imageViewerModal.classList.contains('hidden')) return;
       const url = base64ToObjectUrl(payload.base64, payload.mime);
       const img = document.createElement('img');
       img.className = 'media-viewer-image';
@@ -6192,11 +6207,11 @@ function renderImageViewer(items) {
     }
   };
 
-  const figures = [...els.mediaViewerBody.querySelectorAll('[data-media-image-id]')];
+  const figures = [...els.imageViewerBody.querySelectorAll('[data-media-image-id]')];
   if ('IntersectionObserver' in window) {
     mediaImageObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => { if (entry.isIntersecting) loadFigure(entry.target); });
-    }, { root: els.mediaViewerBody, rootMargin: '500px 0px' });
+    }, { root: els.imageViewerBody, rootMargin: '500px 0px' });
     figures.forEach(figure => mediaImageObserver.observe(figure));
   } else {
     figures.forEach(loadFigure);
@@ -6240,15 +6255,15 @@ function renderPdfViewer(items) {
   activePdfAttachments = items.slice();
   activePdfIndex = 0;
   els.mediaViewerBody.innerHTML = `
-    <div class="pdf-viewer-controls">
-      <button id="pdfPrevBtn" class="btn" type="button">← 이전 PDF</button>
-      <strong id="pdfViewerCounter"></strong>
-      <button id="pdfNextBtn" class="btn" type="button">다음 PDF →</button>
-    </div>
-    <div class="attachment-pdf-page-controls">
-      <button id="pdfPagePrevBtn" class="btn" type="button">← 이전 페이지</button>
-      <strong id="pdfPageCounter">페이지 - / -</strong>
-      <button id="pdfPageNextBtn" class="btn" type="button">다음 페이지 →</button>
+    <div class="attachment-pdf-navigation">
+      <div class="attachment-pdf-nav-group" aria-label="첨부 PDF 이동">
+        <button id="pdfPrevBtn" class="btn" type="button">← 이전 PDF</button>
+        <button id="pdfNextBtn" class="btn" type="button">다음 PDF →</button>
+      </div>
+      <div class="attachment-pdf-nav-group" aria-label="PDF 페이지 이동">
+        <button id="pdfPagePrevBtn" class="btn" type="button">← 이전 페이지</button>
+        <button id="pdfPageNextBtn" class="btn" type="button">다음 페이지 →</button>
+      </div>
     </div>
     <div id="pdfViewerFrameWrap" class="pdf-frame-wrap"><div class="media-placeholder">PDF 불러오는 중...</div></div>
     <div class="attachment-pdf-bottom">
@@ -6269,10 +6284,10 @@ function renderPdfViewer(items) {
 }
 
 function updateAttachmentPdfViewerUi() {
-  const counter = els.mediaViewerBody.querySelector('#pdfViewerCounter');
+  const counter = els.pdfViewerCounter;
   const prev = els.mediaViewerBody.querySelector('#pdfPrevBtn');
   const next = els.mediaViewerBody.querySelector('#pdfNextBtn');
-  const pageCounter = els.mediaViewerBody.querySelector('#pdfPageCounter');
+  const pageCounter = els.pdfPageCounter;
   const pagePrev = els.mediaViewerBody.querySelector('#pdfPagePrevBtn');
   const pageNext = els.mediaViewerBody.querySelector('#pdfPageNextBtn');
   const zoomLabel = els.mediaViewerBody.querySelector('#pdfZoomLabel');
