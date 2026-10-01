@@ -293,6 +293,12 @@ button { -webkit-tap-highlight-color: transparent; }
   background: rgba(15, 23, 42, .5);
 }
 .modal-card { width: min(620px, 100%); padding: 20px; background: #fff; border-radius: 16px; box-shadow: 0 22px 70px rgba(15, 23, 42, .25); }
+.settings-card {
+  max-height: min(90dvh, 760px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .modal-head h2 { margin: 0 0 5px; }
 .modal-head p { margin: 0; font-size: .82rem; }
@@ -620,11 +626,39 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 760px) {
   :root { --topbar-h: 72px; }
   .mobile-only { display: inline-flex; }
-  .topbar { padding-left: 10px; padding-right: 10px; }
-  .brand-area h1 { font-size: .98rem; }
+  .topbar { padding-left: 10px; padding-right: 10px; gap: 8px; }
+  .brand-area { flex: 1 1 auto; min-width: 0; }
+  .brand-area > div { min-width: 0; }
+  .brand-area h1 { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: .98rem; }
   .top-meta { gap: 5px; font-size: .69rem; }
+  .top-actions { flex: 0 0 auto; gap: 6px; }
   .top-actions .btn:not(.primary) { display: none; }
-  .top-actions .btn { padding: 7px 9px; font-size: .78rem; }
+  .top-actions #settingsBtn { display: inline-flex; }
+  .top-actions #refreshBtn,
+  .top-actions #settingsBtn {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+  .top-actions #refreshBtn .top-action-label,
+  .top-actions #settingsBtn .top-action-label { display: none; }
+  #settingsModal {
+    place-items: start center;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
+  }
+  #settingsModal .settings-card {
+    width: 100%;
+    max-height: calc(var(--app-vh, 100dvh) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+  }
   .workspace { display: block; }
   .sidebar {
     position: fixed;
@@ -1073,10 +1107,10 @@ button { -webkit-tap-highlight-color: transparent; }
         </div>
       </div>
       <div class="top-actions">
-        <button id="refreshBtn" class="btn primary" type="button">⟳ MASTER 갱신</button>
+        <button id="refreshBtn" class="btn primary" type="button" aria-label="MASTER 갱신">⟳ <span class="top-action-label">MASTER 갱신</span></button>
         <button id="learningBtn" class="btn" type="button">▣ 학습</button>
         <button id="manageBtn" class="btn" type="button">✎ 관리</button>
-        <button id="settingsBtn" class="btn" type="button">⚙ 설정</button>
+        <button id="settingsBtn" class="btn" type="button" aria-label="설정">⚙ <span class="top-action-label">설정</span></button>
       </div>
     </header>
 
@@ -1292,7 +1326,7 @@ button { -webkit-tap-highlight-color: transparent; }
   </div>
 
   <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <div class="modal-card">
+    <div class="modal-card settings-card">
       <div class="modal-head">
         <div>
           <h2 id="settingsTitle">학습노트 설정</h2>
@@ -2564,7 +2598,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.19-multiline-study-text';
+const APP_VERSION = '4.4.20-iphone-settings-layout';
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
