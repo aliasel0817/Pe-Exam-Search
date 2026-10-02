@@ -2788,7 +2788,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.21-question-search';
+const APP_VERSION = '4.4.22-question-modal-close-only';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const QUESTION_CACHE_DB_NAME = 'peStudyNoteQuestionCache';
@@ -3006,9 +3006,11 @@ function bindEvents() {
   els.questionSearchBtn.addEventListener('click', openQuestionSearch);
   els.closeQuestionSearchBtn.addEventListener('click', closeQuestionSearch);
   els.refreshQuestionListBtn.addEventListener('click', refreshQuestionList);
-  els.questionSearchModal.addEventListener('click', event => { if (event.target === els.questionSearchModal) closeQuestionSearch(); });
+  // 문제 검색 팝업은 바깥 영역 클릭이나 ESC로 닫히지 않는다.
+  // 사용자가 상단 X 닫기 버튼을 눌렀을 때만 닫는다.
+  els.questionSearchModal.addEventListener('click', event => event.stopPropagation());
   els.questionSearchModal.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closeQuestionSearch();
+    if (event.key === 'Escape') event.preventDefault();
     event.stopPropagation();
   });
   els.questionSearchInput.addEventListener('input', handleQuestionSearchInput);
@@ -3202,7 +3204,11 @@ function bindEvents() {
       closeSearchTargetMenu();
       closeImportanceMenu();
 
-      // 첨부자료 뷰어와 토픽 관리 팝업은 ESC로 닫지 않는다. 명시적인 닫기 버튼만 사용한다.
+      // 문제 검색/첨부자료 뷰어/토픽 관리 팝업은 ESC로 닫지 않는다. 명시적인 닫기 버튼만 사용한다.
+      if (!els.questionSearchModal.classList.contains('hidden')) {
+        event.preventDefault();
+        return;
+      }
       if (!els.imageViewerModal.classList.contains('hidden') || !els.mediaViewerModal.classList.contains('hidden')) {
         event.preventDefault();
         return;
@@ -3233,6 +3239,7 @@ function bindEvents() {
     );
 
     const overlayOpen =
+      !els.questionSearchModal.classList.contains('hidden') ||
       !els.settingsModal.classList.contains('hidden') ||
       !els.manageModal.classList.contains('hidden') ||
       !els.imageViewerModal.classList.contains('hidden') ||

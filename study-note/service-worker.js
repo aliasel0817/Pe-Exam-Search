@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pe-study-note-shell-v4-4-21';
+const CACHE_NAME = 'pe-study-note-shell-v4-4-22';
 const APP_SHELL = [
   './study-note.html',
   './manifest.webmanifest'
