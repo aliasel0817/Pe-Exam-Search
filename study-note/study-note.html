@@ -1090,6 +1090,172 @@ button { -webkit-tap-highlight-color: transparent; }
   .security-device-actions .btn { flex: 1 1 auto; }
 }
 
+
+/* ===== v4.4.21 문제 검색 ===== */
+.question-topic-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.question-topic-header-copy { min-width: 0; flex: 1 1 auto; }
+.question-search-trigger {
+  flex: 0 0 auto;
+  min-height: 42px;
+  margin-top: 20px;
+  padding: 9px 14px;
+  border-color: #172033;
+  background: #172033;
+  color: #fff;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.question-search-trigger:hover { background: #0f172a; }
+.question-search-card {
+  width: min(760px, 100%);
+  height: min(88dvh, 860px);
+  max-height: min(88dvh, 860px);
+  padding: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+.question-search-head {
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.question-search-head-main { min-width: 0; }
+.question-search-head h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.question-search-head p { margin: 0; font-size: .74rem; }
+.question-search-input-wrap {
+  padding: 12px 20px 10px;
+  border-bottom: 1px solid #eef2f6;
+  background: #fff;
+}
+.question-search-input { width: 100%; }
+.question-search-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 7px;
+  min-height: 25px;
+  font-size: .71rem;
+}
+.question-search-source-row > span { min-width: 0; overflow-wrap: anywhere; }
+.question-refresh-btn { flex: 0 0 auto; white-space: nowrap; }
+.question-search-results {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 4px 20px 16px;
+  background: #fff;
+}
+.question-search-result {
+  margin-top: 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.question-search-result-meta {
+  color: var(--primary);
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.question-search-result-problem {
+  margin-top: 7px;
+  color: #344054;
+  font-size: .94rem;
+  line-height: 1.58;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.question-search-empty,
+.question-search-loading {
+  margin: 14px 0 0;
+  padding: 20px 14px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.question-search-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 54px;
+  padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.question-search-page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  font-size: .76rem;
+  font-weight: 800;
+}
+.question-search-page-btn:hover:not(:disabled) { background: var(--surface-2); }
+.question-search-page-btn.active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+.question-search-page-btn:disabled { opacity: .42; cursor: default; }
+
+@media (max-width: 760px) {
+  .question-topic-header { gap: 10px; }
+  #questionSearchModal {
+    place-items: start center;
+    overflow: hidden;
+    padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom));
+  }
+  #questionSearchModal .question-search-card {
+    width: 100%;
+    height: calc(var(--app-vh, 100dvh) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(var(--app-vh, 100dvh) - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: 14px;
+  }
+  .question-search-head { padding: 14px 14px 10px; }
+  .question-search-input-wrap { padding: 10px 14px 8px; }
+  .question-search-results { padding: 3px 14px 12px; }
+  .question-search-result { padding: 11px 12px; }
+  .question-search-result-problem { font-size: .9rem; }
+  .question-search-pager { padding-left: 8px; padding-right: 8px; gap: 4px; }
+  .question-search-page-btn { min-width: 32px; height: 32px; padding: 0 6px; }
+}
+@media (max-width: 520px) {
+  .question-search-trigger {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    margin-top: 18px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+  .question-search-trigger-label { display: none; }
+  .question-search-source-row { font-size: .67rem; }
+}
+
   </style>
 </head>
 <body>
@@ -1241,10 +1407,13 @@ button { -webkit-tap-highlight-color: transparent; }
             </div>
           </div>
 
-          <header class="topic-header">
-            <div id="detailCategory" class="eyebrow">대분류</div>
-            <h2 id="detailTitle">토픽명</h2>
-            <div id="detailDomainName" class="muted"></div>
+          <header class="topic-header question-topic-header">
+            <div class="question-topic-header-copy">
+              <div id="detailCategory" class="eyebrow">대분류</div>
+              <h2 id="detailTitle">토픽명</h2>
+              <div id="detailDomainName" class="muted"></div>
+            </div>
+            <button id="questionSearchBtn" class="btn question-search-trigger" type="button" aria-label="현재 토픽으로 문제 검색">⌕ <span class="question-search-trigger-label">문제 검색</span></button>
           </header>
 
           <section class="learning-action-bar" aria-label="학습 기능">
@@ -1598,6 +1767,27 @@ button { -webkit-tap-highlight-color: transparent; }
     </div>
   </div>
 
+
+  <div id="questionSearchModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="questionSearchTitle">
+    <div class="modal-card question-search-card">
+      <div class="modal-head question-search-head">
+        <div class="question-search-head-main">
+          <h2 id="questionSearchTitle">문제 검색</h2>
+          <p id="questionSearchStatus" class="muted">문제 목록을 준비하는 중입니다.</p>
+        </div>
+        <button id="closeQuestionSearchBtn" class="icon-btn" type="button" aria-label="문제 검색 닫기">✕</button>
+      </div>
+      <div class="question-search-input-wrap">
+        <input id="questionSearchInput" class="field question-search-input" type="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="문제 검색어 입력">
+        <div class="question-search-source-row">
+          <span id="questionSearchCacheStatus" class="muted">로컬 문제목록 확인 중</span>
+          <button id="refreshQuestionListBtn" class="text-btn question-refresh-btn" type="button">⟳ 문제목록 갱신</button>
+        </div>
+      </div>
+      <div id="questionSearchResults" class="question-search-results" aria-live="polite"></div>
+      <div id="questionSearchPager" class="question-search-pager hidden" aria-label="문제 검색 결과 페이지 이동"></div>
+    </div>
+  </div>
 
   <div id="imageViewerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="imageViewerTitle">
     <div class="modal-card image-viewer-card">
@@ -2598,7 +2788,14 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.20-iphone-settings-layout';
+const APP_VERSION = '4.4.21-question-search';
+const QUESTION_LIST_URL = '../list.xlsx';
+const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+const QUESTION_CACHE_DB_NAME = 'peStudyNoteQuestionCache';
+const QUESTION_CACHE_DB_VERSION = 1;
+const QUESTION_CACHE_STORE = 'questionCache';
+const QUESTION_CACHE_KEY = 'list-v1';
+const QUESTION_PAGE_SIZE = 20;
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx1yT6x3uKM0h2Q9sCQSguWqMEo8A04KW1HIfY3TMIQw7rqKbuuNQwWBL-wvDfGEnb61A/exec';
 const API_URL_KEY = 'peStudyNote.apiUrl';
 const LEGACY_ADMIN_PIN_KEY = 'peStudyNote.adminPin';
@@ -2789,11 +2986,11 @@ function bindElements() {
     'topbar','networkBadge','securityBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
-    'detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
+    'questionSearchBtn','detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -2806,6 +3003,16 @@ function bindEvents() {
   els.detailLearningBtn.addEventListener('click', openLearningDashboard);
   els.manageBtn.addEventListener('click', () => openManage('edit'));
   els.detailManageBtn.addEventListener('click', () => openManage('edit'));
+  els.questionSearchBtn.addEventListener('click', openQuestionSearch);
+  els.closeQuestionSearchBtn.addEventListener('click', closeQuestionSearch);
+  els.refreshQuestionListBtn.addEventListener('click', refreshQuestionList);
+  els.questionSearchModal.addEventListener('click', event => { if (event.target === els.questionSearchModal) closeQuestionSearch(); });
+  els.questionSearchModal.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeQuestionSearch();
+    event.stopPropagation();
+  });
+  els.questionSearchInput.addEventListener('input', handleQuestionSearchInput);
+  els.questionSearchPager.addEventListener('click', handleQuestionPagerClick);
   els.emptySettingsBtn.addEventListener('click', openSettings);
   els.closeSettingsBtn.addEventListener('click', closeSettings);
   els.settingsModal.addEventListener('click', event => { if (event.target === els.settingsModal) closeSettings(); });
@@ -6625,6 +6832,341 @@ async function applyServerTopicLocally(topic, { selectTopic = true } = {}) {
   await renderMeta();
 }
 
+
+let questionRows = null;
+let questionPage = 1;
+let questionFilteredRows = [];
+let questionSearchTimer = null;
+let questionCacheMeta = { cachedAt: 0 };
+
+function openQuestionCacheDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(QUESTION_CACHE_DB_NAME, QUESTION_CACHE_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(QUESTION_CACHE_STORE)) database.createObjectStore(QUESTION_CACHE_STORE, { keyPath: 'key' });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('문제목록 로컬 저장소를 열지 못했습니다.'));
+  });
+}
+
+function questionRequestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('로컬 저장소 처리에 실패했습니다.'));
+  });
+}
+
+async function readQuestionCache() {
+  let database;
+  try {
+    database = await openQuestionCacheDatabase();
+    const tx = database.transaction(QUESTION_CACHE_STORE, 'readonly');
+    const record = await questionRequestToPromise(tx.objectStore(QUESTION_CACHE_STORE).get(QUESTION_CACHE_KEY));
+    return record || null;
+  } finally {
+    if (database) database.close();
+  }
+}
+
+async function writeQuestionCache(rows) {
+  let database;
+  try {
+    database = await openQuestionCacheDatabase();
+    const tx = database.transaction(QUESTION_CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(QUESTION_CACHE_STORE);
+    const record = {
+      key: QUESTION_CACHE_KEY,
+      cachedAt: Date.now(),
+      source: QUESTION_LIST_URL,
+      rows: rows.map(row => ({
+        category: row.category,
+        session: row.session,
+        track: row.track,
+        type: row.type,
+        problem: row.problem,
+        yearMonth: row.yearMonth,
+        rowNumber: row.rowNumber,
+      })),
+    };
+    await questionRequestToPromise(store.put(record));
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('문제목록 로컬 저장에 실패했습니다.'));
+      tx.onabort = () => reject(tx.error || new Error('문제목록 로컬 저장이 취소되었습니다.'));
+    });
+    questionCacheMeta.cachedAt = record.cachedAt;
+  } finally {
+    if (database) database.close();
+  }
+}
+
+function prepareQuestionRows(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row, index) => ({
+    category: String(row.category ?? row['구분'] ?? '').trim(),
+    session: String(row.session ?? row['회차'] ?? '').trim(),
+    track: String(row.track ?? row['종목'] ?? '').trim(),
+    type: String(row.type ?? row['유형'] ?? '').trim(),
+    problem: String(row.problem ?? row['문제'] ?? '').trim(),
+    yearMonth: String(row.yearMonth ?? row['년월'] ?? '').trim(),
+    rowNumber: Number(row.rowNumber) || index + 2,
+  })).filter(row => row.problem).map(row => ({
+    ...row,
+    searchText: normalizeSearchText(row.problem),
+  }));
+}
+
+function ensureQuestionXlsxLibrary() {
+  if (window.XLSX?.read && window.XLSX?.utils?.sheet_to_json) return Promise.resolve();
+
+  return new Promise((resolve, reject) => {
+    const old = document.querySelector('script[data-question-xlsx="1"]');
+    if (old) old.remove();
+
+    const script = document.createElement('script');
+    script.src = QUESTION_XLSX_LIBRARY_URL;
+    script.async = true;
+    script.dataset.questionXlsx = '1';
+    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener('error', () => {
+      script.remove();
+      reject(new Error('문제목록 해석 모듈을 불러오지 못했습니다. 온라인 상태를 확인해 주세요.'));
+    }, { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+function formatQuestionCacheTime(value) {
+  const date = new Date(Number(value));
+  if (!Number.isFinite(date.getTime())) return '';
+  return new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+function updateQuestionCacheStatus(prefix = '') {
+  if (!els.questionSearchCacheStatus) return;
+  const time = questionCacheMeta.cachedAt ? formatQuestionCacheTime(questionCacheMeta.cachedAt) : '';
+  const count = Array.isArray(questionRows) ? questionRows.length : 0;
+  const parts = [];
+  if (prefix) parts.push(prefix);
+  if (count) parts.push(`로컬 ${count.toLocaleString()}건`);
+  if (time) parts.push(`갱신 ${time}`);
+  els.questionSearchCacheStatus.textContent = parts.join(' · ') || '로컬 문제목록 없음';
+}
+
+async function downloadQuestionList() {
+  if (!navigator.onLine) throw new Error('오프라인 상태에서는 문제목록을 새로 받을 수 없습니다.');
+  await ensureQuestionXlsxLibrary();
+
+  const url = new URL(QUESTION_LIST_URL, window.location.href);
+  url.searchParams.set('v', String(Date.now()));
+  const response = await fetch(url.toString(), { cache: 'no-store' });
+  if (!response.ok) throw new Error(`문제목록 다운로드 실패 (HTTP ${response.status})`);
+
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = window.XLSX.read(arrayBuffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames?.[0];
+  if (!firstSheetName) throw new Error('list.xlsx에서 문제 시트를 찾지 못했습니다.');
+
+  const worksheet = workbook.Sheets[firstSheetName];
+  const parsed = window.XLSX.utils.sheet_to_json(worksheet, { defval: '', raw: false });
+  const rows = prepareQuestionRows(parsed);
+  if (!rows.length) throw new Error('list.xlsx에서 문제 데이터를 찾지 못했습니다.');
+  if (!parsed.some(row => Object.prototype.hasOwnProperty.call(row, '문제'))) throw new Error('list.xlsx에 문제 컬럼이 없습니다.');
+  return rows;
+}
+
+async function ensureQuestionRows({ forceRefresh = false } = {}) {
+  if (!forceRefresh && Array.isArray(questionRows) && questionRows.length) return questionRows;
+
+  if (!forceRefresh) {
+    try {
+      const cache = await readQuestionCache();
+      if (cache?.rows?.length) {
+        questionRows = prepareQuestionRows(cache.rows);
+        questionCacheMeta.cachedAt = Number(cache.cachedAt) || 0;
+        updateQuestionCacheStatus('캐시 사용');
+        return questionRows;
+      }
+    } catch (error) {
+      console.warn('Question cache read failed:', error);
+    }
+  }
+
+  updateQuestionCacheStatus(forceRefresh ? '최신 목록 다운로드 중' : '최초 목록 다운로드 중 · 약 2MB');
+  const rows = await downloadQuestionList();
+  questionRows = rows;
+  try {
+    await writeQuestionCache(rows);
+    updateQuestionCacheStatus(forceRefresh ? '최신 목록 저장 완료' : '최초 목록 저장 완료');
+  } catch (error) {
+    console.warn('Question cache write failed:', error);
+    questionCacheMeta.cachedAt = Date.now();
+    updateQuestionCacheStatus('메모리 사용 · 로컬 저장 실패');
+  }
+  return questionRows;
+}
+
+function buildDefaultQuestionSearchTerm(topicName) {
+  const original = String(topicName || '').trim();
+  if (!original) return '';
+
+  // 괄호 속 영문/설명은 기본 검색에서 제외해 지나치게 엄격한 AND 검색을 피한다.
+  let candidate = original.replace(/\s*\([^)]*\)\s*$/g, '').trim();
+  if (!candidate) candidate = original;
+
+  // COBIT 5, ITIL 4, OAuth 2.0처럼 짧은 버전 번호가 붙은 토픽은 핵심명으로 검색한다.
+  // ISO 27001처럼 표준번호가 긴 경우에는 번호를 유지한다.
+  const withoutShortVersion = candidate.replace(/\s+(?:v(?:er(?:sion)?)?\.?\s*)?\d{1,2}(?:\.\d{1,2})*$/i, '').trim();
+  if (withoutShortVersion.length >= 2) candidate = withoutShortVersion;
+  return candidate;
+}
+
+async function openQuestionSearch() {
+  const topic = allTopics.find(item => item.topicId === currentTopicId);
+  if (!topic) {
+    showToast('현재 토픽을 먼저 선택해 주세요.');
+    return;
+  }
+
+  const defaultTerm = buildDefaultQuestionSearchTerm(topic.topicName || '');
+  els.questionSearchInput.value = defaultTerm;
+  questionPage = 1;
+  questionFilteredRows = [];
+  els.questionSearchTitle.textContent = '문제 검색';
+  els.questionSearchStatus.textContent = `현재 토픽: ${topic.topicName || '-'}`;
+  els.questionSearchResults.innerHTML = '<div class="question-search-loading">문제 목록 확인 중...</div>';
+  els.questionSearchPager.classList.add('hidden');
+  els.questionSearchModal.classList.remove('hidden');
+  updateQuestionCacheStatus('로컬 문제목록 확인 중');
+
+  try {
+    await ensureQuestionRows();
+    renderQuestionSearchResults({ resetPage: true });
+    requestAnimationFrame(() => els.questionSearchInput.focus({ preventScroll: true }));
+  } catch (error) {
+    console.error('Question list load failed:', error);
+    els.questionSearchResults.innerHTML = `<div class="question-search-empty">${escapeHtml(error?.message || '문제목록을 불러오지 못했습니다.')}</div>`;
+    els.questionSearchPager.classList.add('hidden');
+    updateQuestionCacheStatus('문제목록 없음');
+  }
+}
+
+function closeQuestionSearch() {
+  if (questionSearchTimer) {
+    clearTimeout(questionSearchTimer);
+    questionSearchTimer = null;
+  }
+  els.questionSearchModal.classList.add('hidden');
+}
+
+async function refreshQuestionList() {
+  if (els.refreshQuestionListBtn.disabled) return;
+  els.refreshQuestionListBtn.disabled = true;
+  const currentTerm = els.questionSearchInput.value;
+  els.questionSearchResults.innerHTML = '<div class="question-search-loading">GitHub의 최신 list.xlsx를 받는 중...</div>';
+  els.questionSearchPager.classList.add('hidden');
+  try {
+    await ensureQuestionRows({ forceRefresh: true });
+    els.questionSearchInput.value = currentTerm;
+    renderQuestionSearchResults({ resetPage: true });
+    showToast('문제목록을 최신 상태로 갱신했습니다.');
+  } catch (error) {
+    console.error('Question list refresh failed:', error);
+    els.questionSearchResults.innerHTML = `<div class="question-search-empty">${escapeHtml(error?.message || '문제목록 갱신에 실패했습니다.')}</div>`;
+    showToast(error?.message || '문제목록 갱신에 실패했습니다.');
+  } finally {
+    els.refreshQuestionListBtn.disabled = false;
+  }
+}
+
+function handleQuestionSearchInput() {
+  if (questionSearchTimer) clearTimeout(questionSearchTimer);
+  questionSearchTimer = setTimeout(() => {
+    questionSearchTimer = null;
+    renderQuestionSearchResults({ resetPage: true });
+  }, 90);
+}
+
+function getQuestionSearchTerms() {
+  return String(els.questionSearchInput?.value || '')
+    .trim()
+    .split(/\s+/)
+    .map(normalizeSearchText)
+    .filter(Boolean);
+}
+
+function renderQuestionSearchResults({ resetPage = false } = {}) {
+  if (!Array.isArray(questionRows)) return;
+  if (resetPage) questionPage = 1;
+
+  const terms = getQuestionSearchTerms();
+  questionFilteredRows = terms.length
+    ? questionRows.filter(row => terms.every(term => row.searchText.includes(term)))
+    : questionRows.slice();
+
+  const totalRows = questionFilteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / QUESTION_PAGE_SIZE));
+  questionPage = Math.min(Math.max(1, questionPage), totalPages);
+  const start = (questionPage - 1) * QUESTION_PAGE_SIZE;
+  const visibleRows = questionFilteredRows.slice(start, start + QUESTION_PAGE_SIZE);
+  const queryLabel = els.questionSearchInput.value.trim() || '전체';
+
+  els.questionSearchTitle.textContent = `‘${queryLabel}’ 문제 검색 (${totalRows.toLocaleString()}건)`;
+  els.questionSearchStatus.textContent = `20개씩 표시 · ${questionPage.toLocaleString()} / ${totalPages.toLocaleString()} 페이지`;
+
+  if (!visibleRows.length) {
+    els.questionSearchResults.innerHTML = '<div class="question-search-empty">검색 결과가 없습니다. 다른 검색어를 입력해 보세요.</div>';
+    renderQuestionPager(totalPages, totalRows);
+    return;
+  }
+
+  els.questionSearchResults.innerHTML = visibleRows.map(row => {
+    const typeLabel = /^[1-4]$/.test(row.type) ? `${row.type}교시` : row.type;
+    const meta = [
+      row.category ? `[${row.category}]` : '[문제]',
+      row.track,
+      row.session,
+      typeLabel ? `- ${typeLabel}` : '',
+    ].filter(Boolean).join(' ');
+    const dateMeta = row.yearMonth ? ` · ${row.yearMonth}` : '';
+    return `<article class="question-search-result">\n      <div class="question-search-result-meta">${escapeHtml(meta)}<span class="muted">${escapeHtml(dateMeta)}</span></div>\n      <div class="question-search-result-problem">${escapeHtml(row.problem)}</div>\n    </article>`;
+  }).join('');
+
+  els.questionSearchResults.scrollTop = 0;
+  renderQuestionPager(totalPages, totalRows);
+}
+
+function renderQuestionPager(totalPages, totalRows) {
+  if (!totalRows || totalPages <= 1) {
+    els.questionSearchPager.innerHTML = '';
+    els.questionSearchPager.classList.add('hidden');
+    return;
+  }
+
+  const windowSize = window.matchMedia('(max-width: 520px)').matches ? 5 : 10;
+  const groupStart = Math.floor((questionPage - 1) / windowSize) * windowSize + 1;
+  const groupEnd = Math.min(totalPages, groupStart + windowSize - 1);
+  let html = `<button class="question-search-page-btn" type="button" data-question-page="${questionPage - 1}" ${questionPage <= 1 ? 'disabled' : ''} aria-label="이전 페이지">‹</button>`;
+  for (let page = groupStart; page <= groupEnd; page += 1) {
+    html += `<button class="question-search-page-btn${page === questionPage ? ' active' : ''}" type="button" data-question-page="${page}" aria-current="${page === questionPage ? 'page' : 'false'}">${page}</button>`;
+  }
+  html += `<button class="question-search-page-btn" type="button" data-question-page="${questionPage + 1}" ${questionPage >= totalPages ? 'disabled' : ''} aria-label="다음 페이지">›</button>`;
+  els.questionSearchPager.innerHTML = html;
+  els.questionSearchPager.classList.remove('hidden');
+}
+
+function handleQuestionPagerClick(event) {
+  const button = event.target.closest('[data-question-page]');
+  if (!button || button.disabled) return;
+  const page = Number(button.dataset.questionPage);
+  const totalPages = Math.max(1, Math.ceil(questionFilteredRows.length / QUESTION_PAGE_SIZE));
+  if (!Number.isFinite(page) || page < 1 || page > totalPages || page === questionPage) return;
+  questionPage = page;
+  renderQuestionSearchResults();
+}
+
+
 function openSidebar() {
   els.sidebar.classList.add('open');
   els.sidebarBackdrop.classList.add('open');
@@ -6658,7 +7200,7 @@ function formatDateTime(value) {
 }
 
 function normalizeSearchText(value) {
-  return String(value || '').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
+  return String(value || '').normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
 }
 
 function escapeHtml(value) {
