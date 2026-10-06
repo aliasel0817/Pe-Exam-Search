@@ -1429,6 +1429,21 @@ button { -webkit-tap-highlight-color: transparent; }
             <div id="detailConcept" class="study-text preserve-lines recall-content"></div>
           </section>
 
+          <section class="study-card">
+            <h3>등장배경</h3>
+            <div id="detailBackground" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>특징</h3>
+            <div id="detailFeatures" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
+            <h3>기술요소/구성요소</h3>
+            <div id="detailTechnicalComponents" class="study-text preserve-lines"></div>
+          </section>
+
           <section class="study-card recall-card" data-recall-card="keywords">
             <div class="card-head"><h3>키워드</h3><button class="text-btn reveal-btn" type="button" data-reveal-field="keywords">보기</button></div>
             <div id="detailKeywords" class="study-text preserve-lines recall-content"></div>
@@ -2991,7 +3006,7 @@ function bindElements() {
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'questionSearchBtn','detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
-    'detailCategory','detailTitle','detailDomainName','detailConcept','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
+    'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
     'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
@@ -4124,6 +4139,9 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setText('detailTitle', topic.topicName || '(토픽명 없음)');
   setText('detailDomainName', `${topic.domain} (${topic.domainName})`);
   setText('detailConcept', topic.concept || '-');
+  setText('detailBackground', topic.background || '-');
+  setText('detailFeatures', topic.features || '-');
+  setText('detailTechnicalComponents', topic.technicalComponents || '-');
   setText('detailKeywords', topic.keywords || '-');
   setText('detailMnemonic', topic.mnemonic || '-');
   setText('detailRelated', topic.relatedTopics || '-');
