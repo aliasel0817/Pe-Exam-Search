@@ -2216,7 +2216,8 @@ const REQUIRED_HEADERS = [
   '통합ID', '구분', '도메인', '도메인명', '대분류', '대분류코드', '코드',
   '중요도', '통합토픽', '개념', '키워드', '암기법', '관련토픽',
   '상태', '원본도메인', '서브노트페이지', '교재페이지', '원본/연결행수',
-  '다중도메인', '비고', '학습대상', '학습제외사유'
+  '다중도메인', '비고', '학습대상', '학습제외사유',
+  '등장배경', '특징', '기술요소·구성요소'
 ];
 
 const FIELD_MAP = {
@@ -2241,7 +2242,10 @@ const FIELD_MAP = {
   '다중도메인': 'multiDomain',
   '비고': 'notes',
   '학습대상': 'studyTarget',
-  '학습제외사유': 'studyExclusionReason'
+  '학습제외사유': 'studyExclusionReason',
+  '등장배경': 'background',
+  '특징': 'features',
+  '기술요소·구성요소': 'technicalComponents'
 };
 
 function clean(value) {
