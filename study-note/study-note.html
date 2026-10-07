@@ -1435,6 +1435,11 @@ button { -webkit-tap-highlight-color: transparent; }
           </section>
 
           <section class="study-card">
+            <h3>필요성</h3>
+            <div id="detailNecessity" class="study-text preserve-lines"></div>
+          </section>
+
+          <section class="study-card">
             <h3>특징</h3>
             <div id="detailFeatures" class="study-text preserve-lines"></div>
           </section>
@@ -1656,6 +1661,10 @@ button { -webkit-tap-highlight-color: transparent; }
           <div class="full">
             <label class="field-label" for="manageBackground">등장배경</label>
             <textarea id="manageBackground" class="textarea-field preserve-lines"></textarea>
+          </div>
+          <div class="full">
+            <label class="field-label" for="manageNecessity">필요성</label>
+            <textarea id="manageNecessity" class="textarea-field preserve-lines"></textarea>
           </div>
           <div class="full">
             <label class="field-label" for="manageFeatures">특징</label>
@@ -2244,7 +2253,7 @@ const REQUIRED_HEADERS = [
   '중요도', '통합토픽', '개념', '키워드', '암기법', '관련토픽',
   '상태', '원본도메인', '서브노트페이지', '교재페이지', '원본/연결행수',
   '다중도메인', '비고', '학습대상', '학습제외사유',
-  '등장배경', '특징', '기술요소·구성요소'
+  '등장배경', '특징', '기술요소·구성요소', '필요성'
 ];
 
 const FIELD_MAP = {
@@ -2272,7 +2281,8 @@ const FIELD_MAP = {
   '학습제외사유': 'studyExclusionReason',
   '등장배경': 'background',
   '특징': 'features',
-  '기술요소·구성요소': 'technicalComponents'
+  '기술요소·구성요소': 'technicalComponents',
+  '필요성': 'necessity'
 };
 
 function clean(value) {
@@ -2819,7 +2829,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.24-content-enrichment-manage';
+const APP_VERSION = '4.4.25-necessity-field';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const QUESTION_CACHE_DB_NAME = 'peStudyNoteQuestionCache';
@@ -3018,10 +3028,10 @@ function bindElements() {
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
     'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
     'questionSearchBtn','detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
-    'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
+    'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -4152,6 +4162,7 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setText('detailDomainName', `${topic.domain} (${topic.domainName})`);
   setText('detailConcept', topic.concept || '-');
   setText('detailBackground', topic.background || '-');
+  setText('detailNecessity', topic.necessity || '-');
   setText('detailFeatures', topic.features || '-');
   setText('detailTechnicalComponents', topic.technicalComponents || '-');
   setText('detailKeywords', topic.keywords || '-');
@@ -4814,6 +4825,7 @@ function fillManageForm(topic) {
   els.manageTopicName.value = topic.topicName || '';
   els.manageConcept.value = topic.concept || '';
   els.manageBackground.value = topic.background || '';
+  els.manageNecessity.value = topic.necessity || '';
   els.manageFeatures.value = topic.features || '';
   els.manageTechnicalComponents.value = topic.technicalComponents || '';
   els.manageKeywords.value = topic.keywords || '';
@@ -4845,6 +4857,7 @@ function clearManageFormForAdd() {
   els.manageTopicName.value = '';
   els.manageConcept.value = '';
   els.manageBackground.value = '';
+  els.manageNecessity.value = '';
   els.manageFeatures.value = '';
   els.manageTechnicalComponents.value = '';
   els.manageKeywords.value = '';
@@ -5636,6 +5649,7 @@ function collectManageFields() {
     topicName: clean(els.manageTopicName.value),
     concept: els.manageConcept.value.trim(),
     background: els.manageBackground.value.trim(),
+    necessity: els.manageNecessity.value.trim(),
     features: els.manageFeatures.value.trim(),
     technicalComponents: els.manageTechnicalComponents.value.trim(),
     keywords: els.manageKeywords.value.trim(),
