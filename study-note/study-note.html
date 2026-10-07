@@ -2816,8 +2816,14 @@ function validateAndNormalizeDataset(payload) {
   };
 }
 
+function isHomeTopic(topic) {
+  return Boolean(topic) && (topic.topicId === HOME_TOPIC_ID || clean(topic.topicName).replace(/\s+/g, '') === '정보관리기술사');
+}
+
 function compareTopics(a, b) {
+  const homeRank = Number(!isHomeTopic(a)) - Number(!isHomeTopic(b));
   return (
+    homeRank ||
     a.domainOrder - b.domainOrder ||
     a.categorySortOrder - b.categorySortOrder ||
     a.categoryCode.localeCompare(b.categoryCode, 'ko', { numeric: true }) ||
@@ -2829,7 +2835,8 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.25-necessity-field';
+const APP_VERSION = '4.4.26-home-topic';
+const HOME_TOPIC_ID = 'T4036';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const QUESTION_CACHE_DB_NAME = 'peStudyNoteQuestionCache';
@@ -3838,9 +3845,12 @@ async function refreshMaster() {
     applyFilters({ preserveCurrent: true });
     await renderMeta();
 
-    const preferredId = currentTopicId && allTopics.some(t => t.topicId === currentTopicId)
-      ? currentTopicId
-      : (localStorage.getItem(LAST_TOPIC_KEY) || filteredTopics[0]?.topicId);
+    const homeTopic = filteredTopics.find(isHomeTopic);
+    const preferredId = homeTopic?.topicId || (
+      currentTopicId && allTopics.some(t => t.topicId === currentTopicId)
+        ? currentTopicId
+        : (localStorage.getItem(LAST_TOPIC_KEY) || filteredTopics[0]?.topicId)
+    );
     showTopicById(preferredId);
     const pdfWarning = referencePdfResult.missingCount || referencePdfResult.staleCount
       ? ` · P/Q 미연결 ${referencePdfResult.missingCount.toLocaleString()} · 오래된 연결 ${referencePdfResult.staleCount.toLocaleString()}`
