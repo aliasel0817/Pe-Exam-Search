@@ -1610,6 +1610,32 @@ button { -webkit-tap-highlight-color: transparent; }
   }
 }
 
+
+/* Image attachments only: place zoom/fold and Close in a shared bottom row. */
+.image-viewer-card > .media-viewer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.image-viewer-card > .media-viewer-actions > .image-viewer-zoom-controls {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-top: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.image-viewer-card > .media-viewer-actions > .image-viewer-zoom-controls::-webkit-scrollbar { display: none; }
+.image-viewer-card > .media-viewer-actions > #closeImageViewerBottomBtn { flex: 0 0 auto; }
+@media (max-width: 420px) {
+  .image-viewer-card > .media-viewer-actions > .image-viewer-zoom-controls { gap: 4px; }
+  .image-viewer-card > .media-viewer-actions .image-viewer-zoom-controls .btn { padding: 4px 6px; }
+  .image-viewer-card > .media-viewer-actions .viewer-bottom-toggle { padding: 3px 5px; margin-right: 0; }
+}
+
   </style>
 </head>
 <body>
@@ -2232,12 +2258,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-annotation-manager>관리</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
-      <div class="image-viewer-zoom-controls" aria-label="선택 이미지 확대 축소">
-        <button id="imageViewerZoomOutBtn" class="btn" type="button" aria-label="이미지 축소">−</button>
-        <span id="imageViewerZoomLabel" class="image-viewer-zoom-label">100%</span>
-        <button id="imageViewerZoomInBtn" class="btn" type="button" aria-label="이미지 확대">＋</button>
-        <button id="imageViewerZoomFitBtn" class="btn" type="button">맞춤</button>
-      </div>
+
 
       <div class="annotation-study-nav" data-annotation-study-nav="attachment-image" aria-label="학습 주석 페이지 이동">
         <button class="btn" type="button" data-annotation-study-prev>← 이전 주석</button>
@@ -2247,7 +2268,15 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-annotation-important>🔥 중요</button>
       </div>
       <div id="imageViewerBody" class="image-viewer-body"></div>
-      <div class="media-viewer-actions"><button id="closeImageViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
+      <div class="media-viewer-actions">
+      <div class="image-viewer-zoom-controls" aria-label="선택 이미지 확대 축소">
+        <button id="imageViewerZoomOutBtn" class="btn" type="button" aria-label="이미지 축소">−</button>
+        <span id="imageViewerZoomLabel" class="image-viewer-zoom-label">100%</span>
+        <button id="imageViewerZoomInBtn" class="btn" type="button" aria-label="이미지 확대">＋</button>
+        <button id="imageViewerZoomFitBtn" class="btn" type="button">맞춤</button>
+      </div>
+        <button id="closeImageViewerBottomBtn" class="btn primary" type="button">닫기</button>
+      </div>
     </div>
   </div>
 
