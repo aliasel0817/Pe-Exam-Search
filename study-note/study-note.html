@@ -2936,6 +2936,136 @@ async function syncAnnotationCloud({ manual = false } = {}) {
   }
 }
 
+function scheduleAnnotationCloudSync({ delayMs = 4500, manual = false } = {}) {
+  if (!annotationCloudSyncState.ready || !navigator.onLine) return;
+  if (annotationCloudSyncState.timer) clearTimeout(annotationCloudSyncState.timer);
+  annotationCloudSyncState.timer = window.setTimeout(() => {
+    annotationCloudSyncState.timer = 0;
+    syncAnnotationCloud({ manual });
+  }, Math.max(0, Number(delayMs) || 0));
+}
+
+async function resolveAnnotationCloudConflict(key, strategy) {
+  const conflict = annotationCloudConflicts.get(key);
+  if (!conflict) return false;
+  const apiUrl = getApiUrl();
+  if (strategy === 'server') {
+    let serverDocument = conflict.serverDocument;
+    if (!serverDocument) {
+      const documents = await fetchAnnotationCloudDocumentsByKeys(apiUrl, [key]);
+      serverDocument = documents.find(item => item.key === key) || null;
+    }
+    if (!serverDocument) throw new Error('서버 주석 문서를 불러오지 못했습니다.');
+    await applyAnnotationCloudDocument(serverDocument);
+    annotationCloudConflicts.delete(key);
+    return true;
+  }
+  if (strategy === 'local') {
+    const local = annotationDocuments.get(key);
+    if (!local) throw new Error('이 기기의 주석 문서를 찾을 수 없습니다.');
+    const result = await sendSecureMutation(apiUrl, 'saveAnnotations', {
+      documents: [annotationDocumentForCloud(local, { force: true })],
+    });
+    const saved = (result.saved || []).find(item => item.key === key);
+    if (!saved) throw new Error('이 기기 주석 강제 저장 결과를 확인할 수 없습니다.');
+    local.cloudRevision = Math.max(0, Number(saved.cloudRevision) || 0);
+    local.cloudUpdatedAt = clean(saved.cloudUpdatedAt);
+    local.cloudDeviceId = clean(saved.cloudDeviceId);
+    local.cloudDirty = false;
+    await persistAnnotationCloudMetadata(local);
+    annotationCloudConflicts.delete(key);
+    return true;
+  }
+  return false;
+}
+
+function openAnnotationCloudConflictManager() {
+  if (!annotationCloudConflicts.size) return showToast('현재 주석 동기화 충돌이 없습니다.');
+  const overlay = document.createElement('div');
+  overlay.className = 'annotation-manager-overlay';
+  const card = document.createElement('div');
+  card.className = 'annotation-manager-card';
+  const title = document.createElement('h3');
+  title.textContent = '주석 동기화 충돌';
+  const summary = document.createElement('p');
+  summary.className = 'annotation-manager-summary';
+  summary.textContent = '같은 페이지가 다른 기기에서 먼저 수정되었습니다. 페이지별로 사용할 버전을 선택하세요.';
+  const list = document.createElement('div');
+  list.className = 'annotation-manager-list';
+
+  const render = () => {
+    list.innerHTML = '';
+    for (const [key, conflict] of annotationCloudConflicts.entries()) {
+      const row = document.createElement('div');
+      row.className = 'annotation-manager-row';
+      row.style.alignItems = 'flex-start';
+      const info = document.createElement('div');
+      info.style.minWidth = '0';
+      const name = document.createElement('strong');
+      name.textContent = key;
+      name.style.display = 'block';
+      name.style.overflowWrap = 'anywhere';
+      const detail = document.createElement('small');
+      detail.textContent = `서버 r${Number(conflict.serverRevision || conflict.serverDocument?.cloudRevision || 0)} · ${clean(conflict.serverUpdatedAt || conflict.serverDocument?.cloudUpdatedAt) || '-'}`;
+      info.append(name, detail);
+
+      const controls = document.createElement('div');
+      controls.style.display = 'flex';
+      controls.style.gap = '6px';
+      controls.style.flexWrap = 'wrap';
+      const server = document.createElement('button');
+      server.type = 'button';
+      server.className = 'btn';
+      server.textContent = '서버본 사용';
+      const local = document.createElement('button');
+      local.type = 'button';
+      local.className = 'btn primary';
+      local.textContent = '내 기기본 사용';
+
+      const run = async strategy => {
+        server.disabled = true;
+        local.disabled = true;
+        try {
+          await resolveAnnotationCloudConflict(key, strategy);
+          render();
+          showToast(strategy === 'server' ? '서버 주석을 적용했습니다.' : '이 기기 주석을 서버에 저장했습니다.');
+        } catch (error) {
+          showToast(`충돌 해결 실패 · ${error?.message || error}`);
+          server.disabled = false;
+          local.disabled = false;
+        }
+      };
+      server.addEventListener('click', () => run('server'));
+      local.addEventListener('click', () => run('local'));
+      controls.append(server, local);
+      row.append(info, controls);
+      list.append(row);
+    }
+    if (!annotationCloudConflicts.size) {
+      const done = document.createElement('p');
+      done.className = 'annotation-manager-summary';
+      done.textContent = '모든 충돌을 해결했습니다.';
+      list.append(done);
+    }
+  };
+  render();
+
+  const actions = document.createElement('div');
+  actions.className = 'annotation-manager-actions';
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn primary';
+  close.textContent = '닫기';
+  close.addEventListener('click', () => overlay.remove());
+  actions.append(close);
+  card.append(title, summary, list, actions);
+  overlay.append(card);
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) event.stopPropagation();
+  });
+  document.body.appendChild(overlay);
+}
+
 async function fetchMasterDataset(apiUrl) {
   const url = `${normalizeApiUrl(apiUrl)}?action=topics&_=${Date.now()}`;
   const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
@@ -3638,6 +3768,9 @@ async function init() {
   window.addEventListener('online', () => {
     updateNetworkStatus();
     scheduleSecurityStateRefresh({ force: true, delayMs: 150 });
+    refreshAnnotationCloudCapability({ force: true }).then(ready => {
+      if (ready) scheduleAnnotationCloudSync({ delayMs: 1800 });
+    });
   });
   window.addEventListener('offline', updateNetworkStatus);
   window.addEventListener('resize', syncViewportMetrics);
@@ -3663,6 +3796,9 @@ async function init() {
     allReferencePdfLinks = await getAllReferencePdfLinks(db);
     allReferencePdfPages = await getAllReferencePdfPages(db);
     await hydrateAnnotationDocuments(db);
+    refreshAnnotationCloudCapability({ force: false }).then(ready => {
+      if (ready) scheduleAnnotationCloudSync({ delayMs: 2200 });
+    });
     learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
     recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
     await renderMeta();
@@ -7186,6 +7322,7 @@ async function persistAnnotationDocument(documentData) {
     documentData.savedAt = stored.savedAt;
     documentData.saveState = 'saved';
     documentData.saveRetryCount = 0;
+    if (documentData.cloudDirty) scheduleAnnotationCloudSync();
   } catch (error) {
     console.error('주석 로컬 저장 실패:', error);
     documentData.saveError = error?.message || String(error);
@@ -7531,6 +7668,36 @@ function openAnnotationManager() {
     lock.textContent = documentData.locked ? '🔓 잠금 해제' : '🔒 편집 잠금';
     summary.textContent = `총 ${documentData.objects.length.toLocaleString()}개 · ${documentData.locked ? '편집 잠금' : '편집 가능'}`;
   });
+  let cloudSync = null;
+  let cloudConflicts = null;
+  if (annotationCloudSyncState.ready) {
+    cloudSync = document.createElement('button');
+    cloudSync.type = 'button';
+    cloudSync.className = 'btn';
+    cloudSync.textContent = annotationCloudSyncState.syncing ? '☁ 동기화 중' : '☁ 클라우드 동기화';
+    cloudSync.disabled = annotationCloudSyncState.syncing;
+    cloudSync.addEventListener('click', async () => {
+      cloudSync.disabled = true;
+      cloudSync.textContent = '☁ 동기화 중';
+      const stats = await syncAnnotationCloud({ manual: true });
+      cloudSync.disabled = false;
+      cloudSync.textContent = '☁ 클라우드 동기화';
+      if (stats) {
+        showToast(`주석 동기화 · 업로드 ${stats.pushed} · 다운로드 ${stats.pulled} · 충돌 ${stats.conflicts}`);
+        if (annotationCloudConflicts.size && cloudConflicts) {
+          cloudConflicts.classList.remove('hidden');
+          cloudConflicts.textContent = `⚠ 충돌 ${annotationCloudConflicts.size}`;
+        }
+      }
+    });
+
+    cloudConflicts = document.createElement('button');
+    cloudConflicts.type = 'button';
+    cloudConflicts.className = `btn${annotationCloudConflicts.size ? '' : ' hidden'}`;
+    cloudConflicts.textContent = `⚠ 충돌 ${annotationCloudConflicts.size}`;
+    cloudConflicts.addEventListener('click', openAnnotationCloudConflictManager);
+  }
+
   const exportPdf = document.createElement('button');
   exportPdf.type = 'button';
   exportPdf.className = 'btn';
@@ -7569,7 +7736,10 @@ function openAnnotationManager() {
   close.className = 'btn primary';
   close.textContent = '닫기';
   close.addEventListener('click', () => overlay.remove());
-  actions.append(visibility, lock, restoreSnapshot, exportPng, exportPdf, exportBackup, importBackup, close);
+  actions.append(visibility, lock);
+  if (cloudSync) actions.append(cloudSync);
+  if (cloudConflicts) actions.append(cloudConflicts);
+  actions.append(restoreSnapshot, exportPng, exportPdf, exportBackup, importBackup, close);
   card.append(title, summary, list, actions);
   overlay.append(card);
   overlay.addEventListener('click', event => {
