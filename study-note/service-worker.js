@@ -1,3 +1,4 @@
+// Deployment retry for v4.6.3; runtime and cached content remain unchanged.
 const CACHE_NAME = 'pe-study-note-shell-v4-6-3-rgb-keyboard';
 const APP_SHELL = [
   './study-note.html',
