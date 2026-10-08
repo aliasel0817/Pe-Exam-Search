@@ -3291,6 +3291,8 @@ const ATTACHMENT_PDF_ZOOM_MAX = 10;
 const ATTACHMENT_PDF_ZOOM_STEP = 0.25;
 const ATTACHMENT_PDF_DEFAULT_ZOOM = 2.5;
 const PDFJS_CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
+const PDFLIB_CDN_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+let pdfLibLoadPromise = null;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 // v4.4.28 Annotation foundation: all viewers share a normalized 0..1 coordinate space.
@@ -6585,18 +6587,71 @@ async function annotationCompositeCanvas(surface) {
   return output;
 }
 
+function ensurePdfLibLoaded() {
+  if (window.PDFLib?.PDFDocument) return Promise.resolve(window.PDFLib);
+  if (pdfLibLoadPromise) return pdfLibLoadPromise;
+  pdfLibLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = PDFLIB_CDN_URL;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    script.dataset.pdfLib = '1';
+    script.onload = () => window.PDFLib?.PDFDocument
+      ? resolve(window.PDFLib)
+      : reject(new Error('PDF 내보내기 모듈 초기화에 실패했습니다.'));
+    script.onerror = () => reject(new Error('PDF 내보내기 모듈을 불러오지 못했습니다.'));
+    document.head.appendChild(script);
+  }).catch(error => {
+    pdfLibLoadPromise = null;
+    throw error;
+  });
+  return pdfLibLoadPromise;
+}
+
+async function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(result => result ? resolve(result) : reject(new Error('PNG 생성 실패')), 'image/png', 1);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function exportCurrentAnnotationPdf() {
+  const surface = annotationCurrentSurface();
+  if (!surface) return showToast('현재 내보낼 페이지가 없습니다.');
+  try {
+    const [canvas, PDFLib] = await Promise.all([
+      annotationCompositeCanvas(surface),
+      ensurePdfLibLoaded(),
+    ]);
+    const pngBlob = await canvasToPngBlob(canvas);
+    const pngBytes = await pngBlob.arrayBuffer();
+    const pdf = await PDFLib.PDFDocument.create();
+    const image = await pdf.embedPng(pngBytes);
+    const widthPt = Math.max(1, canvas.width * 0.75);
+    const heightPt = Math.max(1, canvas.height * 0.75);
+    const page = pdf.addPage([widthPt, heightPt]);
+    page.drawImage(image, { x: 0, y: 0, width: widthPt, height: heightPt });
+    const bytes = await pdf.save();
+    downloadBlobFile(new Blob([bytes], { type: 'application/pdf' }), `${safeAnnotationExportName(surface.key)}-annotated.pdf`);
+    showToast('현재 페이지를 주석 포함 PDF로 저장했습니다.');
+  } catch (error) {
+    console.error('주석 PDF 내보내기 실패:', error);
+    const message = error?.name === 'SecurityError'
+      ? '브라우저 보안 정책으로 이 원본 페이지는 PDF 합성이 제한됩니다.'
+      : (error?.message || error);
+    showToast(`PDF 내보내기 실패 · ${message}`);
+  }
+}
+
 async function exportCurrentAnnotationPng() {
   const surface = annotationCurrentSurface();
   if (!surface) return showToast('현재 내보낼 페이지가 없습니다.');
   try {
     const canvas = await annotationCompositeCanvas(surface);
-    const blob = await new Promise((resolve, reject) => {
-      try {
-        canvas.toBlob(result => result ? resolve(result) : reject(new Error('PNG 생성 실패')), 'image/png', 1);
-      } catch (error) {
-        reject(error);
-      }
-    });
+    const blob = await canvasToPngBlob(canvas);
     downloadBlobFile(blob, `${safeAnnotationExportName(surface.key)}-annotated.png`);
     showToast('현재 페이지를 주석 포함 PNG로 저장했습니다.');
   } catch (error) {
@@ -7060,6 +7115,12 @@ function openAnnotationManager() {
     lock.textContent = documentData.locked ? '🔓 잠금 해제' : '🔒 편집 잠금';
     summary.textContent = `총 ${documentData.objects.length.toLocaleString()}개 · ${documentData.locked ? '편집 잠금' : '편집 가능'}`;
   });
+  const exportPdf = document.createElement('button');
+  exportPdf.type = 'button';
+  exportPdf.className = 'btn';
+  exportPdf.textContent = '현재 페이지 PDF';
+  exportPdf.addEventListener('click', exportCurrentAnnotationPdf);
+
   const exportPng = document.createElement('button');
   exportPng.type = 'button';
   exportPng.className = 'btn';
@@ -7083,7 +7144,7 @@ function openAnnotationManager() {
   close.className = 'btn primary';
   close.textContent = '닫기';
   close.addEventListener('click', () => overlay.remove());
-  actions.append(visibility, lock, exportPng, exportBackup, importBackup, close);
+  actions.append(visibility, lock, exportPng, exportPdf, exportBackup, importBackup, close);
   card.append(title, summary, list, actions);
   overlay.append(card);
   overlay.addEventListener('click', event => {
