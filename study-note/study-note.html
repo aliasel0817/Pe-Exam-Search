@@ -7881,34 +7881,114 @@ function annotationPanScroller(surface) {
   return surface?.canvas?.closest?.('.attachment-pdf-pan-scroller, .reference-pdf-pan-scroller, .media-image-zoom-wrap') || null;
 }
 
+function annotationTouchZoomAdapter(surface) {
+  if (!surface) return null;
+  if (surface.kind === 'reference-pdf') {
+    return {
+      getZoom: () => activeReferencePdfZoomFactor,
+      setZoom: value => setReferencePdfZoomFactor(value),
+    };
+  }
+  if (surface.kind === 'attachment-pdf') {
+    return {
+      getZoom: () => activeAttachmentPdfZoomFactor,
+      setZoom: value => setAttachmentPdfZoomFactor(value),
+    };
+  }
+  if (surface.kind === 'attachment-image') {
+    const figure = surface.host?.closest?.('.media-image-item');
+    const controller = figure?._imageZoomController;
+    return controller ? { getZoom: controller.getZoom, setZoom: controller.setZoom } : null;
+  }
+  return null;
+}
+
+function annotationTouchDistance(pointers) {
+  const values = [...pointers.values()];
+  if (values.length < 2) return 0;
+  return Math.hypot(values[0].x - values[1].x, values[0].y - values[1].y);
+}
+
+function resetAnnotationTouchPanBaseline(gesture) {
+  const first = gesture?.pointers?.values?.().next?.().value;
+  if (!first || !gesture.scroller) return;
+  gesture.mode = 'pan';
+  gesture.startX = first.x;
+  gesture.startY = first.y;
+  gesture.scrollLeft = gesture.scroller.scrollLeft;
+  gesture.scrollTop = gesture.scroller.scrollTop;
+}
+
 function beginAnnotationTouchPan(surface, event) {
   const scroller = annotationPanScroller(surface);
   if (!scroller) return false;
-  surface.touchPan = {
-    pointerId: event.pointerId,
-    scroller,
-    startX: event.clientX,
-    startY: event.clientY,
-    scrollLeft: scroller.scrollLeft,
-    scrollTop: scroller.scrollTop,
-  };
+  if (!surface.touchGesture) {
+    surface.touchGesture = {
+      scroller,
+      pointers: new Map(),
+      mode: 'pan',
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: scroller.scrollLeft,
+      scrollTop: scroller.scrollTop,
+      zoomAdapter: annotationTouchZoomAdapter(surface),
+      pinchStartDistance: 0,
+      pinchStartZoom: 1,
+    };
+  }
+  const gesture = surface.touchGesture;
+  gesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   try { surface.canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+
+  if (gesture.pointers.size >= 2 && gesture.zoomAdapter) {
+    gesture.mode = 'pinch';
+    gesture.pinchStartDistance = Math.max(1, annotationTouchDistance(gesture.pointers));
+    gesture.pinchStartZoom = Number(gesture.zoomAdapter.getZoom?.() || 1);
+  } else if (gesture.pointers.size === 1) {
+    resetAnnotationTouchPanBaseline(gesture);
+  }
   return true;
 }
 
 function moveAnnotationTouchPan(surface, event) {
-  const pan = surface.touchPan;
-  if (!pan || pan.pointerId !== event.pointerId) return false;
-  pan.scroller.scrollLeft = pan.scrollLeft - (event.clientX - pan.startX);
-  if (typeof pan.scroller.scrollTop === 'number') pan.scroller.scrollTop = pan.scrollTop - (event.clientY - pan.startY);
+  const gesture = surface.touchGesture;
+  if (!gesture?.pointers?.has(event.pointerId)) return false;
+  gesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+  if (gesture.pointers.size >= 2 && gesture.zoomAdapter) {
+    if (gesture.mode !== 'pinch') {
+      gesture.mode = 'pinch';
+      gesture.pinchStartDistance = Math.max(1, annotationTouchDistance(gesture.pointers));
+      gesture.pinchStartZoom = Number(gesture.zoomAdapter.getZoom?.() || 1);
+    }
+    const distance = annotationTouchDistance(gesture.pointers);
+    if (distance > 0) gesture.zoomAdapter.setZoom?.(gesture.pinchStartZoom * distance / Math.max(1, gesture.pinchStartDistance));
+    return true;
+  }
+
+  const point = gesture.pointers.values().next().value;
+  if (!point) return true;
+  if (gesture.mode !== 'pan') resetAnnotationTouchPanBaseline(gesture);
+  gesture.scroller.scrollLeft = gesture.scrollLeft - (point.x - gesture.startX);
+  if (typeof gesture.scroller.scrollTop === 'number') gesture.scroller.scrollTop = gesture.scrollTop - (point.y - gesture.startY);
   return true;
 }
 
 function finishAnnotationTouchPan(surface, event) {
-  const pan = surface.touchPan;
-  if (!pan || pan.pointerId !== event.pointerId) return false;
-  surface.touchPan = null;
+  const gesture = surface.touchGesture;
+  if (!gesture?.pointers?.has(event.pointerId)) return false;
+  gesture.pointers.delete(event.pointerId);
   try { surface.canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
+
+  if (!gesture.pointers.size) {
+    surface.touchGesture = null;
+  } else if (gesture.pointers.size === 1) {
+    resetAnnotationTouchPanBaseline(gesture);
+  } else if (gesture.zoomAdapter) {
+    gesture.mode = 'pinch';
+    gesture.pinchStartDistance = Math.max(1, annotationTouchDistance(gesture.pointers));
+    gesture.pinchStartZoom = Number(gesture.zoomAdapter.getZoom?.() || 1);
+  }
   return true;
 }
 
@@ -8024,7 +8104,7 @@ function installAnnotationInputHandlers(surface) {
   });
 
   canvas.addEventListener('pointermove', event => {
-    if (surface.touchPan && surface.touchPan.pointerId === event.pointerId) {
+    if (surface.touchGesture?.pointers?.has(event.pointerId)) {
       event.preventDefault();
       event.stopPropagation();
       moveAnnotationTouchPan(surface, event);
@@ -8063,7 +8143,7 @@ function installAnnotationInputHandlers(surface) {
   });
 
   const finishStroke = event => {
-    if (surface.touchPan && surface.touchPan.pointerId === event.pointerId) {
+    if (surface.touchGesture?.pointers?.has(event.pointerId)) {
       event.preventDefault();
       event.stopPropagation();
       finishAnnotationTouchPan(surface, event);
@@ -8262,7 +8342,7 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
     activeErase: null,
     selectedObjectId: '',
     selectionAction: null,
-    touchPan: null,
+    touchGesture: null,
     hasRendered: false,
   };
   annotationSurfaceByMedia.set(media, surface);
