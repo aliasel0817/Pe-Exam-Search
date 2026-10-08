@@ -1966,6 +1966,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
       <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
         <button class="btn annotation-tool-btn active" type="button" data-annotation-tool="pan" aria-pressed="true">✋ 이동</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="select" aria-pressed="false">↖ 선택</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
@@ -1995,6 +1996,8 @@ button { -webkit-tap-highlight-color: transparent; }
         <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
         <button class="btn" type="button" data-annotation-undo aria-label="주석 실행 취소">↶</button>
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
+        <button class="btn" type="button" data-annotation-duplicate>복제</button>
+        <button class="btn" type="button" data-annotation-delete-selection>선택삭제</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
       <div class="image-viewer-zoom-controls" aria-label="선택 이미지 확대 축소">
@@ -2027,6 +2030,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
       <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
         <button class="btn annotation-tool-btn active" type="button" data-annotation-tool="pan" aria-pressed="true">✋ 이동</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="select" aria-pressed="false">↖ 선택</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
@@ -2056,6 +2060,8 @@ button { -webkit-tap-highlight-color: transparent; }
         <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
         <button class="btn" type="button" data-annotation-undo aria-label="주석 실행 취소">↶</button>
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
+        <button class="btn" type="button" data-annotation-duplicate>복제</button>
+        <button class="btn" type="button" data-annotation-delete-selection>선택삭제</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
         <div class="attachment-pdf-bottom" aria-label="첨부 PDF 확대 축소">
@@ -2102,6 +2108,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
       <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
         <button class="btn annotation-tool-btn active" type="button" data-annotation-tool="pan" aria-pressed="true">✋ 이동</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="select" aria-pressed="false">↖ 선택</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
@@ -2131,6 +2138,8 @@ button { -webkit-tap-highlight-color: transparent; }
         <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
         <button class="btn" type="button" data-annotation-undo aria-label="주석 실행 취소">↶</button>
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
+        <button class="btn" type="button" data-annotation-duplicate>복제</button>
+        <button class="btn" type="button" data-annotation-delete-selection>선택삭제</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
         <div class="reference-pdf-bottom-zoom" role="toolbar" aria-label="PDF 배율 조절">
@@ -3090,7 +3099,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.35-annotation-text-notes';
+const APP_VERSION = '4.4.36-annotation-selection';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3203,6 +3212,7 @@ const annotationEditorState = {
 };
 let lastActiveAnnotationSurface = null;
 let annotationTemporaryPreviousTool = '';
+let annotationClipboardObject = null;
 const ANNOTATION_HISTORY_LIMIT = 50;
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
@@ -6463,6 +6473,320 @@ function cloneAnnotationObjects(objects) {
   }));
 }
 
+function annotationObjectBoundsNormalized(object, rect) {
+  if (!object || !rect?.width || !rect?.height) return null;
+  const minEdge = Math.max(1, Math.min(rect.width, rect.height));
+  let minX = 1, minY = 1, maxX = 0, maxY = 0;
+
+  if (object.type === 'stroke' && object.points?.length) {
+    for (const point of object.points) {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
+  } else if (object.type === 'shape' && object.start && object.end) {
+    minX = Math.min(object.start.x, object.end.x);
+    minY = Math.min(object.start.y, object.end.y);
+    maxX = Math.max(object.start.x, object.end.x);
+    maxY = Math.max(object.start.y, object.end.y);
+  } else if ((object.type === 'text' || object.type === 'note') && object.position) {
+    const sizePx = Math.max(12, Number(object.sizeN || 0.03) * minEdge);
+    if (object.type === 'note') {
+      const halfX = (sizePx * 0.65) / rect.width;
+      const halfY = (sizePx * 0.65) / rect.height;
+      minX = object.position.x - halfX;
+      maxX = object.position.x + halfX;
+      minY = object.position.y - halfY;
+      maxY = object.position.y + halfY;
+    } else {
+      const lines = String(object.text || '').split(/\n/);
+      const maxChars = Math.max(1, ...lines.map(line => Array.from(line).length));
+      minX = object.position.x;
+      minY = object.position.y;
+      maxX = object.position.x + (maxChars * sizePx * 0.62) / rect.width;
+      maxY = object.position.y + (Math.max(1, lines.length) * sizePx * 1.25) / rect.height;
+    }
+  } else {
+    return null;
+  }
+
+  const padPx = Math.max(5, Number(object.widthN || 0) * minEdge * 0.8);
+  const padX = padPx / rect.width;
+  const padY = padPx / rect.height;
+  return {
+    minX: Math.max(0, minX - padX),
+    minY: Math.max(0, minY - padY),
+    maxX: Math.min(1, maxX + padX),
+    maxY: Math.min(1, maxY + padY),
+  };
+}
+
+function annotationObjectHitTest(object, px, py, rect, threshold = 8) {
+  if (object.type === 'stroke' && object.points?.length) {
+    const radius = threshold + Math.max(1, Number(object.widthN || 0) * Math.min(rect.width, rect.height) / 2);
+    const points = object.points.map(point => ({ x: point.x * rect.width, y: point.y * rect.height }));
+    if (points.length === 1) return Math.hypot(px - points[0].x, py - points[0].y) <= radius;
+    for (let p = 1; p < points.length; p++) {
+      if (annotationPointSegmentDistance(px, py, points[p - 1].x, points[p - 1].y, points[p].x, points[p].y) <= radius) return true;
+    }
+    return false;
+  }
+  if (object.type === 'shape') return annotationShapeHitTest(object, px, py, rect, threshold);
+  if (object.type === 'text' || object.type === 'note') return annotationTextHitTest(object, px, py, rect, threshold);
+  return false;
+}
+
+function findTopAnnotationObjectAt(surface, clientX, clientY) {
+  const rect = surface.media?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  const documentData = getAnnotationDocument(surface.key);
+  for (let i = documentData.objects.length - 1; i >= 0; i--) {
+    if (annotationObjectHitTest(documentData.objects[i], px, py, rect, 9)) {
+      return { object: documentData.objects[i], index: i };
+    }
+  }
+  return null;
+}
+
+function cloneAnnotationObject(object, { newId = false, offset = 0 } = {}) {
+  const cloned = cloneAnnotationObjects([object])[0];
+  if (!cloned) return null;
+  if (newId) {
+    cloned.id = `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    cloned.createdAt = new Date().toISOString();
+  }
+  const shift = point => point ? {
+    x: Math.max(0, Math.min(1, point.x + offset)),
+    y: Math.max(0, Math.min(1, point.y + offset)),
+  } : point;
+  if (offset) {
+    if (cloned.points) cloned.points = cloned.points.map(shift);
+    if (cloned.start) cloned.start = shift(cloned.start);
+    if (cloned.end) cloned.end = shift(cloned.end);
+    if (cloned.position) cloned.position = shift(cloned.position);
+  }
+  return cloned;
+}
+
+function translateAnnotationObject(object, dx, dy) {
+  const cloned = cloneAnnotationObject(object);
+  const shift = point => point ? {
+    x: Math.max(0, Math.min(1, point.x + dx)),
+    y: Math.max(0, Math.min(1, point.y + dy)),
+  } : point;
+  if (cloned.points) cloned.points = cloned.points.map(shift);
+  if (cloned.start) cloned.start = shift(cloned.start);
+  if (cloned.end) cloned.end = shift(cloned.end);
+  if (cloned.position) cloned.position = shift(cloned.position);
+  return cloned;
+}
+
+function scaleAnnotationObject(object, anchor, scaleX, scaleY) {
+  const cloned = cloneAnnotationObject(object);
+  const scalePoint = point => point ? {
+    x: Math.max(0, Math.min(1, anchor.x + (point.x - anchor.x) * scaleX)),
+    y: Math.max(0, Math.min(1, anchor.y + (point.y - anchor.y) * scaleY)),
+  } : point;
+  if (cloned.points) cloned.points = cloned.points.map(scalePoint);
+  if (cloned.start) cloned.start = scalePoint(cloned.start);
+  if (cloned.end) cloned.end = scalePoint(cloned.end);
+  if (cloned.position) cloned.position = scalePoint(cloned.position);
+  if (cloned.type === 'text' || cloned.type === 'note') {
+    cloned.sizeN = Math.max(0.002, Number(cloned.sizeN || 0.03) * Math.max(0.15, (Math.abs(scaleX) + Math.abs(scaleY)) / 2));
+  }
+  return cloned;
+}
+
+function selectedAnnotationObject(surface) {
+  if (!surface?.selectedObjectId) return null;
+  return getAnnotationDocument(surface.key).objects.find(object => object.id === surface.selectedObjectId) || null;
+}
+
+function annotationDeleteSelection() {
+  const surface = annotationCurrentSurface();
+  if (!surface?.selectedObjectId) return;
+  const documentData = getAnnotationDocument(surface.key);
+  const index = documentData.objects.findIndex(object => object.id === surface.selectedObjectId);
+  if (index < 0) return;
+  annotationPushUndo(documentData);
+  documentData.objects.splice(index, 1);
+  surface.selectedObjectId = '';
+  documentData.updatedAt = new Date().toISOString();
+  renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
+  syncAnnotationToolbarUi();
+}
+
+function annotationDuplicateSelection() {
+  const surface = annotationCurrentSurface();
+  const selected = selectedAnnotationObject(surface);
+  if (!surface || !selected) return;
+  const documentData = getAnnotationDocument(surface.key);
+  annotationPushUndo(documentData);
+  const duplicate = cloneAnnotationObject(selected, { newId: true, offset: 0.025 });
+  documentData.objects.push(duplicate);
+  surface.selectedObjectId = duplicate.id;
+  documentData.updatedAt = new Date().toISOString();
+  renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
+  syncAnnotationToolbarUi();
+}
+
+function annotationCopySelection() {
+  const surface = annotationCurrentSurface();
+  const selected = selectedAnnotationObject(surface);
+  if (!selected) return;
+  annotationClipboardObject = cloneAnnotationObject(selected);
+  showToast('주석 객체를 복사했습니다.');
+}
+
+function annotationPasteClipboard() {
+  if (!annotationClipboardObject) return;
+  const surface = annotationCurrentSurface();
+  if (!surface) return;
+  const documentData = getAnnotationDocument(surface.key);
+  annotationPushUndo(documentData);
+  const pasted = cloneAnnotationObject(annotationClipboardObject, { newId: true, offset: 0.035 });
+  documentData.objects.push(pasted);
+  surface.selectedObjectId = pasted.id;
+  documentData.updatedAt = new Date().toISOString();
+  renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
+  syncAnnotationToolbarUi();
+}
+
+function renderAnnotationSelection(ctx, surface, canvas) {
+  const selected = selectedAnnotationObject(surface);
+  if (!selected) {
+    surface.selectedObjectId = '';
+    return;
+  }
+  const bounds = annotationObjectBoundsNormalized(selected, { width: canvas.width, height: canvas.height });
+  if (!bounds) return;
+  const left = bounds.minX * canvas.width;
+  const top = bounds.minY * canvas.height;
+  const width = Math.max(1, (bounds.maxX - bounds.minX) * canvas.width);
+  const height = Math.max(1, (bounds.maxY - bounds.minY) * canvas.height);
+  const handle = Math.max(7, Math.min(12, Math.min(canvas.width, canvas.height) * 0.014));
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = '#2563eb';
+  ctx.fillStyle = '#fff';
+  ctx.lineWidth = Math.max(1.5, handle * 0.16);
+  ctx.setLineDash([handle * 0.7, handle * 0.45]);
+  ctx.strokeRect(left, top, width, height);
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.rect(left + width - handle / 2, top + height - handle / 2, handle, handle);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function handleAnnotationSelectionPointerDown(surface, event) {
+  const canvas = surface.canvas;
+  const rect = surface.media?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return;
+  const documentData = getAnnotationDocument(surface.key);
+  const point = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
+  if (!point) return;
+
+  const selected = selectedAnnotationObject(surface);
+  const selectedBounds = selected ? annotationObjectBoundsNormalized(selected, rect) : null;
+  if (selected && selectedBounds) {
+    const hx = selectedBounds.maxX * rect.width;
+    const hy = selectedBounds.maxY * rect.height;
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    if (Math.hypot(px - hx, py - hy) <= 18) {
+      const index = documentData.objects.findIndex(object => object.id === selected.id);
+      surface.selectionAction = {
+        pointerId: event.pointerId,
+        mode: 'resize',
+        index,
+        startPoint: point,
+        original: cloneAnnotationObject(selected),
+        bounds: selectedBounds,
+        beforeSnapshot: cloneAnnotationObjects(documentData.objects),
+        changed: false,
+      };
+      try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+      return;
+    }
+  }
+
+  const hit = findTopAnnotationObjectAt(surface, event.clientX, event.clientY);
+  if (!hit) {
+    surface.selectedObjectId = '';
+    renderAnnotationSurface(surface);
+    syncAnnotationToolbarUi();
+    return;
+  }
+
+  surface.selectedObjectId = hit.object.id;
+  surface.selectionAction = {
+    pointerId: event.pointerId,
+    mode: 'move',
+    index: hit.index,
+    startPoint: point,
+    original: cloneAnnotationObject(hit.object),
+    bounds: annotationObjectBoundsNormalized(hit.object, rect),
+    beforeSnapshot: cloneAnnotationObjects(documentData.objects),
+    changed: false,
+  };
+  try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+  renderAnnotationSurface(surface);
+  syncAnnotationToolbarUi();
+}
+
+function updateAnnotationSelectionDrag(surface, event) {
+  const action = surface.selectionAction;
+  if (!action || action.pointerId !== event.pointerId) return false;
+  const rect = surface.media?.getBoundingClientRect?.();
+  const point = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
+  if (!rect || !point) return true;
+  const documentData = getAnnotationDocument(surface.key);
+  if (action.index < 0 || action.index >= documentData.objects.length) return true;
+
+  const dx = point.x - action.startPoint.x;
+  const dy = point.y - action.startPoint.y;
+  if (!action.changed && Math.hypot(dx * rect.width, dy * rect.height) < 2) return true;
+  if (!action.changed) {
+    annotationPushUndo(documentData, action.beforeSnapshot);
+    action.changed = true;
+  }
+
+  if (action.mode === 'move') {
+    documentData.objects[action.index] = translateAnnotationObject(action.original, dx, dy);
+  } else {
+    const bounds = action.bounds;
+    const anchor = { x: bounds.minX, y: bounds.minY };
+    const baseWidth = Math.max(0.005, bounds.maxX - bounds.minX);
+    const baseHeight = Math.max(0.005, bounds.maxY - bounds.minY);
+    const scaleX = Math.max(0.15, Math.min(8, (point.x - anchor.x) / baseWidth));
+    const scaleY = Math.max(0.15, Math.min(8, (point.y - anchor.y) / baseHeight));
+    documentData.objects[action.index] = scaleAnnotationObject(action.original, anchor, scaleX, scaleY);
+  }
+  documentData.updatedAt = new Date().toISOString();
+  scheduleAnnotationRender(surface);
+  return true;
+}
+
+function finishAnnotationSelectionDrag(surface, event) {
+  const action = surface.selectionAction;
+  if (!action || action.pointerId !== event.pointerId) return false;
+  surface.selectionAction = null;
+  try { surface.canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
+  if (action.changed) scheduleAnnotationPersist(getAnnotationDocument(surface.key));
+  renderAnnotationSurface(surface);
+  syncAnnotationToolbarUi();
+  return true;
+}
+
 function annotationPushUndo(documentData, snapshot = null) {
   if (!documentData) return;
   documentData.undoStack ||= [];
@@ -6632,7 +6956,7 @@ function annotationStyleKey(tool = annotationEditorState.tool) {
   if (annotationIsShapeTool(tool)) return 'shape';
   if (tool === 'text' || tool === 'note') return tool;
   if (tool === 'pen' || tool === 'highlighter') return tool;
-  if (tool === 'pan' || tool === 'eraser') return annotationEditorState.lastDrawTool;
+  if (tool === 'pan' || tool === 'eraser' || tool === 'select') return annotationEditorState.lastDrawTool;
   return 'pen';
 }
 
@@ -6650,6 +6974,7 @@ function annotationToolLabel(tool = annotationEditorState.tool) {
     : tool === 'ellipse' ? '원/타원'
     : tool === 'text' ? '텍스트'
     : tool === 'note' ? '메모'
+    : tool === 'select' ? '선택'
     : '이동 모드';
 }
 
@@ -6680,6 +7005,25 @@ function handleAnnotationShortcut(event) {
     annotationRedo();
     return;
   }
+  if ((event.ctrlKey || event.metaKey) && key === 'c') {
+    if (annotationEditorState.tool === 'select') {
+      event.preventDefault();
+      annotationCopySelection();
+    }
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && key === 'v') {
+    if (annotationEditorState.tool === 'select' && annotationClipboardObject) {
+      event.preventDefault();
+      annotationPasteClipboard();
+    }
+    return;
+  }
+  if ((key === 'delete' || key === 'backspace') && annotationEditorState.tool === 'select') {
+    event.preventDefault();
+    annotationDeleteSelection();
+    return;
+  }
 
   if (event.code === 'Space' && !event.repeat) {
     if (annotationEditorState.tool !== 'pan') {
@@ -6691,6 +7035,7 @@ function handleAnnotationShortcut(event) {
   }
 
   const shortcutTool = key === 'v' || key === '1' ? 'pan'
+    : key === 's' ? 'select'
     : key === 'p' || key === '2' ? 'pen'
     : key === 'h' || key === '3' ? 'highlighter'
     : key === 'e' || key === '4' ? 'eraser'
@@ -6730,18 +7075,19 @@ function syncAnnotationToolbarUi() {
     const opacityValue = toolbar.querySelector('[data-annotation-opacity-value]');
     const isPan = annotationEditorState.tool === 'pan';
     const isEraser = annotationEditorState.tool === 'eraser';
+    const isSelect = annotationEditorState.tool === 'select';
     const effectiveWidth = isEraser ? annotationEditorState.eraserSize : settings.width;
     if (color) {
       color.value = settings.color;
-      color.disabled = isPan || isEraser;
+      color.disabled = isPan || isEraser || isSelect;
     }
     if (width) {
       width.value = String(effectiveWidth);
-      width.disabled = isPan;
+      width.disabled = isPan || isSelect;
     }
     if (opacity) {
       opacity.value = String(Math.round(settings.opacity * 100));
-      opacity.disabled = isPan || isEraser;
+      opacity.disabled = isPan || isEraser || isSelect;
     }
     if (opacityValue) opacityValue.textContent = isEraser ? '—' : `${Math.round(settings.opacity * 100)}%`;
     const widthLabel = toolbar.querySelector('[data-annotation-width-label]');
@@ -6754,9 +7100,14 @@ function syncAnnotationToolbarUi() {
     const documentData = surface ? getAnnotationDocument(surface.key) : null;
     const undo = toolbar.querySelector('[data-annotation-undo]');
     const redo = toolbar.querySelector('[data-annotation-redo]');
+    const duplicate = toolbar.querySelector('[data-annotation-duplicate]');
+    const deleteSelection = toolbar.querySelector('[data-annotation-delete-selection]');
     const clear = toolbar.querySelector('[data-annotation-clear]');
+    const hasSelection = Boolean(surface && selectedAnnotationObject(surface));
     if (undo) undo.disabled = !documentData?.undoStack?.length;
     if (redo) redo.disabled = !documentData?.redoStack?.length;
+    if (duplicate) duplicate.disabled = !hasSelection;
+    if (deleteSelection) deleteSelection.disabled = !hasSelection;
     if (clear) clear.disabled = !documentData?.objects?.length;
     const saveStatus = toolbar.querySelector('[data-annotation-save-status]');
     if (saveStatus) {
@@ -6783,7 +7134,7 @@ function syncAnnotationToolbarUi() {
 }
 
 function setAnnotationTool(tool) {
-  if (!['pan', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(tool)) return;
+  if (!['pan', 'select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(tool)) return;
   annotationEditorState.tool = tool;
   if (tool === 'pen' || tool === 'highlighter' || tool === 'text' || tool === 'note') annotationEditorState.lastDrawTool = tool;
   else if (annotationIsShapeTool(tool)) annotationEditorState.lastDrawTool = 'shape';
@@ -7067,6 +7418,7 @@ function renderAnnotationSurface(surface) {
     }
     ctx.restore();
   }
+  if (annotationEditorState.tool === 'select') renderAnnotationSelection(ctx, surface, canvas);
 }
 
 function scheduleAnnotationRender(surface) {
@@ -7099,11 +7451,16 @@ function installAnnotationInputHandlers(surface) {
   });
 
   canvas.addEventListener('pointerdown', async event => {
-    if (!['pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
+    if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     lastActiveAnnotationSurface = surface;
+
+    if (annotationEditorState.tool === 'select') {
+      handleAnnotationSelectionPointerDown(surface, event);
+      return;
+    }
 
     if (annotationEditorState.tool === 'text' || annotationEditorState.tool === 'note') {
       await handleAnnotationTextTool(surface, event);
@@ -7171,6 +7528,12 @@ function installAnnotationInputHandlers(surface) {
   });
 
   canvas.addEventListener('pointermove', event => {
+    if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId) {
+      event.preventDefault();
+      event.stopPropagation();
+      updateAnnotationSelectionDrag(surface, event);
+      return;
+    }
     if (surface.activeErase && surface.activeErase.pointerId === event.pointerId) {
       event.preventDefault();
       event.stopPropagation();
@@ -7198,6 +7561,12 @@ function installAnnotationInputHandlers(surface) {
   });
 
   const finishStroke = event => {
+    if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId) {
+      event.preventDefault();
+      event.stopPropagation();
+      finishAnnotationSelectionDrag(surface, event);
+      return;
+    }
     if (surface.activeErase && surface.activeErase.pointerId === event.pointerId) {
       event.preventDefault();
       event.stopPropagation();
@@ -7208,7 +7577,6 @@ function installAnnotationInputHandlers(surface) {
       syncAnnotationToolbarUi();
       return;
     }
-
     if (surface.activeShape && surface.activeShape.pointerId === event.pointerId) {
       event.preventDefault();
       event.stopPropagation();
@@ -7223,7 +7591,6 @@ function installAnnotationInputHandlers(surface) {
       syncAnnotationToolbarUi();
       return;
     }
-
     if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
     event.preventDefault();
     event.stopPropagation();
@@ -7253,6 +7620,14 @@ function bindAnnotationToolbarEvents() {
       }
       if (event.target.closest('[data-annotation-redo]')) {
         annotationRedo();
+        return;
+      }
+      if (event.target.closest('[data-annotation-duplicate]')) {
+        annotationDuplicateSelection();
+        return;
+      }
+      if (event.target.closest('[data-annotation-delete-selection]')) {
+        annotationDeleteSelection();
         return;
       }
       if (event.target.closest('[data-annotation-clear]')) annotationClearCurrent();
@@ -7361,6 +7736,8 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
     activeStroke: null,
     activeShape: null,
     activeErase: null,
+    selectedObjectId: '',
+    selectionAction: null,
     hasRendered: false,
   };
   annotationSurfaceByMedia.set(media, surface);
