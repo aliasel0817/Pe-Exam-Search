@@ -3246,6 +3246,12 @@ const TOPIC_PAGE_SIZE_KEY = 'peStudyNote.topicPageSize';
 const DEFAULT_TOPIC_PAGE_SIZE = 50;
 const LEARNING_PAGE_SIZE = 30;
 const RECALL_MODE_KEY = 'peStudyNote.recallMode';
+const ANNOTATION_SYNC_MIN_SERVER_SCHEMA = 15;
+const ANNOTATION_SYNC_LAST_AT_KEY = 'peStudyNote.annotationCloud.lastSyncAt.v1';
+const ANNOTATION_SYNC_CAPABILITY_KEY = 'peStudyNote.annotationCloud.capability.v1';
+const ANNOTATION_SYNC_CAPABILITY_TTL_MS = 60 * 60 * 1000;
+const ANNOTATION_SYNC_BATCH_SIZE = 20;
+const ANNOTATION_SYNC_PULL_PAGE_SIZE = 20;
 
 let db;
 let dbReadyPromise = null;
@@ -3326,6 +3332,16 @@ const annotationDocuments = new Map();
 const annotationPersistTimers = new Map();
 const annotationViewStateByKey = new Map();
 const annotationStrokePathCache = new WeakMap();
+const annotationCloudConflicts = new Map();
+const annotationCloudSyncState = {
+  ready: false,
+  supported: false,
+  syncing: false,
+  serverSchema: 0,
+  lastSyncAt: localStorage.getItem(ANNOTATION_SYNC_LAST_AT_KEY) || '',
+  lastError: '',
+  timer: 0,
+};
 const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
 const ANNOTATION_SHAPE_TOOLS = ['line', 'arrow', 'rect', 'ellipse'];
 const annotationEditorState = {
@@ -6589,6 +6605,10 @@ function migrateAnnotationDocumentRow(row) {
     locked: Boolean(row?.locked),
     bookmark: Boolean(row?.bookmark),
     important: Boolean(row?.important),
+    cloudRevision: Math.max(0, Number(row?.cloudRevision) || 0),
+    cloudUpdatedAt: clean(row?.cloudUpdatedAt),
+    cloudDeviceId: clean(row?.cloudDeviceId),
+    cloudDirty: row?.cloudDirty === undefined ? true : Boolean(row.cloudDirty),
     saveState: 'saved',
     saveError: '',
     saveRetryCount: 0,
@@ -6624,6 +6644,10 @@ function getAnnotationDocument(key) {
       locked: false,
       bookmark: false,
       important: false,
+      cloudRevision: 0,
+      cloudUpdatedAt: '',
+      cloudDeviceId: '',
+      cloudDirty: false,
       saveState: 'clean',
       saveError: '',
       saveRetryCount: 0,
@@ -6911,6 +6935,10 @@ function annotationDocumentForStorage(documentData) {
     bookmark: Boolean(documentData.bookmark),
     important: Boolean(documentData.important),
     updatedAt: documentData.updatedAt || new Date().toISOString(),
+    cloudRevision: Math.max(0, Number(documentData.cloudRevision) || 0),
+    cloudUpdatedAt: clean(documentData.cloudUpdatedAt),
+    cloudDeviceId: clean(documentData.cloudDeviceId),
+    cloudDirty: Boolean(documentData.cloudDirty),
     savedAt: new Date().toISOString(),
   };
 }
@@ -6945,8 +6973,9 @@ async function persistAnnotationDocument(documentData) {
   syncAnnotationToolbarUi();
 }
 
-function scheduleAnnotationPersist(documentData, { immediate = false } = {}) {
+function scheduleAnnotationPersist(documentData, { immediate = false, markCloudDirty = true } = {}) {
   if (!documentData?.key) return;
+  if (markCloudDirty) documentData.cloudDirty = true;
   const existing = annotationPersistTimers.get(documentData.key);
   if (existing) clearTimeout(existing);
   documentData.saveState = 'dirty';
