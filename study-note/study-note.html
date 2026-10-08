@@ -1693,6 +1693,14 @@ button { -webkit-tap-highlight-color: transparent; }
   width: 19px; height: 19px; border: 1px solid #c8d2df; border-radius: 50%;
   background: #fff; color: #b42318; font-size: .78rem; line-height: 16px; cursor: pointer;
 }
+.annotation-palette-custom {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 9px; min-height: 35px; font-size: .75rem; font-weight: 750;
+}
+.annotation-palette-custom input[type="color"] {
+  width: 70px; height: 35px; padding: 2px; background: #fff;
+  border: 1px solid #cfd8e3; border-radius: 7px; cursor: pointer;
+}
 .annotation-palette-save {
   min-height: 35px; border: 1px solid #93c5fd; border-radius: 8px; color: #1d4ed8;
   background: #eff6ff; font-weight: 750; font-size: .77rem; cursor: pointer;
@@ -9968,6 +9976,22 @@ function openAnnotationToolPopup(anchor, kind) {
       grid.append(hint);
     }
     annotationEditorState.favoriteColors.forEach(color => swatch(color, true));
+    const custom = document.createElement('div');
+    custom.className = 'annotation-palette-custom';
+    const customLabel = document.createElement('span');
+    customLabel.textContent = '직접 색 선택';
+    const customInput = document.createElement('input');
+    customInput.type = 'color';
+    const activeColor = annotationEditorState[annotationStyleKey()]?.color || '#2563eb';
+    customInput.value = /^#[0-9a-f]{6}$/i.test(activeColor) ? activeColor : '#2563eb';
+    customInput.setAttribute('aria-label', '팔레트에 저장할 색상 직접 선택');
+    customInput.addEventListener('input', () => {
+      const style = annotationEditorState[annotationStyleKey()];
+      if (style) style.color = customInput.value;
+      syncAnnotationToolbarUi();
+    });
+    custom.append(customLabel, customInput);
+    pop.append(custom);
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'annotation-palette-save';
@@ -10064,11 +10088,11 @@ function prepareEnhancedAnnotationToolbar(toolbar) {
   shapes.addEventListener('click', () => openAnnotationToolPopup(shapes, 'shape'));
 
   const palette = document.createElement('button');
-  palette.type = 'button'; palette.className = 'btn annotation-palette-trigger annotation-mobile-optional';
+  palette.type = 'button'; palette.className = 'btn annotation-palette-trigger';
   palette.dataset.annotationPopupTrigger = 'palette';
-  palette.textContent = '🎨 팔레트';
-  palette.title = '자주 사용하는 색상 선택 및 저장';
-  color.insertAdjacentElement('afterend', palette);
+  palette.textContent = '🎨 색상';
+  palette.title = '색상 선택 및 나만의 팔레트 저장';
+  penSettings.insertAdjacentElement('afterend', palette);
   palette.addEventListener('click', () => openAnnotationToolPopup(palette, 'palette'));
 }
 
