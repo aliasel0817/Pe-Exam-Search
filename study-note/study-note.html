@@ -2308,7 +2308,7 @@ button { -webkit-tap-highlight-color: transparent; }
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const TOPIC_STORE = 'topics';
 const META_STORE = 'meta';
 const LEARNING_STORE = 'learningStates';
@@ -2316,6 +2316,7 @@ const ATTACHMENT_STORE = 'attachments';
 const REFERENCE_PDF_STORE = 'referencePdfLinks';
 const REFERENCE_PDF_PAGE_STORE = 'referencePdfPages';
 const ANNOTATION_STORE = 'annotations';
+const ANNOTATION_SNAPSHOT_STORE = 'annotationSnapshots';
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -2375,6 +2376,9 @@ function openDatabase() {
         const annotationStore = db.createObjectStore(ANNOTATION_STORE, { keyPath: 'key' });
         annotationStore.createIndex('kind', 'kind', { unique: false });
         annotationStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(ANNOTATION_SNAPSHOT_STORE)) {
+        db.createObjectStore(ANNOTATION_SNAPSHOT_STORE, { keyPath: 'key' });
       }
     };
 
@@ -2600,9 +2604,25 @@ async function getAllAnnotationDocuments(db) {
   return rows;
 }
 
+async function getAnnotationSnapshot(db, key) {
+  const tx = db.transaction(ANNOTATION_SNAPSHOT_STORE, 'readonly');
+  const row = await requestToPromise(tx.objectStore(ANNOTATION_SNAPSHOT_STORE).get(key));
+  await transactionDone(tx);
+  return row || null;
+}
+
 async function putAnnotationDocument(db, documentData) {
-  const tx = db.transaction(ANNOTATION_STORE, 'readwrite');
-  tx.objectStore(ANNOTATION_STORE).put(documentData);
+  const tx = db.transaction([ANNOTATION_STORE, ANNOTATION_SNAPSHOT_STORE], 'readwrite');
+  const store = tx.objectStore(ANNOTATION_STORE);
+  const snapshotStore = tx.objectStore(ANNOTATION_SNAPSHOT_STORE);
+  const previous = await requestToPromise(store.get(documentData.key));
+  if (previous) {
+    snapshotStore.put({
+      ...previous,
+      snapshotAt: new Date().toISOString(),
+    });
+  }
+  store.put(documentData);
   await transactionDone(tx);
 }
 
