@@ -6990,12 +6990,24 @@ function openAnnotationManager() {
     lock.textContent = documentData.locked ? '🔓 잠금 해제' : '🔒 편집 잠금';
     summary.textContent = `총 ${documentData.objects.length.toLocaleString()}개 · ${documentData.locked ? '편집 잠금' : '편집 가능'}`;
   });
+  const exportBackup = document.createElement('button');
+  exportBackup.type = 'button';
+  exportBackup.className = 'btn';
+  exportBackup.textContent = 'JSON 백업';
+  exportBackup.addEventListener('click', exportAnnotationBackupJson);
+
+  const importBackup = document.createElement('button');
+  importBackup.type = 'button';
+  importBackup.className = 'btn';
+  importBackup.textContent = '백업 가져오기';
+  importBackup.addEventListener('click', promptAnnotationBackupImport);
+
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'btn primary';
   close.textContent = '닫기';
   close.addEventListener('click', () => overlay.remove());
-  actions.append(visibility, lock, close);
+  actions.append(visibility, lock, exportBackup, importBackup, close);
   card.append(title, summary, list, actions);
   overlay.append(card);
   overlay.addEventListener('click', event => {
