@@ -768,8 +768,21 @@ button { -webkit-tap-highlight-color: transparent; }
 .media-image-list { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
 .media-image-item { width: 100%; min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
 .media-image-item figcaption { margin-bottom: 9px; color: #475467; font-size: .76rem; font-weight: 800; }
-.media-image-zoom-wrap { width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; border-radius: 8px; background: #fff; }
+.media-image-zoom-wrap { position: relative; width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; border-radius: 8px; background: #fff; }
 .media-viewer-image { width: 100%; max-width: none; height: auto; display: block; border-radius: 8px; background: #fff; user-select: none; -webkit-user-drag: none; transform-origin: 0 0; }
+.annotation-canvas {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
 .media-image-zoom-hint { margin: 7px 2px 0; color: var(--muted); font-size: .67rem; text-align: right; }
 .media-placeholder { min-height: 150px; display: grid; place-items: center; padding: 20px; color: var(--muted); text-align: center; background: #f8fafc; border: 1px dashed #d8e0ea; border-radius: 10px; }
 
@@ -807,7 +820,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .pdf-frame-wrap { flex: 1 1 0; width: 100%; height: 0; min-height: 0; position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #27272a; }
 .attachment-pdf-pan-scroller { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; background: #27272a; cursor: grab; touch-action: none; }
 .attachment-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
-.attachment-pdf-stage { box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
+.attachment-pdf-stage { position: relative; box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
 .attachment-pdf-canvas { display: block; max-width: none; max-height: none; width: auto; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); user-select: none; }
 .attachment-pdf-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; color: #d1d5db; text-align: center; background: #27272a; pointer-events: none; }
 .attachment-pdf-footer { flex: 0 0 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line); }
@@ -944,6 +957,7 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .reference-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
 .reference-pdf-image-stage {
+  position: relative;
   box-sizing: border-box;
   min-width: 100%;
   min-height: 100%;
@@ -2835,7 +2849,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.27-home-topic-t0000';
+const APP_VERSION = '4.4.28-annotation-foundation';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -2922,6 +2936,14 @@ const ATTACHMENT_PDF_ZOOM_STEP = 0.25;
 const ATTACHMENT_PDF_DEFAULT_ZOOM = 2.5;
 const PDFJS_CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
+// v4.4.28 Annotation foundation: all viewers share a normalized 0..1 coordinate space.
+// The overlay is intentionally input-disabled in this version so existing pan/zoom gestures remain unchanged.
+const ANNOTATION_SCHEMA_VERSION = 1;
+const ANNOTATION_CANVAS_MAX_EDGE = 2048;
+const ANNOTATION_CANVAS_MAX_PIXELS = 4 * 1024 * 1024;
+const annotationSurfaceByMedia = new WeakMap();
+const activeAnnotationSurfaces = new Set();
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
 let learningStateMap = new Map();
@@ -5887,6 +5909,7 @@ function renderReferencePdfRegisteredOptions() {
 
 function closeReferencePdfViewer() {
   els.referencePdfViewerModal.classList.add('hidden');
+  destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
   referencePdfLoadSerial++;
   activeReferencePdfFitScale = 1;
   activeReferencePdfZoomFactor = 1;
@@ -6036,6 +6059,148 @@ function driveThumbnailUrl(fileId) {
   const width = window.innerWidth <= 600 ? 2400 : window.innerWidth <= 1200 ? 3200 : 4000;
   return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width}`;
 }
+
+
+function annotationSurfaceKey(kind, documentId, pageId = '') {
+  return [clean(kind), clean(documentId), clean(pageId)].filter(Boolean).join(':');
+}
+
+function annotationBitmapSize(displayWidth, displayHeight) {
+  const cssWidth = Math.max(1, Number(displayWidth) || 1);
+  const cssHeight = Math.max(1, Number(displayHeight) || 1);
+  const dpr = Math.min(2, Math.max(1, Number(window.devicePixelRatio) || 1));
+  let width = Math.max(1, Math.round(cssWidth * dpr));
+  let height = Math.max(1, Math.round(cssHeight * dpr));
+  const edgeScale = Math.min(1, ANNOTATION_CANVAS_MAX_EDGE / Math.max(width, height));
+  const pixelScale = Math.min(1, Math.sqrt(ANNOTATION_CANVAS_MAX_PIXELS / Math.max(1, width * height)));
+  const scale = Math.min(edgeScale, pixelScale);
+  width = Math.max(1, Math.round(width * scale));
+  height = Math.max(1, Math.round(height * scale));
+  return { width, height };
+}
+
+function syncAnnotationSurface(media) {
+  const surface = annotationSurfaceByMedia.get(media);
+  if (!surface || !surface.host?.isConnected || !media?.isConnected) return;
+  const displayWidth = Math.max(0, media.offsetWidth || 0);
+  const displayHeight = Math.max(0, media.offsetHeight || 0);
+  if (!displayWidth || !displayHeight) return;
+
+  const canvas = surface.canvas;
+  canvas.style.left = `${media.offsetLeft}px`;
+  canvas.style.top = `${media.offsetTop}px`;
+  canvas.style.width = `${displayWidth}px`;
+  canvas.style.height = `${displayHeight}px`;
+
+  const bitmap = annotationBitmapSize(displayWidth, displayHeight);
+  if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+  }
+
+  const intrinsicWidth = Math.max(1, Number(surface.intrinsicWidth) || media.naturalWidth || media.width || displayWidth);
+  const intrinsicHeight = Math.max(1, Number(surface.intrinsicHeight) || media.naturalHeight || media.height || displayHeight);
+  canvas.dataset.annotationReady = '1';
+  canvas.dataset.annotationSchemaVersion = String(ANNOTATION_SCHEMA_VERSION);
+  canvas.dataset.annotationKey = surface.key;
+  canvas.dataset.annotationKind = surface.kind;
+  canvas.dataset.coordinateSpace = 'normalized-0-1';
+  canvas.dataset.intrinsicWidth = String(intrinsicWidth);
+  canvas.dataset.intrinsicHeight = String(intrinsicHeight);
+}
+
+function scheduleAnnotationSurfaceSync(media) {
+  const surface = annotationSurfaceByMedia.get(media);
+  if (!surface || surface.syncRaf) return;
+  surface.syncRaf = requestAnimationFrame(() => {
+    surface.syncRaf = 0;
+    syncAnnotationSurface(media);
+  });
+}
+
+function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, intrinsicHeight = 0 } = {}) {
+  if (!host || !media || !key) return null;
+  let surface = annotationSurfaceByMedia.get(media);
+  if (surface) {
+    surface.key = key;
+    surface.kind = kind || surface.kind;
+    surface.intrinsicWidth = intrinsicWidth || surface.intrinsicWidth;
+    surface.intrinsicHeight = intrinsicHeight || surface.intrinsicHeight;
+    scheduleAnnotationSurfaceSync(media);
+    return surface;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'annotation-canvas';
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.tabIndex = -1;
+  host.appendChild(canvas);
+
+  surface = {
+    host,
+    media,
+    canvas,
+    key,
+    kind: clean(kind) || 'media',
+    intrinsicWidth: Number(intrinsicWidth) || 0,
+    intrinsicHeight: Number(intrinsicHeight) || 0,
+    resizeObserver: null,
+    syncRaf: 0,
+  };
+  annotationSurfaceByMedia.set(media, surface);
+  activeAnnotationSurfaces.add(surface);
+
+  if ('ResizeObserver' in window) {
+    surface.resizeObserver = new ResizeObserver(() => scheduleAnnotationSurfaceSync(media));
+    surface.resizeObserver.observe(media);
+    surface.resizeObserver.observe(host);
+  }
+  scheduleAnnotationSurfaceSync(media);
+  return surface;
+}
+
+function destroyAnnotationSurface(surface) {
+  if (!surface) return;
+  if (surface.syncRaf) cancelAnimationFrame(surface.syncRaf);
+  surface.resizeObserver?.disconnect();
+  annotationSurfaceByMedia.delete(surface.media);
+  activeAnnotationSurfaces.delete(surface);
+  if (surface.canvas?.isConnected) surface.canvas.remove();
+}
+
+function destroyAnnotationSurfacesWithin(root) {
+  if (!root) return;
+  for (const surface of [...activeAnnotationSurfaces]) {
+    if (root === surface.host || root.contains(surface.host) || root.contains(surface.media)) {
+      destroyAnnotationSurface(surface);
+    }
+  }
+}
+
+function annotationClientPointToNormalized(media, clientX, clientY) {
+  const rect = media?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+  return {
+    x: Math.max(0, Math.min(1, (Number(clientX) - rect.left) / rect.width)),
+    y: Math.max(0, Math.min(1, (Number(clientY) - rect.top) / rect.height)),
+  };
+}
+
+function annotationNormalizedPointToClient(media, point) {
+  const rect = media?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 0 || rect.height <= 0 || !point) return null;
+  const x = Math.max(0, Math.min(1, Number(point.x) || 0));
+  const y = Math.max(0, Math.min(1, Number(point.y) || 0));
+  return { x: rect.left + x * rect.width, y: rect.top + y * rect.height };
+}
+
+window.StudyNoteAnnotation = Object.freeze({
+  schemaVersion: ANNOTATION_SCHEMA_VERSION,
+  coordinateSpace: 'normalized-0-1',
+  clientToNormalized: annotationClientPointToNormalized,
+  normalizedToClient: annotationNormalizedPointToClient,
+  sync: syncAnnotationSurface,
+});
 
 function referencePdfViewerMarkup(page) {
   return `
@@ -6189,7 +6354,17 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   stage.style.height = `${Math.max(scroller.clientHeight, displayHeight + stagePadding)}px`;
   updateReferencePdfZoomUi();
 
+  ensureAnnotationSurface({
+    host: stage,
+    media: image,
+    key: annotationSurfaceKey('reference-pdf', activeReferencePdfSourceType, activeReferencePdfCurrentPage?.pageToken || ''),
+    kind: 'reference-pdf',
+    intrinsicWidth: image.naturalWidth,
+    intrinsicHeight: image.naturalHeight,
+  });
+
   requestAnimationFrame(() => {
+    syncAnnotationSurface(image);
     if (preserveCenter) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
@@ -6224,6 +6399,7 @@ function bindReferencePdfViewerControls() {
 }
 
 function renderReferencePdfFallback(page) {
+  destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
   els.referencePdfFrameWrap.innerHTML = `<iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}" loading="eager" allowfullscreen></iframe>`;
   const frame = els.referencePdfFrameWrap.querySelector('iframe');
   frame.src = drivePreviewUrl(page.driveFileId);
@@ -6252,6 +6428,7 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   activeReferencePdfZoomFactor = REFERENCE_PDF_DEFAULT_ZOOM;
   activeReferencePdfFitScale = 1;
   updateReferencePdfZoomUi();
+  destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
   els.referencePdfFrameWrap.innerHTML = referencePdfViewerMarkup(page);
   bindReferencePdfViewerControls();
 
@@ -6476,6 +6653,8 @@ function openMediaViewer(type) {
 function closeMediaViewer() {
   els.imageViewerModal.classList.add('hidden');
   els.mediaViewerModal.classList.add('hidden');
+  destroyAnnotationSurfacesWithin(els.imageViewerBody);
+  destroyAnnotationSurfacesWithin(els.mediaViewerBody);
   cleanupMediaViewerObjects();
   els.imageViewerBody.innerHTML = '';
   els.mediaViewerBody.innerHTML = '';
@@ -6511,6 +6690,7 @@ function cleanupMediaViewerObjects() {
 }
 
 function renderImageViewer(items) {
+  destroyAnnotationSurfacesWithin(els.imageViewerBody);
   els.imageViewerBody.innerHTML = `<div class="media-image-list">${items.map((item, index) => `
     <figure class="media-image-item" data-media-image-id="${escapeHtml(item.attachmentId)}">
       <figcaption>이미지 ${index + 1} / ${items.length} · ${escapeHtml(item.fileName)}</figcaption>
@@ -6535,6 +6715,16 @@ function renderImageViewer(items) {
       img.src = url;
       placeholder.replaceWith(img);
       installAttachmentImageZoom(figure, img);
+      const installAnnotation = () => ensureAnnotationSurface({
+        host: figure.querySelector('.media-image-zoom-wrap'),
+        media: img,
+        key: annotationSurfaceKey('attachment-image', figure.dataset.mediaImageId),
+        kind: 'attachment-image',
+        intrinsicWidth: img.naturalWidth,
+        intrinsicHeight: img.naturalHeight,
+      });
+      if (img.complete && img.naturalWidth) installAnnotation();
+      else img.addEventListener('load', installAnnotation, { once: true });
       figure.dataset.loaded = '1';
     } catch (error) {
       placeholder.textContent = `불러오기 실패 · ${error.message || error}`;
@@ -6584,6 +6774,7 @@ function installAttachmentImageZoom(figure, image) {
     image.style.height = 'auto';
     figure.dataset.imageZoom = zoom.toFixed(3);
     requestAnimationFrame(() => {
+      syncAnnotationSurface(image);
       wrap.scrollLeft = Math.max(0, centerRatio * wrap.scrollWidth - wrap.clientWidth / 2);
     });
   };
@@ -6719,6 +6910,7 @@ async function loadPdfAtIndex(index) {
   activePdfIndex = Math.max(0, Math.min(index, activePdfAttachments.length - 1));
   const item = activePdfAttachments[activePdfIndex];
   const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
+  destroyAnnotationSurfacesWithin(wrap);
   const serial = ++attachmentPdfLoadSerial;
   if (activeAttachmentPdfRenderTask) {
     try { activeAttachmentPdfRenderTask.cancel(); } catch (error) { /* noop */ }
@@ -6767,6 +6959,7 @@ async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSer
   updateAttachmentPdfViewerUi();
   const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
   if (!wrap) return;
+  destroyAnnotationSurfacesWithin(wrap);
   wrap.innerHTML = `
     <div class="attachment-pdf-pan-scroller" tabindex="0" aria-label="PDF 페이지. 스크롤, 마우스 드래그 또는 터치 드래그로 이동하고 두 손가락으로 확대/축소할 수 있습니다.">
       <div class="attachment-pdf-stage"><canvas class="attachment-pdf-canvas"></canvas></div>
@@ -6832,7 +7025,17 @@ function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
   stage.style.width = `${Math.max(scroller.clientWidth, displayWidth + stagePadding)}px`;
   stage.style.height = `${Math.max(scroller.clientHeight, displayHeight + stagePadding)}px`;
   updateAttachmentPdfViewerUi();
+  const activeAttachment = activePdfAttachments[activePdfIndex];
+  ensureAnnotationSurface({
+    host: stage,
+    media: canvas,
+    key: annotationSurfaceKey('attachment-pdf', activeAttachment?.attachmentId || 'unknown', String(activeAttachmentPdfPageNumber)),
+    kind: 'attachment-pdf',
+    intrinsicWidth: baseViewport.width,
+    intrinsicHeight: baseViewport.height,
+  });
   requestAnimationFrame(() => {
+    syncAnnotationSurface(canvas);
     if (preserveCenter) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
