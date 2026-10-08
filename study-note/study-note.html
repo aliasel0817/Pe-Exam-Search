@@ -835,6 +835,16 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .annotation-toolbar input:disabled,
 .annotation-toolbar select:disabled { opacity: .45; cursor: not-allowed; }
+.annotation-save-status {
+  min-width: 54px;
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.annotation-save-status.saving { color: var(--warning); }
+.annotation-save-status.saved { color: var(--success); }
+.annotation-save-status.error { color: var(--danger); }
 .image-viewer-card > .annotation-toolbar { margin-top: 8px; }
 .attachment-pdf-footer .annotation-toolbar { flex: 0 1 auto; }
 .reference-pdf-bottom-actions .annotation-toolbar { flex: 0 1 auto; }
@@ -1917,6 +1927,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
+        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
         <span class="annotation-toolbar-label">굵기</span>
@@ -1963,6 +1974,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
+        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
         <span class="annotation-toolbar-label">굵기</span>
@@ -2029,6 +2041,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
+        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
         <span class="annotation-toolbar-label">굵기</span>
@@ -2117,13 +2130,14 @@ button { -webkit-tap-highlight-color: transparent; }
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const TOPIC_STORE = 'topics';
 const META_STORE = 'meta';
 const LEARNING_STORE = 'learningStates';
 const ATTACHMENT_STORE = 'attachments';
 const REFERENCE_PDF_STORE = 'referencePdfLinks';
 const REFERENCE_PDF_PAGE_STORE = 'referencePdfPages';
+const ANNOTATION_STORE = 'annotations';
 
 function requestToPromise(request) {
   return new Promise((resolve, reject) => {
@@ -2178,6 +2192,11 @@ function openDatabase() {
         referencePdfPageStore.createIndex('sourceType', 'sourceType', { unique: false });
         referencePdfPageStore.createIndex('pageKey', 'pageKey', { unique: false });
         referencePdfPageStore.createIndex('sourcePageKey', ['sourceType', 'pageKey'], { unique: false });
+      }
+      if (!db.objectStoreNames.contains(ANNOTATION_STORE)) {
+        const annotationStore = db.createObjectStore(ANNOTATION_STORE, { keyPath: 'key' });
+        annotationStore.createIndex('kind', 'kind', { unique: false });
+        annotationStore.createIndex('updatedAt', 'updatedAt', { unique: false });
       }
     };
 
@@ -2393,6 +2412,19 @@ async function putLearningStates(db, states) {
 async function setMeta(db, key, value) {
   const tx = db.transaction(META_STORE, 'readwrite');
   tx.objectStore(META_STORE).put({ key, value });
+  await transactionDone(tx);
+}
+
+async function getAllAnnotationDocuments(db) {
+  const tx = db.transaction(ANNOTATION_STORE, 'readonly');
+  const rows = await requestToPromise(tx.objectStore(ANNOTATION_STORE).getAll());
+  await transactionDone(tx);
+  return rows;
+}
+
+async function putAnnotationDocument(db, documentData) {
+  const tx = db.transaction(ANNOTATION_STORE, 'readwrite');
+  tx.objectStore(ANNOTATION_STORE).put(documentData);
   await transactionDone(tx);
 }
 
@@ -2985,7 +3017,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.31-annotation-input-ux';
+const APP_VERSION = '4.4.32-annotation-autosave';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3081,6 +3113,8 @@ const ANNOTATION_CANVAS_MAX_PIXELS = 4 * 1024 * 1024;
 const annotationSurfaceByMedia = new WeakMap();
 const activeAnnotationSurfaces = new Set();
 const annotationDocuments = new Map();
+const annotationPersistTimers = new Map();
+const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
 const annotationEditorState = {
   tool: 'pan',
   lastDrawTool: 'pen',
@@ -3148,8 +3182,10 @@ async function init() {
     window.visualViewport.addEventListener('resize', syncViewportMetrics);
   }
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) scheduleSecurityStateRefresh({ force: false, delayMs: 250 });
+    if (document.hidden) flushPendingAnnotationSaves();
+    else scheduleSecurityStateRefresh({ force: false, delayMs: 250 });
   });
+  window.addEventListener('pagehide', flushPendingAnnotationSaves);
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Service worker registration failed:', error));
@@ -3162,6 +3198,7 @@ async function init() {
     allAttachments = await getAllAttachments(db);
     allReferencePdfLinks = await getAllReferencePdfLinks(db);
     allReferencePdfPages = await getAllReferencePdfPages(db);
+    await hydrateAnnotationDocuments(db);
     learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
     recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
     await renderMeta();
@@ -6059,6 +6096,7 @@ function renderReferencePdfRegisteredOptions() {
 }
 
 function closeReferencePdfViewer() {
+  flushPendingAnnotationSaves();
   els.referencePdfViewerModal.classList.add('hidden');
   destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
   referencePdfLoadSerial++;
@@ -6230,19 +6268,107 @@ function annotationBitmapSize(displayWidth, displayHeight) {
   return { width, height };
 }
 
+function normalizeStoredAnnotationDocument(row) {
+  const key = clean(row?.key);
+  if (!key) return null;
+  return {
+    schemaVersion: Number(row?.schemaVersion || ANNOTATION_SCHEMA_VERSION),
+    coordinateSpace: clean(row?.coordinateSpace) || 'normalized-0-1',
+    key,
+    kind: clean(row?.kind) || key.split(':')[0] || 'media',
+    objects: cloneAnnotationObjects(Array.isArray(row?.objects) ? row.objects : []),
+    undoStack: [],
+    redoStack: [],
+    updatedAt: clean(row?.updatedAt) || new Date().toISOString(),
+    savedAt: clean(row?.savedAt),
+    saveState: 'saved',
+    saveError: '',
+  };
+}
+
+async function hydrateAnnotationDocuments(database) {
+  const rows = await getAllAnnotationDocuments(database);
+  annotationDocuments.clear();
+  for (const row of rows) {
+    const normalized = normalizeStoredAnnotationDocument(row);
+    if (normalized) annotationDocuments.set(normalized.key, normalized);
+  }
+  return annotationDocuments.size;
+}
+
 function getAnnotationDocument(key) {
   if (!annotationDocuments.has(key)) {
     annotationDocuments.set(key, {
       schemaVersion: ANNOTATION_SCHEMA_VERSION,
       coordinateSpace: 'normalized-0-1',
       key,
+      kind: key.split(':')[0] || 'media',
       objects: [],
       undoStack: [],
       redoStack: [],
       updatedAt: new Date().toISOString(),
+      savedAt: '',
+      saveState: 'clean',
+      saveError: '',
     });
   }
   return annotationDocuments.get(key);
+}
+
+function annotationDocumentForStorage(documentData) {
+  return {
+    key: documentData.key,
+    kind: documentData.kind || documentData.key.split(':')[0] || 'media',
+    schemaVersion: ANNOTATION_SCHEMA_VERSION,
+    coordinateSpace: 'normalized-0-1',
+    objects: cloneAnnotationObjects(documentData.objects),
+    updatedAt: documentData.updatedAt || new Date().toISOString(),
+    savedAt: new Date().toISOString(),
+  };
+}
+
+async function persistAnnotationDocument(documentData) {
+  if (!documentData?.key) return;
+  annotationPersistTimers.delete(documentData.key);
+  documentData.saveState = 'saving';
+  documentData.saveError = '';
+  syncAnnotationToolbarUi();
+  try {
+    const database = db || await ensureDatabaseReady();
+    const stored = annotationDocumentForStorage(documentData);
+    await putAnnotationDocument(database, stored);
+    documentData.savedAt = stored.savedAt;
+    documentData.saveState = 'saved';
+  } catch (error) {
+    console.error('주석 로컬 저장 실패:', error);
+    documentData.saveState = 'error';
+    documentData.saveError = error?.message || String(error);
+  }
+  syncAnnotationToolbarUi();
+}
+
+function scheduleAnnotationPersist(documentData, { immediate = false } = {}) {
+  if (!documentData?.key) return;
+  const existing = annotationPersistTimers.get(documentData.key);
+  if (existing) clearTimeout(existing);
+  documentData.saveState = 'dirty';
+  documentData.saveError = '';
+  syncAnnotationToolbarUi();
+  if (immediate) {
+    persistAnnotationDocument(documentData);
+    return;
+  }
+  const timer = setTimeout(() => persistAnnotationDocument(documentData), ANNOTATION_SAVE_DEBOUNCE_MS);
+  annotationPersistTimers.set(documentData.key, timer);
+}
+
+function flushPendingAnnotationSaves() {
+  for (const [key, timer] of [...annotationPersistTimers.entries()]) {
+    clearTimeout(timer);
+    annotationPersistTimers.delete(key);
+    const documentData = annotationDocuments.get(key);
+    if (documentData) persistAnnotationDocument(documentData);
+  }
 }
 
 function cloneAnnotationObjects(objects) {
@@ -6282,6 +6408,7 @@ function annotationUndo() {
   documentData.objects = documentData.undoStack.pop();
   documentData.updatedAt = new Date().toISOString();
   renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
   syncAnnotationToolbarUi();
 }
 
@@ -6295,6 +6422,7 @@ function annotationRedo() {
   documentData.objects = documentData.redoStack.pop();
   documentData.updatedAt = new Date().toISOString();
   renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
   syncAnnotationToolbarUi();
 }
 
@@ -6308,6 +6436,7 @@ function annotationClearCurrent() {
   documentData.objects = [];
   documentData.updatedAt = new Date().toISOString();
   renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
   syncAnnotationToolbarUi();
 }
 
@@ -6461,6 +6590,26 @@ function syncAnnotationToolbarUi() {
     if (undo) undo.disabled = !documentData?.undoStack?.length;
     if (redo) redo.disabled = !documentData?.redoStack?.length;
     if (clear) clear.disabled = !documentData?.objects?.length;
+    const saveStatus = toolbar.querySelector('[data-annotation-save-status]');
+    if (saveStatus) {
+      const state = documentData?.saveState || (documentData?.objects?.length ? 'dirty' : 'clean');
+      saveStatus.className = 'annotation-save-status';
+      if (state === 'saving') {
+        saveStatus.textContent = '저장 중';
+        saveStatus.classList.add('saving');
+      } else if (state === 'saved') {
+        saveStatus.textContent = '저장됨';
+        saveStatus.classList.add('saved');
+      } else if (state === 'error') {
+        saveStatus.textContent = '저장 실패';
+        saveStatus.classList.add('error');
+        saveStatus.title = documentData?.saveError || '로컬 저장 실패';
+      } else if (state === 'dirty') {
+        saveStatus.textContent = '저장 대기';
+      } else {
+        saveStatus.textContent = '저장 없음';
+      }
+    }
   });
   for (const surface of activeAnnotationSurfaces) updateAnnotationSurfaceInteraction(surface);
 }
@@ -6607,8 +6756,10 @@ function installAnnotationInputHandlers(surface) {
     if (surface.activeErase && surface.activeErase.pointerId === event.pointerId) {
       event.preventDefault();
       event.stopPropagation();
+      const erased = surface.activeErase.historyCaptured;
       surface.activeErase = null;
       try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
+      if (erased) scheduleAnnotationPersist(getAnnotationDocument(surface.key));
       syncAnnotationToolbarUi();
       return;
     }
@@ -6619,6 +6770,7 @@ function installAnnotationInputHandlers(surface) {
     surface.activeStroke = null;
     try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
     scheduleAnnotationRender(surface);
+    scheduleAnnotationPersist(getAnnotationDocument(surface.key));
   };
   canvas.addEventListener('pointerup', finishStroke);
   canvas.addEventListener('pointercancel', finishStroke);
@@ -7259,6 +7411,7 @@ function openMediaViewer(type) {
 }
 
 function closeMediaViewer() {
+  flushPendingAnnotationSaves();
   els.imageViewerModal.classList.add('hidden');
   els.mediaViewerModal.classList.add('hidden');
   destroyAnnotationSurfacesWithin(els.imageViewerBody);
