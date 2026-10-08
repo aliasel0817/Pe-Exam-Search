@@ -6492,15 +6492,96 @@ function annotationBitmapSize(displayWidth, displayHeight) {
   return { width, height };
 }
 
-function normalizeStoredAnnotationDocument(row) {
+function sanitizeAnnotationPoint(point) {
+  const x = Number(point?.x);
+  const y = Number(point?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return {
+    x: Math.max(0, Math.min(1, x)),
+    y: Math.max(0, Math.min(1, y)),
+    p: Math.max(0, Math.min(1, Number.isFinite(Number(point?.p)) ? Number(point.p) : 0.5)),
+  };
+}
+
+function sanitizeAnnotationObject(object, index = 0) {
+  if (!object || typeof object !== 'object') return null;
+  const type = clean(object.type);
+  const base = {
+    ...object,
+    id: clean(object.id) || `migrated-${index}-${Date.now().toString(36)}`,
+    color: /^#[0-9a-f]{6}$/i.test(clean(object.color)) ? clean(object.color) : '#2563eb',
+    opacity: Math.max(0.05, Math.min(1, Number(object.opacity) || 1)),
+    createdAt: clean(object.createdAt) || new Date().toISOString(),
+  };
+
+  if (type === 'stroke') {
+    const points = (Array.isArray(object.points) ? object.points : []).map(sanitizeAnnotationPoint).filter(Boolean);
+    if (!points.length) return null;
+    return {
+      ...base,
+      type: 'stroke',
+      tool: object.tool === 'highlighter' ? 'highlighter' : 'pen',
+      widthN: Math.max(0.0001, Math.min(0.25, Number(object.widthN) || 0.005)),
+      pointerType: clean(object.pointerType) || 'unknown',
+      pressureSensitive: Boolean(object.pressureSensitive),
+      points,
+    };
+  }
+
+  if (type === 'shape') {
+    const start = sanitizeAnnotationPoint(object.start);
+    const end = sanitizeAnnotationPoint(object.end);
+    if (!start || !end || !ANNOTATION_SHAPE_TOOLS.includes(object.shape)) return null;
+    return {
+      ...base,
+      type: 'shape',
+      shape: object.shape,
+      widthN: Math.max(0.0001, Math.min(0.25, Number(object.widthN) || 0.005)),
+      start: { x: start.x, y: start.y },
+      end: { x: end.x, y: end.y },
+    };
+  }
+
+  if (type === 'text' || type === 'note') {
+    const position = sanitizeAnnotationPoint(object.position);
+    const text = String(object.text || '').trim();
+    if (!position || !text) return null;
+    return {
+      ...base,
+      type,
+      text,
+      sizeN: Math.max(0.002, Math.min(0.25, Number(object.sizeN) || 0.03)),
+      position: { x: position.x, y: position.y },
+    };
+  }
+  return null;
+}
+
+function migrateAnnotationDocumentRow(row) {
   const key = clean(row?.key);
   if (!key) return null;
+  const sourceSchemaVersion = Math.max(1, Number(row?.schemaVersion || 1));
+  if (sourceSchemaVersion > ANNOTATION_SCHEMA_VERSION) {
+    console.warn('더 최신 주석 Schema라 현재 버전에서 건너뜁니다:', key, sourceSchemaVersion);
+    return null;
+  }
+  const coordinateSpace = clean(row?.coordinateSpace) || 'normalized-0-1';
+  if (coordinateSpace !== 'normalized-0-1') {
+    console.warn('지원하지 않는 주석 좌표계라 건너뜁니다:', key, coordinateSpace);
+    return null;
+  }
+  const sourceObjects = Array.isArray(row?.objects) ? row.objects : [];
+  const objects = sourceObjects.map((object, index) => sanitizeAnnotationObject(object, index)).filter(Boolean);
+  if (objects.length !== sourceObjects.length) {
+    console.warn(`주석 손상 객체 ${sourceObjects.length - objects.length}개를 제외했습니다:`, key);
+  }
   return {
-    schemaVersion: Number(row?.schemaVersion || ANNOTATION_SCHEMA_VERSION),
-    coordinateSpace: clean(row?.coordinateSpace) || 'normalized-0-1',
+    schemaVersion: ANNOTATION_SCHEMA_VERSION,
+    sourceSchemaVersion,
+    coordinateSpace: 'normalized-0-1',
     key,
     kind: clean(row?.kind) || key.split(':')[0] || 'media',
-    objects: cloneAnnotationObjects(Array.isArray(row?.objects) ? row.objects : []),
+    objects,
     undoStack: [],
     redoStack: [],
     updatedAt: clean(row?.updatedAt) || new Date().toISOString(),
@@ -6512,6 +6593,10 @@ function normalizeStoredAnnotationDocument(row) {
     saveError: '',
     saveRetryCount: 0,
   };
+}
+
+function normalizeStoredAnnotationDocument(row) {
+  return migrateAnnotationDocumentRow(row);
 }
 
 async function hydrateAnnotationDocuments(database) {
