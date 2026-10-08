@@ -2606,6 +2606,14 @@ async function putAnnotationDocument(db, documentData) {
   await transactionDone(tx);
 }
 
+async function putAnnotationDocuments(db, documents) {
+  if (!Array.isArray(documents) || !documents.length) return;
+  const tx = db.transaction(ANNOTATION_STORE, 'readwrite');
+  const store = tx.objectStore(ANNOTATION_STORE);
+  for (const documentData of documents) store.put(documentData);
+  await transactionDone(tx);
+}
+
 
 // Apps Script API / data normalization
 const REQUIRED_HEADERS = [
@@ -6512,6 +6520,112 @@ function getAnnotationDocument(key) {
     });
   }
   return annotationDocuments.get(key);
+}
+
+function annotationBackupPayload() {
+  return {
+    format: 'pe-study-note-annotations',
+    backupVersion: 1,
+    schemaVersion: ANNOTATION_SCHEMA_VERSION,
+    appVersion: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    documents: [...annotationDocuments.values()].map(annotationDocumentForStorage),
+  };
+}
+
+function annotationBackupFileName() {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').replace(/\..+$/, '');
+  return `study-note-annotations-${stamp}.json`;
+}
+
+function exportAnnotationBackupJson() {
+  const payload = annotationBackupPayload();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = annotationBackupFileName();
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast(`주석 백업 ${payload.documents.length.toLocaleString()}페이지를 내보냈습니다.`);
+}
+
+function validateAnnotationBackupPayload(payload) {
+  if (!payload || payload.format !== 'pe-study-note-annotations') throw new Error('학습노트 주석 백업 파일이 아닙니다.');
+  if (!Array.isArray(payload.documents)) throw new Error('주석 백업 문서 목록이 없습니다.');
+  const schemaVersion = Number(payload.schemaVersion || 1);
+  if (schemaVersion > ANNOTATION_SCHEMA_VERSION) {
+    throw new Error(`이 백업은 더 최신 주석 형식(v${schemaVersion})입니다. 학습노트를 먼저 업데이트해 주세요.`);
+  }
+  const normalized = [];
+  for (const row of payload.documents) {
+    const item = normalizeStoredAnnotationDocument(row);
+    if (!item) continue;
+    normalized.push(item);
+  }
+  if (!normalized.length && payload.documents.length) throw new Error('복원 가능한 주석 데이터가 없습니다.');
+  return normalized;
+}
+
+async function importAnnotationBackupFile(file) {
+  if (!file) return;
+  const text = await file.text();
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch (error) {
+    throw new Error('JSON 백업 파일을 읽을 수 없습니다.');
+  }
+  const imported = validateAnnotationBackupPayload(payload);
+  const objectCount = imported.reduce((sum, item) => sum + (item.objects?.length || 0), 0);
+  const confirmed = window.confirm(
+    `주석 백업 ${imported.length.toLocaleString()}페이지 · 객체 ${objectCount.toLocaleString()}개를 가져올까요?\n\n동일 페이지의 기존 주석은 백업 내용으로 덮어쓰고, 백업에 없는 기존 페이지는 유지합니다.`
+  );
+  if (!confirmed) return;
+
+  const database = db || await ensureDatabaseReady();
+  const storedRows = imported.map(item => ({
+    key: item.key,
+    kind: item.kind,
+    schemaVersion: ANNOTATION_SCHEMA_VERSION,
+    coordinateSpace: 'normalized-0-1',
+    objects: cloneAnnotationObjects(item.objects),
+    locked: Boolean(item.locked),
+    bookmark: Boolean(item.bookmark),
+    important: Boolean(item.important),
+    updatedAt: item.updatedAt || new Date().toISOString(),
+    savedAt: new Date().toISOString(),
+  }));
+  await putAnnotationDocuments(database, storedRows);
+
+  for (const row of storedRows) {
+    const normalized = normalizeStoredAnnotationDocument(row);
+    if (normalized) annotationDocuments.set(normalized.key, normalized);
+  }
+  for (const surface of activeAnnotationSurfaces) renderAnnotationSurface(surface);
+  syncAnnotationToolbarUi();
+  syncAnnotationStudyUi();
+  refreshReferencePdfStudyIndicators();
+  showToast(`주석 백업 ${storedRows.length.toLocaleString()}페이지 복원 완료`);
+}
+
+function promptAnnotationBackupImport() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      await importAnnotationBackupFile(file);
+    } catch (error) {
+      console.error('주석 백업 가져오기 실패:', error);
+      showToast(`주석 백업 가져오기 실패 · ${error?.message || error}`);
+    }
+  }, { once: true });
+  input.click();
 }
 
 function annotationDocumentForStorage(documentData) {
