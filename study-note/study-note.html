@@ -3790,7 +3790,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.5.6-fold-layout-qa';
+const APP_VERSION = '4.5.7-fold-arrow-fix';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4104,7 +4104,7 @@ function bindViewerLayoutControls() {
         card.classList.toggle('viewer-' + part + '-collapsed', collapsed);
         button.textContent = part === 'top'
           ? (collapsed ? '상단 펼치기 ▼' : '상단 접기 ▲')
-          : (collapsed ? '도구 펼치기 ▼' : '도구 접기 ▲');
+          : (collapsed ? '도구 펼치기 ▲' : '도구 접기 ▼');
         button.setAttribute('aria-expanded', String(!collapsed));
         button.setAttribute('aria-label', (part === 'top' ? '상단 제어 영역 ' : '하단 주석 도구 영역 ') + (collapsed ? '펼치기' : '접기'));
         if (save) {
