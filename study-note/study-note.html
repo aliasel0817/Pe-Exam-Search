@@ -6538,6 +6538,76 @@ function annotationBackupFileName() {
   return `study-note-annotations-${stamp}.json`;
 }
 
+function safeAnnotationExportName(value) {
+  return clean(value).replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 100) || 'annotation';
+}
+
+function downloadBlobFile(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function annotationCompositeCanvas(surface) {
+  if (!surface?.media) throw new Error('현재 페이지를 찾을 수 없습니다.');
+  const media = surface.media;
+  const sourceWidth = media instanceof HTMLCanvasElement ? media.width : (media.naturalWidth || media.width || media.offsetWidth);
+  const sourceHeight = media instanceof HTMLCanvasElement ? media.height : (media.naturalHeight || media.height || media.offsetHeight);
+  if (!sourceWidth || !sourceHeight) throw new Error('원본 페이지 크기를 확인할 수 없습니다.');
+
+  const maxEdge = 4096;
+  const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const output = document.createElement('canvas');
+  output.width = width;
+  output.height = height;
+  const ctx = output.getContext('2d', { alpha: false });
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, width, height);
+
+  try {
+    ctx.drawImage(media, 0, 0, width, height);
+  } catch (error) {
+    throw new Error('원본 페이지를 이미지로 합성할 수 없습니다.');
+  }
+
+  const overlay = document.createElement('canvas');
+  overlay.width = width;
+  overlay.height = height;
+  renderAnnotationSurface({ canvas: overlay, key: surface.key, selectedObjectId: '' });
+  ctx.drawImage(overlay, 0, 0);
+  return output;
+}
+
+async function exportCurrentAnnotationPng() {
+  const surface = annotationCurrentSurface();
+  if (!surface) return showToast('현재 내보낼 페이지가 없습니다.');
+  try {
+    const canvas = await annotationCompositeCanvas(surface);
+    const blob = await new Promise((resolve, reject) => {
+      try {
+        canvas.toBlob(result => result ? resolve(result) : reject(new Error('PNG 생성 실패')), 'image/png', 1);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    downloadBlobFile(blob, `${safeAnnotationExportName(surface.key)}-annotated.png`);
+    showToast('현재 페이지를 주석 포함 PNG로 저장했습니다.');
+  } catch (error) {
+    console.error('주석 PNG 내보내기 실패:', error);
+    const message = error?.name === 'SecurityError'
+      ? '브라우저 보안 정책으로 이 원본 페이지는 PNG 합성이 제한됩니다.'
+      : (error?.message || error);
+    showToast(`PNG 내보내기 실패 · ${message}`);
+  }
+}
+
 function exportAnnotationBackupJson() {
   const payload = annotationBackupPayload();
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
@@ -6990,6 +7060,12 @@ function openAnnotationManager() {
     lock.textContent = documentData.locked ? '🔓 잠금 해제' : '🔒 편집 잠금';
     summary.textContent = `총 ${documentData.objects.length.toLocaleString()}개 · ${documentData.locked ? '편집 잠금' : '편집 가능'}`;
   });
+  const exportPng = document.createElement('button');
+  exportPng.type = 'button';
+  exportPng.className = 'btn';
+  exportPng.textContent = '현재 페이지 PNG';
+  exportPng.addEventListener('click', exportCurrentAnnotationPng);
+
   const exportBackup = document.createElement('button');
   exportBackup.type = 'button';
   exportBackup.className = 'btn';
@@ -7007,7 +7083,7 @@ function openAnnotationManager() {
   close.className = 'btn primary';
   close.textContent = '닫기';
   close.addEventListener('click', () => overlay.remove());
-  actions.append(visibility, lock, exportBackup, importBackup, close);
+  actions.append(visibility, lock, exportPng, exportBackup, importBackup, close);
   card.append(title, summary, list, actions);
   overlay.append(card);
   overlay.addEventListener('click', event => {
