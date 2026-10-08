@@ -2859,15 +2859,22 @@ async function syncAnnotationCloud({ manual = false } = {}) {
     annotationCloudSyncState.rerunRequested = true;
     return null;
   }
-  if (!navigator.onLine) return null;
+  if (!navigator.onLine) {
+    if (manual) showToast('오프라인 상태에서는 주석을 클라우드 동기화할 수 없습니다.');
+    return null;
+  }
   if (!annotationCloudSyncState.ready) {
     await refreshAnnotationCloudCapability({ force: manual });
-    if (!annotationCloudSyncState.ready) return null;
+    if (!annotationCloudSyncState.ready) {
+      if (manual) showToast(`주석 클라우드 연결 확인 실패 · ${annotationCloudSyncState.lastError || '서버 상태를 다시 확인해 주세요.'}`);
+      return null;
+    }
   }
   const active = await ensureActiveSecuritySession({ openModal: manual });
   if (!active) return null;
 
   annotationCloudSyncState.syncing = true;
+  annotationCloudSyncState.lastAttemptAt = Date.now();
   annotationCloudSyncState.lastError = '';
   const apiUrl = getApiUrl();
   const stats = { pushed: 0, pulled: 0, conflicts: 0 };
@@ -2990,6 +2997,18 @@ function scheduleAnnotationCloudSync({ delayMs = 4500, manual = false } = {}) {
     annotationCloudSyncState.timer = 0;
     syncAnnotationCloud({ manual });
   }, Math.max(0, Number(delayMs) || 0));
+}
+
+// Pull when returning to the app without constant polling against Apps Script.
+function scheduleAnnotationCloudResumeSync() {
+  if (document.hidden || !navigator.onLine || !annotationCloudSyncState.hydrated) return;
+  if (annotationCloudSyncState.syncing || annotationCloudSyncState.timer) return;
+  if (Date.now() - annotationCloudSyncState.lastAttemptAt < ANNOTATION_SYNC_RESUME_MIN_INTERVAL_MS) return;
+  refreshAnnotationCloudCapability({ force: false }).then(ready => {
+    if (ready && !document.hidden && !annotationCloudSyncState.syncing && !annotationCloudSyncState.timer) {
+      scheduleAnnotationCloudSync({ delayMs: 1500 });
+    }
+  });
 }
 
 async function resolveAnnotationCloudConflict(key, strategy) {
@@ -3636,7 +3655,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.5.4-annotation-production-r2';
+const APP_VERSION = '4.5.4-annotation-production-r3';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3663,6 +3682,7 @@ const ANNOTATION_SYNC_MIN_SERVER_SCHEMA = 15;
 const ANNOTATION_SYNC_LAST_AT_KEY = 'peStudyNote.annotationCloud.lastSyncAt.v1';
 const ANNOTATION_SYNC_CAPABILITY_KEY = 'peStudyNote.annotationCloud.capability.v2';
 const ANNOTATION_SYNC_CAPABILITY_TTL_MS = 60 * 60 * 1000;
+const ANNOTATION_SYNC_RESUME_MIN_INTERVAL_MS = 60 * 1000;
 const ANNOTATION_SYNC_BATCH_SIZE = 20;
 const ANNOTATION_SYNC_PULL_PAGE_SIZE = 20;
 
@@ -3755,6 +3775,8 @@ const annotationCloudSyncState = {
   lastError: '',
   timer: 0,
   rerunRequested: false,
+  hydrated: false,
+  lastAttemptAt: 0,
 };
 const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
 const ANNOTATION_SHAPE_TOOLS = ['line', 'arrow', 'rect', 'ellipse'];
@@ -3834,7 +3856,10 @@ async function init() {
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) flushPendingAnnotationSaves();
-    else scheduleSecurityStateRefresh({ force: false, delayMs: 250 });
+    else {
+      scheduleSecurityStateRefresh({ force: false, delayMs: 250 });
+      scheduleAnnotationCloudResumeSync();
+    }
   });
   window.addEventListener('pagehide', flushPendingAnnotationSaves);
 
@@ -3850,6 +3875,7 @@ async function init() {
     allReferencePdfLinks = await getAllReferencePdfLinks(db);
     allReferencePdfPages = await getAllReferencePdfPages(db);
     await hydrateAnnotationDocuments(db);
+    annotationCloudSyncState.hydrated = true;
     refreshAnnotationCloudCapability({ force: false }).then(ready => {
       if (ready) scheduleAnnotationCloudSync({ delayMs: 2200 });
     });
@@ -7727,7 +7753,8 @@ function openAnnotationManager() {
   });
   let cloudSync = null;
   let cloudConflicts = null;
-  if (annotationCloudSyncState.ready) {
+  // Keep manual sync accessible even when the asynchronous server health check fails.
+  {
     cloudSync = document.createElement('button');
     cloudSync.type = 'button';
     cloudSync.className = 'btn';
