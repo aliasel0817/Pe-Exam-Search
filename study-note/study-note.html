@@ -2706,6 +2706,236 @@ async function fetchHealth(apiUrl) {
   return json;
 }
 
+function readAnnotationSyncCapabilityCache() {
+  try {
+    const raw = localStorage.getItem(ANNOTATION_SYNC_CAPABILITY_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw);
+    if (!value || typeof value !== 'object') return null;
+    return value;
+  } catch (error) {
+    return null;
+  }
+}
+
+function applyAnnotationSyncCapability({ ready = false, serverSchema = 0 } = {}) {
+  annotationCloudSyncState.serverSchema = Number(serverSchema) || 0;
+  annotationCloudSyncState.supported = annotationCloudSyncState.serverSchema >= ANNOTATION_SYNC_MIN_SERVER_SCHEMA;
+  annotationCloudSyncState.ready = Boolean(ready && annotationCloudSyncState.supported);
+  return annotationCloudSyncState.ready;
+}
+
+async function refreshAnnotationCloudCapability({ force = false } = {}) {
+  if (!navigator.onLine) return annotationCloudSyncState.ready;
+  const cached = readAnnotationSyncCapabilityCache();
+  if (!force && cached && Date.now() - Number(cached.checkedAt || 0) < ANNOTATION_SYNC_CAPABILITY_TTL_MS) {
+    return applyAnnotationSyncCapability(cached);
+  }
+  try {
+    const health = await fetchHealth(getApiUrl());
+    const serverSchema = Number(health.schemaVersion || 0);
+    const ready = serverSchema >= ANNOTATION_SYNC_MIN_SERVER_SCHEMA && Boolean(health.annotationSyncReady || health.annotationSyncSheetReady);
+    const capability = { checkedAt: Date.now(), ready, serverSchema };
+    localStorage.setItem(ANNOTATION_SYNC_CAPABILITY_KEY, JSON.stringify(capability));
+    annotationCloudSyncState.lastError = '';
+    return applyAnnotationSyncCapability(capability);
+  } catch (error) {
+    annotationCloudSyncState.lastError = error?.message || String(error);
+    return annotationCloudSyncState.ready;
+  }
+}
+
+async function fetchAnnotationCloudPage(apiUrl, data = {}) {
+  const url = await buildSignedGetUrl(apiUrl, 'annotationSync', data);
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error(`주석 동기화 조회 실패: HTTP ${response.status}`);
+  const json = await response.json();
+  if (!json?.ok) throw new Error(json?.message || '주석 동기화 응답이 올바르지 않습니다.');
+  return json;
+}
+
+function annotationDocumentForCloud(documentData, { force = false } = {}) {
+  return {
+    key: documentData.key,
+    kind: documentData.kind || documentData.key.split(':')[0] || 'media',
+    schemaVersion: ANNOTATION_SCHEMA_VERSION,
+    coordinateSpace: 'normalized-0-1',
+    objects: cloneAnnotationObjects(documentData.objects),
+    locked: Boolean(documentData.locked),
+    bookmark: Boolean(documentData.bookmark),
+    important: Boolean(documentData.important),
+    updatedAt: documentData.updatedAt || new Date().toISOString(),
+    cloudRevision: Math.max(0, Number(documentData.cloudRevision) || 0),
+    force: Boolean(force),
+  };
+}
+
+async function persistAnnotationCloudMetadata(documentData) {
+  const database = db || await ensureDatabaseReady();
+  await putAnnotationDocuments(database, [annotationDocumentForStorage(documentData)]);
+}
+
+async function applyAnnotationCloudDocument(serverDocument) {
+  if (!serverDocument?.key) return false;
+  const normalized = normalizeStoredAnnotationDocument({
+    ...serverDocument,
+    cloudDirty: false,
+    savedAt: new Date().toISOString(),
+  });
+  if (!normalized) return false;
+  normalized.cloudRevision = Math.max(0, Number(serverDocument.cloudRevision) || 0);
+  normalized.cloudUpdatedAt = clean(serverDocument.cloudUpdatedAt);
+  normalized.cloudDeviceId = clean(serverDocument.cloudDeviceId);
+  normalized.cloudDirty = false;
+  normalized.saveState = 'saved';
+  normalized.saveError = '';
+  normalized.saveRetryCount = 0;
+
+  const database = db || await ensureDatabaseReady();
+  await putAnnotationDocument(database, annotationDocumentForStorage(normalized));
+  annotationDocuments.set(normalized.key, normalized);
+  for (const surface of activeAnnotationSurfaces) {
+    if (surface.key === normalized.key) renderAnnotationSurface(surface);
+  }
+  syncAnnotationToolbarUi();
+  syncAnnotationStudyUi();
+  refreshReferencePdfStudyIndicators();
+  return true;
+}
+
+async function fetchAnnotationCloudDocumentsByKeys(apiUrl, keys) {
+  const uniqueKeys = [...new Set((keys || []).map(clean).filter(Boolean))];
+  if (!uniqueKeys.length) return [];
+  const documents = [];
+  for (let index = 0; index < uniqueKeys.length; index += ANNOTATION_SYNC_BATCH_SIZE) {
+    let cursor = 0;
+    const batch = uniqueKeys.slice(index, index + ANNOTATION_SYNC_BATCH_SIZE);
+    do {
+      const page = await fetchAnnotationCloudPage(apiUrl, {
+        keys: batch,
+        cursor,
+        limit: ANNOTATION_SYNC_PULL_PAGE_SIZE,
+      });
+      documents.push(...(Array.isArray(page.documents) ? page.documents : []));
+      cursor = page.nextCursor === null || page.nextCursor === undefined ? null : Number(page.nextCursor);
+    } while (cursor !== null);
+  }
+  return documents;
+}
+
+async function syncAnnotationCloud({ manual = false } = {}) {
+  if (annotationCloudSyncState.syncing || !navigator.onLine) return null;
+  if (!annotationCloudSyncState.ready) {
+    await refreshAnnotationCloudCapability({ force: manual });
+    if (!annotationCloudSyncState.ready) return null;
+  }
+  const active = await ensureActiveSecuritySession({ openModal: manual });
+  if (!active) return null;
+
+  annotationCloudSyncState.syncing = true;
+  annotationCloudSyncState.lastError = '';
+  const apiUrl = getApiUrl();
+  const stats = { pushed: 0, pulled: 0, conflicts: 0 };
+  try {
+    const dirtyDocuments = [...annotationDocuments.values()].filter(documentData => documentData.cloudDirty);
+    const conflictKeys = new Set();
+
+    for (let index = 0; index < dirtyDocuments.length; index += ANNOTATION_SYNC_BATCH_SIZE) {
+      const batch = dirtyDocuments.slice(index, index + ANNOTATION_SYNC_BATCH_SIZE);
+      const result = await sendSecureMutation(apiUrl, 'saveAnnotations', {
+        documents: batch.map(documentData => annotationDocumentForCloud(documentData)),
+      });
+      for (const saved of result.saved || []) {
+        const local = annotationDocuments.get(saved.key);
+        if (!local) continue;
+        local.cloudRevision = Math.max(0, Number(saved.cloudRevision) || 0);
+        local.cloudUpdatedAt = clean(saved.cloudUpdatedAt);
+        local.cloudDeviceId = clean(saved.cloudDeviceId);
+        local.cloudDirty = false;
+        await persistAnnotationCloudMetadata(local);
+        annotationCloudConflicts.delete(local.key);
+        stats.pushed++;
+      }
+      for (const conflict of result.conflicts || []) {
+        const key = clean(conflict.key);
+        if (!key) continue;
+        conflictKeys.add(key);
+        annotationCloudConflicts.set(key, { ...conflict, serverDocument: null });
+      }
+    }
+
+    if (conflictKeys.size) {
+      const serverDocuments = await fetchAnnotationCloudDocumentsByKeys(apiUrl, [...conflictKeys]);
+      for (const serverDocument of serverDocuments) {
+        const existing = annotationCloudConflicts.get(serverDocument.key) || {};
+        annotationCloudConflicts.set(serverDocument.key, { ...existing, serverDocument });
+      }
+    }
+
+    const previousSyncAt = annotationCloudSyncState.lastSyncAt;
+    let updatedAfter = '';
+    if (previousSyncAt) {
+      const previousMs = Date.parse(previousSyncAt);
+      if (Number.isFinite(previousMs)) updatedAfter = new Date(Math.max(0, previousMs - 5000)).toISOString();
+    }
+    let cursor = 0;
+    let syncAnchor = new Date().toISOString();
+    do {
+      const page = await fetchAnnotationCloudPage(apiUrl, {
+        updatedAfter,
+        cursor,
+        limit: ANNOTATION_SYNC_PULL_PAGE_SIZE,
+      });
+      syncAnchor = clean(page.generatedAt) || syncAnchor;
+      for (const serverDocument of page.documents || []) {
+        const key = clean(serverDocument.key);
+        if (!key) continue;
+        const local = annotationDocuments.get(key);
+        const serverRevision = Math.max(0, Number(serverDocument.cloudRevision) || 0);
+        if (annotationCloudConflicts.has(key)) {
+          const existing = annotationCloudConflicts.get(key) || {};
+          annotationCloudConflicts.set(key, { ...existing, serverDocument });
+          continue;
+        }
+        if (!local) {
+          if (await applyAnnotationCloudDocument(serverDocument)) stats.pulled++;
+          continue;
+        }
+        const localRevision = Math.max(0, Number(local.cloudRevision) || 0);
+        if (local.cloudDirty) {
+          if (serverRevision !== localRevision) {
+            annotationCloudConflicts.set(key, {
+              key,
+              baseRevision: localRevision,
+              serverRevision,
+              serverUpdatedAt: clean(serverDocument.cloudUpdatedAt),
+              serverDeviceId: clean(serverDocument.cloudDeviceId),
+              serverDocument,
+            });
+          }
+          continue;
+        }
+        if (serverRevision > localRevision) {
+          if (await applyAnnotationCloudDocument(serverDocument)) stats.pulled++;
+        }
+      }
+      cursor = page.nextCursor === null || page.nextCursor === undefined ? null : Number(page.nextCursor);
+    } while (cursor !== null);
+
+    annotationCloudSyncState.lastSyncAt = syncAnchor;
+    localStorage.setItem(ANNOTATION_SYNC_LAST_AT_KEY, syncAnchor);
+    stats.conflicts = annotationCloudConflicts.size;
+    return stats;
+  } catch (error) {
+    annotationCloudSyncState.lastError = error?.message || String(error);
+    if (manual) showToast(`주석 동기화 실패 · ${annotationCloudSyncState.lastError}`);
+    console.error('주석 클라우드 동기화 실패:', error);
+    return null;
+  } finally {
+    annotationCloudSyncState.syncing = false;
+  }
+}
+
 async function fetchMasterDataset(apiUrl) {
   const url = `${normalizeApiUrl(apiUrl)}?action=topics&_=${Date.now()}`;
   const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
