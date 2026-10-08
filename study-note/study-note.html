@@ -3036,13 +3036,27 @@ async function fetchAnnotationCloudPage(apiUrl, data = {}) {
   return json;
 }
 
+// New polygons are stored as legacy rect/ellipse plus a non-destructive subtype.
+ // Older cached app versions will keep the objects instead of dropping unknown shape kinds.
+function compatibleAnnotationObjects(objects) {
+  return cloneAnnotationObjects(objects).map(object => {
+    if (object.type !== 'shape' || ['line', 'arrow', 'rect', 'ellipse'].includes(object.shape)) return object;
+    if (!ANNOTATION_SHAPE_TOOLS.includes(object.shape)) return object;
+    return {
+      ...object,
+      extendedShape: object.shape,
+      shape: object.shape === 'circle' ? 'ellipse' : 'rect',
+    };
+  });
+}
+
 function annotationDocumentForCloud(documentData, { force = false } = {}) {
   return {
     key: documentData.key,
     kind: documentData.kind || documentData.key.split(':')[0] || 'media',
     schemaVersion: ANNOTATION_SCHEMA_VERSION,
     coordinateSpace: 'normalized-0-1',
-    objects: cloneAnnotationObjects(documentData.objects),
+    objects: compatibleAnnotationObjects(documentData.objects),
     locked: Boolean(documentData.locked),
     bookmark: Boolean(documentData.bookmark),
     important: Boolean(documentData.important),
@@ -7372,11 +7386,12 @@ function sanitizeAnnotationObject(object, index = 0) {
   if (type === 'shape') {
     const start = sanitizeAnnotationPoint(object.start);
     const end = sanitizeAnnotationPoint(object.end);
-    if (!start || !end || !ANNOTATION_SHAPE_TOOLS.includes(object.shape)) return null;
+    const shape = ANNOTATION_SHAPE_TOOLS.includes(object.extendedShape) ? object.extendedShape : object.shape;
+    if (!start || !end || !ANNOTATION_SHAPE_TOOLS.includes(shape)) return null;
     return {
       ...base,
       type: 'shape',
-      shape: object.shape,
+      shape,
       widthN: Math.max(0.0001, Math.min(0.25, Number(object.widthN) || 0.005)),
       start: { x: start.x, y: start.y },
       end: { x: end.x, y: end.y },
@@ -7755,7 +7770,7 @@ function annotationDocumentForStorage(documentData) {
     kind: documentData.kind || documentData.key.split(':')[0] || 'media',
     schemaVersion: ANNOTATION_SCHEMA_VERSION,
     coordinateSpace: 'normalized-0-1',
-    objects: cloneAnnotationObjects(documentData.objects),
+    objects: compatibleAnnotationObjects(documentData.objects),
     locked: Boolean(documentData.locked),
     bookmark: Boolean(documentData.bookmark),
     important: Boolean(documentData.important),
