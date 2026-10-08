@@ -1474,6 +1474,53 @@ button { -webkit-tap-highlight-color: transparent; }
   .question-search-source-row { font-size: .67rem; }
 }
 
+
+/* Viewer compact controls: DOM nodes and their existing handlers are preserved. */
+.viewer-toggle-btn {
+  flex: 0 0 auto;
+  min-height: 29px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: .70rem;
+  white-space: nowrap;
+}
+.viewer-compact-summary {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #475467;
+  font-size: .73rem;
+  font-weight: 750;
+}
+.viewer-top-toggle-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.viewer-top-details { display: grid; gap: 6px; min-width: 0; }
+.viewer-top-collapsed .viewer-top-details { display: none; }
+.reference-pdf-modal-card.viewer-top-collapsed .reference-pdf-topbar { padding: 4px 8px; }
+.reference-pdf-modal-card.viewer-top-collapsed .reference-pdf-viewer-body { margin-top: 5px; }
+.image-viewer-card #imageViewerCompactSummary,
+.attachment-pdf-viewer-card #attachmentPdfCompactSummary { display: none; }
+.image-viewer-card.viewer-top-collapsed #imageViewerTopicName,
+.image-viewer-card.viewer-top-collapsed #imageViewerSubtitle,
+.attachment-pdf-viewer-card.viewer-top-collapsed #mediaViewerTopicName,
+.attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-head-meta,
+.attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-navigation { display: none; }
+.image-viewer-card.viewer-top-collapsed #imageViewerCompactSummary,
+.attachment-pdf-viewer-card.viewer-top-collapsed #attachmentPdfCompactSummary { display: block; }
+.image-viewer-card.viewer-top-collapsed .image-viewer-head-main,
+.attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-head-main { min-width: 0; overflow: hidden; }
+.attachment-pdf-modal-head { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+.attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-modal-head { grid-template-columns: minmax(0, 1fr) auto auto; }
+@media (max-width: 760px) {
+  .attachment-pdf-modal-head { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .attachment-pdf-head-meta { grid-column: 1 / -1; grid-row: 2; }
+  .attachment-pdf-modal-head > [data-viewer-top-toggle] { grid-column: 2; grid-row: 1; }
+  .attachment-pdf-modal-head > .icon-btn { grid-column: 3; grid-row: 1; }
+  .attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-modal-head { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .viewer-toggle-btn { min-height: 29px; padding: 3px 6px; font-size: .68rem; }
+}
+
   </style>
 </head>
 <body>
@@ -2051,6 +2098,8 @@ button { -webkit-tap-highlight-color: transparent; }
           <div id="imageViewerTopicName" class="viewer-topic-name"></div>
         </div>
         <span id="imageViewerSubtitle" class="muted"></span>
+        <span id="imageViewerCompactSummary" class="viewer-compact-summary" aria-live="polite"></span>
+        <button class="btn viewer-toggle-btn" type="button" data-viewer-top-toggle aria-expanded="true">상단 접기 ▲</button>
         <button id="closeImageViewerBtn" class="icon-btn" type="button" aria-label="이미지 첨부자료 닫기">✕</button>
       </div>
 
@@ -2125,6 +2174,8 @@ button { -webkit-tap-highlight-color: transparent; }
           <strong id="pdfViewerCounter" class="attachment-pdf-file-meta"></strong>
           <strong id="pdfPageCounter" class="attachment-pdf-page-meta"></strong>
         </div>
+        <span id="attachmentPdfCompactSummary" class="viewer-compact-summary" aria-live="polite"></span>
+        <button class="btn viewer-toggle-btn" type="button" data-viewer-top-toggle aria-expanded="true">상단 접기 ▲</button>
         <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="PDF 첨부자료 닫기">✕</button>
       </div>
       <div id="mediaViewerBody" class="attachment-pdf-viewer-body"></div>
@@ -2202,6 +2253,11 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
       <div class="reference-pdf-viewer-body">
         <div class="reference-pdf-topbar">
+          <div class="viewer-top-toggle-row">
+            <span id="referencePdfCompactSummary" class="viewer-compact-summary" aria-live="polite">현재 원본 PDF</span>
+            <button class="btn viewer-toggle-btn" type="button" data-viewer-top-toggle aria-expanded="true" aria-controls="referencePdfTopDetails">상단 접기 ▲</button>
+          </div>
+          <div class="viewer-top-details" id="referencePdfTopDetails">
           <div class="reference-pdf-controls">
             <span class="reference-pdf-control-caption">토픽에 등록된 페이지 이동</span>
             <button id="referencePdfPrevBtn" class="btn" type="button">← 등록 이전</button>
@@ -2214,6 +2270,7 @@ button { -webkit-tap-highlight-color: transparent; }
             <strong id="referencePdfSequentialLabel" class="reference-pdf-sequential-label">원본 연속 이동</strong>
             <button id="referencePdfSequentialNextBtn" class="btn" type="button">원본 뒤 1페이지 →</button>
             <strong id="referencePdfCounter" class="reference-pdf-sequential-counter"></strong>
+          </div>
           </div>
         </div>
         <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
@@ -3929,7 +3986,63 @@ function bindElements() {
   for (const id of ids) els[id] = document.getElementById(id);
 }
 
+
+/* Collapsed viewer controls are a UI-only preference; document and annotation state are untouched. */
+function bindViewerLayoutControls() {
+  const layouts = [
+    ['imageViewerModal', 'image'],
+    ['mediaViewerModal', 'attachment-pdf'],
+    ['referencePdfViewerModal', 'reference-pdf']
+  ];
+  for (const [modalId, kind] of layouts) {
+    const modal = document.getElementById(modalId);
+    const card = modal?.querySelector('.modal-card');
+    if (!card) continue;
+    for (const part of ['top', 'bottom']) {
+      const button = card.querySelector('[data-viewer-' + part + '-toggle]');
+      if (!button) continue;
+      const key = 'peStudyNote.viewerFold.' + kind + '.' + part + '.v1';
+      let collapsed = part === 'top';
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved !== null) collapsed = saved === '1';
+      } catch (error) { /* Browsing without storage still supports toggling. */ }
+      const apply = (next, save) => {
+        collapsed = next;
+        card.classList.toggle('viewer-' + part + '-collapsed', collapsed);
+        button.textContent = part === 'top'
+          ? (collapsed ? '상단 펼치기 ▼' : '상단 접기 ▲')
+          : (collapsed ? '도구 펼치기 ▼' : '도구 접기 ▲');
+        button.setAttribute('aria-expanded', String(!collapsed));
+        button.setAttribute('aria-label', (part === 'top' ? '상단 제어 영역 ' : '하단 주석 도구 영역 ') + (collapsed ? '펼치기' : '접기'));
+        if (save) {
+          try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (error) { /* noop */ }
+        }
+      };
+      apply(collapsed, false);
+      button.addEventListener('click', () => apply(!collapsed, true));
+    }
+  }
+  const summaries = [
+    ['imageViewerCompactSummary', ['imageViewerTopicName', 'imageViewerSubtitle']],
+    ['attachmentPdfCompactSummary', ['mediaViewerTopicName', 'pdfViewerCounter', 'pdfPageCounter']],
+    ['referencePdfCompactSummary', ['referencePdfSequentialLabel', 'referencePdfCounter']]
+  ];
+  for (const [summaryId, sourceIds] of summaries) {
+    const summary = document.getElementById(summaryId);
+    if (!summary) continue;
+    const sources = sourceIds.map(id => document.getElementById(id)).filter(Boolean);
+    const update = () => {
+      summary.textContent = sources.map(el => (el.textContent || '').trim()).filter(Boolean).join(' · ') || '현재 문서';
+    };
+    const observer = new MutationObserver(update);
+    sources.forEach(el => observer.observe(el, { childList: true, characterData: true, subtree: true }));
+    update();
+  }
+}
+
 function bindEvents() {
+  bindViewerLayoutControls();
   bindAnnotationToolbarEvents();
   bindAnnotationStudyNavEvents();
   window.addEventListener('keydown', handleAnnotationShortcut, { capture: true });
