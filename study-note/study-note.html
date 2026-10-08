@@ -911,6 +911,27 @@ button { -webkit-tap-highlight-color: transparent; }
 .annotation-manager-row label { display: flex; align-items: center; gap: 8px; font-size: .78rem; font-weight: 800; }
 .annotation-manager-row input { width: 17px; height: 17px; accent-color: var(--primary); }
 .annotation-manager-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.annotation-study-nav {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid #dbe2ea;
+  border-radius: 9px;
+  background: #fff;
+}
+.annotation-study-nav .btn { min-height: 30px; padding: 4px 8px; font-size: .69rem; white-space: nowrap; }
+.annotation-study-count { min-width: 72px; color: #475467; font-size: .69rem; font-weight: 900; text-align: center; white-space: nowrap; }
+.annotation-study-nav .btn.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); }
+.image-viewer-card > .annotation-study-nav { margin-top: 6px; }
+.attachment-pdf-viewer-card > .annotation-study-nav { margin-top: 5px; }
+.reference-pdf-viewer-body > .annotation-study-nav { margin-top: 6px; }
+@media (max-width: 760px) {
+  .annotation-study-nav { overflow-x: auto; scrollbar-width: none; }
+  .annotation-study-nav::-webkit-scrollbar { display: none; }
+}
 .image-viewer-card > .annotation-toolbar { margin-top: 8px; }
 .image-viewer-zoom-controls {
   flex: 0 0 auto;
@@ -2044,6 +2065,14 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="imageViewerZoomInBtn" class="btn" type="button" aria-label="이미지 확대">＋</button>
         <button id="imageViewerZoomFitBtn" class="btn" type="button">맞춤</button>
       </div>
+
+      <div class="annotation-study-nav" data-annotation-study-nav="attachment-image" aria-label="학습 주석 페이지 이동">
+        <button class="btn" type="button" data-annotation-study-prev>← 이전 주석</button>
+        <span class="annotation-study-count" data-annotation-study-count>주석 0</span>
+        <button class="btn" type="button" data-annotation-study-next>다음 주석 →</button>
+        <button class="btn" type="button" data-annotation-bookmark>☆ 북마크</button>
+        <button class="btn" type="button" data-annotation-important>🔥 중요</button>
+      </div>
       <div id="imageViewerBody" class="image-viewer-body"></div>
       <div class="media-viewer-actions"><button id="closeImageViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
     </div>
@@ -2064,6 +2093,14 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="PDF 첨부자료 닫기">✕</button>
       </div>
       <div id="mediaViewerBody" class="attachment-pdf-viewer-body"></div>
+
+      <div class="annotation-study-nav" data-annotation-study-nav="attachment-pdf" aria-label="학습 주석 페이지 이동">
+        <button class="btn" type="button" data-annotation-study-prev>← 이전 주석</button>
+        <span class="annotation-study-count" data-annotation-study-count>주석 0</span>
+        <button class="btn" type="button" data-annotation-study-next>다음 주석 →</button>
+        <button class="btn" type="button" data-annotation-bookmark>☆ 북마크</button>
+        <button class="btn" type="button" data-annotation-important>🔥 중요</button>
+      </div>
       <div class="attachment-pdf-footer">
 
       <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
@@ -2145,6 +2182,14 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
         </div>
         <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
+
+      <div class="annotation-study-nav" data-annotation-study-nav="reference-pdf" aria-label="학습 주석 페이지 이동">
+        <button class="btn" type="button" data-annotation-study-prev>← 이전 주석</button>
+        <span class="annotation-study-count" data-annotation-study-count>주석 0</span>
+        <button class="btn" type="button" data-annotation-study-next>다음 주석 →</button>
+        <button class="btn" type="button" data-annotation-bookmark>☆ 북마크</button>
+        <button class="btn" type="button" data-annotation-important>🔥 중요</button>
+      </div>
       </div>
       <div class="media-viewer-actions reference-pdf-bottom-actions">
 
@@ -3145,7 +3190,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.37-annotation-manager';
+const APP_VERSION = '4.4.38-annotation-study-navigation';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3237,7 +3282,7 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 // v4.4.28 Annotation foundation: all viewers share a normalized 0..1 coordinate space.
 // The overlay is intentionally input-disabled in this version so existing pan/zoom gestures remain unchanged.
-const ANNOTATION_SCHEMA_VERSION = 2;
+const ANNOTATION_SCHEMA_VERSION = 3;
 const ANNOTATION_CANVAS_MAX_EDGE = 2048;
 const ANNOTATION_CANVAS_MAX_PIXELS = 4 * 1024 * 1024;
 const annotationSurfaceByMedia = new WeakMap();
@@ -3387,6 +3432,7 @@ function bindElements() {
 
 function bindEvents() {
   bindAnnotationToolbarEvents();
+  bindAnnotationStudyNavEvents();
   window.addEventListener('keydown', handleAnnotationShortcut, { capture: true });
   window.addEventListener('keyup', handleAnnotationShortcutKeyUp, { capture: true });
   els.refreshBtn.addEventListener('click', refreshMaster);
@@ -6230,7 +6276,9 @@ function renderReferencePdfRegisteredOptions() {
   els.referencePdfPageSelect.innerHTML = activeReferencePdfLinks.map((item, index) => {
     const effective = referencePdfPageFromLink(item);
     const label = effective && effective.pageToken !== item.pageToken ? `${item.pageToken} → ${effective.pageToken}` : item.pageToken;
-    return `<option value="${index}">${escapeHtml(label)} · ${escapeHtml(effective?.fileName || item.fileName || item.driveFileId)}</option>`;
+    const key = effective ? annotationSurfaceKey('reference-pdf', effective.sourceType || item.sourceType, effective.pageToken) : '';
+    const icons = key ? annotationPageIcons(key) : '';
+    return `<option value="${index}">${escapeHtml(icons ? icons + ' ' : '')}${escapeHtml(label)} · ${escapeHtml(effective?.fileName || item.fileName || item.driveFileId)}</option>`;
   }).join('');
 }
 
@@ -6421,6 +6469,8 @@ function normalizeStoredAnnotationDocument(row) {
     updatedAt: clean(row?.updatedAt) || new Date().toISOString(),
     savedAt: clean(row?.savedAt),
     locked: Boolean(row?.locked),
+    bookmark: Boolean(row?.bookmark),
+    important: Boolean(row?.important),
     saveState: 'saved',
     saveError: '',
   };
@@ -6449,6 +6499,8 @@ function getAnnotationDocument(key) {
       updatedAt: new Date().toISOString(),
       savedAt: '',
       locked: false,
+      bookmark: false,
+      important: false,
       saveState: 'clean',
       saveError: '',
     });
@@ -6464,6 +6516,8 @@ function annotationDocumentForStorage(documentData) {
     coordinateSpace: 'normalized-0-1',
     objects: cloneAnnotationObjects(documentData.objects),
     locked: Boolean(documentData.locked),
+    bookmark: Boolean(documentData.bookmark),
+    important: Boolean(documentData.important),
     updatedAt: documentData.updatedAt || new Date().toISOString(),
     savedAt: new Date().toISOString(),
   };
@@ -6521,6 +6575,163 @@ function cloneAnnotationObjects(objects) {
     end: object.end ? { ...object.end } : object.end,
     position: object.position ? { ...object.position } : object.position,
   }));
+}
+
+function annotationPageMeta(key) {
+  const documentData = annotationDocuments.get(key);
+  return {
+    count: documentData?.objects?.length || 0,
+    bookmark: Boolean(documentData?.bookmark),
+    important: Boolean(documentData?.important),
+  };
+}
+
+function annotationPageIcons(key) {
+  const meta = annotationPageMeta(key);
+  return `${meta.count ? '✏' : ''}${meta.bookmark ? '★' : ''}${meta.important ? '🔥' : ''}`;
+}
+
+function annotationStudySurface(context) {
+  let media = null;
+  if (context === 'reference-pdf') media = els.referencePdfFrameWrap?.querySelector('.reference-pdf-page-image');
+  else if (context === 'attachment-pdf') media = els.mediaViewerBody?.querySelector('.attachment-pdf-canvas');
+  else if (context === 'attachment-image') media = activeImageFigure?.querySelector('.media-viewer-image');
+  return media ? annotationSurfaceByMedia.get(media) || null : null;
+}
+
+function annotationStudyKeys(context) {
+  if (context === 'reference-pdf' && activeReferencePdfCurrentPage) {
+    return buildReferencePdfLogicalSequence(activeReferencePdfCurrentPage)
+      .map(page => annotationSurfaceKey('reference-pdf', page.sourceType || activeReferencePdfSourceType, page.pageToken));
+  }
+  if (context === 'attachment-pdf') {
+    const item = activePdfAttachments[activePdfIndex];
+    if (!item || !activeAttachmentPdfPageCount) return [];
+    return Array.from({ length: activeAttachmentPdfPageCount }, (_, index) =>
+      annotationSurfaceKey('attachment-pdf', item.attachmentId, String(index + 1)));
+  }
+  if (context === 'attachment-image') {
+    return getTopicAttachments(currentTopicId, 'I').map(item => annotationSurfaceKey('attachment-image', item.attachmentId));
+  }
+  return [];
+}
+
+function annotationStudyNeighborKey(context, delta) {
+  const surface = annotationStudySurface(context);
+  const keys = annotationStudyKeys(context);
+  if (!surface || !keys.length) return '';
+  const currentIndex = keys.indexOf(surface.key);
+  if (currentIndex < 0) return '';
+  for (let i = currentIndex + delta; i >= 0 && i < keys.length; i += delta) {
+    if ((annotationDocuments.get(keys[i])?.objects?.length || 0) > 0) return keys[i];
+  }
+  return '';
+}
+
+function navigateAnnotationStudyKey(context, key) {
+  if (!key) return;
+  if (context === 'reference-pdf') {
+    const sequence = buildReferencePdfLogicalSequence(activeReferencePdfCurrentPage);
+    const page = sequence.find(item => annotationSurfaceKey('reference-pdf', item.sourceType || activeReferencePdfSourceType, item.pageToken) === key);
+    if (!page) return;
+    const registeredIndex = activeReferencePdfLinks.findIndex(link => {
+      const effective = referencePdfPageFromLink(link);
+      return effective && effective.pageToken === page.pageToken && effective.sourceType === page.sourceType;
+    });
+    loadReferencePdfPage(page, { registeredIndex: registeredIndex >= 0 ? registeredIndex : null });
+    return;
+  }
+  if (context === 'attachment-pdf') {
+    const item = activePdfAttachments[activePdfIndex];
+    if (!item) return;
+    const prefix = annotationSurfaceKey('attachment-pdf', item.attachmentId) + ':';
+    if (!key.startsWith(prefix)) return;
+    const pageNumber = Number(key.slice(prefix.length));
+    if (Number.isInteger(pageNumber) && pageNumber > 0) loadAttachmentPdfPage(pageNumber);
+    return;
+  }
+  if (context === 'attachment-image') {
+    const prefix = 'attachment-image:';
+    const attachmentId = key.startsWith(prefix) ? key.slice(prefix.length) : '';
+    if (!attachmentId) return;
+    const figure = els.imageViewerBody?.querySelector(`[data-media-image-id="${cssEscape(attachmentId)}"]`);
+    if (!figure) return;
+    figure.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (figure._imageZoomController) setActiveImageZoomController(figure, figure._imageZoomController);
+  }
+}
+
+function refreshReferencePdfStudyIndicators() {
+  if (!activeReferencePdfCurrentPage) return;
+  const registeredIndex = activeReferencePdfLinks.findIndex(link => {
+    const effective = referencePdfPageFromLink(link);
+    return effective && effective.pageToken === activeReferencePdfCurrentPage.pageToken && effective.sourceType === activeReferencePdfCurrentPage.sourceType;
+  });
+  setReferencePdfSelectForCurrentPage(activeReferencePdfCurrentPage, registeredIndex >= 0 ? registeredIndex : null);
+}
+
+function toggleAnnotationPageFlag(context, field) {
+  const surface = annotationStudySurface(context);
+  if (!surface) return;
+  const documentData = getAnnotationDocument(surface.key);
+  documentData[field] = !documentData[field];
+  documentData.updatedAt = new Date().toISOString();
+  scheduleAnnotationPersist(documentData);
+  syncAnnotationStudyUi();
+  if (context === 'reference-pdf') refreshReferencePdfStudyIndicators();
+  if (context === 'attachment-pdf') updateAttachmentPdfViewerUi();
+}
+
+function syncAnnotationStudyUi() {
+  document.querySelectorAll('[data-annotation-study-nav]').forEach(nav => {
+    const context = nav.dataset.annotationStudyNav;
+    const surface = annotationStudySurface(context);
+    const keys = annotationStudyKeys(context);
+    const annotatedCount = keys.filter(key => (annotationDocuments.get(key)?.objects?.length || 0) > 0).length;
+    const currentMeta = surface ? annotationPageMeta(surface.key) : { count: 0, bookmark: false, important: false };
+    const count = nav.querySelector('[data-annotation-study-count]');
+    const prev = nav.querySelector('[data-annotation-study-prev]');
+    const next = nav.querySelector('[data-annotation-study-next]');
+    const bookmark = nav.querySelector('[data-annotation-bookmark]');
+    const important = nav.querySelector('[data-annotation-important]');
+    if (count) count.textContent = `필기 ${annotatedCount} · 현재 ${currentMeta.count}`;
+    if (prev) prev.disabled = !annotationStudyNeighborKey(context, -1);
+    if (next) next.disabled = !annotationStudyNeighborKey(context, 1);
+    if (bookmark) {
+      bookmark.textContent = currentMeta.bookmark ? '★ 북마크' : '☆ 북마크';
+      bookmark.classList.toggle('active', currentMeta.bookmark);
+      bookmark.disabled = !surface;
+    }
+    if (important) {
+      important.textContent = currentMeta.important ? '🔥 중요됨' : '🔥 중요';
+      important.classList.toggle('active', currentMeta.important);
+      important.disabled = !surface;
+    }
+  });
+}
+
+function bindAnnotationStudyNavEvents() {
+  document.querySelectorAll('[data-annotation-study-nav]').forEach(nav => {
+    if (nav.dataset.annotationStudyBound === '1') return;
+    nav.dataset.annotationStudyBound = '1';
+    const context = nav.dataset.annotationStudyNav;
+    nav.addEventListener('click', event => {
+      if (event.target.closest('[data-annotation-study-prev]')) {
+        navigateAnnotationStudyKey(context, annotationStudyNeighborKey(context, -1));
+        return;
+      }
+      if (event.target.closest('[data-annotation-study-next]')) {
+        navigateAnnotationStudyKey(context, annotationStudyNeighborKey(context, 1));
+        return;
+      }
+      if (event.target.closest('[data-annotation-bookmark]')) {
+        toggleAnnotationPageFlag(context, 'bookmark');
+        return;
+      }
+      if (event.target.closest('[data-annotation-important]')) toggleAnnotationPageFlag(context, 'important');
+    });
+  });
+  syncAnnotationStudyUi();
 }
 
 function getAnnotationViewState(key) {
@@ -7346,6 +7557,7 @@ function syncAnnotationToolbarUi() {
     }
   });
   for (const surface of activeAnnotationSurfaces) updateAnnotationSurfaceInteraction(surface);
+  syncAnnotationStudyUi();
 }
 
 function setAnnotationTool(tool) {
@@ -7991,6 +8203,7 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
     surface.resizeObserver.observe(host);
   }
   scheduleAnnotationSurfaceSync(media);
+  syncAnnotationStudyUi();
   return surface;
 }
 
@@ -8543,6 +8756,7 @@ function setActiveImageZoomController(figure, controller) {
   activeImageZoomController = controller || null;
   if (activeImageFigure) activeImageFigure.classList.add('image-active');
   updateImageViewerZoomUi();
+  syncAnnotationStudyUi();
 }
 
 function renderImageViewer(items) {
@@ -8572,6 +8786,7 @@ function renderImageViewer(items) {
       img.src = url;
       placeholder.replaceWith(img);
       const zoomController = installAttachmentImageZoom(figure, img);
+      figure._imageZoomController = zoomController;
       figure.addEventListener('pointerenter', () => setActiveImageZoomController(figure, zoomController));
       figure.addEventListener('focusin', () => setActiveImageZoomController(figure, zoomController));
       if (!activeImageZoomController) setActiveImageZoomController(figure, zoomController);
@@ -8765,7 +8980,13 @@ function updateAttachmentPdfViewerUi() {
   if (counter && item) counter.textContent = `${activePdfIndex + 1} / ${activePdfAttachments.length} · ${item.fileName}`;
   if (prev) prev.disabled = activePdfIndex === 0;
   if (next) next.disabled = activePdfIndex >= activePdfAttachments.length - 1;
-  if (pageCounter) pageCounter.textContent = `페이지 ${activeAttachmentPdfPageNumber || 0} / ${activeAttachmentPdfPageCount || 0}`;
+  if (pageCounter) {
+    const pageKey = item && activeAttachmentPdfPageNumber
+      ? annotationSurfaceKey('attachment-pdf', item.attachmentId, String(activeAttachmentPdfPageNumber))
+      : '';
+    const icons = pageKey ? annotationPageIcons(pageKey) : '';
+    pageCounter.textContent = `페이지 ${activeAttachmentPdfPageNumber || 0} / ${activeAttachmentPdfPageCount || 0}${icons ? ' · ' + icons : ''}`;
+  }
   if (pagePrev) pagePrev.disabled = activeAttachmentPdfPageNumber <= 1;
   if (pageNext) pageNext.disabled = !activeAttachmentPdfPageCount || activeAttachmentPdfPageNumber >= activeAttachmentPdfPageCount;
   if (zoomLabel) zoomLabel.textContent = `${Math.round(activeAttachmentPdfZoomFactor * 100)}%`;
