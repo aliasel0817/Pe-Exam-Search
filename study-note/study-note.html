@@ -9149,6 +9149,51 @@ function annotationCachedStrokePath(object, canvas) {
   return path;
 }
 
+function annotationRenderStyledStroke(ctx, object, canvas, lineWidth) {
+  const style = object.tool === 'pen' ? object.penStyle : '';
+  if (!ANNOTATION_PEN_STYLES.includes(style) || !Array.isArray(object.points) || object.points.length < 2) return false;
+  const points = object.points;
+  const drawPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
+    ctx.stroke();
+  };
+  if (style === 'ballpoint') {
+    ctx.lineWidth = Math.max(0.8, lineWidth * 0.88);
+    drawPath();
+    return true;
+  }
+  if (style === 'pencil') {
+    ctx.globalAlpha *= 0.74;
+    ctx.lineWidth = Math.max(0.65, lineWidth * 0.66);
+    ctx.setLineDash([Math.max(1.2, lineWidth * 1.1), Math.max(0.4, lineWidth * 0.22)]);
+    drawPath();
+    ctx.setLineDash([]);
+    ctx.globalAlpha *= 0.35;
+    ctx.lineWidth = Math.max(0.45, lineWidth * 0.3);
+    drawPath();
+    return true;
+  }
+  for (let i = 1; i < points.length; i++) {
+    const p0 = points[i - 1], p1 = points[i];
+    const pressure = object.pressureSensitive
+      ? Math.max(0.35, Math.min(1.6, ((Number(p0.p) || 0.5) + (Number(p1.p) || 0.5)) * 1.1))
+      : 1;
+    const dx = (p1.x - p0.x) * canvas.width;
+    const dy = (p1.y - p0.y) * canvas.height;
+    const nibScale = style === 'fountain'
+      ? 0.45 + 1.1 * Math.abs(Math.sin(Math.atan2(dy, dx) - Math.PI / 4))
+      : 1.65;
+    ctx.lineWidth = Math.max(0.8, lineWidth * pressure * nibScale);
+    ctx.beginPath();
+    ctx.moveTo(p0.x * canvas.width, p0.y * canvas.height);
+    ctx.lineTo(p1.x * canvas.width, p1.y * canvas.height);
+    ctx.stroke();
+  }
+  return true;
+}
+
 function renderAnnotationSurface(surface) {
   if (!surface?.canvas) return;
   const canvas = surface.canvas;
@@ -9195,6 +9240,8 @@ function renderAnnotationSurface(surface) {
       ctx.beginPath();
       ctx.arc(points[0].x * canvas.width, points[0].y * canvas.height, (lineWidth * pressureScale) / 2, 0, Math.PI * 2);
       ctx.fill();
+    } else if (annotationRenderStyledStroke(ctx, object, canvas, lineWidth)) {
+      // New tool appearances live on each saved stroke; legacy strokes render unchanged.
     } else if (object.pressureSensitive && object.tool === 'pen') {
       for (let i = 1; i < points.length; i++) {
         const p0 = Math.max(0.05, Math.min(1, Number(points[i - 1].p || 0.5)));
@@ -9417,6 +9464,17 @@ function addAnnotationPoint(surface, stroke, event) {
   stroke.points.push({ x, y, p: pressure });
 }
 
+function updateAnnotationStraightStroke(surface, stroke, event) {
+  const rect = surface.media?.getBoundingClientRect?.();
+  if (!rect || !stroke.points.length || rect.width <= 0 || rect.height <= 0) return;
+  const point = {
+    x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+    y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
+    p: Number.isFinite(event.pressure) && event.pressure > 0 ? event.pressure : 0.5
+  };
+  stroke.points = [stroke.points[0], point];
+}
+
 function installAnnotationInputHandlers(surface) {
   const canvas = surface?.canvas;
   if (!canvas || canvas.dataset.annotationInputBound === '1') return;
@@ -9503,7 +9561,10 @@ function installAnnotationInputHandlers(surface) {
       widthN,
       opacity: settings.opacity,
       pointerType: event.pointerType || 'unknown',
-      pressureSensitive: event.pointerType === 'pen' && annotationEditorState.tool === 'pen',
+      pressureSensitive: event.pointerType === 'pen' && annotationEditorState.tool === 'pen'
+        && ['brush', 'fountain'].includes(annotationEditorState.penStyle),
+      penStyle: annotationEditorState.tool === 'pen' ? annotationEditorState.penStyle : undefined,
+      strokeMode: annotationEditorState.strokeModes[annotationEditorState.tool] || 'free',
       points: [],
       createdAt: new Date().toISOString(),
     };
@@ -9551,7 +9612,10 @@ function installAnnotationInputHandlers(surface) {
     event.preventDefault();
     event.stopPropagation();
     const samples = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
-    for (const sample of samples.length ? samples : [event]) addAnnotationPoint(surface, surface.activeStroke.stroke, sample);
+    for (const sample of samples.length ? samples : [event]) {
+      if (surface.activeStroke.stroke.strokeMode === 'straight') updateAnnotationStraightStroke(surface, surface.activeStroke.stroke, sample);
+      else addAnnotationPoint(surface, surface.activeStroke.stroke, sample);
+    }
     getAnnotationDocument(surface.key).updatedAt = new Date().toISOString();
     scheduleAnnotationRender(surface);
   });
@@ -9596,8 +9660,12 @@ function installAnnotationInputHandlers(surface) {
     if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
     event.preventDefault();
     event.stopPropagation();
-    addAnnotationPoint(surface, surface.activeStroke.stroke, event);
-    optimizeAnnotationStroke(surface, surface.activeStroke.stroke);
+    if (surface.activeStroke.stroke.strokeMode === 'straight') {
+      updateAnnotationStraightStroke(surface, surface.activeStroke.stroke, event);
+    } else {
+      addAnnotationPoint(surface, surface.activeStroke.stroke, event);
+      optimizeAnnotationStroke(surface, surface.activeStroke.stroke);
+    }
     surface.activeStroke = null;
     try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
     scheduleAnnotationRender(surface);
