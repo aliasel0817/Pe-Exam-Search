@@ -9716,11 +9716,281 @@ function prepareAnnotationMobileToolbar(toolbar) {
   toolbar.appendChild(more);
 }
 
+
+function restoreAnnotationToolPreferences() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ANNOTATION_OPTIONS_KEY) || '{}');
+    if (ANNOTATION_PEN_STYLES.includes(raw.penStyle)) annotationEditorState.penStyle = raw.penStyle;
+    for (const kind of ['pen', 'highlighter']) {
+      if (raw.strokeModes?.[kind] === 'straight') annotationEditorState.strokeModes[kind] = 'straight';
+    }
+  } catch (error) { /* Private browsing may deny local preferences. */ }
+  try {
+    const colors = JSON.parse(localStorage.getItem(ANNOTATION_PALETTE_KEY) || '[]');
+    annotationEditorState.favoriteColors = Array.isArray(colors)
+      ? [...new Set(colors.filter(value => /^#[0-9a-f]{6}$/i.test(value)).map(value => value.toLowerCase()))].slice(0, 16)
+      : [];
+  } catch (error) { annotationEditorState.favoriteColors = []; }
+}
+
+function saveAnnotationToolPreferences() {
+  try {
+    localStorage.setItem(ANNOTATION_OPTIONS_KEY, JSON.stringify({
+      penStyle: annotationEditorState.penStyle,
+      strokeModes: annotationEditorState.strokeModes,
+    }));
+  } catch (error) { /* Preferences still work for the current session. */ }
+}
+
+function saveAnnotationFavoriteColors() {
+  try {
+    localStorage.setItem(ANNOTATION_PALETTE_KEY, JSON.stringify(annotationEditorState.favoriteColors));
+  } catch (error) { /* Preferences still work for the current session. */ }
+}
+
+let annotationToolPopup = null;
+
+function closeAnnotationToolPopup() {
+  if (annotationToolPopup) annotationToolPopup.remove();
+  annotationToolPopup = null;
+  document.querySelectorAll('[data-annotation-popup-trigger]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+}
+
+function openAnnotationToolPopup(anchor, kind) {
+  closeAnnotationToolPopup();
+  if (!anchor || !['pen', 'shape', 'palette'].includes(kind)) return;
+  const pop = document.createElement('div');
+  pop.className = 'annotation-tool-popup';
+  pop.dataset.annotationPopup = kind;
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', kind === 'pen' ? '펜 종류' : kind === 'shape' ? '도형 선택' : '색상 팔레트');
+  const heading = document.createElement('strong');
+  heading.className = 'annotation-tool-popup-title';
+  heading.textContent = kind === 'pen' ? '펜 종류 선택' : kind === 'shape' ? '그릴 도형 선택' : '색상 팔레트';
+  const close = document.createElement('button');
+  close.type = 'button'; close.className = 'annotation-tool-popup-close';
+  close.textContent = '✕'; close.setAttribute('aria-label', '선택 창 닫기');
+  close.addEventListener('click', closeAnnotationToolPopup);
+  const header = document.createElement('div');
+  header.className = 'annotation-tool-popup-head';
+  header.append(heading, close);
+  pop.append(header);
+  const grid = document.createElement('div');
+  grid.className = 'annotation-tool-popup-grid';
+  pop.append(grid);
+
+  const option = (label, selected, action, detail = '') => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'annotation-tool-option' + (selected ? ' is-selected' : '');
+    const main = document.createElement('span');
+    main.textContent = label;
+    button.append(main);
+    if (detail) {
+      const small = document.createElement('small');
+      small.textContent = detail;
+      button.append(small);
+    }
+    button.addEventListener('click', action);
+    grid.append(button);
+  };
+
+  if (kind === 'pen') {
+    const styles = [
+      ['pencil', '✎ 연필', '옅고 질감 있는 선'],
+      ['ballpoint', '🖊 볼펜', '굵기가 일정한 필기'],
+      ['brush', '🖌 붓', '굵은 획·필압 반영'],
+      ['fountain', '✒ 만년필', '획 방향에 따라 굵기 변화']
+    ];
+    for (const [id, label, description] of styles) {
+      option(label, annotationEditorState.penStyle === id, () => {
+        annotationEditorState.penStyle = id;
+        saveAnnotationToolPreferences();
+        setAnnotationTool('pen');
+        closeAnnotationToolPopup();
+      }, description);
+    }
+  } else if (kind === 'shape') {
+    for (const [id, label] of ANNOTATION_SHAPE_CHOICES) {
+      option(label, annotationEditorState.tool === id, () => {
+        setAnnotationTool(id);
+        closeAnnotationToolPopup();
+      });
+    }
+  } else {
+    grid.classList.add('annotation-palette-grid');
+    const quickColors = ['#111827', '#2563eb', '#dc2626', '#16a34a',
+      '#facc15', '#f97316', '#9333ea', '#ffffff'];
+    const quickHeading = document.createElement('p');
+    quickHeading.className = 'annotation-palette-title';
+    quickHeading.textContent = '기본 색상';
+    grid.append(quickHeading);
+    const swatch = (color, saved) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'annotation-palette-swatch';
+      const colorButton = document.createElement('button');
+      colorButton.type = 'button';
+      colorButton.className = 'annotation-swatch-choice';
+      colorButton.style.backgroundColor = color;
+      colorButton.title = color + ' 색상 적용';
+      colorButton.setAttribute('aria-label', color + ' 색상 적용');
+      colorButton.dataset.annotationPaletteColor = color;
+      colorButton.addEventListener('click', () => {
+        const settings = annotationEditorState[annotationStyleKey()];
+        if (settings) settings.color = color;
+        syncAnnotationToolbarUi();
+        closeAnnotationToolPopup();
+      });
+      wrap.append(colorButton);
+      if (saved) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'annotation-swatch-remove';
+        remove.textContent = '×';
+        remove.title = color + ' 즐겨찾기에서 제거';
+        remove.setAttribute('aria-label', color + ' 삭제');
+        remove.addEventListener('click', () => {
+          annotationEditorState.favoriteColors = annotationEditorState.favoriteColors.filter(item => item !== color);
+          saveAnnotationFavoriteColors();
+          openAnnotationToolPopup(anchor, 'palette');
+        });
+        wrap.append(remove);
+      }
+      grid.append(wrap);
+    };
+    quickColors.forEach(color => swatch(color, false));
+    const favoritesHeading = document.createElement('p');
+    favoritesHeading.className = 'annotation-palette-title';
+    favoritesHeading.textContent = '저장한 색상 (최대 16개)';
+    grid.append(favoritesHeading);
+    if (!annotationEditorState.favoriteColors.length) {
+      const hint = document.createElement('span');
+      hint.className = 'annotation-palette-hint';
+      hint.textContent = '색상 칸에서 색을 고른 후 아래 버튼으로 저장하세요.';
+      grid.append(hint);
+    }
+    annotationEditorState.favoriteColors.forEach(color => swatch(color, true));
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'annotation-palette-save';
+    add.textContent = '＋ 현재 색상 저장';
+    add.addEventListener('click', () => {
+      const current = String(annotationEditorState[annotationStyleKey()]?.color || '').toLowerCase();
+      if (!/^#[0-9a-f]{6}$/i.test(current)) return;
+      if (annotationEditorState.favoriteColors.includes(current)) {
+        showToast('이미 저장된 색상입니다.');
+        return;
+      }
+      if (annotationEditorState.favoriteColors.length >= 16) {
+        showToast('저장 가능한 색상은 최대 16개입니다.');
+        return;
+      }
+      annotationEditorState.favoriteColors.push(current);
+      saveAnnotationFavoriteColors();
+      openAnnotationToolPopup(anchor, 'palette');
+    });
+    pop.append(add);
+  }
+  document.body.append(pop);
+  annotationToolPopup = pop;
+  anchor.setAttribute('aria-expanded', 'true');
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(kind === 'palette' ? 290 : 325, Math.max(210, window.innerWidth - 20));
+  pop.style.width = width + 'px';
+  pop.style.maxHeight = Math.max(120, window.innerHeight - 24) + 'px';
+  const left = Math.max(10, Math.min(window.innerWidth - width - 10, rect.left));
+  pop.style.left = left + 'px';
+  // Put the menu above bottom toolbars, retaining touch access on small screens.
+  const maxPopupHeight = Math.min(pop.scrollHeight, window.innerHeight - 24);
+  const top = rect.bottom + 8 + maxPopupHeight <= window.innerHeight - 8
+    ? rect.bottom + 8
+    : Math.max(10, rect.top - maxPopupHeight - 8);
+  pop.style.top = top + 'px';
+}
+
+function prepareEnhancedAnnotationToolbar(toolbar) {
+  const pen = toolbar.querySelector('[data-annotation-tool="pen"]');
+  const highlighter = toolbar.querySelector('[data-annotation-tool="highlighter"]');
+  const eraser = toolbar.querySelector('[data-annotation-tool="eraser"]');
+  const color = toolbar.querySelector('[data-annotation-color]');
+  if (!pen || !highlighter || !eraser || !color) return;
+
+  pen.title = '클릭: 펜 선택 / 두 번 클릭 또는 길게 누르기: 펜 종류';
+  const penSettings = document.createElement('button');
+  penSettings.type = 'button'; penSettings.className = 'btn annotation-subtype-trigger';
+  penSettings.textContent = '▾';
+  penSettings.title = '펜 종류 설정';
+  penSettings.dataset.annotationPopupTrigger = 'pen';
+  pen.insertAdjacentElement('afterend', penSettings);
+  penSettings.addEventListener('click', () => openAnnotationToolPopup(penSettings, 'pen'));
+  pen.addEventListener('dblclick', event => {
+    event.preventDefault();
+    openAnnotationToolPopup(pen, 'pen');
+  });
+  let longPress = 0;
+  pen.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    clearTimeout(longPress);
+    longPress = window.setTimeout(() => {
+      longPress = 0;
+      openAnnotationToolPopup(pen, 'pen');
+    }, 550);
+  });
+  for (const name of ['pointerup', 'pointercancel', 'pointerleave']) {
+    pen.addEventListener(name, () => { if (longPress) clearTimeout(longPress); longPress = 0; });
+  }
+  pen.addEventListener('contextmenu', event => event.preventDefault());
+
+  const mode = document.createElement('button');
+  mode.type = 'button';
+  mode.className = 'btn annotation-stroke-mode';
+  mode.dataset.annotationStrokeMode = '1';
+  mode.setAttribute('aria-label', '펜과 형광펜의 자유선 또는 직선 모드 변경');
+  highlighter.insertAdjacentElement('afterend', mode);
+  mode.addEventListener('click', () => {
+    const kind = annotationEditorState.tool === 'highlighter' ? 'highlighter' : 'pen';
+    annotationEditorState.strokeModes[kind] =
+      annotationEditorState.strokeModes[kind] === 'straight' ? 'free' : 'straight';
+    saveAnnotationToolPreferences();
+    syncAnnotationToolbarUi();
+  });
+
+  // Old line/arrow/rectangle/ellipse objects remain readable, but occupy one menu.
+  toolbar.querySelectorAll('[data-annotation-tool="line"], [data-annotation-tool="arrow"], [data-annotation-tool="rect"], [data-annotation-tool="ellipse"]').forEach(button => button.remove());
+  const shapes = document.createElement('button');
+  shapes.type = 'button'; shapes.className = 'btn annotation-tool-btn annotation-shapes-trigger';
+  shapes.dataset.annotationPopupTrigger = 'shape';
+  shapes.textContent = '◇ 도형 ▾';
+  shapes.title = '화살표, 삼각형, 사각형, 오각형, 원 등 도형 선택';
+  eraser.insertAdjacentElement('afterend', shapes);
+  shapes.addEventListener('click', () => openAnnotationToolPopup(shapes, 'shape'));
+
+  const palette = document.createElement('button');
+  palette.type = 'button'; palette.className = 'btn annotation-palette-trigger annotation-mobile-optional';
+  palette.dataset.annotationPopupTrigger = 'palette';
+  palette.textContent = '🎨 팔레트';
+  palette.title = '자주 사용하는 색상 선택 및 저장';
+  color.insertAdjacentElement('afterend', palette);
+  palette.addEventListener('click', () => openAnnotationToolPopup(palette, 'palette'));
+}
+
 function bindAnnotationToolbarEvents() {
+  restoreAnnotationToolPreferences();
+  document.addEventListener('pointerdown', event => {
+    if (annotationToolPopup && !event.target.closest('.annotation-tool-popup, [data-annotation-popup-trigger], [data-annotation-tool="pen"]')) closeAnnotationToolPopup();
+  }, true);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && annotationToolPopup) {
+      event.preventDefault();
+      closeAnnotationToolPopup();
+    }
+  });
+  window.addEventListener('resize', closeAnnotationToolPopup);
   document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
     if (toolbar.dataset.annotationBound === '1') return;
     toolbar.dataset.annotationBound = '1';
     prepareAnnotationMobileToolbar(toolbar);
+    prepareEnhancedAnnotationToolbar(toolbar);
     toolbar.addEventListener('click', event => {
       const moreButton = event.target.closest('[data-annotation-more]');
       if (moreButton) {
