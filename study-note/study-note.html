@@ -10200,10 +10200,7 @@ function openAnnotationToolPopup(anchor, kind) {
       colorButton.setAttribute('aria-label', color + ' 색상 적용');
       colorButton.dataset.annotationPaletteColor = color;
       colorButton.addEventListener('click', () => {
-        const settings = annotationEditorState[annotationStyleKey()];
-        if (settings) settings.color = color;
-        saveAnnotationToolPreferences();
-        syncAnnotationToolbarUi();
+        applyAnnotationPaletteColor(color);
         closeAnnotationToolPopup();
       });
       wrap.append(colorButton);
@@ -10244,32 +10241,179 @@ function openAnnotationToolPopup(anchor, kind) {
     const activeColor = annotationEditorState[annotationStyleKey()]?.color || '#2563eb';
     customInput.value = /^#[0-9a-f]{6}$/i.test(activeColor) ? activeColor : '#2563eb';
     customInput.setAttribute('aria-label', '팔레트에 저장할 색상 직접 선택');
-    customInput.addEventListener('input', () => {
-      const style = annotationEditorState[annotationStyleKey()];
-      if (style) style.color = customInput.value;
-      saveAnnotationToolPreferences();
-      syncAnnotationToolbarUi();
-    });
+    customInput.addEventListener('input', () => paintEditableColor(customInput.value, 'native'));
     custom.append(customLabel, customInput);
     pop.append(custom);
+
+    const editor = document.createElement('div');
+    editor.className = 'annotation-palette-editor';
+    editor.setAttribute('aria-label', 'HEX 및 RGB 색상 입력');
+    const editorTitle = document.createElement('strong');
+    editorTitle.className = 'annotation-palette-title';
+    editorTitle.textContent = 'HEX · RGB 색상값';
+    editor.append(editorTitle);
+    const hexRow = document.createElement('div');
+    hexRow.className = 'annotation-palette-hex-row';
+    const hexLabel = document.createElement('label');
+    hexLabel.textContent = 'HEX';
+    const hexInput = document.createElement('input');
+    hexInput.type = 'text';
+    hexInput.className = 'annotation-palette-hex';
+    hexInput.dataset.annotationHex = '1';
+    hexInput.setAttribute('aria-label', 'HEX 색상값');
+    hexInput.setAttribute('spellcheck', 'false');
+    hexInput.autocomplete = 'off';
+    hexInput.maxLength = 7;
+    hexInput.placeholder = '#2563EB';
+    hexLabel.append(hexInput);
+    const editorPreview = document.createElement('span');
+    editorPreview.className = 'annotation-color-preview annotation-palette-current-preview';
+    editorPreview.setAttribute('aria-label', '현재 색상 미리보기');
+    hexRow.append(hexLabel, editorPreview);
+    editor.append(hexRow);
+
+    const rgbRow = document.createElement('div');
+    rgbRow.className = 'annotation-palette-rgb-row';
+    const rgbInputs = ['R', 'G', 'B'].map(channel => {
+      const label = document.createElement('label');
+      label.textContent = channel;
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '255';
+      input.step = '1';
+      input.inputMode = 'numeric';
+      input.dataset.annotationRgb = channel.toLowerCase();
+      input.setAttribute('aria-label', channel + ' 색상값 0에서 255');
+      label.append(input);
+      rgbRow.append(label);
+      return input;
+    });
+    editor.append(rgbRow);
+    const info = document.createElement('span');
+    info.className = 'annotation-palette-color-info';
+    info.setAttribute('aria-live', 'polite');
+    editor.append(info);
+    pop.append(editor);
+
+    function paintEditableColor(value, origin = '') {
+      const hex = annotationNormalizeHex(value);
+      if (!hex || !applyAnnotationPaletteColor(hex)) return false;
+      const rgb = annotationHexRgb(hex);
+      editorPreview.style.backgroundColor = hex;
+      info.textContent = 'RGB ' + rgb.join(', ') + ' · ' + hex.toUpperCase();
+      if (origin !== 'hex') hexInput.value = hex.toUpperCase();
+      rgbInputs.forEach((input, index) => {
+        if (origin !== 'rgb' + index) input.value = String(rgb[index]);
+      });
+      if (origin !== 'native') customInput.value = hex;
+      hexInput.removeAttribute('aria-invalid');
+      return true;
+    }
+    // Do not commit incomplete text while users are still typing a six-digit HEX value.
+    hexInput.addEventListener('input', () => {
+      if (/^#?[0-9a-f]{6}$/i.test(hexInput.value.trim())) {
+        paintEditableColor(hexInput.value, 'hex');
+      }
+    });
+    hexInput.addEventListener('change', () => {
+      if (!paintEditableColor(hexInput.value)) {
+        hexInput.value = (annotationNormalizeHex(annotationActiveSettings()?.color) || '#2563eb').toUpperCase();
+      }
+    });
+    rgbInputs.forEach((input, index) => {
+      input.addEventListener('input', () => {
+        if (rgbInputs.some(field => !/^\d{1,3}$/.test(field.value.trim()))) return;
+        const values = rgbInputs.map(field => Number(field.value));
+        const color = annotationRgbHex(values);
+        if (color) paintEditableColor(color, 'rgb' + index);
+      });
+      input.addEventListener('change', () => {
+        const parsed = Number(input.value);
+        const number = Number.isFinite(parsed) && input.value.trim() !== ''
+          ? Math.max(0, Math.min(255, Math.round(parsed))) : annotationHexRgb(annotationActiveSettings()?.color)?.[index] || 0;
+        input.value = String(number);
+        const values = rgbInputs.map(field => Number(field.value));
+        const color = annotationRgbHex(values);
+        if (color) paintEditableColor(color);
+      });
+    });
+    paintEditableColor(activeColor);
+
+    const eyedropperSection = document.createElement('div');
+    eyedropperSection.className = 'annotation-palette-eyedropper';
+    const eyedropperLabel = document.createElement('strong');
+    eyedropperLabel.className = 'annotation-palette-title';
+    eyedropperLabel.textContent = '스포이드로 색 가져오기';
+    eyedropperSection.append(eyedropperLabel);
+    const eyedropperActions = document.createElement('div');
+    eyedropperActions.className = 'annotation-palette-eyedrop-actions';
+    const screenButton = document.createElement('button');
+    screenButton.type = 'button';
+    screenButton.className = 'btn';
+    screenButton.dataset.annotationScreenEyedropper = '1';
+    screenButton.textContent = '🧪 화면 스포이드';
+    const supported = typeof window.EyeDropper === 'function' && window.isSecureContext;
+    screenButton.disabled = !supported;
+    screenButton.title = supported
+      ? '화면이나 다른 프로그램의 색상 선택'
+      : '이 브라우저에서는 화면 스포이드를 지원하지 않습니다. 이미지 색 집기를 이용해 주세요.';
+    screenButton.addEventListener('click', () => {
+      if (!supported) return;
+      const styleKey = annotationStyleKey();
+      // EyeDropper.open must run synchronously within the user's click gesture.
+      let pending;
+      try {
+        pending = new window.EyeDropper().open();
+      } catch (error) {
+        showToast('화면 스포이드를 시작할 수 없습니다.');
+        return;
+      }
+      closeAnnotationToolPopup();
+      Promise.resolve(pending).then(result => {
+        if (applyAnnotationPaletteColor(result?.sRGBHex, styleKey)) {
+          showToast('화면에서 선택한 색상을 적용했습니다.');
+        }
+      }).catch(error => {
+        if (error?.name !== 'AbortError') {
+          showToast('화면 스포이드를 사용할 수 없습니다. 이미지에서 색을 집어 주세요.');
+        }
+      });
+    });
+    const imageButton = document.createElement('button');
+    imageButton.type = 'button';
+    imageButton.className = 'btn';
+    imageButton.dataset.annotationImageEyedropper = '1';
+    imageButton.textContent = '🖼 이미지에서 색 집기';
+    imageButton.title = '기기에서 스크린샷/사진을 골라 원하는 색을 터치';
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.hidden = true;
+    fileInput.dataset.annotationSamplerFile = '1';
+    imageButton.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const selected = fileInput.files?.[0];
+      if (selected) openAnnotationScreenshotSampler(selected, annotationStyleKey());
+    });
+    eyedropperActions.append(screenButton, imageButton);
+    eyedropperSection.append(eyedropperActions, fileInput);
+    if (!supported) {
+      const availability = document.createElement('small');
+      availability.className = 'annotation-palette-availability';
+      availability.textContent = '이 브라우저에서는 화면 스포이드 대신 스크린샷이나 사진에서 색을 집을 수 있습니다.';
+      eyedropperSection.append(availability);
+    }
+    pop.append(eyedropperSection);
+
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'annotation-palette-save';
     add.textContent = '＋ 현재 색상 저장';
     add.addEventListener('click', () => {
-      const current = String(annotationEditorState[annotationStyleKey()]?.color || '').toLowerCase();
-      if (!/^#[0-9a-f]{6}$/i.test(current)) return;
-      if (annotationEditorState.favoriteColors.includes(current)) {
-        showToast('이미 저장된 색상입니다.');
-        return;
+      if (rememberAnnotationPaletteColor(annotationEditorState[annotationStyleKey()]?.color)) {
+        openAnnotationToolPopup(anchor, 'palette');
       }
-      if (annotationEditorState.favoriteColors.length >= 16) {
-        showToast('저장 가능한 색상은 최대 16개입니다.');
-        return;
-      }
-      annotationEditorState.favoriteColors.push(current);
-      saveAnnotationFavoriteColors();
-      openAnnotationToolPopup(anchor, 'palette');
     });
     pop.append(add);
   }
