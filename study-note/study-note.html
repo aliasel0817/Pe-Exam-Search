@@ -3305,6 +3305,7 @@ const annotationEditorState = {
 let lastActiveAnnotationSurface = null;
 let annotationTemporaryPreviousTool = '';
 let annotationClipboardObject = null;
+const annotationPointerProfile = { stylusSeen: false, lastStylusAt: 0 };
 const ANNOTATION_HISTORY_LIMIT = 50;
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
@@ -7876,6 +7877,41 @@ function scheduleAnnotationRender(surface) {
   });
 }
 
+function annotationPanScroller(surface) {
+  return surface?.canvas?.closest?.('.attachment-pdf-pan-scroller, .reference-pdf-pan-scroller, .media-image-zoom-wrap') || null;
+}
+
+function beginAnnotationTouchPan(surface, event) {
+  const scroller = annotationPanScroller(surface);
+  if (!scroller) return false;
+  surface.touchPan = {
+    pointerId: event.pointerId,
+    scroller,
+    startX: event.clientX,
+    startY: event.clientY,
+    scrollLeft: scroller.scrollLeft,
+    scrollTop: scroller.scrollTop,
+  };
+  try { surface.canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+  return true;
+}
+
+function moveAnnotationTouchPan(surface, event) {
+  const pan = surface.touchPan;
+  if (!pan || pan.pointerId !== event.pointerId) return false;
+  pan.scroller.scrollLeft = pan.scrollLeft - (event.clientX - pan.startX);
+  if (typeof pan.scroller.scrollTop === 'number') pan.scroller.scrollTop = pan.scrollTop - (event.clientY - pan.startY);
+  return true;
+}
+
+function finishAnnotationTouchPan(surface, event) {
+  const pan = surface.touchPan;
+  if (!pan || pan.pointerId !== event.pointerId) return false;
+  surface.touchPan = null;
+  try { surface.canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
+  return true;
+}
+
 function addAnnotationPoint(surface, stroke, event) {
   const rect = surface.media?.getBoundingClientRect?.();
   if (!rect || rect.width <= 0 || rect.height <= 0) return;
@@ -7900,6 +7936,17 @@ function installAnnotationInputHandlers(surface) {
   canvas.addEventListener('pointerdown', async event => {
     if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (event.pointerType === 'pen') {
+      annotationPointerProfile.stylusSeen = true;
+      annotationPointerProfile.lastStylusAt = Date.now();
+    }
+    if (event.pointerType === 'touch' && annotationPointerProfile.stylusSeen) {
+      if (beginAnnotationTouchPan(surface, event)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     lastActiveAnnotationSurface = surface;
@@ -7977,6 +8024,12 @@ function installAnnotationInputHandlers(surface) {
   });
 
   canvas.addEventListener('pointermove', event => {
+    if (surface.touchPan && surface.touchPan.pointerId === event.pointerId) {
+      event.preventDefault();
+      event.stopPropagation();
+      moveAnnotationTouchPan(surface, event);
+      return;
+    }
     if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId) {
       event.preventDefault();
       event.stopPropagation();
@@ -8010,6 +8063,12 @@ function installAnnotationInputHandlers(surface) {
   });
 
   const finishStroke = event => {
+    if (surface.touchPan && surface.touchPan.pointerId === event.pointerId) {
+      event.preventDefault();
+      event.stopPropagation();
+      finishAnnotationTouchPan(surface, event);
+      return;
+    }
     if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId) {
       event.preventDefault();
       event.stopPropagation();
@@ -8203,6 +8262,7 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
     activeErase: null,
     selectedObjectId: '',
     selectionAction: null,
+    touchPan: null,
     hasRendered: false,
   };
   annotationSurfaceByMedia.set(media, surface);
