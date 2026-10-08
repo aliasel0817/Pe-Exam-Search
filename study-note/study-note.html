@@ -8875,19 +8875,6 @@ function syncAnnotationToolbarUi() {
       shapeButton.setAttribute('aria-pressed', selected ? 'true' : 'false');
       shapeButton.title = selected ? '현재 도형: ' + annotationToolLabel() + ' · 다른 도형 선택' : '도형 선택';
     }
-    const modeButton = toolbar.querySelector('[data-annotation-stroke-mode]');
-    if (modeButton) {
-      const strokeTool = annotationEditorState.tool === 'pen' || annotationEditorState.tool === 'highlighter'
-        ? annotationEditorState.tool : '';
-      modeButton.hidden = !strokeTool;
-      modeButton.style.display = strokeTool ? '' : 'none';
-      if (strokeTool) {
-        const straight = annotationEditorState.strokeModes[strokeTool] === 'straight';
-        modeButton.textContent = straight ? '／ 직선' : '〰 자유선';
-        modeButton.title = (strokeTool === 'highlighter' ? '형광펜' : '펜') + ' · 클릭하여 ' + (straight ? '자유선' : '직선') + '으로 전환';
-        modeButton.setAttribute('aria-pressed', String(straight));
-      }
-    }
     const isPan = annotationEditorState.tool === 'pan';
     const isEraser = annotationEditorState.tool === 'eraser';
     const isSelect = annotationEditorState.tool === 'select';
@@ -10096,76 +10083,88 @@ function openAnnotationToolPopup(anchor, kind) {
   pop.style.top = top + 'px';
 }
 
+function bindAnnotationLongPressButton(button, kind) {
+  button.title = kind === 'pen'
+    ? '짧게 누르기: 펜 선택 · 길게 누르기: 펜 종류/자유선/직선'
+    : '짧게 누르기: 형광펜 선택 · 길게 누르기: 자유선/직선';
+  let timer = 0;
+  let pointerId = null;
+  let startX = 0;
+  let startY = 0;
+  let suppressClick = false;
+  const cancelTimer = () => {
+    if (timer) clearTimeout(timer);
+    timer = 0;
+  };
+  button.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    cancelTimer();
+    suppressClick = false;
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    timer = window.setTimeout(() => {
+      timer = 0;
+      if (pointerId !== event.pointerId) return;
+      suppressClick = true;
+      openAnnotationToolPopup(button, kind);
+    }, 550);
+  });
+  button.addEventListener('pointermove', event => {
+    if (timer && pointerId === event.pointerId &&
+        Math.hypot(event.clientX - startX, event.clientY - startY) > 12) cancelTimer();
+  });
+  for (const name of ['pointerup', 'pointercancel', 'pointerleave']) {
+    button.addEventListener(name, () => {
+      cancelTimer();
+      pointerId = null;
+    });
+  }
+  button.addEventListener('click', event => {
+    // A browser can emit a click after a successful long press. Never switch tools in that case.
+    if (!suppressClick) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+  button.addEventListener('contextmenu', event => event.preventDefault());
+  button.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown' && event.altKey) {
+      event.preventDefault();
+      openAnnotationToolPopup(button, kind);
+    }
+  });
+}
+
 function prepareEnhancedAnnotationToolbar(toolbar) {
   const pen = toolbar.querySelector('[data-annotation-tool="pen"]');
   const highlighter = toolbar.querySelector('[data-annotation-tool="highlighter"]');
   const eraser = toolbar.querySelector('[data-annotation-tool="eraser"]');
-  const color = toolbar.querySelector('[data-annotation-color]');
-  if (!pen || !highlighter || !eraser || !color) return;
+  const palette = toolbar.querySelector('[data-annotation-popup-trigger="palette"]');
+  if (!pen || !highlighter || !eraser || !palette) return;
 
-  pen.title = '클릭: 펜 선택 / 두 번 클릭 또는 길게 누르기: 펜 종류';
-  const penSettings = document.createElement('button');
-  penSettings.type = 'button'; penSettings.className = 'btn annotation-subtype-trigger';
-  penSettings.textContent = '▾';
-  penSettings.title = '펜 종류 설정';
-  penSettings.dataset.annotationPopupTrigger = 'pen';
-  pen.insertAdjacentElement('afterend', penSettings);
-  penSettings.addEventListener('click', () => openAnnotationToolPopup(penSettings, 'pen'));
-  pen.addEventListener('dblclick', event => {
-    event.preventDefault();
-    openAnnotationToolPopup(pen, 'pen');
-  });
-  let longPress = 0;
-  pen.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    clearTimeout(longPress);
-    longPress = window.setTimeout(() => {
-      longPress = 0;
-      openAnnotationToolPopup(pen, 'pen');
-    }, 550);
-  });
-  for (const name of ['pointerup', 'pointercancel', 'pointerleave']) {
-    pen.addEventListener(name, () => { if (longPress) clearTimeout(longPress); longPress = 0; });
-  }
-  pen.addEventListener('contextmenu', event => event.preventDefault());
+  bindAnnotationLongPressButton(pen, 'pen');
+  bindAnnotationLongPressButton(highlighter, 'highlighter');
 
-  const mode = document.createElement('button');
-  mode.type = 'button';
-  mode.className = 'btn annotation-stroke-mode';
-  mode.dataset.annotationStrokeMode = '1';
-  mode.setAttribute('aria-label', '펜과 형광펜의 자유선 또는 직선 모드 변경');
-  highlighter.insertAdjacentElement('afterend', mode);
-  mode.addEventListener('click', () => {
-    const kind = annotationEditorState.tool === 'highlighter' ? 'highlighter' : 'pen';
-    annotationEditorState.strokeModes[kind] =
-      annotationEditorState.strokeModes[kind] === 'straight' ? 'free' : 'straight';
-    saveAnnotationToolPreferences();
-    syncAnnotationToolbarUi();
-  });
-
-  // Old line/arrow/rectangle/ellipse objects remain readable, but occupy one menu.
-  toolbar.querySelectorAll('[data-annotation-tool="line"], [data-annotation-tool="arrow"], [data-annotation-tool="rect"], [data-annotation-tool="ellipse"]').forEach(button => button.remove());
+  // Keep existing shape object types, but choose them via one common menu.
+  toolbar.querySelectorAll('[data-annotation-tool="line"], [data-annotation-tool="arrow"], [data-annotation-tool="rect"], [data-annotation-tool="ellipse"]')
+    .forEach(button => button.remove());
   const shapes = document.createElement('button');
-  shapes.type = 'button'; shapes.className = 'btn annotation-tool-btn annotation-shapes-trigger';
+  shapes.type = 'button';
+  shapes.className = 'btn annotation-tool-btn annotation-shapes-trigger';
   shapes.dataset.annotationPopupTrigger = 'shape';
   shapes.textContent = '◇ 도형 ▾';
   shapes.title = '화살표, 삼각형, 사각형, 오각형, 원 등 도형 선택';
   eraser.insertAdjacentElement('afterend', shapes);
   shapes.addEventListener('click', () => openAnnotationToolPopup(shapes, 'shape'));
 
-  const palette = document.createElement('button');
-  palette.type = 'button'; palette.className = 'btn annotation-palette-trigger';
-  palette.dataset.annotationPopupTrigger = 'palette';
-  palette.textContent = '🎨 색상';
-  palette.title = '색상 선택 및 나만의 팔레트 저장';
-  penSettings.insertAdjacentElement('afterend', palette);
   palette.addEventListener('click', () => openAnnotationToolPopup(palette, 'palette'));
 }
 
 function bindAnnotationToolbarEvents() {
   restoreAnnotationToolPreferences();
   document.addEventListener('pointerdown', event => {
-    if (annotationToolPopup && !event.target.closest('.annotation-tool-popup, [data-annotation-popup-trigger], [data-annotation-tool="pen"]')) closeAnnotationToolPopup();
+    if (annotationToolPopup && !event.target.closest('.annotation-tool-popup, [data-annotation-popup-trigger], [data-annotation-tool="pen"], [data-annotation-tool="highlighter"]')) closeAnnotationToolPopup();
   }, true);
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && annotationToolPopup) {
@@ -10189,6 +10188,7 @@ function bindAnnotationToolbarEvents() {
       }
       const toolButton = event.target.closest('[data-annotation-tool]');
       if (toolButton) {
+        closeAnnotationToolPopup();
         setAnnotationTool(toolButton.dataset.annotationTool);
         return;
       }
