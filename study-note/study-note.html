@@ -801,6 +801,11 @@ button { -webkit-tap-highlight-color: transparent; }
   background: var(--primary-soft);
   color: var(--primary-strong);
 }
+.annotation-mobile-more { display: none; }
+@media (max-width: 760px) {
+  .annotation-mobile-more { display: inline-flex; align-items: center; justify-content: center; }
+  .annotation-toolbar.mobile-collapsed .annotation-mobile-optional { display: none !important; }
+}
 .annotation-toolbar-label { color: #475467; font-size: .68rem; font-weight: 800; white-space: nowrap; }
 .annotation-color-input {
   width: 34px;
@@ -8192,11 +8197,60 @@ function installAnnotationInputHandlers(surface) {
   canvas.addEventListener('pointercancel', finishStroke);
 }
 
+function prepareAnnotationMobileToolbar(toolbar) {
+  if (!toolbar || toolbar.dataset.annotationMobilePrepared === '1') return;
+  toolbar.dataset.annotationMobilePrepared = '1';
+  toolbar.classList.add('mobile-collapsed');
+
+  const optionalSelectors = [
+    '[data-annotation-tool="line"]',
+    '[data-annotation-tool="arrow"]',
+    '[data-annotation-tool="rect"]',
+    '[data-annotation-tool="ellipse"]',
+    '[data-annotation-tool="text"]',
+    '[data-annotation-tool="note"]',
+    '[data-annotation-status]',
+    '[data-annotation-save-status]',
+    '[data-annotation-color]',
+    '[data-annotation-width-label]',
+    '[data-annotation-width]',
+    '[data-annotation-opacity]',
+    '[data-annotation-opacity-value]',
+    '[data-annotation-duplicate]',
+    '[data-annotation-delete-selection]',
+    '[data-annotation-back]',
+    '[data-annotation-front]',
+    '[data-annotation-visibility]',
+    '[data-annotation-manager]',
+    '[data-annotation-clear]',
+  ];
+  for (const selector of optionalSelectors) {
+    toolbar.querySelectorAll(selector).forEach(element => element.classList.add('annotation-mobile-optional'));
+  }
+  toolbar.querySelectorAll('.annotation-toolbar-label').forEach(element => element.classList.add('annotation-mobile-optional'));
+
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'btn annotation-mobile-more';
+  more.dataset.annotationMore = '1';
+  more.textContent = '더보기';
+  more.setAttribute('aria-expanded', 'false');
+  toolbar.appendChild(more);
+}
+
 function bindAnnotationToolbarEvents() {
   document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
     if (toolbar.dataset.annotationBound === '1') return;
     toolbar.dataset.annotationBound = '1';
+    prepareAnnotationMobileToolbar(toolbar);
     toolbar.addEventListener('click', event => {
+      const moreButton = event.target.closest('[data-annotation-more]');
+      if (moreButton) {
+        const collapsed = toolbar.classList.toggle('mobile-collapsed');
+        moreButton.textContent = collapsed ? '더보기' : '접기';
+        moreButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        return;
+      }
       const toolButton = event.target.closest('[data-annotation-tool]');
       if (toolButton) {
         setAnnotationTool(toolButton.dataset.annotationTool);
