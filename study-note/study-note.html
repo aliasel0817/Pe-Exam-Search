@@ -845,6 +845,38 @@ button { -webkit-tap-highlight-color: transparent; }
 .annotation-save-status.saving { color: var(--warning); }
 .annotation-save-status.saved { color: var(--success); }
 .annotation-save-status.error { color: var(--danger); }
+.annotation-entry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, .42);
+}
+.annotation-entry-card {
+  width: min(440px, 100%);
+  padding: 16px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, .28);
+}
+.annotation-entry-card h3 { margin: 0 0 10px; font-size: 1rem; }
+.annotation-entry-input {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  padding: 10px 11px;
+  border: 1px solid #cfd8e3;
+  border-radius: 9px;
+  color: var(--text);
+  background: #fff;
+  font: inherit;
+  line-height: 1.5;
+  outline: none;
+}
+.annotation-entry-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+.annotation-entry-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .image-viewer-card > .annotation-toolbar { margin-top: 8px; }
 .image-viewer-zoom-controls {
   flex: 0 0 auto;
@@ -1941,18 +1973,22 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="arrow" aria-pressed="false">→ 화살표</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="rect" aria-pressed="false">□ 사각</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="text" aria-pressed="false">T 텍스트</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="note" aria-pressed="false">📝 메모</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
-        <span class="annotation-toolbar-label">굵기</span>
-        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기">
+        <span class="annotation-toolbar-label" data-annotation-width-label>굵기</span>
+        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기 또는 글자 크기">
           <option value="2">2</option>
           <option value="4" selected>4</option>
           <option value="8">8</option>
           <option value="12">12</option>
           <option value="18">18</option>
           <option value="28">28</option>
+          <option value="36">36</option>
+          <option value="48">48</option>
         </select>
         <span class="annotation-toolbar-label">투명도</span>
         <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
@@ -1998,18 +2034,22 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="arrow" aria-pressed="false">→ 화살표</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="rect" aria-pressed="false">□ 사각</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="text" aria-pressed="false">T 텍스트</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="note" aria-pressed="false">📝 메모</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
-        <span class="annotation-toolbar-label">굵기</span>
-        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기">
+        <span class="annotation-toolbar-label" data-annotation-width-label>굵기</span>
+        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기 또는 글자 크기">
           <option value="2">2</option>
           <option value="4" selected>4</option>
           <option value="8">8</option>
           <option value="12">12</option>
           <option value="18">18</option>
           <option value="28">28</option>
+          <option value="36">36</option>
+          <option value="48">48</option>
         </select>
         <span class="annotation-toolbar-label">투명도</span>
         <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
@@ -2069,18 +2109,22 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="arrow" aria-pressed="false">→ 화살표</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="rect" aria-pressed="false">□ 사각</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="text" aria-pressed="false">T 텍스트</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="note" aria-pressed="false">📝 메모</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
-        <span class="annotation-toolbar-label">굵기</span>
-        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기">
+        <span class="annotation-toolbar-label" data-annotation-width-label>굵기</span>
+        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기 또는 글자 크기">
           <option value="2">2</option>
           <option value="4" selected>4</option>
           <option value="8">8</option>
           <option value="12">12</option>
           <option value="18">18</option>
           <option value="28">28</option>
+          <option value="36">36</option>
+          <option value="48">48</option>
         </select>
         <span class="annotation-toolbar-label">투명도</span>
         <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
@@ -3046,7 +3090,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.34-annotation-shapes';
+const APP_VERSION = '4.4.35-annotation-text-notes';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3153,6 +3197,8 @@ const annotationEditorState = {
   pen: { color: '#2563eb', width: 4, opacity: 1 },
   highlighter: { color: '#facc15', width: 18, opacity: 0.35 },
   shape: { color: '#dc2626', width: 4, opacity: 1 },
+  text: { color: '#111827', width: 18, opacity: 1 },
+  note: { color: '#f59e0b', width: 18, opacity: 1 },
   eraserSize: 18,
 };
 let lastActiveAnnotationSurface = null;
@@ -6413,6 +6459,7 @@ function cloneAnnotationObjects(objects) {
     points: Array.isArray(object.points) ? object.points.map(point => ({ ...point })) : object.points,
     start: object.start ? { ...object.start } : object.start,
     end: object.end ? { ...object.end } : object.end,
+    position: object.position ? { ...object.position } : object.position,
   }));
 }
 
@@ -6487,6 +6534,23 @@ function annotationPointSegmentDistance(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
 }
 
+function annotationTextHitTest(object, px, py, rect, threshold) {
+  if (!object?.position || (object.type !== 'text' && object.type !== 'note')) return false;
+  const minEdge = Math.max(1, Math.min(rect.width, rect.height));
+  const x = object.position.x * rect.width;
+  const y = object.position.y * rect.height;
+  const size = Math.max(12, Number(object.sizeN || 0.03) * minEdge);
+  if (object.type === 'note') {
+    const half = size * 0.65 + threshold;
+    return px >= x - half && px <= x + half && py >= y - half && py <= y + half;
+  }
+  const lines = String(object.text || '').split(/\n/);
+  const maxChars = Math.max(1, ...lines.map(line => Array.from(line).length));
+  const width = Math.max(size, maxChars * size * 0.62);
+  const height = Math.max(size, lines.length * size * 1.25);
+  return px >= x - threshold && px <= x + width + threshold && py >= y - threshold && py <= y + height + threshold;
+}
+
 function annotationShapeHitTest(object, px, py, rect, threshold) {
   if (object.type !== 'shape' || !object.start || !object.end) return false;
   const ax = object.start.x * rect.width;
@@ -6541,6 +6605,8 @@ function eraseAnnotationAt(surface, event) {
       }
     } else if (object.type === 'shape') {
       hit = annotationShapeHitTest(object, px, py, rect, threshold);
+    } else if (object.type === 'text' || object.type === 'note') {
+      hit = annotationTextHitTest(object, px, py, rect, threshold);
     } else {
       continue;
     }
@@ -6564,6 +6630,7 @@ function annotationIsShapeTool(tool = annotationEditorState.tool) {
 
 function annotationStyleKey(tool = annotationEditorState.tool) {
   if (annotationIsShapeTool(tool)) return 'shape';
+  if (tool === 'text' || tool === 'note') return tool;
   if (tool === 'pen' || tool === 'highlighter') return tool;
   if (tool === 'pan' || tool === 'eraser') return annotationEditorState.lastDrawTool;
   return 'pen';
@@ -6581,6 +6648,8 @@ function annotationToolLabel(tool = annotationEditorState.tool) {
     : tool === 'arrow' ? '화살표'
     : tool === 'rect' ? '사각형'
     : tool === 'ellipse' ? '원/타원'
+    : tool === 'text' ? '텍스트'
+    : tool === 'note' ? '메모'
     : '이동 모드';
 }
 
@@ -6629,6 +6698,8 @@ function handleAnnotationShortcut(event) {
     : key === 'a' || key === '6' ? 'arrow'
     : key === 'r' || key === '7' ? 'rect'
     : key === 'o' || key === '8' ? 'ellipse'
+    : key === 't' || key === '9' ? 'text'
+    : key === 'n' || key === '0' ? 'note'
     : '';
   if (shortcutTool) {
     annotationTemporaryPreviousTool = '';
@@ -6673,6 +6744,10 @@ function syncAnnotationToolbarUi() {
       opacity.disabled = isPan || isEraser;
     }
     if (opacityValue) opacityValue.textContent = isEraser ? '—' : `${Math.round(settings.opacity * 100)}%`;
+    const widthLabel = toolbar.querySelector('[data-annotation-width-label]');
+    if (widthLabel) widthLabel.textContent = annotationEditorState.tool === 'text' || annotationEditorState.tool === 'note'
+      ? '글자'
+      : annotationEditorState.tool === 'eraser' ? '크기' : '굵기';
     const status = toolbar.querySelector('[data-annotation-status]');
     if (status) status.textContent = annotationToolLabel();
     const surface = annotationCurrentSurface();
@@ -6708,9 +6783,9 @@ function syncAnnotationToolbarUi() {
 }
 
 function setAnnotationTool(tool) {
-  if (!['pan', 'pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(tool)) return;
+  if (!['pan', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(tool)) return;
   annotationEditorState.tool = tool;
-  if (tool === 'pen' || tool === 'highlighter') annotationEditorState.lastDrawTool = tool;
+  if (tool === 'pen' || tool === 'highlighter' || tool === 'text' || tool === 'note') annotationEditorState.lastDrawTool = tool;
   else if (annotationIsShapeTool(tool)) annotationEditorState.lastDrawTool = 'shape';
   syncAnnotationToolbarUi();
 }
@@ -6723,6 +6798,139 @@ function updateAnnotationSurfaceInteraction(surface) {
   surface.canvas.style.cursor = annotationEditorState.tool === 'eraser' ? 'cell'
     : enabled ? 'crosshair'
     : '';
+}
+
+function openAnnotationEntryEditor({ title = '내용 입력', value = '', multiline = true } = {}) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'annotation-entry-overlay';
+
+    const card = document.createElement('div');
+    card.className = 'annotation-entry-card';
+
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+
+    const input = document.createElement('textarea');
+    input.className = 'annotation-entry-input';
+    input.rows = multiline ? 5 : 2;
+    input.value = value || '';
+    input.placeholder = multiline ? '내용을 입력하세요.' : '텍스트를 입력하세요.';
+
+    const actions = document.createElement('div');
+    actions.className = 'annotation-entry-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn';
+    cancel.textContent = '취소';
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'btn primary';
+    save.textContent = '적용';
+
+    actions.append(cancel, save);
+    card.append(heading, input, actions);
+    overlay.append(card);
+    document.body.appendChild(overlay);
+
+    let finished = false;
+    const close = result => {
+      if (finished) return;
+      finished = true;
+      overlay.remove();
+      resolve(result);
+    };
+
+    cancel.addEventListener('click', () => close(null));
+    save.addEventListener('click', () => {
+      let textValue = input.value.trim();
+      if (!multiline) textValue = textValue.replace(/\s*\n\s*/g, ' ');
+      close(textValue);
+    });
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) event.stopPropagation();
+    });
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close(null);
+      } else if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        save.click();
+      } else if (!multiline && event.key === 'Enter') {
+        event.preventDefault();
+        save.click();
+      }
+    });
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  });
+}
+
+function findAnnotationNoteAt(surface, clientX, clientY) {
+  const rect = surface.media?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  const documentData = getAnnotationDocument(surface.key);
+  for (let i = documentData.objects.length - 1; i >= 0; i--) {
+    const object = documentData.objects[i];
+    if (object.type === 'note' && annotationTextHitTest(object, px, py, rect, 6)) return object;
+  }
+  return null;
+}
+
+async function handleAnnotationTextTool(surface, event) {
+  const tool = annotationEditorState.tool;
+  if (tool !== 'text' && tool !== 'note') return;
+  const position = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
+  if (!position) return;
+  const documentData = getAnnotationDocument(surface.key);
+
+  if (tool === 'note') {
+    const existing = findAnnotationNoteAt(surface, event.clientX, event.clientY);
+    if (existing) {
+      const edited = await openAnnotationEntryEditor({ title: '메모 확인 / 수정', value: existing.text || '', multiline: true });
+      if (edited === null) return;
+      annotationPushUndo(documentData);
+      existing.text = edited;
+      existing.updatedAt = new Date().toISOString();
+      documentData.updatedAt = new Date().toISOString();
+      scheduleAnnotationRender(surface);
+      scheduleAnnotationPersist(documentData);
+      syncAnnotationToolbarUi();
+      return;
+    }
+  }
+
+  const value = await openAnnotationEntryEditor({
+    title: tool === 'note' ? '메모 입력' : '텍스트 입력',
+    value: '',
+    multiline: tool === 'note',
+  });
+  if (!value) return;
+
+  const settings = annotationActiveSettings();
+  const rect = surface.media?.getBoundingClientRect?.();
+  const sizeN = Math.max(0.002, Number(settings.width || 18) / Math.max(40, Math.min(rect?.width || 1, rect?.height || 1)));
+  const object = {
+    id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+    type: tool,
+    text: value,
+    color: settings.color,
+    opacity: settings.opacity,
+    sizeN,
+    position: { ...position },
+    createdAt: new Date().toISOString(),
+  };
+  annotationPushUndo(documentData);
+  documentData.objects.push(object);
+  documentData.updatedAt = new Date().toISOString();
+  scheduleAnnotationRender(surface);
+  scheduleAnnotationPersist(documentData);
+  syncAnnotationToolbarUi();
 }
 
 function renderAnnotationShape(ctx, object, canvas, lineWidth) {
@@ -6765,6 +6973,53 @@ function renderAnnotationShape(ctx, object, canvas, lineWidth) {
   }
 }
 
+function renderAnnotationTextObject(ctx, object, canvas) {
+  if (!object?.position) return;
+  const minEdge = Math.max(1, Math.min(canvas.width, canvas.height));
+  const x = object.position.x * canvas.width;
+  const y = object.position.y * canvas.height;
+  const size = Math.max(12, Number(object.sizeN || 0.03) * minEdge);
+
+  if (object.type === 'note') {
+    const box = Math.max(18, size * 1.25);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0.2, Math.min(1, Number(object.opacity) || 1));
+    ctx.fillStyle = object.color || '#f59e0b';
+    ctx.strokeStyle = '#92400e';
+    ctx.lineWidth = Math.max(1, box * 0.07);
+    const left = x - box / 2;
+    const top = y - box / 2;
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(left, top, box, box, Math.max(3, box * 0.15));
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(left, top, box, box);
+      ctx.strokeRect(left, top, box, box);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `800 ${Math.max(10, box * 0.48)}px sans-serif`;
+    ctx.fillText('N', x, y);
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+  ctx.fillStyle = object.color || '#111827';
+  ctx.globalAlpha = Math.max(0.1, Math.min(1, Number(object.opacity) || 1));
+  ctx.font = `600 ${size}px -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  const lines = String(object.text || '').split(/\n/);
+  const lineHeight = size * 1.25;
+  lines.forEach((line, index) => ctx.fillText(line, x, y + index * lineHeight));
+  ctx.restore();
+}
+
 function renderAnnotationSurface(surface) {
   if (!surface?.canvas) return;
   const canvas = surface.canvas;
@@ -6787,6 +7042,11 @@ function renderAnnotationSurface(surface) {
     if (object.type === 'shape') {
       renderAnnotationShape(ctx, object, canvas, lineWidth);
       ctx.restore();
+      continue;
+    }
+    if (object.type === 'text' || object.type === 'note') {
+      ctx.restore();
+      renderAnnotationTextObject(ctx, object, canvas);
       continue;
     }
     if (object.type !== 'stroke' || !Array.isArray(object.points) || !object.points.length) {
@@ -6838,12 +7098,17 @@ function installAnnotationInputHandlers(surface) {
     syncAnnotationToolbarUi();
   });
 
-  canvas.addEventListener('pointerdown', event => {
-    if (!['pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
+  canvas.addEventListener('pointerdown', async event => {
+    if (!['pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     lastActiveAnnotationSurface = surface;
+
+    if (annotationEditorState.tool === 'text' || annotationEditorState.tool === 'note') {
+      await handleAnnotationTextTool(surface, event);
+      return;
+    }
 
     if (annotationEditorState.tool === 'eraser') {
       surface.activeErase = {
