@@ -1549,6 +1549,29 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .image-viewer-card.viewer-bottom-collapsed .image-viewer-body { margin-top: 5px; }
 
+
+/* Sidebar sections: collapsed panels actually release list space. */
+.sidebar-section-toggle {
+  min-width: 0; display: flex; flex: 1 1 auto; align-items: center;
+  justify-content: space-between; gap: 8px; padding: 3px 0;
+  border: 0; background: transparent; font: inherit; text-align: left;
+  color: var(--text); cursor: pointer;
+}
+.sidebar-section-toggle strong { font-size: .95rem; }
+.sidebar-section-toggle span { font-size: .72rem; color: #475467; }
+.filter-panel .sidebar-filter-body { display: block; }
+.filter-panel.sidebar-section-collapsed .sidebar-filter-body,
+.list-panel.sidebar-section-collapsed #topicList,
+.list-panel.sidebar-section-collapsed #topicPager { display: none !important; }
+.filter-panel.sidebar-section-collapsed { overflow: visible; flex: 0 0 auto; padding-top: 9px; padding-bottom: 9px; }
+.list-panel.sidebar-section-collapsed { flex: 0 0 auto; min-height: 0; }
+.sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; }
+@media (max-width: 760px) {
+  .sidebar { display: flex; flex-direction: column; }
+  .sidebar .filter-panel:not(.sidebar-section-collapsed) { flex: 0 1 auto; max-height: min(53%, 440px); overflow-y: auto; }
+  .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; min-height: 0; }
+}
+
   </style>
 </head>
 <body>
@@ -4083,7 +4106,55 @@ function bindViewerLayoutControls() {
   }
 }
 
+
+function bindSidebarFoldControls() {
+  const sections = [
+    ['.filter-panel', 'search-filter', '검색 필터', false],
+    ['.list-panel', 'search-results', '검색 결과', false]
+  ];
+  for (const [selector, kind, title, defaultCollapsed] of sections) {
+    const section = document.querySelector('#sidebar ' + selector);
+    const header = section?.querySelector('.section-title-row');
+    if (!section || !header) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'sidebar-section-toggle';
+    const label = document.createElement('strong');
+    label.textContent = title;
+    const arrow = document.createElement('span');
+    button.append(label, arrow);
+    const existingHeading = header.querySelector('h2');
+    if (existingHeading) existingHeading.replaceWith(button);
+    else header.prepend(button);
+    if (kind === 'search-filter') {
+      const body = document.createElement('div');
+      body.className = 'sidebar-filter-body';
+      while (header.nextSibling) body.appendChild(header.nextSibling);
+      section.appendChild(body);
+    }
+    const key = 'peStudyNote.sidebarFold.' + kind + '.v1';
+    let collapsed = defaultCollapsed;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) collapsed = saved === '1';
+    } catch (error) { /* noop */ }
+    const apply = (next, save) => {
+      collapsed = next;
+      section.classList.toggle('sidebar-section-collapsed', collapsed);
+      arrow.textContent = collapsed ? '펼치기 ▼' : '접기 ▲';
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('aria-label', title + (collapsed ? ' 펼치기' : ' 접기'));
+      if (save) {
+        try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (error) { /* noop */ }
+      }
+    };
+    apply(collapsed, false);
+    button.addEventListener('click', () => apply(!collapsed, true));
+  }
+}
+
 function bindEvents() {
+  bindSidebarFoldControls();
   bindViewerLayoutControls();
   bindAnnotationToolbarEvents();
   bindAnnotationStudyNavEvents();
