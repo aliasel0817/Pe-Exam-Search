@@ -1579,6 +1579,26 @@ button { -webkit-tap-highlight-color: transparent; }
   background: #fff; color: var(--text); font-size: .72rem; text-align: center;
 }
 @media (max-width: 760px) { .annotation-width-input { width: 59px; } }
+
+/* v4.5.6: attachment PDF toolbar is nested inside footer, not directly under card. */
+.attachment-pdf-viewer-card.viewer-bottom-collapsed .attachment-pdf-footer > .annotation-toolbar {
+  display: none !important;
+}
+/* Keep tablet sidebar fold sizing content-driven instead of fixed grid rows. */
+@media (min-width: 761px) and (max-width: 1280px) {
+  .sidebar { display: flex; flex-direction: column; }
+  .sidebar .filter-panel:not(.sidebar-section-collapsed) {
+    flex: 0 1 auto;
+    max-height: clamp(210px, 38%, 320px);
+  }
+  .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; min-height: 0; }
+}
+@media (min-width: 761px) and (max-width: 1280px) and (max-height: 860px) {
+  .sidebar .filter-panel:not(.sidebar-section-collapsed) {
+    max-height: clamp(170px, 34%, 230px);
+  }
+}
+
   </style>
 </head>
 <body>
@@ -3770,7 +3790,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.5.5-viewer-fold-controls';
+const APP_VERSION = '4.5.6-fold-layout-qa';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
