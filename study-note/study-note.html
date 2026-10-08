@@ -783,6 +783,52 @@ button { -webkit-tap-highlight-color: transparent; }
   user-select: none;
   -webkit-user-select: none;
 }
+.annotation-canvas.annotation-input-enabled { pointer-events: auto; cursor: crosshair; }
+.annotation-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.annotation-toolbar .btn { min-height: 32px; padding: 4px 8px; font-size: .72rem; }
+.annotation-toolbar .annotation-tool-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+.annotation-toolbar-label { color: #475467; font-size: .68rem; font-weight: 800; white-space: nowrap; }
+.annotation-color-input {
+  width: 34px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid #cfd8e3;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+.annotation-width-select {
+  width: 68px;
+  height: 30px;
+  padding: 2px 5px;
+  border: 1px solid #cfd8e3;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--text);
+  font-size: .72rem;
+}
+.annotation-opacity {
+  width: 78px;
+  accent-color: var(--primary);
+}
+.annotation-opacity-value { min-width: 31px; color: #475467; font-size: .68rem; font-weight: 800; text-align: right; }
+.image-viewer-card > .annotation-toolbar { margin-top: 8px; }
+.attachment-pdf-footer .annotation-toolbar { flex: 0 1 auto; }
+.reference-pdf-bottom-actions .annotation-toolbar { flex: 0 1 auto; }
 .media-image-zoom-hint { margin: 7px 2px 0; color: var(--muted); font-size: .67rem; text-align: right; }
 .media-placeholder { min-height: 150px; display: grid; place-items: center; padding: 20px; color: var(--muted); text-align: center; background: #f8fafc; border: 1px dashed #d8e0ea; border-radius: 10px; }
 
@@ -865,6 +911,12 @@ button { -webkit-tap-highlight-color: transparent; }
   .attachment-pdf-bottom .pdf-zoom-step { width: 32px; min-width: 32px; padding-left: 0; padding-right: 0; }
   .attachment-pdf-pinch-hint { display: none; }
   .media-viewer-actions { padding-top: 5px; }
+  .annotation-toolbar { gap: 4px; padding: 5px 6px; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .annotation-toolbar::-webkit-scrollbar { display: none; }
+  .annotation-toolbar .btn { min-height: 30px; padding: 4px 6px; font-size: .68rem; white-space: nowrap; }
+  .annotation-toolbar-label { display: none; }
+  .annotation-opacity { width: 58px; }
+  .annotation-width-select { width: 62px; }
 }
 
 /* ===== 4-3단계 원본 교재/서브노트 PDF ===== */
@@ -1849,6 +1901,26 @@ button { -webkit-tap-highlight-color: transparent; }
         <span id="imageViewerSubtitle" class="muted"></span>
         <button id="closeImageViewerBtn" class="icon-btn" type="button" aria-label="이미지 첨부자료 닫기">✕</button>
       </div>
+
+      <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
+        <button class="btn annotation-tool-btn active" type="button" data-annotation-tool="pan" aria-pressed="true">✋ 이동</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
+        <span class="annotation-toolbar-label">색</span>
+        <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
+        <span class="annotation-toolbar-label">굵기</span>
+        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기">
+          <option value="2">2</option>
+          <option value="4" selected>4</option>
+          <option value="8">8</option>
+          <option value="12">12</option>
+          <option value="18">18</option>
+          <option value="28">28</option>
+        </select>
+        <span class="annotation-toolbar-label">투명도</span>
+        <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
+        <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
+      </div>
       <div id="imageViewerBody" class="image-viewer-body"></div>
       <div class="media-viewer-actions"><button id="closeImageViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
     </div>
@@ -1870,6 +1942,26 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
       <div id="mediaViewerBody" class="attachment-pdf-viewer-body"></div>
       <div class="attachment-pdf-footer">
+
+      <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
+        <button class="btn annotation-tool-btn active" type="button" data-annotation-tool="pan" aria-pressed="true">✋ 이동</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
+        <span class="annotation-toolbar-label">색</span>
+        <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
+        <span class="annotation-toolbar-label">굵기</span>
+        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기">
+          <option value="2">2</option>
+          <option value="4" selected>4</option>
+          <option value="8">8</option>
+          <option value="12">12</option>
+          <option value="18">18</option>
+          <option value="28">28</option>
+        </select>
+        <span class="annotation-toolbar-label">투명도</span>
+        <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
+        <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
+      </div>
         <div class="attachment-pdf-bottom" aria-label="첨부 PDF 확대 축소">
           <button id="pdfZoomOutBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 축소">−</button>
           <span id="pdfZoomLabel" class="attachment-pdf-zoom-label">250%</span>
@@ -1911,6 +2003,26 @@ button { -webkit-tap-highlight-color: transparent; }
         <div id="referencePdfFrameWrap" class="reference-pdf-frame-wrap"><div class="media-placeholder">페이지를 선택해 주세요.</div></div>
       </div>
       <div class="media-viewer-actions reference-pdf-bottom-actions">
+
+      <div class="annotation-toolbar" data-annotation-toolbar role="toolbar" aria-label="주석 편집 도구">
+        <button class="btn annotation-tool-btn active" type="button" data-annotation-tool="pan" aria-pressed="true">✋ 이동</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
+        <span class="annotation-toolbar-label">색</span>
+        <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
+        <span class="annotation-toolbar-label">굵기</span>
+        <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기">
+          <option value="2">2</option>
+          <option value="4" selected>4</option>
+          <option value="8">8</option>
+          <option value="12">12</option>
+          <option value="18">18</option>
+          <option value="28">28</option>
+        </select>
+        <span class="annotation-toolbar-label">투명도</span>
+        <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
+        <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
+      </div>
         <div class="reference-pdf-bottom-zoom" role="toolbar" aria-label="PDF 배율 조절">
           <span class="pdf-tool-page">1 / 1 페이지</span>
           <span class="pdf-tool-separator" aria-hidden="true"></span>
@@ -2849,7 +2961,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.28-annotation-foundation';
+const APP_VERSION = '4.4.29-pen-highlighter';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -2944,6 +3056,13 @@ const ANNOTATION_CANVAS_MAX_EDGE = 2048;
 const ANNOTATION_CANVAS_MAX_PIXELS = 4 * 1024 * 1024;
 const annotationSurfaceByMedia = new WeakMap();
 const activeAnnotationSurfaces = new Set();
+const annotationDocuments = new Map();
+const annotationEditorState = {
+  tool: 'pan',
+  lastDrawTool: 'pen',
+  pen: { color: '#2563eb', width: 4, opacity: 1 },
+  highlighter: { color: '#facc15', width: 18, opacity: 0.35 },
+};
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
 let learningStateMap = new Map();
@@ -3066,6 +3185,7 @@ function bindElements() {
 }
 
 function bindEvents() {
+  bindAnnotationToolbarEvents();
   els.refreshBtn.addEventListener('click', refreshMaster);
   els.emptyRefreshBtn.addEventListener('click', refreshMaster);
   els.settingsBtn.addEventListener('click', openSettings);
@@ -6079,6 +6199,202 @@ function annotationBitmapSize(displayWidth, displayHeight) {
   return { width, height };
 }
 
+function getAnnotationDocument(key) {
+  if (!annotationDocuments.has(key)) {
+    annotationDocuments.set(key, {
+      schemaVersion: ANNOTATION_SCHEMA_VERSION,
+      coordinateSpace: 'normalized-0-1',
+      key,
+      objects: [],
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  return annotationDocuments.get(key);
+}
+
+function annotationActiveSettings() {
+  const drawTool = annotationEditorState.tool === 'highlighter' ? 'highlighter'
+    : annotationEditorState.tool === 'pen' ? 'pen'
+    : annotationEditorState.lastDrawTool;
+  return annotationEditorState[drawTool] || annotationEditorState.pen;
+}
+
+function syncAnnotationToolbarUi() {
+  const settings = annotationActiveSettings();
+  document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
+    toolbar.querySelectorAll('[data-annotation-tool]').forEach(button => {
+      const active = button.dataset.annotationTool === annotationEditorState.tool;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    const color = toolbar.querySelector('[data-annotation-color]');
+    const width = toolbar.querySelector('[data-annotation-width]');
+    const opacity = toolbar.querySelector('[data-annotation-opacity]');
+    const opacityValue = toolbar.querySelector('[data-annotation-opacity-value]');
+    if (color) color.value = settings.color;
+    if (width) width.value = String(settings.width);
+    if (opacity) opacity.value = String(Math.round(settings.opacity * 100));
+    if (opacityValue) opacityValue.textContent = `${Math.round(settings.opacity * 100)}%`;
+  });
+  for (const surface of activeAnnotationSurfaces) updateAnnotationSurfaceInteraction(surface);
+}
+
+function setAnnotationTool(tool) {
+  if (!['pan', 'pen', 'highlighter'].includes(tool)) return;
+  annotationEditorState.tool = tool;
+  if (tool === 'pen' || tool === 'highlighter') annotationEditorState.lastDrawTool = tool;
+  syncAnnotationToolbarUi();
+}
+
+function updateAnnotationSurfaceInteraction(surface) {
+  if (!surface?.canvas) return;
+  const enabled = annotationEditorState.tool === 'pen' || annotationEditorState.tool === 'highlighter';
+  surface.canvas.classList.toggle('annotation-input-enabled', enabled);
+  surface.canvas.dataset.annotationTool = annotationEditorState.tool;
+}
+
+function renderAnnotationSurface(surface) {
+  if (!surface?.canvas) return;
+  const canvas = surface.canvas;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const documentData = getAnnotationDocument(surface.key);
+  const objects = documentData.objects || [];
+  for (const object of objects) {
+    if (object.type !== 'stroke' || !Array.isArray(object.points) || !object.points.length) continue;
+    const lineWidth = Math.max(1, Number(object.widthN || 0.005) * Math.min(canvas.width, canvas.height));
+    ctx.save();
+    ctx.strokeStyle = object.color || '#2563eb';
+    ctx.fillStyle = object.color || '#2563eb';
+    ctx.globalAlpha = Math.max(0.05, Math.min(1, Number(object.opacity) || 1));
+    ctx.globalCompositeOperation = object.tool === 'highlighter' ? 'multiply' : 'source-over';
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const points = object.points;
+    if (points.length === 1) {
+      ctx.beginPath();
+      ctx.arc(points[0].x * canvas.width, points[0].y * canvas.height, lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function scheduleAnnotationRender(surface) {
+  if (!surface || surface.renderRaf) return;
+  surface.renderRaf = requestAnimationFrame(() => {
+    surface.renderRaf = 0;
+    renderAnnotationSurface(surface);
+  });
+}
+
+function addAnnotationPoint(surface, stroke, event) {
+  const rect = surface.media?.getBoundingClientRect?.();
+  if (!rect || rect.width <= 0 || rect.height <= 0) return;
+  const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+  const pressure = Number.isFinite(event.pressure) && event.pressure > 0 ? event.pressure : 0.5;
+  const previous = stroke.points[stroke.points.length - 1];
+  if (previous && Math.hypot(previous.x - x, previous.y - y) < 0.0007) return;
+  stroke.points.push({ x, y, p: pressure });
+}
+
+function installAnnotationInputHandlers(surface) {
+  const canvas = surface?.canvas;
+  if (!canvas || canvas.dataset.annotationInputBound === '1') return;
+  canvas.dataset.annotationInputBound = '1';
+
+  canvas.addEventListener('pointerdown', event => {
+    if (annotationEditorState.tool !== 'pen' && annotationEditorState.tool !== 'highlighter') return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const settings = annotationActiveSettings();
+    const rect = surface.media?.getBoundingClientRect?.();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const widthN = Math.max(0.0003, Number(settings.width || 4) / Math.max(40, Math.min(rect.width, rect.height)));
+    const stroke = {
+      id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+      type: 'stroke',
+      tool: annotationEditorState.tool,
+      color: settings.color,
+      widthN,
+      opacity: settings.opacity,
+      points: [],
+      createdAt: new Date().toISOString(),
+    };
+    addAnnotationPoint(surface, stroke, event);
+    const documentData = getAnnotationDocument(surface.key);
+    documentData.objects.push(stroke);
+    documentData.updatedAt = new Date().toISOString();
+    surface.activeStroke = { pointerId: event.pointerId, stroke };
+    try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+    scheduleAnnotationRender(surface);
+  });
+
+  canvas.addEventListener('pointermove', event => {
+    if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const samples = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
+    for (const sample of samples.length ? samples : [event]) addAnnotationPoint(surface, surface.activeStroke.stroke, sample);
+    getAnnotationDocument(surface.key).updatedAt = new Date().toISOString();
+    scheduleAnnotationRender(surface);
+  });
+
+  const finishStroke = event => {
+    if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    addAnnotationPoint(surface, surface.activeStroke.stroke, event);
+    surface.activeStroke = null;
+    try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
+    scheduleAnnotationRender(surface);
+  };
+  canvas.addEventListener('pointerup', finishStroke);
+  canvas.addEventListener('pointercancel', finishStroke);
+}
+
+function bindAnnotationToolbarEvents() {
+  document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
+    if (toolbar.dataset.annotationBound === '1') return;
+    toolbar.dataset.annotationBound = '1';
+    toolbar.addEventListener('click', event => {
+      const button = event.target.closest('[data-annotation-tool]');
+      if (!button) return;
+      setAnnotationTool(button.dataset.annotationTool);
+    });
+    const color = toolbar.querySelector('[data-annotation-color]');
+    const width = toolbar.querySelector('[data-annotation-width]');
+    const opacity = toolbar.querySelector('[data-annotation-opacity]');
+    color?.addEventListener('input', () => {
+      const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
+      annotationEditorState[drawTool].color = color.value;
+      syncAnnotationToolbarUi();
+    });
+    width?.addEventListener('change', () => {
+      const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
+      annotationEditorState[drawTool].width = Math.max(1, Number(width.value) || 4);
+      syncAnnotationToolbarUi();
+    });
+    opacity?.addEventListener('input', () => {
+      const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
+      annotationEditorState[drawTool].opacity = Math.max(0.1, Math.min(1, Number(opacity.value) / 100));
+      syncAnnotationToolbarUi();
+    });
+  });
+  syncAnnotationToolbarUi();
+}
+
 function syncAnnotationSurface(media) {
   const surface = annotationSurfaceByMedia.get(media);
   if (!surface || !surface.host?.isConnected || !media?.isConnected) return;
@@ -6093,9 +6409,11 @@ function syncAnnotationSurface(media) {
   canvas.style.height = `${displayHeight}px`;
 
   const bitmap = annotationBitmapSize(displayWidth, displayHeight);
+  let bitmapChanged = false;
   if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
+    bitmapChanged = true;
   }
 
   const intrinsicWidth = Math.max(1, Number(surface.intrinsicWidth) || media.naturalWidth || media.width || displayWidth);
@@ -6107,6 +6425,11 @@ function syncAnnotationSurface(media) {
   canvas.dataset.coordinateSpace = 'normalized-0-1';
   canvas.dataset.intrinsicWidth = String(intrinsicWidth);
   canvas.dataset.intrinsicHeight = String(intrinsicHeight);
+  updateAnnotationSurfaceInteraction(surface);
+  if (bitmapChanged || !surface.hasRendered) {
+    surface.hasRendered = true;
+    renderAnnotationSurface(surface);
+  }
 }
 
 function scheduleAnnotationSurfaceSync(media) {
@@ -6146,9 +6469,14 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
     intrinsicHeight: Number(intrinsicHeight) || 0,
     resizeObserver: null,
     syncRaf: 0,
+    renderRaf: 0,
+    activeStroke: null,
+    hasRendered: false,
   };
   annotationSurfaceByMedia.set(media, surface);
   activeAnnotationSurfaces.add(surface);
+  installAnnotationInputHandlers(surface);
+  updateAnnotationSurfaceInteraction(surface);
 
   if ('ResizeObserver' in window) {
     surface.resizeObserver = new ResizeObserver(() => scheduleAnnotationSurfaceSync(media));
@@ -6162,6 +6490,7 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
 function destroyAnnotationSurface(surface) {
   if (!surface) return;
   if (surface.syncRaf) cancelAnimationFrame(surface.syncRaf);
+  if (surface.renderRaf) cancelAnimationFrame(surface.renderRaf);
   surface.resizeObserver?.disconnect();
   annotationSurfaceByMedia.delete(surface.media);
   activeAnnotationSurfaces.delete(surface);
