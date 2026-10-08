@@ -6510,6 +6510,7 @@ function normalizeStoredAnnotationDocument(row) {
     important: Boolean(row?.important),
     saveState: 'saved',
     saveError: '',
+    saveRetryCount: 0,
   };
 }
 
@@ -6540,6 +6541,7 @@ function getAnnotationDocument(key) {
       important: false,
       saveState: 'clean',
       saveError: '',
+      saveRetryCount: 0,
     });
   }
   return annotationDocuments.get(key);
@@ -6801,10 +6803,20 @@ async function persistAnnotationDocument(documentData) {
     await putAnnotationDocument(database, stored);
     documentData.savedAt = stored.savedAt;
     documentData.saveState = 'saved';
+    documentData.saveRetryCount = 0;
   } catch (error) {
     console.error('주석 로컬 저장 실패:', error);
-    documentData.saveState = 'error';
     documentData.saveError = error?.message || String(error);
+    const retryCount = Number(documentData.saveRetryCount || 0) + 1;
+    documentData.saveRetryCount = retryCount;
+    if (retryCount <= 3) {
+      documentData.saveState = 'retry';
+      const retryDelay = 1200 * retryCount;
+      const retryTimer = setTimeout(() => persistAnnotationDocument(documentData), retryDelay);
+      annotationPersistTimers.set(documentData.key, retryTimer);
+    } else {
+      documentData.saveState = 'error';
+    }
   }
   syncAnnotationToolbarUi();
 }
@@ -7847,6 +7859,10 @@ function syncAnnotationToolbarUi() {
       } else if (state === 'saved') {
         saveStatus.textContent = '저장됨';
         saveStatus.classList.add('saved');
+      } else if (state === 'retry') {
+        saveStatus.textContent = `재시도 ${documentData?.saveRetryCount || 1}/3`;
+        saveStatus.classList.add('saving');
+        saveStatus.title = documentData?.saveError || '로컬 저장 재시도 중';
       } else if (state === 'error') {
         saveStatus.textContent = '저장 실패';
         saveStatus.classList.add('error');
