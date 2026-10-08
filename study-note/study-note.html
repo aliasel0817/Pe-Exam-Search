@@ -7202,7 +7202,18 @@ function annotationObjectBoundsNormalized(object, rect) {
   };
 }
 
+function annotationObjectWithinCoarseBounds(object, px, py, rect, threshold = 8) {
+  const bounds = annotationObjectBoundsNormalized(object, rect);
+  if (!bounds) return true;
+  const left = bounds.minX * rect.width - threshold;
+  const top = bounds.minY * rect.height - threshold;
+  const right = bounds.maxX * rect.width + threshold;
+  const bottom = bounds.maxY * rect.height + threshold;
+  return px >= left && px <= right && py >= top && py <= bottom;
+}
+
 function annotationObjectHitTest(object, px, py, rect, threshold = 8) {
+  if (!annotationObjectWithinCoarseBounds(object, px, py, rect, threshold)) return false;
   if (object.type === 'stroke' && object.points?.length) {
     const radius = threshold + Math.max(1, Number(object.widthN || 0) * Math.min(rect.width, rect.height) / 2);
     const points = object.points.map(point => ({ x: point.x * rect.width, y: point.y * rect.height }));
@@ -7600,6 +7611,7 @@ function eraseAnnotationAt(surface, event) {
   for (let i = documentData.objects.length - 1; i >= 0; i--) {
     const object = documentData.objects[i];
     if (!annotationObjectVisible(surface.key, object)) continue;
+    if (!annotationObjectWithinCoarseBounds(object, px, py, rect, eraserRadius + 6)) continue;
     const objectRadius = Math.max(1, Number(object.widthN || 0) * Math.min(rect.width, rect.height) / 2);
     const threshold = eraserRadius + objectRadius;
     let hit = false;
