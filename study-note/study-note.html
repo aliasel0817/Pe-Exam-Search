@@ -10166,10 +10166,56 @@ function openAnnotationScreenshotSampler(file, toolKey) {
 
 
 let annotationToolPopup = null;
+let annotationToolPopupAnchor = null;
+
+// Opening the tablet's number keyboard can resize the visual viewport.
+// Keep the existing popup (and its focused input) alive; only reposition it.
+function positionAnnotationToolPopup() {
+  const pop = annotationToolPopup;
+  const anchor = annotationToolPopupAnchor;
+  if (!pop || !anchor?.isConnected || !pop.isConnected) return;
+
+  const viewport = window.visualViewport;
+  const visibleLeft = viewport?.offsetLeft ?? 0;
+  const visibleTop = viewport?.offsetTop ?? 0;
+  const visibleWidth = viewport?.width ?? window.innerWidth;
+  const visibleHeight = viewport?.height ?? window.innerHeight;
+  const margin = 8;
+  const preferredWidth = pop.dataset.annotationPopup === 'palette' ? 290 : 325;
+  const width = Math.min(preferredWidth, Math.max(120, visibleWidth - margin * 2));
+  const maxHeight = Math.max(48, visibleHeight - margin * 2);
+  pop.style.width = width + 'px';
+  pop.style.maxHeight = maxHeight + 'px';
+
+  const rect = anchor.getBoundingClientRect();
+  const left = Math.max(visibleLeft + margin,
+    Math.min(visibleLeft + visibleWidth - width - margin, rect.left));
+  const popupHeight = Math.min(pop.scrollHeight, maxHeight);
+  const below = rect.bottom + margin;
+  const above = rect.top - popupHeight - margin;
+  const top = below + popupHeight <= visibleTop + visibleHeight - margin
+    ? below
+    : above >= visibleTop + margin
+      ? above
+      : Math.max(visibleTop + margin, visibleTop + visibleHeight - popupHeight - margin);
+
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+
+  // Preserve the active RGB/HEX input and keep its caret visible above the keyboard.
+  const focused = document.activeElement;
+  if (focused && pop.contains(focused) && focused.matches('input, textarea, select')) {
+    const field = focused.getBoundingClientRect();
+    const bounds = pop.getBoundingClientRect();
+    if (field.bottom > bounds.bottom - 10) pop.scrollTop += field.bottom - bounds.bottom + 10;
+    else if (field.top < bounds.top + 10) pop.scrollTop -= bounds.top + 10 - field.top;
+  }
+}
 
 function closeAnnotationToolPopup() {
   if (annotationToolPopup) annotationToolPopup.remove();
   annotationToolPopup = null;
+  annotationToolPopupAnchor = null;
   document.querySelectorAll('[data-annotation-popup-trigger]').forEach(button => button.setAttribute('aria-expanded', 'false'));
 }
 
@@ -10500,19 +10546,9 @@ function openAnnotationToolPopup(anchor, kind) {
   }
   document.body.append(pop);
   annotationToolPopup = pop;
+  annotationToolPopupAnchor = anchor;
   anchor.setAttribute('aria-expanded', 'true');
-  const rect = anchor.getBoundingClientRect();
-  const width = Math.min(kind === 'palette' ? 290 : 325, Math.max(210, window.innerWidth - 20));
-  pop.style.width = width + 'px';
-  pop.style.maxHeight = Math.max(120, window.innerHeight - 24) + 'px';
-  const left = Math.max(10, Math.min(window.innerWidth - width - 10, rect.left));
-  pop.style.left = left + 'px';
-  // Put the menu above bottom toolbars, retaining touch access on small screens.
-  const maxPopupHeight = Math.min(pop.scrollHeight, window.innerHeight - 24);
-  const top = rect.bottom + 8 + maxPopupHeight <= window.innerHeight - 8
-    ? rect.bottom + 8
-    : Math.max(10, rect.top - maxPopupHeight - 8);
-  pop.style.top = top + 'px';
+  positionAnnotationToolPopup();
 }
 
 function bindAnnotationLongPressButton(button, kind) {
@@ -10604,7 +10640,10 @@ function bindAnnotationToolbarEvents() {
       closeAnnotationToolPopup();
     }
   });
-  window.addEventListener('resize', closeAnnotationToolPopup);
+  window.addEventListener('resize', positionAnnotationToolPopup);
+  // iOS Safari can shrink visualViewport without firing window.resize.
+  window.visualViewport?.addEventListener('resize', positionAnnotationToolPopup);
+  window.visualViewport?.addEventListener('scroll', positionAnnotationToolPopup);
   document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
     if (toolbar.dataset.annotationBound === '1') return;
     toolbar.dataset.annotationBound = '1';
