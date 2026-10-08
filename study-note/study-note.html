@@ -1636,6 +1636,74 @@ button { -webkit-tap-highlight-color: transparent; }
   .image-viewer-card > .media-viewer-actions .viewer-bottom-toggle { padding: 3px 5px; margin-right: 0; }
 }
 
+
+/* Annotation tool presets and saved colors. The menu lives outside scrollable toolbars. */
+.annotation-stroke-mode, .annotation-subtype-trigger, .annotation-shapes-trigger, .annotation-palette-trigger {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.annotation-subtype-trigger { min-width: 27px; padding: 3px 5px !important; margin-left: -5px; }
+.annotation-stroke-mode { border-style: dashed !important; }
+.annotation-shapes-trigger.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); }
+.annotation-tool-popup {
+  position: fixed;
+  z-index: 240;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: #172338;
+  background: #fff;
+  border: 1px solid #ced8e7;
+  border-radius: 14px;
+  box-shadow: 0 16px 38px rgba(10, 25, 47, .25);
+}
+.annotation-tool-popup-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.annotation-tool-popup-title { font-size: .88rem; font-weight: 850; }
+.annotation-tool-popup-close {
+  border: 1px solid #dbe2eb; border-radius: 7px; padding: 5px 9px;
+  background: #f8fafc; font-size: .74rem; cursor: pointer;
+}
+.annotation-tool-popup-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 7px; }
+.annotation-tool-option {
+  display: flex; flex-direction: column; align-items: start; justify-content: center;
+  min-height: 45px; gap: 3px; padding: 8px 9px; text-align: left;
+  border: 1px solid #d5dce8; border-radius: 9px; background: #fff;
+  color: #1f2937; font: inherit; font-size: .79rem; cursor: pointer;
+}
+.annotation-tool-option small { font-size: .64rem; line-height: 1.35; color: #667085; }
+.annotation-tool-option.is-selected { border-color: #2563eb; background: #eff6ff; font-weight: 800; }
+.annotation-tool-option:focus-visible, .annotation-swatch-choice:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.annotation-palette-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px 5px;
+  align-items: center;
+}
+.annotation-palette-title { grid-column: 1 / -1; margin: 3px 0 1px; font-size: .73rem; font-weight: 800; color: #334155; }
+.annotation-palette-hint { grid-column: 1 / -1; font-size: .69rem; color: #667085; line-height: 1.5; }
+.annotation-palette-swatch { position: relative; display: flex; width: 100%; justify-content: center; padding: 3px; }
+.annotation-swatch-choice {
+  width: 32px; height: 32px; border: 2px solid #d5dce8; border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); cursor: pointer;
+}
+.annotation-swatch-remove {
+  position: absolute; right: -2px; top: -6px;
+  width: 19px; height: 19px; border: 1px solid #c8d2df; border-radius: 50%;
+  background: #fff; color: #b42318; font-size: .78rem; line-height: 16px; cursor: pointer;
+}
+.annotation-palette-save {
+  min-height: 35px; border: 1px solid #93c5fd; border-radius: 8px; color: #1d4ed8;
+  background: #eff6ff; font-weight: 750; font-size: .77rem; cursor: pointer;
+}
+@media (max-width: 760px) {
+  .annotation-tool-popup { padding: 10px; gap: 8px; }
+  .annotation-tool-option { font-size: .75rem; padding: 7px; min-height: 42px; }
+  .annotation-subtype-trigger { margin-left: -3px; }
+  .annotation-stroke-mode { font-size: .68rem !important; }
+}
+
   </style>
 </head>
 <body>
@@ -8649,7 +8717,7 @@ function annotationActiveSettings() {
 }
 
 function annotationToolLabel(tool = annotationEditorState.tool) {
-  return tool === 'pen' ? '펜'
+  return tool === 'pen' ? ({ pencil: '연필', ballpoint: '볼펜', brush: '붓', fountain: '만년필' }[annotationEditorState.penStyle] || '펜')
     : tool === 'highlighter' ? '형광펜'
     : tool === 'eraser' ? '지우개'
     : tool === 'line' ? '직선'
@@ -8764,6 +8832,31 @@ function syncAnnotationToolbarUi() {
     const width = toolbar.querySelector('[data-annotation-width]');
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
     const opacityValue = toolbar.querySelector('[data-annotation-opacity-value]');
+    const penButton = toolbar.querySelector('[data-annotation-tool="pen"]');
+    if (penButton) {
+      const labels = { pencil: '✎ 연필', ballpoint: '🖊 볼펜', brush: '🖌 붓', fountain: '✒ 만년필' };
+      penButton.textContent = labels[annotationEditorState.penStyle] || '✏ 펜';
+    }
+    const shapeButton = toolbar.querySelector('.annotation-shapes-trigger');
+    if (shapeButton) {
+      const selected = annotationIsShapeTool();
+      shapeButton.classList.toggle('active', selected);
+      shapeButton.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      shapeButton.title = selected ? '현재 도형: ' + annotationToolLabel() + ' · 다른 도형 선택' : '도형 선택';
+    }
+    const modeButton = toolbar.querySelector('[data-annotation-stroke-mode]');
+    if (modeButton) {
+      const strokeTool = annotationEditorState.tool === 'pen' || annotationEditorState.tool === 'highlighter'
+        ? annotationEditorState.tool : '';
+      modeButton.hidden = !strokeTool;
+      modeButton.style.display = strokeTool ? '' : 'none';
+      if (strokeTool) {
+        const straight = annotationEditorState.strokeModes[strokeTool] === 'straight';
+        modeButton.textContent = straight ? '／ 직선' : '〰 자유선';
+        modeButton.title = (strokeTool === 'highlighter' ? '형광펜' : '펜') + ' · 클릭하여 ' + (straight ? '자유선' : '직선') + '으로 전환';
+        modeButton.setAttribute('aria-pressed', String(straight));
+      }
+    }
     const isPan = annotationEditorState.tool === 'pan';
     const isEraser = annotationEditorState.tool === 'eraser';
     const isSelect = annotationEditorState.tool === 'select';
