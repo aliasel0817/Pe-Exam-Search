@@ -789,8 +789,14 @@ button { -webkit-tap-highlight-color: transparent; }
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   padding: 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
   border: 1px solid #dbe2ea;
   border-radius: 10px;
   background: #f8fafc;
@@ -937,20 +943,27 @@ button { -webkit-tap-highlight-color: transparent; }
   .annotation-study-nav { overflow-x: auto; scrollbar-width: none; }
   .annotation-study-nav::-webkit-scrollbar { display: none; }
 }
-.image-viewer-card > .annotation-toolbar { margin-top: 8px; }
+.image-viewer-card > .image-viewer-body { order: 1; }
+.image-viewer-card > .annotation-study-nav { order: 2; margin-top: 6px; }
+.image-viewer-card > .annotation-toolbar { order: 3; margin-top: 6px; }
+.image-viewer-card > .image-viewer-zoom-controls { order: 4; }
+.image-viewer-card > .media-viewer-actions { order: 5; }
 .image-viewer-zoom-controls {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
   margin-top: 6px;
 }
 .image-viewer-zoom-controls .btn { min-height: 32px; padding: 4px 9px; font-size: .72rem; }
 .image-viewer-zoom-label { min-width: 46px; color: #475467; font-size: .72rem; font-weight: 800; text-align: center; }
 .media-image-item.image-active { border-color: #93c5fd; box-shadow: 0 0 0 2px rgba(37, 99, 235, .08); }
-.attachment-pdf-footer .annotation-toolbar { flex: 0 1 auto; }
-.reference-pdf-bottom-actions .annotation-toolbar { flex: 0 1 auto; }
+.attachment-pdf-footer > .annotation-toolbar,
+.reference-pdf-bottom-actions > .annotation-toolbar {
+  grid-area: annotation;
+  min-width: 0;
+}
 .media-image-zoom-hint { margin: 7px 2px 0; color: var(--muted); font-size: .67rem; text-align: right; }
 .media-placeholder { min-height: 150px; display: grid; place-items: center; padding: 20px; color: var(--muted); text-align: center; background: #f8fafc; border: 1px dashed #d8e0ea; border-radius: 10px; }
 
@@ -991,13 +1004,25 @@ button { -webkit-tap-highlight-color: transparent; }
 .attachment-pdf-stage { position: relative; box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
 .attachment-pdf-canvas { display: block; max-width: none; max-height: none; width: auto; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); user-select: none; }
 .attachment-pdf-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; color: #d1d5db; text-align: center; background: #27272a; pointer-events: none; }
-.attachment-pdf-footer { flex: 0 0 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; border-top: 1px solid var(--line); }
-.attachment-pdf-bottom { min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 7px; flex-wrap: nowrap; }
+.attachment-pdf-footer {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "annotation annotation"
+    "zoom close";
+  align-items: center;
+  gap: 6px 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.attachment-pdf-bottom { grid-area: zoom; min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 7px; flex-wrap: nowrap; }
 .attachment-pdf-bottom .btn { min-height: 34px; padding: 5px 10px; }
 .attachment-pdf-bottom .pdf-zoom-step { width: 36px; min-width: 36px; padding-left: 0; padding-right: 0; font-size: 1.1rem; }
 .attachment-pdf-zoom-label { min-width: 48px; text-align: center; color: #475467; font-size: .76rem; font-weight: 800; }
 .attachment-pdf-pinch-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: .68rem; white-space: nowrap; }
-.attachment-pdf-footer > .btn.primary { flex: 0 0 auto; margin-left: auto; }
+.attachment-pdf-footer > .btn.primary { grid-area: close; justify-self: end; flex: 0 0 auto; margin-left: 0; }
 
 @media (max-width: 760px) {
   .attachment-summary, .attachment-manager-grid { grid-template-columns: 1fr; }
@@ -1162,12 +1187,16 @@ button { -webkit-tap-highlight-color: transparent; }
   pointer-events: none;
 }
 .reference-pdf-bottom-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "annotation annotation"
+    "zoom close";
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 6px 10px;
 }
 .reference-pdf-bottom-zoom {
+  grid-area: zoom;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1197,6 +1226,7 @@ button { -webkit-tap-highlight-color: transparent; }
   font-size: 1.1rem;
 }
 .reference-pdf-bottom-zoom .pdf-tool-fit { min-width: 48px; }
+.reference-pdf-bottom-actions > .btn.primary { grid-area: close; justify-self: end; }
 .reference-pdf-load-error {
   min-height: 100%;
   display: grid;
