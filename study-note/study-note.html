@@ -7842,9 +7842,21 @@ function renderAnnotationSurface(surface) {
 
     const points = object.points;
     if (points.length === 1) {
+      const pressureScale = object.pressureSensitive ? Math.max(0.45, Math.min(1.35, Number(points[0].p || 0.5) * 1.5)) : 1;
       ctx.beginPath();
-      ctx.arc(points[0].x * canvas.width, points[0].y * canvas.height, lineWidth / 2, 0, Math.PI * 2);
+      ctx.arc(points[0].x * canvas.width, points[0].y * canvas.height, (lineWidth * pressureScale) / 2, 0, Math.PI * 2);
       ctx.fill();
+    } else if (object.pressureSensitive && object.tool === 'pen') {
+      for (let i = 1; i < points.length; i++) {
+        const p0 = Math.max(0.05, Math.min(1, Number(points[i - 1].p || 0.5)));
+        const p1 = Math.max(0.05, Math.min(1, Number(points[i].p || 0.5)));
+        const pressureScale = Math.max(0.45, Math.min(1.35, ((p0 + p1) / 2) * 1.5));
+        ctx.lineWidth = Math.max(1, lineWidth * pressureScale);
+        ctx.beginPath();
+        ctx.moveTo(points[i - 1].x * canvas.width, points[i - 1].y * canvas.height);
+        ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
+        ctx.stroke();
+      }
     } else {
       ctx.beginPath();
       ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
@@ -7949,6 +7961,8 @@ function installAnnotationInputHandlers(surface) {
       color: settings.color,
       widthN,
       opacity: settings.opacity,
+      pointerType: event.pointerType || 'unknown',
+      pressureSensitive: event.pointerType === 'pen' && annotationEditorState.tool === 'pen',
       points: [],
       createdAt: new Date().toISOString(),
     };
