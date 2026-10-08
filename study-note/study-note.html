@@ -9902,6 +9902,188 @@ function saveAnnotationFavoriteColors() {
   } catch (error) { /* Preferences still work for the current session. */ }
 }
 
+
+/* Color tools are local-only UI state. Their values are stored in the existing per-tool preferences. */
+function annotationNormalizeHex(value) {
+  const raw = String(value ?? '').trim().replace(/^#/, '');
+  if (/^[0-9a-f]{3}$/i.test(raw)) return '#' + [...raw].map(char => char + char).join('').toLowerCase();
+  if (/^[0-9a-f]{6}$/i.test(raw)) return '#' + raw.toLowerCase();
+  return '';
+}
+
+function annotationHexRgb(value) {
+  const hex = annotationNormalizeHex(value);
+  if (!hex) return null;
+  return [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+}
+
+function annotationRgbHex(channels) {
+  if (!Array.isArray(channels) || channels.length !== 3) return '';
+  const nums = channels.map(value => Number(value));
+  if (nums.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return '';
+  return '#' + nums.map(value => value.toString(16).padStart(2, '0')).join('');
+}
+
+function applyAnnotationPaletteColor(value, styleKey = annotationStyleKey()) {
+  const hex = annotationNormalizeHex(value);
+  if (!hex || !annotationEditorState[styleKey]) return false;
+  annotationEditorState[styleKey].color = hex;
+  saveAnnotationToolPreferences();
+  syncAnnotationToolbarUi();
+  return true;
+}
+
+function rememberAnnotationPaletteColor(value) {
+  const hex = annotationNormalizeHex(value);
+  if (!hex) return false;
+  if (annotationEditorState.favoriteColors.includes(hex)) {
+    showToast('이미 저장된 색상입니다.');
+    return false;
+  }
+  if (annotationEditorState.favoriteColors.length >= 16) {
+    showToast('저장 가능한 색상은 최대 16개입니다.');
+    return false;
+  }
+  annotationEditorState.favoriteColors.push(hex);
+  saveAnnotationFavoriteColors();
+  return true;
+}
+
+/* Fallback when the browser does not provide a native screen eyedropper:
+   the selected screenshot remains on-device; it is never uploaded. */
+function openAnnotationScreenshotSampler(file, toolKey) {
+  if (!file || !String(file.type || '').startsWith('image/') || file.size > 25 * 1024 * 1024) {
+    showToast('25MB 이하의 이미지나 스크린샷을 선택해 주세요.');
+    return;
+  }
+  closeAnnotationToolPopup();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'annotation-sampler-backdrop';
+  backdrop.dataset.annotationSampler = '1';
+  const dialog = document.createElement('div');
+  dialog.className = 'annotation-sampler-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-label', '이미지에서 색 집기');
+
+  const header = document.createElement('div');
+  header.className = 'annotation-sampler-head';
+  const title = document.createElement('strong');
+  title.textContent = '🧪 이미지에서 색 집기';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn';
+  cancel.textContent = '닫기';
+  header.append(title, cancel);
+
+  const hint = document.createElement('p');
+  hint.className = 'annotation-sampler-hint';
+  hint.textContent = '스크린샷이나 사진에서 원하는 부분을 손가락 또는 마우스로 눌러 주세요. 사진은 서버로 전송되지 않습니다.';
+  const stage = document.createElement('div');
+  stage.className = 'annotation-sampler-stage';
+  const canvas = document.createElement('canvas');
+  canvas.className = 'annotation-sampler-canvas';
+  canvas.setAttribute('aria-label', '이미지의 원하는 색상을 터치하거나 클릭');
+  canvas.setAttribute('role', 'img');
+  const message = document.createElement('span');
+  message.className = 'annotation-sampler-loading';
+  message.textContent = '이미지 불러오는 중...';
+  stage.append(canvas, message);
+
+  const footer = document.createElement('div');
+  footer.className = 'annotation-sampler-footer';
+  const preview = document.createElement('span');
+  preview.className = 'annotation-color-preview';
+  const colorLabel = document.createElement('span');
+  colorLabel.className = 'annotation-sampler-color-label';
+  const currentHex = annotationNormalizeHex(annotationEditorState[toolKey]?.color || '#2563eb') || '#2563eb';
+  preview.style.backgroundColor = currentHex;
+  colorLabel.textContent = currentHex.toUpperCase();
+  const favorite = document.createElement('button');
+  favorite.type = 'button';
+  favorite.className = 'btn';
+  favorite.textContent = '☆ 팔레트에 저장';
+  const finish = document.createElement('button');
+  finish.type = 'button';
+  finish.className = 'btn primary';
+  finish.textContent = '완료';
+  footer.append(preview, colorLabel, favorite, finish);
+  dialog.append(header, hint, stage, footer);
+  backdrop.append(dialog);
+  document.body.append(backdrop);
+
+  let objectURL = '';
+  let isClosed = false;
+  const onKey = event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+    }
+  };
+  function close() {
+    if (isClosed) return;
+    isClosed = true;
+    document.removeEventListener('keydown', onKey, true);
+    backdrop.remove();
+    if (objectURL) URL.revokeObjectURL(objectURL);
+  }
+  cancel.addEventListener('click', close);
+  finish.addEventListener('click', close);
+  backdrop.addEventListener('click', event => {
+    if (event.target === backdrop) close();
+  });
+  document.addEventListener('keydown', onKey, true);
+  cancel.focus();
+  favorite.addEventListener('click', () => {
+    if (rememberAnnotationPaletteColor(annotationEditorState[toolKey]?.color)) {
+      showToast('팔레트에 색상을 저장했습니다.');
+    }
+  });
+  const image = new Image();
+  image.onload = () => {
+    if (isClosed) return;
+    const ratio = Math.min(1, 2000 / Math.max(1, image.naturalWidth, image.naturalHeight));
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      showToast('이미지 색상 정보를 읽을 수 없습니다.');
+      close();
+      return;
+    }
+    // Composite transparent pixels onto white, matching the visible preview.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    message.remove();
+    canvas.classList.add('is-ready');
+    canvas.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      const bounds = canvas.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width)));
+      const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height)));
+      const rgb = [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+      const sampled = annotationRgbHex(rgb);
+      if (!sampled || !applyAnnotationPaletteColor(sampled, toolKey)) return;
+      preview.style.backgroundColor = sampled;
+      colorLabel.textContent = sampled.toUpperCase() + ' · RGB ' + rgb.join(', ');
+    });
+    if (objectURL) {
+      URL.revokeObjectURL(objectURL);
+      objectURL = '';
+    }
+  };
+  image.onerror = () => {
+    if (isClosed) return;
+    showToast('이미지를 열 수 없습니다. PNG 또는 JPG 스크린샷을 이용해 주세요.');
+    close();
+  };
+  objectURL = URL.createObjectURL(file);
+  image.src = objectURL;
+}
+
+
 let annotationToolPopup = null;
 
 function closeAnnotationToolPopup() {
