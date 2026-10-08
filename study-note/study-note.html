@@ -9225,7 +9225,10 @@ function renderAnnotationTextObject(ctx, object, canvas) {
 function annotationCachedStrokePath(object, canvas) {
   if (typeof Path2D === 'undefined' || !object?.points?.length) return null;
   const cached = annotationStrokePathCache.get(object);
-  if (cached && cached.width === canvas.width && cached.height === canvas.height && cached.pointCount === object.points.length) {
+  const last = object.points[object.points.length - 1];
+  if (cached && cached.width === canvas.width && cached.height === canvas.height
+      && cached.pointCount === object.points.length
+      && cached.lastX === last.x && cached.lastY === last.y) {
     return cached.path;
   }
   const path = new Path2D();
@@ -9237,6 +9240,8 @@ function annotationCachedStrokePath(object, canvas) {
     width: canvas.width,
     height: canvas.height,
     pointCount: object.points.length,
+    lastX: last.x,
+    lastY: last.y,
     path,
   });
   return path;
