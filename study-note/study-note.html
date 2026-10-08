@@ -3305,6 +3305,7 @@ const activeAnnotationSurfaces = new Set();
 const annotationDocuments = new Map();
 const annotationPersistTimers = new Map();
 const annotationViewStateByKey = new Map();
+const annotationStrokePathCache = new WeakMap();
 const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
 const ANNOTATION_SHAPE_TOOLS = ['line', 'arrow', 'rect', 'ellipse'];
 const annotationEditorState = {
@@ -8081,6 +8082,26 @@ function renderAnnotationTextObject(ctx, object, canvas) {
   ctx.restore();
 }
 
+function annotationCachedStrokePath(object, canvas) {
+  if (typeof Path2D === 'undefined' || !object?.points?.length) return null;
+  const cached = annotationStrokePathCache.get(object);
+  if (cached && cached.width === canvas.width && cached.height === canvas.height && cached.pointCount === object.points.length) {
+    return cached.path;
+  }
+  const path = new Path2D();
+  path.moveTo(object.points[0].x * canvas.width, object.points[0].y * canvas.height);
+  for (let i = 1; i < object.points.length; i++) {
+    path.lineTo(object.points[i].x * canvas.width, object.points[i].y * canvas.height);
+  }
+  annotationStrokePathCache.set(object, {
+    width: canvas.width,
+    height: canvas.height,
+    pointCount: object.points.length,
+    path,
+  });
+  return path;
+}
+
 function renderAnnotationSurface(surface) {
   if (!surface?.canvas) return;
   const canvas = surface.canvas;
@@ -8139,10 +8160,15 @@ function renderAnnotationSurface(surface) {
         ctx.stroke();
       }
     } else {
-      ctx.beginPath();
-      ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
-      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
-      ctx.stroke();
+      const cachedPath = annotationCachedStrokePath(object, canvas);
+      if (cachedPath) {
+        ctx.stroke(cachedPath);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
