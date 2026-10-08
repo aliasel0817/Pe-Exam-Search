@@ -6547,6 +6547,45 @@ function getAnnotationDocument(key) {
   return annotationDocuments.get(key);
 }
 
+async function restoreCurrentAnnotationSnapshot() {
+  const surface = annotationCurrentSurface();
+  if (!surface) return showToast('현재 복원할 주석 페이지가 없습니다.');
+  try {
+    const database = db || await ensureDatabaseReady();
+    const snapshotRow = await getAnnotationSnapshot(database, surface.key);
+    if (!snapshotRow) {
+      showToast('이 페이지에는 이전 저장본이 없습니다.');
+      return false;
+    }
+    const snapshot = normalizeStoredAnnotationDocument(snapshotRow);
+    if (!snapshot) throw new Error('이전 저장본 형식을 확인할 수 없습니다.');
+    const confirmed = window.confirm(
+      `현재 페이지를 이전 저장본으로 복원할까요?\n\nSnapshot: ${snapshotRow.snapshotAt || snapshotRow.savedAt || '-'}\n주석 객체: ${snapshot.objects.length.toLocaleString()}개\n\n현재 상태도 다시 Snapshot으로 보관됩니다.`
+    );
+    if (!confirmed) return false;
+
+    const current = getAnnotationDocument(surface.key);
+    annotationPushUndo(current);
+    current.objects = cloneAnnotationObjects(snapshot.objects);
+    current.locked = Boolean(snapshot.locked);
+    current.bookmark = Boolean(snapshot.bookmark);
+    current.important = Boolean(snapshot.important);
+    current.updatedAt = new Date().toISOString();
+    current.saveRetryCount = 0;
+    renderAnnotationSurface(surface);
+    scheduleAnnotationPersist(current, { immediate: true });
+    syncAnnotationToolbarUi();
+    syncAnnotationStudyUi();
+    refreshReferencePdfStudyIndicators();
+    showToast('이전 주석 저장본을 복원했습니다.');
+    return true;
+  } catch (error) {
+    console.error('주석 Snapshot 복원 실패:', error);
+    showToast(`이전 저장본 복원 실패 · ${error?.message || error}`);
+    return false;
+  }
+}
+
 function annotationBackupPayload() {
   return {
     format: 'pe-study-note-annotations',
@@ -7154,6 +7193,15 @@ function openAnnotationManager() {
   exportPdf.textContent = '현재 페이지 PDF';
   exportPdf.addEventListener('click', exportCurrentAnnotationPdf);
 
+  const restoreSnapshot = document.createElement('button');
+  restoreSnapshot.type = 'button';
+  restoreSnapshot.className = 'btn';
+  restoreSnapshot.textContent = '이전 저장본 복원';
+  restoreSnapshot.addEventListener('click', async () => {
+    const restored = await restoreCurrentAnnotationSnapshot();
+    if (restored) overlay.remove();
+  });
+
   const exportPng = document.createElement('button');
   exportPng.type = 'button';
   exportPng.className = 'btn';
@@ -7177,7 +7225,7 @@ function openAnnotationManager() {
   close.className = 'btn primary';
   close.textContent = '닫기';
   close.addEventListener('click', () => overlay.remove());
-  actions.append(visibility, lock, exportPng, exportPdf, exportBackup, importBackup, close);
+  actions.append(visibility, lock, restoreSnapshot, exportPng, exportPdf, exportBackup, importBackup, close);
   card.append(title, summary, list, actions);
   overlay.append(card);
   overlay.addEventListener('click', event => {
