@@ -8260,6 +8260,67 @@ function finishAnnotationTouchPan(surface, event) {
   return true;
 }
 
+function annotationPointLineDistanceSq(point, start, end, width, height) {
+  const px = point.x * width;
+  const py = point.y * height;
+  const ax = start.x * width;
+  const ay = start.y * height;
+  const bx = end.x * width;
+  const by = end.y * height;
+  const dx = bx - ax;
+  const dy = by - ay;
+  if (dx === 0 && dy === 0) return (px - ax) ** 2 + (py - ay) ** 2;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+  const qx = ax + t * dx;
+  const qy = ay + t * dy;
+  return (px - qx) ** 2 + (py - qy) ** 2;
+}
+
+function simplifyAnnotationPoints(points, width, height, tolerancePx = 0.8) {
+  if (!Array.isArray(points) || points.length <= 3) return points || [];
+  const keep = new Uint8Array(points.length);
+  keep[0] = 1;
+  keep[points.length - 1] = 1;
+  const stack = [[0, points.length - 1]];
+  const toleranceSq = tolerancePx * tolerancePx;
+
+  while (stack.length) {
+    const [startIndex, endIndex] = stack.pop();
+    let maxDistance = 0;
+    let maxIndex = -1;
+    for (let i = startIndex + 1; i < endIndex; i++) {
+      const distance = annotationPointLineDistanceSq(points[i], points[startIndex], points[endIndex], width, height);
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        maxIndex = i;
+      }
+    }
+    if (maxIndex > 0 && maxDistance > toleranceSq) {
+      keep[maxIndex] = 1;
+      stack.push([startIndex, maxIndex], [maxIndex, endIndex]);
+    }
+  }
+
+  return points
+    .filter((_, index) => keep[index])
+    .map(point => ({
+      x: Number(point.x.toFixed(5)),
+      y: Number(point.y.toFixed(5)),
+      p: Number((Number(point.p) || 0.5).toFixed(3)),
+    }));
+}
+
+function optimizeAnnotationStroke(surface, stroke) {
+  if (!surface?.media || !stroke?.points?.length) return;
+  const rect = surface.media.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const originalCount = stroke.points.length;
+  const widthPx = Math.max(1, Number(stroke.widthN || 0.005) * Math.min(rect.width, rect.height));
+  const tolerance = Math.max(0.65, Math.min(1.8, widthPx * 0.12));
+  stroke.points = simplifyAnnotationPoints(stroke.points, rect.width, rect.height, tolerance);
+  stroke.pointCountOriginal = originalCount;
+}
+
 function addAnnotationPoint(surface, stroke, event) {
   const rect = surface.media?.getBoundingClientRect?.();
   if (!rect || rect.width <= 0 || rect.height <= 0) return;
@@ -8451,6 +8512,7 @@ function installAnnotationInputHandlers(surface) {
     event.preventDefault();
     event.stopPropagation();
     addAnnotationPoint(surface, surface.activeStroke.stroke, event);
+    optimizeAnnotationStroke(surface, surface.activeStroke.stroke);
     surface.activeStroke = null;
     try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
     scheduleAnnotationRender(surface);
