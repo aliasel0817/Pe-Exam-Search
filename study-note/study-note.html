@@ -1572,6 +1572,13 @@ button { -webkit-tap-highlight-color: transparent; }
   .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; min-height: 0; }
 }
 
+
+.annotation-width-input {
+  flex: 0 0 auto; width: 62px; height: 30px; padding: 2px 4px;
+  border: 1px solid #cfd8e3; border-radius: 7px;
+  background: #fff; color: var(--text); font-size: .72rem; text-align: center;
+}
+@media (max-width: 760px) { .annotation-width-input { width: 59px; } }
   </style>
 </head>
 <body>
@@ -4109,7 +4116,7 @@ function bindViewerLayoutControls() {
 
 function bindSidebarFoldControls() {
   const sections = [
-    ['.filter-panel', 'search-filter', '검색 필터', false],
+    ['.filter-panel', 'search-filter', '검색 필터', true],
     ['.list-panel', 'search-results', '검색 결과', false]
   ];
   for (const [selector, kind, title, defaultCollapsed] of sections) {
@@ -8681,8 +8688,15 @@ function syncAnnotationToolbarUi() {
       color.disabled = isPan || isEraser || isSelect;
     }
     if (width) {
-      width.value = String(effectiveWidth);
+      width.value = Array.from(width.options).some(option => Number(option.value) === effectiveWidth) ? String(effectiveWidth) : '';
       width.disabled = isPan || isSelect;
+    }
+    const directWidth = toolbar.querySelector('[data-annotation-width-input]');
+    if (directWidth) {
+      directWidth.disabled = isPan || isSelect;
+      directWidth.min = isEraser ? '4' : '0.5';
+      directWidth.max = isEraser ? '60' : ((annotationEditorState.tool === 'text' || annotationEditorState.tool === 'note') ? '48' : '30');
+      if (document.activeElement !== directWidth) directWidth.value = String(effectiveWidth);
     }
     if (opacity) {
       opacity.value = String(Math.round(settings.opacity * 100));
@@ -9563,6 +9577,17 @@ function bindAnnotationToolbarEvents() {
     });
     const color = toolbar.querySelector('[data-annotation-color]');
     const width = toolbar.querySelector('[data-annotation-width]');
+    const directWidth = document.createElement('input');
+    directWidth.type = 'number';
+    directWidth.className = 'annotation-width-input annotation-mobile-optional';
+    directWidth.dataset.annotationWidthInput = '1';
+    directWidth.min = '0.5';
+    directWidth.max = '30';
+    directWidth.step = '0.5';
+    directWidth.inputMode = 'decimal';
+    directWidth.setAttribute('aria-label', '필기 굵기 직접 입력');
+    directWidth.title = '직접 굵기 입력 (0.5~30)';
+    width?.insertAdjacentElement('afterend', directWidth);
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
     color?.addEventListener('input', () => {
       const styleKey = annotationStyleKey();
@@ -9577,6 +9602,30 @@ function bindAnnotationToolbarEvents() {
         if (annotationEditorState[styleKey]) annotationEditorState[styleKey].width = Math.max(1, Number(width.value) || 4);
       }
       syncAnnotationToolbarUi();
+    });
+    const commitDirectWidth = () => {
+      const raw = Number(directWidth.value);
+      if (!Number.isFinite(raw) || directWidth.value.trim() === '') {
+        directWidth.blur();
+        syncAnnotationToolbarUi();
+        return;
+      }
+      const tool = annotationEditorState.tool;
+      const min = tool === 'eraser' ? 4 : 0.5;
+      const max = tool === 'eraser' ? 60 : ((tool === 'text' || tool === 'note') ? 48 : 30);
+      const chosen = Math.round(Math.max(min, Math.min(max, raw)) * 2) / 2;
+      if (tool === 'eraser') annotationEditorState.eraserSize = chosen;
+      else {
+        const styleKey = annotationStyleKey();
+        if (annotationEditorState[styleKey]) annotationEditorState[styleKey].width = chosen;
+      }
+      directWidth.blur();
+      syncAnnotationToolbarUi();
+    };
+    directWidth.addEventListener('change', commitDirectWidth);
+    directWidth.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); commitDirectWidth(); }
+      event.stopPropagation();
     });
     opacity?.addEventListener('input', () => {
       const styleKey = annotationStyleKey();
