@@ -1573,8 +1573,13 @@ button { -webkit-tap-highlight-color: transparent; }
 .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; }
 @media (max-width: 760px) {
   .sidebar { display: flex; flex-direction: column; }
-  .sidebar .filter-panel:not(.sidebar-section-collapsed) { flex: 0 1 auto; max-height: min(53%, 440px); overflow-y: auto; }
-  .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; min-height: 0; }
+  /* When both sections are open, the result list must not shrink search fields away. */
+  .sidebar .filter-panel:not(.sidebar-section-collapsed) {
+    flex: 0 0 auto;
+    max-height: min(42%, 400px);
+    overflow-y: auto;
+  }
+  .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 0; min-height: 0; }
 }
 
 
@@ -1593,10 +1598,11 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (min-width: 761px) and (max-width: 1280px) {
   .sidebar { display: flex; flex-direction: column; }
   .sidebar .filter-panel:not(.sidebar-section-collapsed) {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     max-height: clamp(210px, 38%, 320px);
+    overflow-y: auto;
   }
-  .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 auto; min-height: 0; }
+  .sidebar .list-panel:not(.sidebar-section-collapsed) { flex: 1 1 0; min-height: 0; }
 }
 @media (min-width: 761px) and (max-width: 1280px) and (max-height: 860px) {
   .sidebar .filter-panel:not(.sidebar-section-collapsed) {
