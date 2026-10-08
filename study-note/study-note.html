@@ -826,6 +826,15 @@ button { -webkit-tap-highlight-color: transparent; }
   accent-color: var(--primary);
 }
 .annotation-opacity-value { min-width: 31px; color: #475467; font-size: .68rem; font-weight: 800; text-align: right; }
+.annotation-toolbar-status {
+  min-width: 52px;
+  color: #475467;
+  font-size: .68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.annotation-toolbar input:disabled,
+.annotation-toolbar select:disabled { opacity: .45; cursor: not-allowed; }
 .image-viewer-card > .annotation-toolbar { margin-top: 8px; }
 .attachment-pdf-footer .annotation-toolbar { flex: 0 1 auto; }
 .reference-pdf-bottom-actions .annotation-toolbar { flex: 0 1 auto; }
@@ -1907,6 +1916,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
+        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
         <span class="annotation-toolbar-label">굵기</span>
@@ -1952,6 +1962,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
+        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
         <span class="annotation-toolbar-label">굵기</span>
@@ -2017,6 +2028,7 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
+        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-toolbar-label">색</span>
         <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
         <span class="annotation-toolbar-label">굵기</span>
@@ -2973,7 +2985,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.30-eraser-history';
+const APP_VERSION = '4.4.31-annotation-input-ux';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3077,6 +3089,7 @@ const annotationEditorState = {
   eraserSize: 18,
 };
 let lastActiveAnnotationSurface = null;
+let annotationTemporaryPreviousTool = '';
 const ANNOTATION_HISTORY_LIMIT = 50;
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
@@ -3201,6 +3214,8 @@ function bindElements() {
 
 function bindEvents() {
   bindAnnotationToolbarEvents();
+  window.addEventListener('keydown', handleAnnotationShortcut, { capture: true });
+  window.addEventListener('keyup', handleAnnotationShortcutKeyUp, { capture: true });
   els.refreshBtn.addEventListener('click', refreshMaster);
   els.emptyRefreshBtn.addEventListener('click', refreshMaster);
   els.settingsBtn.addEventListener('click', openSettings);
@@ -5997,6 +6012,7 @@ async function ensureReferencePdfViewerCatalog(items) {
 }
 
 async function openReferencePdfViewer(sourceType) {
+  setAnnotationTool('pan');
   if (!navigator.onLine) return showToast('원본 PDF는 온라인 상태에서 Google Drive로부터 불러옵니다.');
   const items = getTopicReferencePdfLinks(currentTopicId, sourceType);
   if (!items.length) return showToast(`${sourceType} PDF 연결정보가 없습니다.`);
@@ -6343,6 +6359,70 @@ function annotationActiveSettings() {
   return annotationEditorState[drawTool] || annotationEditorState.pen;
 }
 
+function annotationToolLabel(tool = annotationEditorState.tool) {
+  return tool === 'pen' ? '펜'
+    : tool === 'highlighter' ? '형광펜'
+    : tool === 'eraser' ? '지우개'
+    : '이동 모드';
+}
+
+function annotationViewerOpen() {
+  return !els.imageViewerModal?.classList.contains('hidden')
+    || !els.mediaViewerModal?.classList.contains('hidden')
+    || !els.referencePdfViewerModal?.classList.contains('hidden');
+}
+
+function annotationShortcutIgnored(event) {
+  const target = event.target;
+  if (!target) return false;
+  return Boolean(target.closest?.('input, textarea, select, [contenteditable="true"]'));
+}
+
+function handleAnnotationShortcut(event) {
+  if (!annotationViewerOpen() || annotationShortcutIgnored(event)) return;
+  const key = String(event.key || '').toLowerCase();
+
+  if ((event.ctrlKey || event.metaKey) && key === 'z') {
+    event.preventDefault();
+    if (event.shiftKey) annotationRedo();
+    else annotationUndo();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && key === 'y') {
+    event.preventDefault();
+    annotationRedo();
+    return;
+  }
+
+  if (event.code === 'Space' && !event.repeat) {
+    if (annotationEditorState.tool !== 'pan') {
+      annotationTemporaryPreviousTool = annotationEditorState.tool;
+      setAnnotationTool('pan');
+      event.preventDefault();
+    }
+    return;
+  }
+
+  const shortcutTool = key === 'v' || key === '1' ? 'pan'
+    : key === 'p' || key === '2' ? 'pen'
+    : key === 'h' || key === '3' ? 'highlighter'
+    : key === 'e' || key === '4' ? 'eraser'
+    : '';
+  if (shortcutTool) {
+    annotationTemporaryPreviousTool = '';
+    setAnnotationTool(shortcutTool);
+    event.preventDefault();
+  }
+}
+
+function handleAnnotationShortcutKeyUp(event) {
+  if (event.code !== 'Space' || !annotationTemporaryPreviousTool) return;
+  const restore = annotationTemporaryPreviousTool;
+  annotationTemporaryPreviousTool = '';
+  setAnnotationTool(restore);
+  event.preventDefault();
+}
+
 function syncAnnotationToolbarUi() {
   const settings = annotationActiveSettings();
   document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
@@ -6355,10 +6435,24 @@ function syncAnnotationToolbarUi() {
     const width = toolbar.querySelector('[data-annotation-width]');
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
     const opacityValue = toolbar.querySelector('[data-annotation-opacity-value]');
-    if (color) color.value = settings.color;
-    if (width) width.value = String(settings.width);
-    if (opacity) opacity.value = String(Math.round(settings.opacity * 100));
-    if (opacityValue) opacityValue.textContent = `${Math.round(settings.opacity * 100)}%`;
+    const isPan = annotationEditorState.tool === 'pan';
+    const isEraser = annotationEditorState.tool === 'eraser';
+    const effectiveWidth = isEraser ? annotationEditorState.eraserSize : settings.width;
+    if (color) {
+      color.value = settings.color;
+      color.disabled = isPan || isEraser;
+    }
+    if (width) {
+      width.value = String(effectiveWidth);
+      width.disabled = isPan;
+    }
+    if (opacity) {
+      opacity.value = String(Math.round(settings.opacity * 100));
+      opacity.disabled = isPan || isEraser;
+    }
+    if (opacityValue) opacityValue.textContent = isEraser ? '—' : `${Math.round(settings.opacity * 100)}%`;
+    const status = toolbar.querySelector('[data-annotation-status]');
+    if (status) status.textContent = annotationToolLabel();
     const surface = annotationCurrentSurface();
     const documentData = surface ? getAnnotationDocument(surface.key) : null;
     const undo = toolbar.querySelector('[data-annotation-undo]');
@@ -6383,6 +6477,9 @@ function updateAnnotationSurfaceInteraction(surface) {
   const enabled = annotationEditorState.tool === 'pen' || annotationEditorState.tool === 'highlighter' || annotationEditorState.tool === 'eraser';
   surface.canvas.classList.toggle('annotation-input-enabled', enabled);
   surface.canvas.dataset.annotationTool = annotationEditorState.tool;
+  surface.canvas.style.cursor = annotationEditorState.tool === 'eraser' ? 'cell'
+    : enabled ? 'crosshair'
+    : '';
 }
 
 function renderAnnotationSurface(surface) {
@@ -6556,8 +6653,12 @@ function bindAnnotationToolbarEvents() {
       syncAnnotationToolbarUi();
     });
     width?.addEventListener('change', () => {
-      const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
-      annotationEditorState[drawTool].width = Math.max(1, Number(width.value) || 4);
+      if (annotationEditorState.tool === 'eraser') {
+        annotationEditorState.eraserSize = Math.max(4, Number(width.value) || 18);
+      } else {
+        const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
+        if (drawTool === 'pen' || drawTool === 'highlighter') annotationEditorState[drawTool].width = Math.max(1, Number(width.value) || 4);
+      }
       syncAnnotationToolbarUi();
     });
     opacity?.addEventListener('input', () => {
@@ -7135,6 +7236,7 @@ function base64ToObjectUrl(base64, mime) {
 }
 
 function openMediaViewer(type) {
+  setAnnotationTool('pan');
   const items = getTopicAttachments(currentTopicId, type);
   if (!items.length) return showToast(type === 'I' ? '등록된 이미지가 없습니다.' : '등록된 PDF가 없습니다.');
   cleanupMediaViewerObjects();
