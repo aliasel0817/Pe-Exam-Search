@@ -2877,7 +2877,7 @@ async function syncAnnotationCloud({ manual = false } = {}) {
     let updatedAfter = '';
     if (previousSyncAt) {
       const previousMs = Date.parse(previousSyncAt);
-      if (Number.isFinite(previousMs)) updatedAfter = new Date(Math.max(0, previousMs - 5000)).toISOString();
+      if (Number.isFinite(previousMs)) updatedAfter = new Date(Math.max(0, previousMs - 60000)).toISOString();
     }
     let cursor = 0;
     let syncAnchor = new Date().toISOString();
