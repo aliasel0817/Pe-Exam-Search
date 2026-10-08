@@ -2306,10 +2306,11 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="text" aria-pressed="false">T 텍스트</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="note" aria-pressed="false">📝 메모</button>
-        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
-        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
-        <span class="annotation-toolbar-label">색</span>
-        <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
+        <button class="btn annotation-palette-trigger" type="button"
+          data-annotation-popup-trigger="palette" aria-haspopup="dialog" aria-expanded="false"
+          aria-label="현재 도구 색상 팔레트 열기">
+          <span>🎨 색상</span><span class="annotation-color-preview" data-annotation-color-preview aria-hidden="true"></span>
+        </button>
         <span class="annotation-toolbar-label" data-annotation-width-label>굵기</span>
         <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기 또는 글자 크기">
           <option value="2">2</option>
@@ -2324,6 +2325,8 @@ button { -webkit-tap-highlight-color: transparent; }
         <span class="annotation-toolbar-label">투명도</span>
         <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
         <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
+        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
+        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <button class="btn" type="button" data-annotation-undo aria-label="주석 실행 취소">↶</button>
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-duplicate>복제</button>
@@ -2395,10 +2398,11 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="text" aria-pressed="false">T 텍스트</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="note" aria-pressed="false">📝 메모</button>
-        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
-        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
-        <span class="annotation-toolbar-label">색</span>
-        <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
+        <button class="btn annotation-palette-trigger" type="button"
+          data-annotation-popup-trigger="palette" aria-haspopup="dialog" aria-expanded="false"
+          aria-label="현재 도구 색상 팔레트 열기">
+          <span>🎨 색상</span><span class="annotation-color-preview" data-annotation-color-preview aria-hidden="true"></span>
+        </button>
         <span class="annotation-toolbar-label" data-annotation-width-label>굵기</span>
         <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기 또는 글자 크기">
           <option value="2">2</option>
@@ -2413,6 +2417,8 @@ button { -webkit-tap-highlight-color: transparent; }
         <span class="annotation-toolbar-label">투명도</span>
         <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
         <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
+        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
+        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <button class="btn" type="button" data-annotation-undo aria-label="주석 실행 취소">↶</button>
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-duplicate>복제</button>
@@ -2491,10 +2497,11 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="text" aria-pressed="false">T 텍스트</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="note" aria-pressed="false">📝 메모</button>
-        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
-        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
-        <span class="annotation-toolbar-label">색</span>
-        <input class="annotation-color-input" data-annotation-color type="color" value="#2563eb" aria-label="펜 색상">
+        <button class="btn annotation-palette-trigger" type="button"
+          data-annotation-popup-trigger="palette" aria-haspopup="dialog" aria-expanded="false"
+          aria-label="현재 도구 색상 팔레트 열기">
+          <span>🎨 색상</span><span class="annotation-color-preview" data-annotation-color-preview aria-hidden="true"></span>
+        </button>
         <span class="annotation-toolbar-label" data-annotation-width-label>굵기</span>
         <select class="annotation-width-select" data-annotation-width aria-label="펜 굵기 또는 글자 크기">
           <option value="2">2</option>
@@ -2509,6 +2516,8 @@ button { -webkit-tap-highlight-color: transparent; }
         <span class="annotation-toolbar-label">투명도</span>
         <input class="annotation-opacity" data-annotation-opacity type="range" min="10" max="100" step="5" value="100" aria-label="펜 투명도">
         <span class="annotation-opacity-value" data-annotation-opacity-value>100%</span>
+        <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
+        <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <button class="btn" type="button" data-annotation-undo aria-label="주석 실행 취소">↶</button>
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-duplicate>복제</button>
@@ -8851,7 +8860,6 @@ function syncAnnotationToolbarUi() {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-    const color = toolbar.querySelector('[data-annotation-color]');
     const width = toolbar.querySelector('[data-annotation-width]');
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
     const opacityValue = toolbar.querySelector('[data-annotation-opacity-value]');
@@ -8884,10 +8892,15 @@ function syncAnnotationToolbarUi() {
     const isEraser = annotationEditorState.tool === 'eraser';
     const isSelect = annotationEditorState.tool === 'select';
     const effectiveWidth = isEraser ? annotationEditorState.eraserSize : settings.width;
-    if (color) {
-      color.value = settings.color;
-      color.disabled = isPan || isEraser || isSelect;
+    const palette = toolbar.querySelector('[data-annotation-popup-trigger="palette"]');
+    const colorPreview = palette?.querySelector('[data-annotation-color-preview]');
+    if (palette) {
+      const toolLabel = annotationToolLabel();
+      palette.disabled = isPan || isEraser || isSelect;
+      palette.title = toolLabel + ' 색상: ' + settings.color + ' · 팔레트 열기';
+      palette.setAttribute('aria-label', toolLabel + ' 현재 색상 ' + settings.color + ', 팔레트 열기');
     }
+    if (colorPreview) colorPreview.style.backgroundColor = settings.color;
     if (width) {
       width.value = Array.from(width.options).some(option => Number(option.value) === effectiveWidth) ? String(effectiveWidth) : '';
       width.disabled = isPan || isSelect;
@@ -9845,6 +9858,12 @@ function restoreAnnotationToolPreferences() {
     for (const kind of ['pen', 'highlighter']) {
       if (raw.strokeModes?.[kind] === 'straight') annotationEditorState.strokeModes[kind] = 'straight';
     }
+    for (const kind of ['pen', 'highlighter', 'shape', 'text', 'note']) {
+      const value = raw.colors?.[kind];
+      if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) {
+        annotationEditorState[kind].color = value.toLowerCase();
+      }
+    }
   } catch (error) { /* Private browsing may deny local preferences. */ }
   try {
     const colors = JSON.parse(localStorage.getItem(ANNOTATION_PALETTE_KEY) || '[]');
@@ -9859,6 +9878,8 @@ function saveAnnotationToolPreferences() {
     localStorage.setItem(ANNOTATION_OPTIONS_KEY, JSON.stringify({
       penStyle: annotationEditorState.penStyle,
       strokeModes: annotationEditorState.strokeModes,
+      colors: Object.fromEntries(['pen', 'highlighter', 'shape', 'text', 'note']
+        .map(kind => [kind, annotationEditorState[kind].color])),
     }));
   } catch (error) { /* Preferences still work for the current session. */ }
 }
@@ -10175,7 +10196,6 @@ function bindAnnotationToolbarEvents() {
       }
       if (event.target.closest('[data-annotation-clear]')) annotationClearCurrent();
     });
-    const color = toolbar.querySelector('[data-annotation-color]');
     const width = toolbar.querySelector('[data-annotation-width]');
     const directWidth = document.createElement('input');
     directWidth.type = 'number';
@@ -10189,11 +10209,6 @@ function bindAnnotationToolbarEvents() {
     directWidth.title = '직접 굵기 입력 (0.5~30)';
     width?.insertAdjacentElement('afterend', directWidth);
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
-    color?.addEventListener('input', () => {
-      const styleKey = annotationStyleKey();
-      if (annotationEditorState[styleKey]) annotationEditorState[styleKey].color = color.value;
-      syncAnnotationToolbarUi();
-    });
     width?.addEventListener('change', () => {
       if (annotationEditorState.tool === 'eraser') {
         annotationEditorState.eraserSize = Math.max(4, Number(width.value) || 18);
