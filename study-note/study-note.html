@@ -1521,6 +1521,34 @@ button { -webkit-tap-highlight-color: transparent; }
   .viewer-toggle-btn { min-height: 29px; padding: 3px 6px; font-size: .68rem; }
 }
 
+
+/* Fold only optional controls. Zoom, close and reopen remain available. */
+.viewer-bottom-toggle { align-self: center; justify-self: start; }
+.image-viewer-card > .viewer-bottom-toggle { order: 3; margin-top: 5px; }
+.image-viewer-card > .annotation-toolbar { order: 4; }
+.image-viewer-card > .image-viewer-zoom-controls { order: 5; }
+.image-viewer-card > .media-viewer-actions { order: 6; }
+.attachment-pdf-footer > .viewer-bottom-toggle,
+.reference-pdf-bottom-actions > .viewer-bottom-toggle { grid-column: 1 / -1; grid-row: 1; }
+.attachment-pdf-footer, .reference-pdf-bottom-actions {
+  grid-template-areas: "toggle toggle" "annotation annotation" "zoom close";
+}
+.attachment-pdf-footer > .viewer-bottom-toggle,
+.reference-pdf-bottom-actions > .viewer-bottom-toggle { grid-area: toggle; }
+.image-viewer-card.viewer-bottom-collapsed > .annotation-toolbar,
+.image-viewer-card.viewer-bottom-collapsed > .annotation-study-nav,
+.attachment-pdf-viewer-card.viewer-bottom-collapsed > .annotation-toolbar,
+.attachment-pdf-viewer-card.viewer-bottom-collapsed > .annotation-study-nav,
+.reference-pdf-modal-card.viewer-bottom-collapsed .annotation-toolbar,
+.reference-pdf-modal-card.viewer-bottom-collapsed .annotation-study-nav { display: none !important; }
+.attachment-pdf-viewer-card.viewer-bottom-collapsed .attachment-pdf-footer,
+.reference-pdf-modal-card.viewer-bottom-collapsed .reference-pdf-bottom-actions {
+  grid-template-areas: "toggle toggle" "zoom close";
+  padding-top: 4px;
+  gap: 3px 8px;
+}
+.image-viewer-card.viewer-bottom-collapsed .image-viewer-body { margin-top: 5px; }
+
   </style>
 </head>
 <body>
@@ -3998,6 +4026,20 @@ function bindViewerLayoutControls() {
     const modal = document.getElementById(modalId);
     const card = modal?.querySelector('.modal-card');
     if (!card) continue;
+    const bottomParent = kind === 'image'
+      ? card
+      : card.querySelector(kind === 'reference-pdf' ? '.reference-pdf-bottom-actions' : '.attachment-pdf-footer');
+    if (bottomParent && !card.querySelector('[data-viewer-bottom-toggle]')) {
+      const bottomButton = document.createElement('button');
+      bottomButton.type = 'button';
+      bottomButton.className = 'btn viewer-toggle-btn viewer-bottom-toggle';
+      bottomButton.dataset.viewerBottomToggle = '1';
+      if (kind === 'image') {
+        card.insertBefore(bottomButton, card.querySelector('.annotation-toolbar'));
+      } else {
+        bottomParent.insertBefore(bottomButton, bottomParent.querySelector('.annotation-toolbar'));
+      }
+    }
     for (const part of ['top', 'bottom']) {
       const button = card.querySelector('[data-viewer-' + part + '-toggle]');
       if (!button) continue;
