@@ -2728,7 +2728,7 @@ function applyAnnotationSyncCapability({ ready = false, serverSchema = 0 } = {})
 async function refreshAnnotationCloudCapability({ force = false } = {}) {
   if (!navigator.onLine) return annotationCloudSyncState.ready;
   const cached = readAnnotationSyncCapabilityCache();
-  if (!force && cached && Date.now() - Number(cached.checkedAt || 0) < ANNOTATION_SYNC_CAPABILITY_TTL_MS) {
+  if (!force && cached?.ready && Date.now() - Number(cached.checkedAt || 0) < ANNOTATION_SYNC_CAPABILITY_TTL_MS) {
     return applyAnnotationSyncCapability(cached);
   }
   try {
