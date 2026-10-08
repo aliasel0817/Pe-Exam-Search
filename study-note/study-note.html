@@ -9900,15 +9900,17 @@ function closeAnnotationToolPopup() {
 
 function openAnnotationToolPopup(anchor, kind) {
   closeAnnotationToolPopup();
-  if (!anchor || !['pen', 'shape', 'palette'].includes(kind)) return;
+  if (!anchor || !['pen', 'highlighter', 'shape', 'palette'].includes(kind)) return;
   const pop = document.createElement('div');
   pop.className = 'annotation-tool-popup';
   pop.dataset.annotationPopup = kind;
   pop.setAttribute('role', 'dialog');
-  pop.setAttribute('aria-label', kind === 'pen' ? '펜 종류' : kind === 'shape' ? '도형 선택' : '색상 팔레트');
+  pop.setAttribute('aria-label', kind === 'pen' ? '펜 종류 및 선 모드' :
+    kind === 'highlighter' ? '형광펜 선 모드' : kind === 'shape' ? '도형 선택' : '색상 팔레트');
   const heading = document.createElement('strong');
   heading.className = 'annotation-tool-popup-title';
-  heading.textContent = kind === 'pen' ? '펜 종류 선택' : kind === 'shape' ? '그릴 도형 선택' : '색상 팔레트';
+  heading.textContent = kind === 'pen' ? '펜 종류 · 선 모드' :
+    kind === 'highlighter' ? '형광펜 선 모드' : kind === 'shape' ? '그릴 도형 선택' : '색상 팔레트';
   const close = document.createElement('button');
   close.type = 'button'; close.className = 'annotation-tool-popup-close';
   close.textContent = '✕'; close.setAttribute('aria-label', '선택 창 닫기');
@@ -9937,7 +9939,8 @@ function openAnnotationToolPopup(anchor, kind) {
     grid.append(button);
   };
 
-  if (kind === 'pen') {
+  if (kind === 'pen' || kind === 'highlighter') {
+    if (kind === 'pen') {
     const styles = [
       ['pencil', '✎ 연필', '옅고 질감 있는 선'],
       ['ballpoint', '🖊 볼펜', '굵기가 일정한 필기'],
@@ -9952,6 +9955,31 @@ function openAnnotationToolPopup(anchor, kind) {
         closeAnnotationToolPopup();
       }, description);
     }
+    }
+    // The selected stroke mode belongs to each tool, not to the shared toolbar.
+    const modeTitle = document.createElement('p');
+    modeTitle.className = 'annotation-palette-title';
+    modeTitle.textContent = '선 그리기 방식';
+    pop.append(modeTitle);
+    const modeChoices = document.createElement('div');
+    modeChoices.className = 'annotation-tool-popup-grid annotation-mode-grid';
+    for (const [value, label] of [['free', '〰 자유선'], ['straight', '／ 직선']]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      const selected = annotationEditorState.strokeModes[kind] === value;
+      button.className = 'annotation-tool-option' + (selected ? ' is-selected' : '');
+      button.textContent = label;
+      button.setAttribute('aria-pressed', String(selected));
+      button.dataset.annotationModeChoice = value;
+      button.addEventListener('click', () => {
+        annotationEditorState.strokeModes[kind] = value;
+        saveAnnotationToolPreferences();
+        setAnnotationTool(kind);
+        closeAnnotationToolPopup();
+      });
+      modeChoices.append(button);
+    }
+    pop.append(modeChoices);
   } else if (kind === 'shape') {
     for (const [id, label] of ANNOTATION_SHAPE_CHOICES) {
       option(label, annotationEditorState.tool === id, () => {
@@ -9980,6 +10008,7 @@ function openAnnotationToolPopup(anchor, kind) {
       colorButton.addEventListener('click', () => {
         const settings = annotationEditorState[annotationStyleKey()];
         if (settings) settings.color = color;
+        saveAnnotationToolPreferences();
         syncAnnotationToolbarUi();
         closeAnnotationToolPopup();
       });
@@ -10024,6 +10053,7 @@ function openAnnotationToolPopup(anchor, kind) {
     customInput.addEventListener('input', () => {
       const style = annotationEditorState[annotationStyleKey()];
       if (style) style.color = customInput.value;
+      saveAnnotationToolPreferences();
       syncAnnotationToolbarUi();
     });
     custom.append(customLabel, customInput);
