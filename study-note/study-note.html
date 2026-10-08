@@ -846,6 +846,17 @@ button { -webkit-tap-highlight-color: transparent; }
 .annotation-save-status.saved { color: var(--success); }
 .annotation-save-status.error { color: var(--danger); }
 .image-viewer-card > .annotation-toolbar { margin-top: 8px; }
+.image-viewer-zoom-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.image-viewer-zoom-controls .btn { min-height: 32px; padding: 4px 9px; font-size: .72rem; }
+.image-viewer-zoom-label { min-width: 46px; color: #475467; font-size: .72rem; font-weight: 800; text-align: center; }
+.media-image-item.image-active { border-color: #93c5fd; box-shadow: 0 0 0 2px rgba(37, 99, 235, .08); }
 .attachment-pdf-footer .annotation-toolbar { flex: 0 1 auto; }
 .reference-pdf-bottom-actions .annotation-toolbar { flex: 0 1 auto; }
 .media-image-zoom-hint { margin: 7px 2px 0; color: var(--muted); font-size: .67rem; text-align: right; }
@@ -1946,6 +1957,12 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
+      <div class="image-viewer-zoom-controls" aria-label="선택 이미지 확대 축소">
+        <button id="imageViewerZoomOutBtn" class="btn" type="button" aria-label="이미지 축소">−</button>
+        <span id="imageViewerZoomLabel" class="image-viewer-zoom-label">100%</span>
+        <button id="imageViewerZoomInBtn" class="btn" type="button" aria-label="이미지 확대">＋</button>
+        <button id="imageViewerZoomFitBtn" class="btn" type="button">맞춤</button>
+      </div>
       <div id="imageViewerBody" class="image-viewer-body"></div>
       <div class="media-viewer-actions"><button id="closeImageViewerBottomBtn" class="btn primary" type="button">닫기</button></div>
     </div>
@@ -3017,7 +3034,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.32-annotation-autosave';
+const APP_VERSION = '4.4.33-image-annotation-integration';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3086,6 +3103,8 @@ let pendingReferencePdfReplacements = new Map();
 const MAX_REFERENCE_PAGE_BYTES = 8 * 1024 * 1024;
 let mediaViewerObjectUrls = [];
 let mediaImageObserver = null;
+let activeImageZoomController = null;
+let activeImageFigure = null;
 let activePdfAttachments = [];
 let activePdfIndex = 0;
 let activePdfObjectUrl = '';
@@ -3244,7 +3263,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -3325,6 +3344,9 @@ function bindEvents() {
   els.openPdfsBtn.addEventListener('click', () => openMediaViewer('P'));
   els.closeImageViewerBtn.addEventListener('click', closeMediaViewer);
   els.closeImageViewerBottomBtn.addEventListener('click', closeMediaViewer);
+  els.imageViewerZoomOutBtn.addEventListener('click', () => activeImageZoomController?.setZoom(activeImageZoomController.getZoom() - 0.25));
+  els.imageViewerZoomInBtn.addEventListener('click', () => activeImageZoomController?.setZoom(activeImageZoomController.getZoom() + 0.25));
+  els.imageViewerZoomFitBtn.addEventListener('click', () => activeImageZoomController?.setZoom(1));
   els.imageViewerModal.addEventListener('keydown', event => event.stopPropagation());
   els.closeMediaViewerBtn.addEventListener('click', closeMediaViewer);
   els.closeMediaViewerBottomBtn.addEventListener('click', closeMediaViewer);
@@ -7412,6 +7434,7 @@ function openMediaViewer(type) {
 
 function closeMediaViewer() {
   flushPendingAnnotationSaves();
+  setActiveImageZoomController(null, null);
   els.imageViewerModal.classList.add('hidden');
   els.mediaViewerModal.classList.add('hidden');
   destroyAnnotationSurfacesWithin(els.imageViewerBody);
@@ -7450,8 +7473,25 @@ function cleanupMediaViewerObjects() {
   activePdfIndex = 0;
 }
 
+function updateImageViewerZoomUi() {
+  const zoom = activeImageZoomController?.getZoom?.() || 1;
+  if (els.imageViewerZoomLabel) els.imageViewerZoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+  if (els.imageViewerZoomOutBtn) els.imageViewerZoomOutBtn.disabled = !activeImageZoomController || zoom <= 1.001;
+  if (els.imageViewerZoomInBtn) els.imageViewerZoomInBtn.disabled = !activeImageZoomController || zoom >= 9.999;
+  if (els.imageViewerZoomFitBtn) els.imageViewerZoomFitBtn.disabled = !activeImageZoomController || Math.abs(zoom - 1) < 0.001;
+}
+
+function setActiveImageZoomController(figure, controller) {
+  if (activeImageFigure && activeImageFigure !== figure) activeImageFigure.classList.remove('image-active');
+  activeImageFigure = figure || null;
+  activeImageZoomController = controller || null;
+  if (activeImageFigure) activeImageFigure.classList.add('image-active');
+  updateImageViewerZoomUi();
+}
+
 function renderImageViewer(items) {
   destroyAnnotationSurfacesWithin(els.imageViewerBody);
+  setActiveImageZoomController(null, null);
   els.imageViewerBody.innerHTML = `<div class="media-image-list">${items.map((item, index) => `
     <figure class="media-image-item" data-media-image-id="${escapeHtml(item.attachmentId)}">
       <figcaption>이미지 ${index + 1} / ${items.length} · ${escapeHtml(item.fileName)}</figcaption>
@@ -7475,7 +7515,10 @@ function renderImageViewer(items) {
       img.alt = payload.fileName || '첨부 이미지';
       img.src = url;
       placeholder.replaceWith(img);
-      installAttachmentImageZoom(figure, img);
+      const zoomController = installAttachmentImageZoom(figure, img);
+      figure.addEventListener('pointerenter', () => setActiveImageZoomController(figure, zoomController));
+      figure.addEventListener('focusin', () => setActiveImageZoomController(figure, zoomController));
+      if (!activeImageZoomController) setActiveImageZoomController(figure, zoomController);
       const installAnnotation = () => ensureAnnotationSurface({
         host: figure.querySelector('.media-image-zoom-wrap'),
         media: img,
@@ -7537,10 +7580,17 @@ function installAttachmentImageZoom(figure, image) {
     requestAnimationFrame(() => {
       syncAnnotationSurface(image);
       wrap.scrollLeft = Math.max(0, centerRatio * wrap.scrollWidth - wrap.clientWidth / 2);
+      if (activeImageFigure === figure) updateImageViewerZoomUi();
     });
   };
 
+  const controller = {
+    getZoom: () => zoom,
+    setZoom: applyZoom,
+  };
+
   wrap.addEventListener('touchstart', event => {
+    setActiveImageZoomController(figure, controller);
     if (event.touches.length >= 2) {
       pinchStartDistance = distance(event.touches);
       pinchStartZoom = zoom;
@@ -7584,6 +7634,7 @@ function installAttachmentImageZoom(figure, image) {
       if (event.cancelable) event.preventDefault();
     }, { passive: false });
   }
+  return controller;
 }
 
 function base64ToUint8Array(base64) {
