@@ -877,6 +877,40 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .annotation-entry-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
 .annotation-entry-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.annotation-manager-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 205;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, .42);
+}
+.annotation-manager-card {
+  width: min(460px, 100%);
+  max-height: min(86dvh, 720px);
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, .28);
+}
+.annotation-manager-card h3 { margin: 0 0 5px; font-size: 1rem; }
+.annotation-manager-summary { margin: 0 0 12px; color: var(--muted); font-size: .74rem; }
+.annotation-manager-list { display: grid; gap: 7px; }
+.annotation-manager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 9px;
+  border: 1px solid #e5eaf0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+.annotation-manager-row label { display: flex; align-items: center; gap: 8px; font-size: .78rem; font-weight: 800; }
+.annotation-manager-row input { width: 17px; height: 17px; accent-color: var(--primary); }
+.annotation-manager-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .image-viewer-card > .annotation-toolbar { margin-top: 8px; }
 .image-viewer-zoom-controls {
   flex: 0 0 auto;
@@ -1998,6 +2032,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-duplicate>복제</button>
         <button class="btn" type="button" data-annotation-delete-selection>선택삭제</button>
+        <button class="btn" type="button" data-annotation-back>뒤</button>
+        <button class="btn" type="button" data-annotation-front>앞</button>
+        <button class="btn" type="button" data-annotation-visibility>👁 표시</button>
+        <button class="btn" type="button" data-annotation-manager>관리</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
       <div class="image-viewer-zoom-controls" aria-label="선택 이미지 확대 축소">
@@ -2062,6 +2100,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-duplicate>복제</button>
         <button class="btn" type="button" data-annotation-delete-selection>선택삭제</button>
+        <button class="btn" type="button" data-annotation-back>뒤</button>
+        <button class="btn" type="button" data-annotation-front>앞</button>
+        <button class="btn" type="button" data-annotation-visibility>👁 표시</button>
+        <button class="btn" type="button" data-annotation-manager>관리</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
         <div class="attachment-pdf-bottom" aria-label="첨부 PDF 확대 축소">
@@ -2140,6 +2182,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn" type="button" data-annotation-redo aria-label="주석 다시 실행">↷</button>
         <button class="btn" type="button" data-annotation-duplicate>복제</button>
         <button class="btn" type="button" data-annotation-delete-selection>선택삭제</button>
+        <button class="btn" type="button" data-annotation-back>뒤</button>
+        <button class="btn" type="button" data-annotation-front>앞</button>
+        <button class="btn" type="button" data-annotation-visibility>👁 표시</button>
+        <button class="btn" type="button" data-annotation-manager>관리</button>
         <button class="btn" type="button" data-annotation-clear>전체삭제</button>
       </div>
         <div class="reference-pdf-bottom-zoom" role="toolbar" aria-label="PDF 배율 조절">
@@ -3099,7 +3145,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.36-annotation-selection';
+const APP_VERSION = '4.4.37-annotation-manager';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3191,13 +3237,14 @@ const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 // v4.4.28 Annotation foundation: all viewers share a normalized 0..1 coordinate space.
 // The overlay is intentionally input-disabled in this version so existing pan/zoom gestures remain unchanged.
-const ANNOTATION_SCHEMA_VERSION = 1;
+const ANNOTATION_SCHEMA_VERSION = 2;
 const ANNOTATION_CANVAS_MAX_EDGE = 2048;
 const ANNOTATION_CANVAS_MAX_PIXELS = 4 * 1024 * 1024;
 const annotationSurfaceByMedia = new WeakMap();
 const activeAnnotationSurfaces = new Set();
 const annotationDocuments = new Map();
 const annotationPersistTimers = new Map();
+const annotationViewStateByKey = new Map();
 const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
 const ANNOTATION_SHAPE_TOOLS = ['line', 'arrow', 'rect', 'ellipse'];
 const annotationEditorState = {
@@ -6373,6 +6420,7 @@ function normalizeStoredAnnotationDocument(row) {
     redoStack: [],
     updatedAt: clean(row?.updatedAt) || new Date().toISOString(),
     savedAt: clean(row?.savedAt),
+    locked: Boolean(row?.locked),
     saveState: 'saved',
     saveError: '',
   };
@@ -6400,6 +6448,7 @@ function getAnnotationDocument(key) {
       redoStack: [],
       updatedAt: new Date().toISOString(),
       savedAt: '',
+      locked: false,
       saveState: 'clean',
       saveError: '',
     });
@@ -6414,6 +6463,7 @@ function annotationDocumentForStorage(documentData) {
     schemaVersion: ANNOTATION_SCHEMA_VERSION,
     coordinateSpace: 'normalized-0-1',
     objects: cloneAnnotationObjects(documentData.objects),
+    locked: Boolean(documentData.locked),
     updatedAt: documentData.updatedAt || new Date().toISOString(),
     savedAt: new Date().toISOString(),
   };
@@ -6471,6 +6521,156 @@ function cloneAnnotationObjects(objects) {
     end: object.end ? { ...object.end } : object.end,
     position: object.position ? { ...object.position } : object.position,
   }));
+}
+
+function getAnnotationViewState(key) {
+  if (!annotationViewStateByKey.has(key)) {
+    annotationViewStateByKey.set(key, { visible: true, hiddenCategories: new Set() });
+  }
+  return annotationViewStateByKey.get(key);
+}
+
+function annotationObjectCategory(object) {
+  if (object?.type === 'stroke') return object.tool === 'highlighter' ? 'highlighter' : 'pen';
+  if (object?.type === 'shape') return 'shape';
+  if (object?.type === 'text') return 'text';
+  if (object?.type === 'note') return 'note';
+  return 'other';
+}
+
+function annotationObjectVisible(key, object) {
+  const state = getAnnotationViewState(key);
+  return state.visible && !state.hiddenCategories.has(annotationObjectCategory(object));
+}
+
+function annotationCategoryCounts(documentData) {
+  const counts = { pen: 0, highlighter: 0, shape: 0, text: 0, note: 0 };
+  for (const object of documentData?.objects || []) {
+    const category = annotationObjectCategory(object);
+    if (category in counts) counts[category]++;
+  }
+  return counts;
+}
+
+function annotationToggleVisibility() {
+  const surface = annotationCurrentSurface();
+  if (!surface) return;
+  const state = getAnnotationViewState(surface.key);
+  state.visible = !state.visible;
+  renderAnnotationSurface(surface);
+  syncAnnotationToolbarUi();
+}
+
+function annotationMoveSelectionLayer(delta) {
+  const surface = annotationCurrentSurface();
+  const selected = selectedAnnotationObject(surface);
+  if (!surface || !selected) return;
+  const documentData = getAnnotationDocument(surface.key);
+  const index = documentData.objects.findIndex(object => object.id === selected.id);
+  if (index < 0) return;
+  const target = Math.max(0, Math.min(documentData.objects.length - 1, index + delta));
+  if (target === index) return;
+  annotationPushUndo(documentData);
+  const [object] = documentData.objects.splice(index, 1);
+  documentData.objects.splice(target, 0, object);
+  documentData.updatedAt = new Date().toISOString();
+  renderAnnotationSurface(surface);
+  scheduleAnnotationPersist(documentData);
+  syncAnnotationToolbarUi();
+}
+
+function annotationToggleLock() {
+  const surface = annotationCurrentSurface();
+  if (!surface) return;
+  const documentData = getAnnotationDocument(surface.key);
+  documentData.locked = !documentData.locked;
+  documentData.updatedAt = new Date().toISOString();
+  scheduleAnnotationPersist(documentData);
+  updateAnnotationSurfaceInteraction(surface);
+  syncAnnotationToolbarUi();
+}
+
+function openAnnotationManager() {
+  const surface = annotationCurrentSurface();
+  if (!surface) return showToast('현재 관리할 주석 페이지가 없습니다.');
+  const documentData = getAnnotationDocument(surface.key);
+  const viewState = getAnnotationViewState(surface.key);
+  const counts = annotationCategoryCounts(documentData);
+  const labels = {
+    pen: '일반 펜',
+    highlighter: '형광펜',
+    shape: '도형',
+    text: '텍스트',
+    note: '메모',
+  };
+
+  const overlay = document.createElement('div');
+  overlay.className = 'annotation-manager-overlay';
+  const card = document.createElement('div');
+  card.className = 'annotation-manager-card';
+  const title = document.createElement('h3');
+  title.textContent = '현재 페이지 주석 관리';
+  const summary = document.createElement('p');
+  summary.className = 'annotation-manager-summary';
+  summary.textContent = `총 ${documentData.objects.length.toLocaleString()}개 · ${documentData.locked ? '편집 잠금' : '편집 가능'}`;
+  const list = document.createElement('div');
+  list.className = 'annotation-manager-list';
+
+  for (const [category, label] of Object.entries(labels)) {
+    const row = document.createElement('div');
+    row.className = 'annotation-manager-row';
+    const control = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !viewState.hiddenCategories.has(category);
+    const name = document.createElement('span');
+    name.textContent = label;
+    control.append(checkbox, name);
+    const count = document.createElement('strong');
+    count.textContent = String(counts[category] || 0);
+    row.append(control, count);
+    list.append(row);
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) viewState.hiddenCategories.delete(category);
+      else viewState.hiddenCategories.add(category);
+      renderAnnotationSurface(surface);
+      syncAnnotationToolbarUi();
+    });
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'annotation-manager-actions';
+  const visibility = document.createElement('button');
+  visibility.type = 'button';
+  visibility.className = 'btn';
+  visibility.textContent = viewState.visible ? '전체 숨김' : '전체 표시';
+  visibility.addEventListener('click', () => {
+    viewState.visible = !viewState.visible;
+    visibility.textContent = viewState.visible ? '전체 숨김' : '전체 표시';
+    renderAnnotationSurface(surface);
+    syncAnnotationToolbarUi();
+  });
+  const lock = document.createElement('button');
+  lock.type = 'button';
+  lock.className = 'btn';
+  lock.textContent = documentData.locked ? '🔓 잠금 해제' : '🔒 편집 잠금';
+  lock.addEventListener('click', () => {
+    annotationToggleLock();
+    lock.textContent = documentData.locked ? '🔓 잠금 해제' : '🔒 편집 잠금';
+    summary.textContent = `총 ${documentData.objects.length.toLocaleString()}개 · ${documentData.locked ? '편집 잠금' : '편집 가능'}`;
+  });
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn primary';
+  close.textContent = '닫기';
+  close.addEventListener('click', () => overlay.remove());
+  actions.append(visibility, lock, close);
+  card.append(title, summary, list, actions);
+  overlay.append(card);
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) event.stopPropagation();
+  });
+  document.body.appendChild(overlay);
 }
 
 function annotationObjectBoundsNormalized(object, rect) {
@@ -6544,6 +6744,7 @@ function findTopAnnotationObjectAt(surface, clientX, clientY) {
   const py = clientY - rect.top;
   const documentData = getAnnotationDocument(surface.key);
   for (let i = documentData.objects.length - 1; i >= 0; i--) {
+    if (!annotationObjectVisible(surface.key, documentData.objects[i])) continue;
     if (annotationObjectHitTest(documentData.objects[i], px, py, rect, 9)) {
       return { object: documentData.objects[i], index: i };
     }
@@ -6918,6 +7119,7 @@ function eraseAnnotationAt(surface, event) {
   const eraserRadius = Math.max(8, annotationEditorState.eraserSize / 2);
   for (let i = documentData.objects.length - 1; i >= 0; i--) {
     const object = documentData.objects[i];
+    if (!annotationObjectVisible(surface.key, object)) continue;
     const objectRadius = Math.max(1, Number(object.widthN || 0) * Math.min(rect.width, rect.height) / 2);
     const threshold = eraserRadius + objectRadius;
     let hit = false;
@@ -7095,20 +7297,33 @@ function syncAnnotationToolbarUi() {
       ? '글자'
       : annotationEditorState.tool === 'eraser' ? '크기' : '굵기';
     const status = toolbar.querySelector('[data-annotation-status]');
-    if (status) status.textContent = annotationToolLabel();
     const surface = annotationCurrentSurface();
     const documentData = surface ? getAnnotationDocument(surface.key) : null;
+    const viewState = surface ? getAnnotationViewState(surface.key) : null;
+    if (status) status.textContent = documentData?.locked ? '🔒 잠금' : annotationToolLabel();
     const undo = toolbar.querySelector('[data-annotation-undo]');
     const redo = toolbar.querySelector('[data-annotation-redo]');
     const duplicate = toolbar.querySelector('[data-annotation-duplicate]');
     const deleteSelection = toolbar.querySelector('[data-annotation-delete-selection]');
+    const back = toolbar.querySelector('[data-annotation-back]');
+    const front = toolbar.querySelector('[data-annotation-front]');
+    const visibility = toolbar.querySelector('[data-annotation-visibility]');
     const clear = toolbar.querySelector('[data-annotation-clear]');
     const hasSelection = Boolean(surface && selectedAnnotationObject(surface));
     if (undo) undo.disabled = !documentData?.undoStack?.length;
     if (redo) redo.disabled = !documentData?.redoStack?.length;
-    if (duplicate) duplicate.disabled = !hasSelection;
-    if (deleteSelection) deleteSelection.disabled = !hasSelection;
-    if (clear) clear.disabled = !documentData?.objects?.length;
+    if (duplicate) duplicate.disabled = !hasSelection || Boolean(documentData?.locked);
+    if (deleteSelection) deleteSelection.disabled = !hasSelection || Boolean(documentData?.locked);
+    if (back) {
+      const selectedIndex = hasSelection ? documentData.objects.findIndex(object => object.id === surface.selectedObjectId) : -1;
+      back.disabled = !hasSelection || Boolean(documentData?.locked) || selectedIndex <= 0;
+    }
+    if (front) {
+      const selectedIndex = hasSelection ? documentData.objects.findIndex(object => object.id === surface.selectedObjectId) : -1;
+      front.disabled = !hasSelection || Boolean(documentData?.locked) || selectedIndex < 0 || selectedIndex >= documentData.objects.length - 1;
+    }
+    if (visibility) visibility.textContent = viewState?.visible === false ? '🚫 숨김' : '👁 표시';
+    if (clear) clear.disabled = !documentData?.objects?.length || Boolean(documentData?.locked);
     const saveStatus = toolbar.querySelector('[data-annotation-save-status]');
     if (saveStatus) {
       const state = documentData?.saveState || (documentData?.objects?.length ? 'dirty' : 'clean');
@@ -7143,7 +7358,9 @@ function setAnnotationTool(tool) {
 
 function updateAnnotationSurfaceInteraction(surface) {
   if (!surface?.canvas) return;
-  const enabled = annotationEditorState.tool !== 'pan';
+  const documentData = getAnnotationDocument(surface.key);
+  const viewState = getAnnotationViewState(surface.key);
+  const enabled = annotationEditorState.tool !== 'pan' && !documentData.locked && viewState.visible;
   surface.canvas.classList.toggle('annotation-input-enabled', enabled);
   surface.canvas.dataset.annotationTool = annotationEditorState.tool;
   surface.canvas.style.cursor = annotationEditorState.tool === 'eraser' ? 'cell'
@@ -7378,8 +7595,14 @@ function renderAnnotationSurface(surface) {
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const documentData = getAnnotationDocument(surface.key);
+  const viewState = getAnnotationViewState(surface.key);
+  if (!viewState.visible) {
+    surface.selectedObjectId = '';
+    return;
+  }
   const objects = documentData.objects || [];
   for (const object of objects) {
+    if (!annotationObjectVisible(surface.key, object)) continue;
     const lineWidth = Math.max(1, Number(object.widthN || 0.005) * Math.min(canvas.width, canvas.height));
     ctx.save();
     ctx.strokeStyle = object.color || '#2563eb';
@@ -7628,6 +7851,22 @@ function bindAnnotationToolbarEvents() {
       }
       if (event.target.closest('[data-annotation-delete-selection]')) {
         annotationDeleteSelection();
+        return;
+      }
+      if (event.target.closest('[data-annotation-back]')) {
+        annotationMoveSelectionLayer(-1);
+        return;
+      }
+      if (event.target.closest('[data-annotation-front]')) {
+        annotationMoveSelectionLayer(1);
+        return;
+      }
+      if (event.target.closest('[data-annotation-visibility]')) {
+        annotationToggleVisibility();
+        return;
+      }
+      if (event.target.closest('[data-annotation-manager]')) {
+        openAnnotationManager();
         return;
       }
       if (event.target.closest('[data-annotation-clear]')) annotationClearCurrent();
