@@ -10024,8 +10024,10 @@ function rememberAnnotationPaletteColor(value) {
 /* Fallback when the browser does not provide a native screen eyedropper:
    the selected screenshot remains on-device; it is never uploaded. */
 function openAnnotationScreenshotSampler(file, toolKey) {
-  if (!file || !String(file.type || '').startsWith('image/') || file.size > 25 * 1024 * 1024) {
-    showToast('25MB 이하의 이미지나 스크린샷을 선택해 주세요.');
+  const imageType = String(file?.type || '').toLowerCase();
+  if (!file || !/^image\/(png|jpeg|webp|gif|heic|heif)$/.test(imageType)
+      || file.size > 25 * 1024 * 1024) {
+    showToast('25MB 이하의 PNG·JPG·WebP·HEIC 이미지나 스크린샷을 선택해 주세요.');
     return;
   }
   closeAnnotationToolPopup();
@@ -10135,7 +10137,14 @@ function openAnnotationScreenshotSampler(file, toolKey) {
       if (!bounds.width || !bounds.height) return;
       const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - bounds.left) / bounds.width * canvas.width)));
       const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - bounds.top) / bounds.height * canvas.height)));
-      const rgb = [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+      let rgb;
+      try {
+        rgb = [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+      } catch (error) {
+        showToast('이 이미지의 픽셀을 읽을 수 없습니다. PNG/JPG 스크린샷을 사용해 주세요.');
+        close();
+        return;
+      }
       const sampled = annotationRgbHex(rgb);
       if (!sampled || !applyAnnotationPaletteColor(sampled, toolKey)) return;
       preview.style.backgroundColor = sampled;
