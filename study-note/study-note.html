@@ -1937,6 +1937,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="line" aria-pressed="false">／ 직선</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="arrow" aria-pressed="false">→ 화살표</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="rect" aria-pressed="false">□ 사각</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
@@ -1990,6 +1994,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="line" aria-pressed="false">／ 직선</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="arrow" aria-pressed="false">→ 화살표</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="rect" aria-pressed="false">□ 사각</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
@@ -2057,6 +2065,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="pen" aria-pressed="false">✏ 펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="highlighter" aria-pressed="false">🖍 형광펜</button>
         <button class="btn annotation-tool-btn" type="button" data-annotation-tool="eraser" aria-pressed="false">⌫ 지우개</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="line" aria-pressed="false">／ 직선</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="arrow" aria-pressed="false">→ 화살표</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="rect" aria-pressed="false">□ 사각</button>
+        <button class="btn annotation-tool-btn" type="button" data-annotation-tool="ellipse" aria-pressed="false">○ 원</button>
         <strong class="annotation-toolbar-status" data-annotation-status>이동 모드</strong>
         <span class="annotation-save-status" data-annotation-save-status>저장 없음</span>
         <span class="annotation-toolbar-label">색</span>
@@ -3034,7 +3046,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.4.33-image-annotation-integration';
+const APP_VERSION = '4.4.34-annotation-shapes';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3134,11 +3146,13 @@ const activeAnnotationSurfaces = new Set();
 const annotationDocuments = new Map();
 const annotationPersistTimers = new Map();
 const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
+const ANNOTATION_SHAPE_TOOLS = ['line', 'arrow', 'rect', 'ellipse'];
 const annotationEditorState = {
   tool: 'pan',
   lastDrawTool: 'pen',
   pen: { color: '#2563eb', width: 4, opacity: 1 },
   highlighter: { color: '#facc15', width: 18, opacity: 0.35 },
+  shape: { color: '#dc2626', width: 4, opacity: 1 },
   eraserSize: 18,
 };
 let lastActiveAnnotationSurface = null;
@@ -6397,6 +6411,8 @@ function cloneAnnotationObjects(objects) {
   return (objects || []).map(object => ({
     ...object,
     points: Array.isArray(object.points) ? object.points.map(point => ({ ...point })) : object.points,
+    start: object.start ? { ...object.start } : object.start,
+    end: object.end ? { ...object.end } : object.end,
   }));
 }
 
@@ -6471,6 +6487,39 @@ function annotationPointSegmentDistance(px, py, ax, ay, bx, by) {
   return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
 }
 
+function annotationShapeHitTest(object, px, py, rect, threshold) {
+  if (object.type !== 'shape' || !object.start || !object.end) return false;
+  const ax = object.start.x * rect.width;
+  const ay = object.start.y * rect.height;
+  const bx = object.end.x * rect.width;
+  const by = object.end.y * rect.height;
+  if (object.shape === 'line' || object.shape === 'arrow') {
+    return annotationPointSegmentDistance(px, py, ax, ay, bx, by) <= threshold;
+  }
+  if (object.shape === 'rect') {
+    const left = Math.min(ax, bx);
+    const right = Math.max(ax, bx);
+    const top = Math.min(ay, by);
+    const bottom = Math.max(ay, by);
+    if (px < left - threshold || px > right + threshold || py < top - threshold || py > bottom + threshold) return false;
+    return Math.min(
+      Math.abs(px - left),
+      Math.abs(px - right),
+      Math.abs(py - top),
+      Math.abs(py - bottom)
+    ) <= threshold;
+  }
+  if (object.shape === 'ellipse') {
+    const cx = (ax + bx) / 2;
+    const cy = (ay + by) / 2;
+    const rx = Math.max(1, Math.abs(bx - ax) / 2);
+    const ry = Math.max(1, Math.abs(by - ay) / 2);
+    const normalizedRadius = Math.hypot((px - cx) / rx, (py - cy) / ry);
+    return Math.abs(normalizedRadius - 1) * Math.min(rx, ry) <= threshold;
+  }
+  return false;
+}
+
 function eraseAnnotationAt(surface, event) {
   const rect = surface.media?.getBoundingClientRect?.();
   if (!rect || rect.width <= 0 || rect.height <= 0) return false;
@@ -6481,13 +6530,19 @@ function eraseAnnotationAt(surface, event) {
   const eraserRadius = Math.max(8, annotationEditorState.eraserSize / 2);
   for (let i = documentData.objects.length - 1; i >= 0; i--) {
     const object = documentData.objects[i];
-    if (object.type !== 'stroke' || !object.points?.length) continue;
     const objectRadius = Math.max(1, Number(object.widthN || 0) * Math.min(rect.width, rect.height) / 2);
     const threshold = eraserRadius + objectRadius;
-    const points = object.points.map(point => ({ x: point.x * rect.width, y: point.y * rect.height }));
-    let hit = points.length === 1 ? Math.hypot(px - points[0].x, py - points[0].y) <= threshold : false;
-    for (let p = 1; !hit && p < points.length; p++) {
-      if (annotationPointSegmentDistance(px, py, points[p - 1].x, points[p - 1].y, points[p].x, points[p].y) <= threshold) hit = true;
+    let hit = false;
+    if (object.type === 'stroke' && object.points?.length) {
+      const points = object.points.map(point => ({ x: point.x * rect.width, y: point.y * rect.height }));
+      hit = points.length === 1 ? Math.hypot(px - points[0].x, py - points[0].y) <= threshold : false;
+      for (let p = 1; !hit && p < points.length; p++) {
+        if (annotationPointSegmentDistance(px, py, points[p - 1].x, points[p - 1].y, points[p].x, points[p].y) <= threshold) hit = true;
+      }
+    } else if (object.type === 'shape') {
+      hit = annotationShapeHitTest(object, px, py, rect, threshold);
+    } else {
+      continue;
     }
     if (!hit) continue;
     if (!surface.activeErase?.historyCaptured) {
@@ -6503,17 +6558,29 @@ function eraseAnnotationAt(surface, event) {
   return false;
 }
 
+function annotationIsShapeTool(tool = annotationEditorState.tool) {
+  return ANNOTATION_SHAPE_TOOLS.includes(tool);
+}
+
+function annotationStyleKey(tool = annotationEditorState.tool) {
+  if (annotationIsShapeTool(tool)) return 'shape';
+  if (tool === 'pen' || tool === 'highlighter') return tool;
+  if (tool === 'pan' || tool === 'eraser') return annotationEditorState.lastDrawTool;
+  return 'pen';
+}
+
 function annotationActiveSettings() {
-  const drawTool = annotationEditorState.tool === 'highlighter' ? 'highlighter'
-    : annotationEditorState.tool === 'pen' ? 'pen'
-    : annotationEditorState.lastDrawTool;
-  return annotationEditorState[drawTool] || annotationEditorState.pen;
+  return annotationEditorState[annotationStyleKey()] || annotationEditorState.pen;
 }
 
 function annotationToolLabel(tool = annotationEditorState.tool) {
   return tool === 'pen' ? '펜'
     : tool === 'highlighter' ? '형광펜'
     : tool === 'eraser' ? '지우개'
+    : tool === 'line' ? '직선'
+    : tool === 'arrow' ? '화살표'
+    : tool === 'rect' ? '사각형'
+    : tool === 'ellipse' ? '원/타원'
     : '이동 모드';
 }
 
@@ -6558,6 +6625,10 @@ function handleAnnotationShortcut(event) {
     : key === 'p' || key === '2' ? 'pen'
     : key === 'h' || key === '3' ? 'highlighter'
     : key === 'e' || key === '4' ? 'eraser'
+    : key === 'l' || key === '5' ? 'line'
+    : key === 'a' || key === '6' ? 'arrow'
+    : key === 'r' || key === '7' ? 'rect'
+    : key === 'o' || key === '8' ? 'ellipse'
     : '';
   if (shortcutTool) {
     annotationTemporaryPreviousTool = '';
@@ -6637,20 +6708,61 @@ function syncAnnotationToolbarUi() {
 }
 
 function setAnnotationTool(tool) {
-  if (!['pan', 'pen', 'highlighter', 'eraser'].includes(tool)) return;
+  if (!['pan', 'pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(tool)) return;
   annotationEditorState.tool = tool;
   if (tool === 'pen' || tool === 'highlighter') annotationEditorState.lastDrawTool = tool;
+  else if (annotationIsShapeTool(tool)) annotationEditorState.lastDrawTool = 'shape';
   syncAnnotationToolbarUi();
 }
 
 function updateAnnotationSurfaceInteraction(surface) {
   if (!surface?.canvas) return;
-  const enabled = annotationEditorState.tool === 'pen' || annotationEditorState.tool === 'highlighter' || annotationEditorState.tool === 'eraser';
+  const enabled = annotationEditorState.tool !== 'pan';
   surface.canvas.classList.toggle('annotation-input-enabled', enabled);
   surface.canvas.dataset.annotationTool = annotationEditorState.tool;
   surface.canvas.style.cursor = annotationEditorState.tool === 'eraser' ? 'cell'
     : enabled ? 'crosshair'
     : '';
+}
+
+function renderAnnotationShape(ctx, object, canvas, lineWidth) {
+  if (!object?.start || !object?.end) return;
+  const ax = object.start.x * canvas.width;
+  const ay = object.start.y * canvas.height;
+  const bx = object.end.x * canvas.width;
+  const by = object.end.y * canvas.height;
+
+  if (object.shape === 'line' || object.shape === 'arrow') {
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    if (object.shape === 'arrow') {
+      const angle = Math.atan2(by - ay, bx - ax);
+      const head = Math.max(10, lineWidth * 4.5);
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx - head * Math.cos(angle - Math.PI / 7), by - head * Math.sin(angle - Math.PI / 7));
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx - head * Math.cos(angle + Math.PI / 7), by - head * Math.sin(angle + Math.PI / 7));
+      ctx.stroke();
+    }
+    return;
+  }
+
+  const left = Math.min(ax, bx);
+  const top = Math.min(ay, by);
+  const width = Math.abs(bx - ax);
+  const height = Math.abs(by - ay);
+  if (object.shape === 'rect') {
+    ctx.strokeRect(left, top, width, height);
+    return;
+  }
+  if (object.shape === 'ellipse') {
+    ctx.beginPath();
+    ctx.ellipse((ax + bx) / 2, (ay + by) / 2, Math.max(0.5, width / 2), Math.max(0.5, height / 2), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }
 
 function renderAnnotationSurface(surface) {
@@ -6662,7 +6774,6 @@ function renderAnnotationSurface(surface) {
   const documentData = getAnnotationDocument(surface.key);
   const objects = documentData.objects || [];
   for (const object of objects) {
-    if (object.type !== 'stroke' || !Array.isArray(object.points) || !object.points.length) continue;
     const lineWidth = Math.max(1, Number(object.widthN || 0.005) * Math.min(canvas.width, canvas.height));
     ctx.save();
     ctx.strokeStyle = object.color || '#2563eb';
@@ -6672,6 +6783,17 @@ function renderAnnotationSurface(surface) {
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
+    if (object.type === 'shape') {
+      renderAnnotationShape(ctx, object, canvas, lineWidth);
+      ctx.restore();
+      continue;
+    }
+    if (object.type !== 'stroke' || !Array.isArray(object.points) || !object.points.length) {
+      ctx.restore();
+      continue;
+    }
+
     const points = object.points;
     if (points.length === 1) {
       ctx.beginPath();
@@ -6680,9 +6802,7 @@ function renderAnnotationSurface(surface) {
     } else {
       ctx.beginPath();
       ctx.moveTo(points[0].x * canvas.width, points[0].y * canvas.height);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
-      }
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * canvas.width, points[i].y * canvas.height);
       ctx.stroke();
     }
     ctx.restore();
@@ -6719,11 +6839,12 @@ function installAnnotationInputHandlers(surface) {
   });
 
   canvas.addEventListener('pointerdown', event => {
-    if (!['pen', 'highlighter', 'eraser'].includes(annotationEditorState.tool)) return;
+    if (!['pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     lastActiveAnnotationSurface = surface;
+
     if (annotationEditorState.tool === 'eraser') {
       surface.activeErase = {
         pointerId: event.pointerId,
@@ -6734,10 +6855,36 @@ function installAnnotationInputHandlers(surface) {
       eraseAnnotationAt(surface, event);
       return;
     }
+
     const settings = annotationActiveSettings();
     const rect = surface.media?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0 || rect.height <= 0) return;
     const widthN = Math.max(0.0003, Number(settings.width || 4) / Math.max(40, Math.min(rect.width, rect.height)));
+
+    if (annotationIsShapeTool(annotationEditorState.tool)) {
+      const start = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
+      if (!start) return;
+      const shape = {
+        id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
+        type: 'shape',
+        shape: annotationEditorState.tool,
+        color: settings.color,
+        widthN,
+        opacity: settings.opacity,
+        start: { ...start },
+        end: { ...start },
+        createdAt: new Date().toISOString(),
+      };
+      const documentData = getAnnotationDocument(surface.key);
+      annotationPushUndo(documentData);
+      documentData.objects.push(shape);
+      documentData.updatedAt = new Date().toISOString();
+      surface.activeShape = { pointerId: event.pointerId, shape };
+      try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
+      scheduleAnnotationRender(surface);
+      return;
+    }
+
     const stroke = {
       id: `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`,
       type: 'stroke',
@@ -6765,6 +6912,17 @@ function installAnnotationInputHandlers(surface) {
       eraseAnnotationAt(surface, event);
       return;
     }
+    if (surface.activeShape && surface.activeShape.pointerId === event.pointerId) {
+      event.preventDefault();
+      event.stopPropagation();
+      const point = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
+      if (point) {
+        surface.activeShape.shape.end = { ...point };
+        getAnnotationDocument(surface.key).updatedAt = new Date().toISOString();
+        scheduleAnnotationRender(surface);
+      }
+      return;
+    }
     if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
     event.preventDefault();
     event.stopPropagation();
@@ -6785,6 +6943,22 @@ function installAnnotationInputHandlers(surface) {
       syncAnnotationToolbarUi();
       return;
     }
+
+    if (surface.activeShape && surface.activeShape.pointerId === event.pointerId) {
+      event.preventDefault();
+      event.stopPropagation();
+      const point = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
+      if (point) surface.activeShape.shape.end = { ...point };
+      surface.activeShape = null;
+      try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
+      const documentData = getAnnotationDocument(surface.key);
+      documentData.updatedAt = new Date().toISOString();
+      scheduleAnnotationRender(surface);
+      scheduleAnnotationPersist(documentData);
+      syncAnnotationToolbarUi();
+      return;
+    }
+
     if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
     event.preventDefault();
     event.stopPropagation();
@@ -6822,22 +6996,22 @@ function bindAnnotationToolbarEvents() {
     const width = toolbar.querySelector('[data-annotation-width]');
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
     color?.addEventListener('input', () => {
-      const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
-      annotationEditorState[drawTool].color = color.value;
+      const styleKey = annotationStyleKey();
+      if (annotationEditorState[styleKey]) annotationEditorState[styleKey].color = color.value;
       syncAnnotationToolbarUi();
     });
     width?.addEventListener('change', () => {
       if (annotationEditorState.tool === 'eraser') {
         annotationEditorState.eraserSize = Math.max(4, Number(width.value) || 18);
       } else {
-        const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
-        if (drawTool === 'pen' || drawTool === 'highlighter') annotationEditorState[drawTool].width = Math.max(1, Number(width.value) || 4);
+        const styleKey = annotationStyleKey();
+        if (annotationEditorState[styleKey]) annotationEditorState[styleKey].width = Math.max(1, Number(width.value) || 4);
       }
       syncAnnotationToolbarUi();
     });
     opacity?.addEventListener('input', () => {
-      const drawTool = annotationEditorState.tool === 'pan' ? annotationEditorState.lastDrawTool : annotationEditorState.tool;
-      annotationEditorState[drawTool].opacity = Math.max(0.1, Math.min(1, Number(opacity.value) / 100));
+      const styleKey = annotationStyleKey();
+      if (annotationEditorState[styleKey]) annotationEditorState[styleKey].opacity = Math.max(0.1, Math.min(1, Number(opacity.value) / 100));
       syncAnnotationToolbarUi();
     });
   });
@@ -6920,6 +7094,7 @@ function ensureAnnotationSurface({ host, media, key, kind, intrinsicWidth = 0, i
     syncRaf: 0,
     renderRaf: 0,
     activeStroke: null,
+    activeShape: null,
     activeErase: null,
     hasRendered: false,
   };
