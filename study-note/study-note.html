@@ -2855,7 +2855,11 @@ async function fetchAnnotationCloudDocumentsByKeys(apiUrl, keys) {
 }
 
 async function syncAnnotationCloud({ manual = false } = {}) {
-  if (annotationCloudSyncState.syncing || !navigator.onLine) return null;
+  if (annotationCloudSyncState.syncing) {
+    annotationCloudSyncState.rerunRequested = true;
+    return null;
+  }
+  if (!navigator.onLine) return null;
   if (!annotationCloudSyncState.ready) {
     await refreshAnnotationCloudCapability({ force: manual });
     if (!annotationCloudSyncState.ready) return null;
@@ -2873,16 +2877,24 @@ async function syncAnnotationCloud({ manual = false } = {}) {
 
     for (let index = 0; index < dirtyDocuments.length; index += ANNOTATION_SYNC_BATCH_SIZE) {
       const batch = dirtyDocuments.slice(index, index + ANNOTATION_SYNC_BATCH_SIZE);
+      const sentSnapshots = new Map(batch.map(documentData => [
+        documentData.key,
+        { reference: documentData, serial: Number(documentData.cloudMutationSerial) || 0 },
+      ]));
       const result = await sendSecureMutation(apiUrl, 'saveAnnotations', {
         documents: batch.map(documentData => annotationDocumentForCloud(documentData)),
       });
       for (const saved of result.saved || []) {
         const local = annotationDocuments.get(saved.key);
         if (!local) continue;
+        const sent = sentSnapshots.get(saved.key);
+        const editedDuringUpload = !sent || local !== sent.reference
+          || (Number(local.cloudMutationSerial) || 0) !== sent.serial;
         local.cloudRevision = Math.max(0, Number(saved.cloudRevision) || 0);
         local.cloudUpdatedAt = clean(saved.cloudUpdatedAt);
         local.cloudDeviceId = clean(saved.cloudDeviceId);
-        local.cloudDirty = false;
+        local.cloudDirty = editedDuringUpload;
+        if (editedDuringUpload) annotationCloudSyncState.rerunRequested = true;
         await persistAnnotationCloudMetadata(local);
         annotationCloudConflicts.delete(local.key);
         stats.pushed++;
@@ -2964,6 +2976,10 @@ async function syncAnnotationCloud({ manual = false } = {}) {
     return null;
   } finally {
     annotationCloudSyncState.syncing = false;
+    if (annotationCloudSyncState.rerunRequested) {
+      annotationCloudSyncState.rerunRequested = false;
+      scheduleAnnotationCloudSync({ delayMs: 1200 });
+    }
   }
 }
 
@@ -2994,17 +3010,23 @@ async function resolveAnnotationCloudConflict(key, strategy) {
   if (strategy === 'local') {
     const local = annotationDocuments.get(key);
     if (!local) throw new Error('이 기기의 주석 문서를 찾을 수 없습니다.');
+    const sentSerial = Number(local.cloudMutationSerial) || 0;
     const result = await sendSecureMutation(apiUrl, 'saveAnnotations', {
       documents: [annotationDocumentForCloud(local, { force: true })],
     });
     const saved = (result.saved || []).find(item => item.key === key);
     if (!saved) throw new Error('이 기기 주석 강제 저장 결과를 확인할 수 없습니다.');
-    local.cloudRevision = Math.max(0, Number(saved.cloudRevision) || 0);
-    local.cloudUpdatedAt = clean(saved.cloudUpdatedAt);
-    local.cloudDeviceId = clean(saved.cloudDeviceId);
-    local.cloudDirty = false;
-    await persistAnnotationCloudMetadata(local);
+    const current = annotationDocuments.get(key);
+    if (!current) throw new Error('이 기기의 주석 문서를 찾을 수 없습니다.');
+    const editedDuringUpload = current !== local
+      || (Number(current.cloudMutationSerial) || 0) !== sentSerial;
+    current.cloudRevision = Math.max(0, Number(saved.cloudRevision) || 0);
+    current.cloudUpdatedAt = clean(saved.cloudUpdatedAt);
+    current.cloudDeviceId = clean(saved.cloudDeviceId);
+    current.cloudDirty = editedDuringUpload;
+    await persistAnnotationCloudMetadata(current);
     annotationCloudConflicts.delete(key);
+    if (editedDuringUpload) scheduleAnnotationCloudSync({ delayMs: 1200 });
     return true;
   }
   return false;
@@ -3614,7 +3636,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.5.4-annotation-production-r1';
+const APP_VERSION = '4.5.4-annotation-production-r2';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -3732,6 +3754,7 @@ const annotationCloudSyncState = {
   lastSyncAt: localStorage.getItem(ANNOTATION_SYNC_LAST_AT_KEY) || '',
   lastError: '',
   timer: 0,
+  rerunRequested: false,
 };
 const ANNOTATION_SAVE_DEBOUNCE_MS = 320;
 const ANNOTATION_SHAPE_TOOLS = ['line', 'arrow', 'rect', 'ellipse'];
@@ -7373,7 +7396,10 @@ async function persistAnnotationDocument(documentData) {
 
 function scheduleAnnotationPersist(documentData, { immediate = false, markCloudDirty = true } = {}) {
   if (!documentData?.key) return;
-  if (markCloudDirty) documentData.cloudDirty = true;
+  if (markCloudDirty) {
+    documentData.cloudDirty = true;
+    documentData.cloudMutationSerial = (Number(documentData.cloudMutationSerial) || 0) + 1;
+  }
   const existing = annotationPersistTimers.get(documentData.key);
   if (existing) clearTimeout(existing);
   documentData.saveState = 'dirty';
