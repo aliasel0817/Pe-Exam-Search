@@ -1523,18 +1523,13 @@ button { -webkit-tap-highlight-color: transparent; }
 
 
 /* Fold only optional controls. Zoom, close and reopen remain available. */
-.viewer-bottom-toggle { align-self: center; justify-self: start; }
-.image-viewer-card > .viewer-bottom-toggle { order: 3; margin-top: 5px; }
-.image-viewer-card > .annotation-toolbar { order: 4; }
-.image-viewer-card > .image-viewer-zoom-controls { order: 5; }
-.image-viewer-card > .media-viewer-actions { order: 6; }
-.attachment-pdf-footer > .viewer-bottom-toggle,
-.reference-pdf-bottom-actions > .viewer-bottom-toggle { grid-column: 1 / -1; grid-row: 1; }
+.viewer-bottom-toggle { flex: 0 0 auto; align-self: center; white-space: nowrap; margin-right: 2px; }
+.image-viewer-card > .annotation-toolbar { order: 3; }
+.image-viewer-card > .image-viewer-zoom-controls { order: 4; }
+.image-viewer-card > .media-viewer-actions { order: 5; }
 .attachment-pdf-footer, .reference-pdf-bottom-actions {
-  grid-template-areas: "toggle toggle" "annotation annotation" "zoom close";
+  grid-template-areas: "annotation annotation" "zoom close";
 }
-.attachment-pdf-footer > .viewer-bottom-toggle,
-.reference-pdf-bottom-actions > .viewer-bottom-toggle { grid-area: toggle; }
 .image-viewer-card.viewer-bottom-collapsed > .annotation-toolbar,
 .image-viewer-card.viewer-bottom-collapsed > .annotation-study-nav,
 .attachment-pdf-viewer-card.viewer-bottom-collapsed > .annotation-toolbar,
@@ -1543,11 +1538,21 @@ button { -webkit-tap-highlight-color: transparent; }
 .reference-pdf-modal-card.viewer-bottom-collapsed .annotation-study-nav { display: none !important; }
 .attachment-pdf-viewer-card.viewer-bottom-collapsed .attachment-pdf-footer,
 .reference-pdf-modal-card.viewer-bottom-collapsed .reference-pdf-bottom-actions {
-  grid-template-areas: "toggle toggle" "zoom close";
+  grid-template-areas: "zoom close";
   padding-top: 4px;
   gap: 3px 8px;
 }
 .image-viewer-card.viewer-bottom-collapsed .image-viewer-body { margin-top: 5px; }
+
+/* Keep every zoom control reachable on narrow phones after moving the fold button. */
+@media (max-width: 420px) {
+  .reference-pdf-bottom-zoom, .attachment-pdf-bottom { gap: 2px; }
+  .reference-pdf-bottom-zoom .viewer-bottom-toggle,
+  .attachment-pdf-bottom .viewer-bottom-toggle {
+    padding: 4px 3px; font-size: .64rem; margin-right: 1px;
+  }
+  .reference-pdf-bottom-zoom .pdf-tool-fit { min-width: 0; }
+}
 
 
 /* Sidebar sections: collapsed panels actually release list space. */
@@ -4076,19 +4081,16 @@ function bindViewerLayoutControls() {
     const modal = document.getElementById(modalId);
     const card = modal?.querySelector('.modal-card');
     if (!card) continue;
-    const bottomParent = kind === 'image'
-      ? card
-      : card.querySelector(kind === 'reference-pdf' ? '.reference-pdf-bottom-actions' : '.attachment-pdf-footer');
-    if (bottomParent && !card.querySelector('[data-viewer-bottom-toggle]')) {
+    // Share the existing zoom/footer row instead of spending a dedicated row on this toggle.
+    const bottomZoom = card.querySelector(kind === 'image'
+      ? '.image-viewer-zoom-controls'
+      : kind === 'reference-pdf' ? '.reference-pdf-bottom-zoom' : '.attachment-pdf-bottom');
+    if (bottomZoom && !card.querySelector('[data-viewer-bottom-toggle]')) {
       const bottomButton = document.createElement('button');
       bottomButton.type = 'button';
       bottomButton.className = 'btn viewer-toggle-btn viewer-bottom-toggle';
       bottomButton.dataset.viewerBottomToggle = '1';
-      if (kind === 'image') {
-        card.insertBefore(bottomButton, card.querySelector('.annotation-toolbar'));
-      } else {
-        bottomParent.insertBefore(bottomButton, bottomParent.querySelector('.annotation-toolbar'));
-      }
+      bottomZoom.insertBefore(bottomButton, bottomZoom.firstChild);
     }
     for (const part of ['top', 'bottom']) {
       const button = card.querySelector('[data-viewer-' + part + '-toggle]');
