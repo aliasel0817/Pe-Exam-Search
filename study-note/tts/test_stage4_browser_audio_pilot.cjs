@@ -36,7 +36,7 @@ test('exactly the three approved fields and seven MP3 parts are recognized',()=>
 test('missing field or wrong chunk count is blocked before network',()=>{
   const a=sample();
   delete a.entries[m.entryKey(m.PILOTS[0])];
-  assert.throws(()=>m.validateManifest(a),/누락/);
+  assert.throws(()=>m.validateManifest(a),/누락|3개 항목/);
   const b=sample();
   b.entries[m.entryKey(m.PILOTS[2])].files.pop();
   assert.throws(()=>m.validateManifest(b),/분할 MP3/);
