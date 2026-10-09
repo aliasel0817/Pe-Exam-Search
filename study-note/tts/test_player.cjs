@@ -17,7 +17,7 @@ const originalTopics = [
 ];
 const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex");
 
-function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false}={}) {
+function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false, privateCloud=false, badSignedHost=false}={}) {
   let currentId = "T0001";
   let played = 0;
   let paused = 0;
@@ -91,6 +91,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   }
   let bytesRequested=0;
   let manifestRequests=0;
+  let signedRequests=0;
+  let googleCallback=null;
   class MockAudio {
     constructor() {this.listeners=new Map(); this.src="";this.preload="";this.playbackRate=1;}
     setAttribute(){}
@@ -130,7 +132,11 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   const sandbox={
     document:doc,
     window:{
-      PE_TTS_LOCAL_PREVIEW:true,
+      PE_TTS_LOCAL_PREVIEW:!privateCloud,
+      google:{accounts:{id:{
+        initialize:settings=>{googleCallback=settings.callback;},
+        renderButton:()=>{}
+      }}},
       peStudyNoteTtsBridge:{
         currentTopic:()=>data.get(currentId),
         getTopicById:id=>data.get(id),
@@ -141,7 +147,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         }
       }
     },
-    location:{href:"https://example.com/study-note/tts/preview.html"},
+    location:{href:privateCloud?"https://example.com/study-note/study-note.html":"https://example.com/study-note/tts/preview.html"},
     crypto:crypto.webcrypto,TextEncoder, Audio:MockAudio,
     URL:FakeURL, Blob,console,
     setTimeout,clearTimeout,setImmediate,
@@ -149,14 +155,33 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
       getItem:key=>storage.get(key)||null,
       setItem:(key,val)=>storage.set(key,String(val))
     },
-    fetch:async url=>{
-      if(String(url).endsWith("/index.json")){
+    fetch:async (url,options={})=>{
+      const name = String(url);
+      if (name.endsWith("/cloud-config.json")) {
+        return {ok:true,status:200,json:async()=>({
+          schemaVersion:1,mode:"gcs-private",
+          gatewayUrl:"https://gateway.a.run.app",
+          oauthClientId:"1234567-a.apps.googleusercontent.com"
+        })};
+      }
+      if (name.endsWith("/index.json") || name.endsWith("/v1/manifest")) {
+        if (privateCloud && name.endsWith("/v1/manifest")) {
+          assert.equal(options.headers.Authorization,"Bearer mock-google-id-token");
+        }
         manifestRequests++;
-        return {ok:true, json:async()=>manifest, clone(){return this}};
+        return {ok:true,status:200,json:async()=>manifest,clone(){return this}};
+      }
+      if (name.includes("/v1/audio-url?file=")) {
+        assert.equal(options.headers.Authorization,"Bearer mock-google-id-token");
+        signedRequests++;
+        const file = decodeURIComponent(name.split("?file=")[1]);
+        const url = badSignedHost ? "https://not-gcs.example/audio?X-Goog-Signature=unsafe" :
+          "https://storage.googleapis.com/test-private-bucket/study-note/tts/audio/"+file+"?X-Goog-Signature=abc";
+        return {ok:true,status:200,json:async()=>({url})};
       }
       bytesRequested++;
       return {
-        ok:true,
+        ok:true,status:200,
         blob:async()=>new Blob([Buffer.concat([Buffer.from("ID3"),Buffer.alloc(200)])],{type:"audio/mpeg"}),
         clone(){return this}
       };
@@ -175,7 +200,9 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     paused:()=>paused,
     downloads:()=>generatedDownloads,
     apiFetchCount:()=>bytesRequested,
-    manifestCount:()=>manifestRequests
+    manifestCount:()=>manifestRequests,
+    signedCount:()=>signedRequests,
+    googleLogin:async()=>{await player.renderCloudLogin();googleCallback?.({credential:"mock-google-id-token"});}
   };
 }
 async function waitFor(fn, timeoutMs=1000) {
@@ -236,4 +263,28 @@ test("three-topic export stays local and does not call TTS API",()=>{
   assert.ok(ctx.downloads().length>=1);
   assert.equal(ctx.apiFetchCount(),0);
   assert.match(ctx.element("ttsStatus").textContent,/JSON으로 저장/);
+});
+
+
+test("production GCS disabled until Google login, then uses signed MP3 URLs",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.player.start();
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.played(),0);
+  assert.match(ctx.element("ttsStatus").textContent,/Google 계정으로 로그인/);
+  await ctx.googleLogin();
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),4);
+  assert.equal(ctx.currentTopicId(),"T0002");
+  assert.equal(ctx.manifestCount(),1);
+  assert.equal(ctx.signedCount(),4);
+});
+test("private Cloud player rejects signed MP3 URL from unexpected host",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,badSignedHost:true});
+  await ctx.googleLogin();
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),0);
+  assert.match(ctx.element("ttsStatus").textContent,/검증되지 않은 Google Cloud/);
 });
