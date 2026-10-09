@@ -151,12 +151,12 @@ class ReadinessTests(unittest.TestCase):
                 self.assertFalse(prepared)
                 self.assertTrue(any("빌드 계정 또는 Builder 역할 계획" in text for text in problems))
 
-    def test_pilot_approval_keeps_audio_synthesis_and_upload_locked(self):
+    def test_deployed_gateway_keeps_audio_synthesis_and_upload_locked(self):
         self.assertTrue(self.project["cloudRunDeploymentUserApproved"])
         self.assertTrue(self.project["cloudProvisioningApproved"])
+        self.assertTrue(self.project["cloudRunDeploymentUserConfirmed"])
         self.assertFalse(self.project["ttsGenerationApproved"])
         self.assertFalse(self.project["gcsUploadApproved"])
-        self.assertFalse(self.project["cloudRunDeploymentUserConfirmed"])
 
     def test_deployed_gateway_requires_live_unauthenticated_and_cors_checks(self):
         issues, is_ready = ready.inspect(self.project, self.runtime)
