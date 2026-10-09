@@ -28,8 +28,8 @@ jobs:
         run: node --test study-note/tts/cloud-gateway/test_gateway.cjs
       - name: Verify Python syntax
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
-      - name: Verify read-only Cloud Shell script syntax
-        run: bash -n study-note/tts/verify_cloud_services.sh
+      - name: Verify Cloud Shell and gated deployment script syntax
+        run: bash -n study-note/tts/verify_cloud_services.sh study-note/tts/cloud-gateway/deploy_pilot.sh
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
       - name: Verify all five APIs enabled; Cloud Run deployment still requires user billing consent
