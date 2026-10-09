@@ -132,6 +132,23 @@ class StudyTtsGeneratorTests(unittest.TestCase):
             self.assertIn("does not match the confirmed", outcome.stderr)
             self.assertFalse((root / "audio").exists())
 
+    def test_correct_project_still_blocked_until_cloud_tts_approved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "topics.json"
+            src.write_text(json.dumps({"topics": [{
+                "topicId": "T0001", "studyTarget": "Y", "topicName": "중심극한정리"
+            }]}, ensure_ascii=False), encoding="utf-8")
+            command = [
+                sys.executable, str(MODULE_FILE), "--input", str(src),
+                "--out", str(root / "audio"), "--project", "study-note-tts",
+                "--execute", "--accept-possible-charges"
+            ]
+            outcome = subprocess.run(command, capture_output=True, text=True, timeout=20)
+            self.assertEqual(outcome.returncode, 2)
+            self.assertIn("not yet approved", outcome.stderr)
+            self.assertFalse((root / "audio").exists())
+
     def test_execute_without_opt_in_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
