@@ -1,0 +1,45 @@
+name: TTS development checks
+
+on:
+  push:
+    branches:
+      - feature/ai-natural-tts-20261009
+    paths:
+      - "study-note/tts/**"
+      - "study-note/study-note.html"
+      - ".github/workflows/tts-dev-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout development branch
+        uses: actions/checkout@v4
+      - name: Verify JavaScript syntax
+        run: node --check study-note/tts/natural-tts.js
+      - name: Verify Python syntax
+        run: python3 -m py_compile study-note/tts/generate_mp3.py
+      - name: Run tests without cloud API
+        run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
+      - name: Verify TTS module is linked from development HTML
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('study-note/study-note.html').read_text(encoding='utf-8')
+          required = [
+            'id="ttsToggleBtn"',
+            'id="ttsSettingsPanel"',
+            'window.peStudyNoteTtsBridge',
+            '<script src="./tts/natural-tts.js"></script>',
+            'window.peStudyNoteTTS?.onTopicChanged(topicId);',
+          ]
+          for item in required:
+            assert item in s, item
+          print('TTS markup and topic navigation bridge found')
+          PY
