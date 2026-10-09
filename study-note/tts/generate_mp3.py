@@ -37,6 +37,8 @@ VOICES = {
 }
 HARD_MONTHLY_LIMIT = 50_000  # UTF-8 bytes, intentionally stricter than paid characters
 MAX_REQUEST_BYTES = 4_200     # safely below Cloud TTS 5,000-byte input limit
+MAX_SPEECH_CHARS = 220        # short phrases reduce long-segment truncation risk
+PAUSE_MARKER = "[pause short]"  # must be sent through input.markup
 MAX_TOPICS = 50
 MAX_REQUESTS = 200
 API_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
@@ -88,26 +90,56 @@ def load_dictionary(path: Path | None) -> dict[str, str]:
     return result
 
 
-# Only simple English(Korean) terminology is normalized for the *spoken* copy.
-# This never edits the Sheet source; uncertain/complex parentheses stay untouched.
+# Only short unambiguous English(Korean) terminology is normalized for speech.
+# Source text in Sheets and content hashes are NEVER modified.
 _BILINGUAL_TERMS = re.compile(
     r"(?<![A-Za-z0-9_/])"
     r"(?P<english>(?:[A-Z][A-Za-z0-9+._/-]*(?:[ \t]+[A-Z][A-Za-z0-9+._/-]*){0,3}"
     r"|[a-z][A-Za-z0-9+._/-]*))"
-    r"[ \t]*\((?P<korean>[가-힣][가-힣 \t·/-]{0,39})\)"
+    r"[ \t]*\((?P<korean>[가-힣][가-힣 \t]{0,39})\)"
+    r"(?P<particle>으로|에서|에게|까지|부터|마다|처럼|은|는|이|가|을|를|과|와|로|의|에|도|만)?"
 )
+_VARIABLE_PARTICLES = {"은", "는", "이", "가", "을", "를", "과", "와", "으로", "로"}
+
+
+def _agree_particle(particle: str, term: str) -> str:
+    if particle not in _VARIABLE_PARTICLES:
+        return particle
+    last = term[-1:]
+    if not last or not ("가" <= last <= "힣"):
+        return particle
+    jong = (ord(last) - ord("가")) % 28
+    coda = jong != 0
+    if particle in ("은", "는"):
+        return "은" if coda else "는"
+    if particle in ("이", "가"):
+        return "이" if coda else "가"
+    if particle in ("을", "를"):
+        return "을" if coda else "를"
+    if particle in ("과", "와"):
+        return "과" if coda else "와"
+    if particle in ("으로", "로"):
+        return "으로" if coda and jong != 8 else "로"
+    return particle
 
 
 def prefer_korean_bilingual_terms(text: str) -> str:
-    """Say Korean once for a simple English(Korean) pair, retaining uncertain text."""
+    """Read simple English(Korean) pairs only once; retain ambiguous expressions."""
     def replace(match: re.Match) -> str:
         english = match.group("english")
+        unchanged = match.group(0)
         if sum(ch.isalpha() for ch in english) < 2:
-            return match.group(0)  # Single-letter variables, such as P(확률).
-        # Do not rewrite the final word of an unmatched lowercase English phrase.
+            return unchanged  # Single-letter variables, e.g. P(확률).
         if re.search(r"[A-Za-z][A-Za-z0-9+._/-]*[ \t]+$", match.string[:match.start()]):
-            return match.group(0)
-        return match.group("korean").strip()
+            return unchanged  # Avoid extracting a fragment of a longer English phrase.
+        # A Korean continuation such as SQL(설명)과정 or (... )으로부터 is ambiguous.
+        if match.end() < len(match.string) and "가" <= match.string[match.end()] <= "힣":
+            return unchanged
+        korean = match.group("korean").strip()
+        particle = match.group("particle") or ""
+        if not korean or len(korean) > 32:
+            return unchanged
+        return korean + _agree_particle(particle, korean)
 
     return _BILINGUAL_TERMS.sub(replace, text)
 
@@ -120,45 +152,67 @@ def for_speech(label: str, field: str, original: str, dictionary: dict[str, str]
             r"(?<![A-Za-z0-9])" + re.escape(phrase) + r"(?![A-Za-z0-9])",
             lambda match: pronunciation, spoken, flags=re.IGNORECASE,
         )
-    spoken = spoken.replace("·", ", ").replace(";", ". ")
+    # Chirp 3 HD requires input.markup for [pause short]; text input ignores it.
+    spoken = re.sub(r"\s*·\s*", ", " + PAUSE_MARKER + " ", spoken)
+    spoken = spoken.replace(";", ". ")
     if field == "topic":
         return spoken
     return label + ". " + spoken
 
 
-def split_speech(text: str, max_bytes: int = MAX_REQUEST_BYTES) -> list[str]:
-    """Split text by punctuation/whitespace where possible; never exceed byte cap."""
-    if not text:
-        return []
+# Markup tags must stay atomic even when breaking up long technical components.
+_SPEECH_TOKEN = re.compile(r"\[pause(?: short| long)?\]|.", re.DOTALL)
+# Avoid treating the internal space of [pause short] as a word boundary.
+_SPEECH_BOUNDARY = re.compile(r"(?<!\[pause)\s+")
+
+
+def split_speech(text: str, max_bytes: int = MAX_REQUEST_BYTES,
+                 max_chars: int = MAX_SPEECH_CHARS) -> list[str]:
+    """Split into short audible phrases, without dropping text or tearing pause tags."""
+    if max_bytes < 1 or max_chars < 1:
+        raise ValueError("Speech chunk limits must be positive.")
     out = []
     rest = text.strip()
-    while utf8_len(rest) > max_bytes:
-        index, byte_count = 0, 0
-        for char in rest:
-            size = utf8_len(char)
-            if byte_count + size > max_bytes:
+    while rest:
+        end, used_chars, used_bytes = 0, 0, 0
+        for token in _SPEECH_TOKEN.finditer(rest):
+            piece = token.group(0)
+            piece_chars = len(piece)
+            piece_bytes = utf8_len(piece)
+            if used_chars + piece_chars > max_chars or used_bytes + piece_bytes > max_bytes:
                 break
-            byte_count += size
-            index += len(char)
-        if index < 1:
-            raise ValueError("Unable to split long text.")
-        # Prefer a sentence boundary in the last 45% of this chunk.
-        minimum = int(index * 0.55)
-        stop = -1
-        for char in (".", "!", "?", "\n", ";", ",", " "):
-            at = rest.rfind(char, minimum, index)
-            if at >= minimum:
-                stop = max(stop, at + 1)
-        if stop > minimum:
-            index = stop
-        part = rest[:index].strip()
+            used_chars += piece_chars
+            used_bytes += piece_bytes
+            end = token.end()
+        if end == 0:
+            raise ValueError("A speech token exceeds the length limits.")
+        if end == len(rest):
+            out.append(rest)
+            break
+        minimum = max(1, int(end * 0.55))
+        boundaries = [m for m in _SPEECH_BOUNDARY.finditer(rest[:end])
+                      if m.end() < end and not rest[m.end():].startswith("[pause ")]
+        candidates = [m for m in boundaries if m.end() >= minimum]
+        if candidates:
+            # Prefer sentences, then comma-separated clauses, then whole words.
+            sentences = [m for m in candidates if m.start() and rest[m.start()-1] in ".!?。;；"]
+            clauses = [m for m in candidates if m.start() and rest[m.start()-1] in ",，"]
+            end = (sentences or clauses or candidates)[-1].end()
+        else:
+            earlier = [m for m in boundaries if m.end() >= int(end * 0.2)]
+            if earlier:
+                end = earlier[-1].end()
+        part = rest[:end].strip()
         if not part:
             raise ValueError("Empty speech chunk.")
         out.append(part)
-        rest = rest[index:].strip()
-    if rest:
-        out.append(rest)
+        rest = rest[end:].strip()
     return out
+
+
+def synthesis_input(text: str) -> dict[str, str]:
+    """Pause markers are effective only in Chirp 3 HD markup, never plain text."""
+    return {"markup": text} if PAUSE_MARKER in text else {"text": text}
 
 
 def load_manifest(path: Path) -> dict:
@@ -261,7 +315,7 @@ def synthesize(text: str, voice: str, project: str, token: str) -> bytes:
     if utf8_len(text) > MAX_REQUEST_BYTES:
         raise ValueError("Input segment exceeds byte budget.")
     payload = {
-        "input": {"text": text},
+        "input": synthesis_input(text),
         "voice": {"languageCode": "ko-KR", "name": voice},
         "audioConfig": {"audioEncoding": "MP3"},
     }
