@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": true,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "One Cloud Run gateway service DEPLOYED and serving 100%, screenshot verified. Initial /healthz 404 is consistent with documented Cloud Run reserved z-ending paths; private manifest and CORS preflight live verification pending. A future health endpoint revision would need a separate build/deploy authorization. Existing deployment MUST NOT be repeated. TTS synthesis and GCS upload remain unapproved and disabled.",
+  "comment": "Cloud Run gateway DEPLOYED and its actual 401 bearer authentication gate + GitHub Pages CORS 204 preflight verified from owner Cloud Shell screenshot. No live Google ID token login or private MP3 manifest access performed. No redeployment approved; text-to-speech synthesis & GCS upload remain disabled. Production main v4.6.3 untouched.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -78,7 +78,15 @@
   "cloudRunInitialHealthCheckStatus": 404,
   "cloudRunInitialHealthCheckPath": "/healthz",
   "cloudRunInitialHealthFailureReason": "Cloud Run reserves some URL paths ending in z; /healthz may be intercepted by Cloud Run. Existing GET /v1/manifest is a safe independent auth check; next code revision changes endpoint to /health.",
-  "cloudRunRemoteUnauthManifestVerified": false,
-  "cloudRunRemoteCorsPreflightVerified": false,
-  "cloudRunRevisionUpdateUserApproved": false
+  "cloudRunRemoteUnauthManifestVerified": true,
+  "cloudRunRemoteCorsPreflightVerified": true,
+  "cloudRunRevisionUpdateUserApproved": false,
+  "cloudRunSecurityCheckConfirmedBy": "User Cloud Shell screenshot 2026-10-09: GET /v1/manifest without ID token returns application JSON 401, APP_AUTH_GATE=OK, approved GitHub Pages Origin CORS header valid, OPTIONS preflight 204, EXISTING CLOUD RUN SECURITY CHECK COMPLETE.",
+  "cloudRunSecurityCheckStatus": {
+    "unauthManifest": 401,
+    "appAuthGate": "OK",
+    "githubPagesCors": "OK",
+    "browserPreflight": 204
+  },
+  "cloudRunNextStage": "Owner Google Sign-In ID-token end-to-end authentication from authorized https://aliasel0817.github.io origin; no MP3 uploaded or synthesized; standalone isolated test page must be separately approved for publication."
 }

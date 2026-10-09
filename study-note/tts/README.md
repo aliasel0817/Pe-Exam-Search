@@ -1,5 +1,8 @@
 # 학습노트 AI 자연음성 TTS — 개발용
 
+**현재 진행 현황 (2026-10-09):** Cloud Run 단일 테스트 서버 최초 배포 성공, 무인증 /v1/manifest 앱 HTTP 401, GitHub Pages Origin CORS 및 OPTIONS 204 실제 검증 완료. 다음은 Google ID 토큰 로그인 실검증. AI 음성 생성/GCS MP3 업로드 금지 유지; 운영 main v4.6.3 불변.
+
+
 **운영 main은 v4.6.3 그대로입니다.** 소스는 feature/ai-natural-tts-20261009 에서만 수정했습니다.
 
 ## 음성 저장 방식 (2026-10-09 확정)

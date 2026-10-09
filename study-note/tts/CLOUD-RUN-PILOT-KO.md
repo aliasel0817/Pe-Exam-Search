@@ -1,3 +1,28 @@
+# 학습노트 TTS — 배포 서버 인증 보호·CORS 실검증 통과 (2026-10-09)
+
+사용자 Cloud Shell 결과:
+- `SERVICE_URL=https://study-tts-audio-gateway-hgli3gua6q-uc.a.run.app` (사용자 화면에 나타난 실제 `status.url`, Google Cloud는 추가 URL 표시 가능)
+- `UNAUTH_MANIFEST_HTTP=401` — 로그인 없는 MP3 목록 요청이 앱 수준에서 거부됨
+- `APP_AUTH_GATE=OK` — 앱 JSON 응답으로 확인 (Cloud Run 자체 에러와 구분)
+- `GITHUB_PAGES_CORS=OK` — `https://aliasel0817.github.io` Origin 허용
+- `CORS_PREFLIGHT_HTTP=204` — 브라우저 OPTIONS 사전 요청 정상
+- `EXISTING CLOUD RUN SECURITY CHECK COMPLETE` — 전체 확인 완료
+- 테스트 과정에서 **Cloud Run 신규 빌드/배포, TTS 합성, MP3 업로드 없음**
+
+진행 완료: Google Cloud API 5개, 비공개 버킷, CORS, 전용 빌드/런타임 서비스 계정, Cloud Run 게이트웨이 최초 배포, 무인증 접근 차단 및 브라우저 CORS.
+
+다음 미완료: 사용자 Google Sign-In ID 토큰의 실서버 `audience`·허용 이메일 검증, 이후 음성 생성/MP3 GCS 저장 및 PC·태블릿·iPhone QA(별도 승인 필요).
+
+**보호 잠금:** `cloudRunRevisionUpdateUserApproved=false`, `ttsGenerationApproved=false`, `gcsUploadApproved=false`, `cloud-config.json.mode=disabled`; 운영 main v4.6.3 미변경. 보안 점검 성공을 이유로 추가 Cloud Run 배포를 실행하지 않음.
+
+## 로그인 실검증 준비 방향
+현재 운영 GitHub Pages URL과 동일한 `https://aliasel0817.github.io` 출처에서 Google ID 토큰을 얻어 직접 서버의 `/v1/manifest`로 보낼 시험 화면을 개발 브랜치에서 준비할 수 있음.
+단, **개발 브랜치의 HTML 파일을 작성하는 것만으로 GitHub Pages 운영 URL에 게시되지는 않음**.
+로그인 테스트 페이지를 실제 GitHub Pages에 공개 게시하려면 운영 main에 독립 HTML 파일만 추가하는 별도 변경이 필요하여 사용자 승인 전 게시하지 않음.
+토큰은 짧게 메모리에만 보관하고 UI·로그·URL·Cloud Shell에 출력하지 않음. 인증된 요청 후 저장소에 index.json이 아직 없으면 503이 정상 예상 가능하며 503의 오류 성격을 구별해 확인.
+
+---
+
 # 학습노트 TTS — Cloud Run 최초 배포 성공, 404 원인 분석 (2026-10-09)
 
 ## 화면에서 확인된 현황

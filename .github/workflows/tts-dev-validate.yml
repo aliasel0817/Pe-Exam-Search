@@ -78,8 +78,11 @@ jobs:
           assert project['cloudRunDeploymentPilotReady'] is True
           assert project['cloudRunDeploymentUserConfirmed'] is True
           assert project['cloudRunRevisionUpdateUserApproved'] is False
-          assert project['cloudRunRemoteUnauthManifestVerified'] is False
-          assert project['cloudRunRemoteCorsPreflightVerified'] is False
+          assert project['cloudRunRemoteUnauthManifestVerified'] is True
+          assert project['cloudRunRemoteCorsPreflightVerified'] is True
+          assert project['cloudRunSecurityCheckStatus'] == {
+              'unauthManifest': 401, 'appAuthGate': 'OK',
+              'githubPagesCors': 'OK', 'browserPreflight': 204}
           assert project['deployedCloudRunServiceUrl'] == 'https://study-tts-audio-gateway-558407087449.us-central1.run.app'
           assert project['cloudRunServiceNamePlanned'] == 'study-tts-audio-gateway'
           assert project['buildApisEnableCommandSuccess'] is True
@@ -101,7 +104,7 @@ jobs:
           assert all(project[key] is False for key in (
               'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('One Cloud Run gateway deployed; reserved /healthz 404 observed; live auth/CORS checks pending; speech synthesis and upload LOCKED')
+          print('Deployed Cloud Run auth gate 401/CORS 204 verified, real Google login pending; synthesis and GCS upload LOCKED')
           PY
       - name: Prevent Google login code-flow conflict and secret exposure
         shell: bash

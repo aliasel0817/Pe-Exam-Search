@@ -44,8 +44,8 @@ class ReadinessTests(unittest.TestCase):
             "dedicatedBuildRoleGrantedUserConfirmed": True,
             "cloudRunDeploymentUserApproved": True,
             "cloudRunDeploymentUserConfirmed": True,
-            "cloudRunRemoteUnauthManifestVerified": False,
-            "cloudRunRemoteCorsPreflightVerified": False,
+            "cloudRunRemoteUnauthManifestVerified": True,
+            "cloudRunRemoteCorsPreflightVerified": True,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "plannedReaderBucketName": "study-note-tts-audio-558407087449",
             "plannedReaderBucketRole": "roles/storage.objectViewer",
@@ -158,11 +158,20 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(self.project["ttsGenerationApproved"])
         self.assertFalse(self.project["gcsUploadApproved"])
 
-    def test_deployed_gateway_requires_live_unauthenticated_and_cors_checks(self):
+    def test_live_unauthenticated_and_cors_checks_confirmed_and_regression_guarded(self):
         issues, is_ready = ready.inspect(self.project, self.runtime)
         self.assertFalse(is_ready)
-        self.assertTrue(any("로그인 없는 MP3 목록" in x for x in issues))
-        self.assertTrue(any("브라우저 CORS" in x for x in issues))
+        self.assertFalse(any("로그인 없는 MP3 목록" in x for x in issues))
+        self.assertFalse(any("브라우저 CORS" in x for x in issues))
+        for key, fragment in (
+            ("cloudRunRemoteUnauthManifestVerified", "로그인 없는 MP3 목록"),
+            ("cloudRunRemoteCorsPreflightVerified", "브라우저 CORS"),
+        ):
+            with self.subTest(key=key):
+                missing = {**self.project, key: False}
+                issues, is_ready = ready.inspect(missing, self.runtime)
+                self.assertFalse(is_ready)
+                self.assertTrue(any(fragment in x for x in issues))
 
     def test_cloud_run_requires_separate_owner_approval(self):
         data = {**self.project, "cloudRunDeploymentUserApproved": False}
