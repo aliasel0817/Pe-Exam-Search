@@ -148,7 +148,7 @@ input[type=file]{max-width:100%;border:1px solid var(--line);padding:9px;border-
   render();
 })();
 </script>
-<script>window.PE_TTS_LOCAL_PREVIEW = true;</script>
+<script>window.PE_TTS_LOCAL_PREVIEW = (new URLSearchParams(location.search).get("gcs") !== "1");</script>
 <script src="./natural-tts.js"></script>
 </body>
 </html>
