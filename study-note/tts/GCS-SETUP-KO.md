@@ -1,15 +1,30 @@
-# 현재 체크포인트 — 2026-10-09
+# 현재 체크포인트 — Google Cloud 프로젝트 생성 확인 (2026-10-09)
 
-**현재 사용자 작업은 오직 Google Cloud 프로젝트 생성/확인 1건입니다.**
+## 확인된 프로젝트 (설정 파일에만 반영)
+- 프로젝트 이름: Study-Note-TTS
+- 프로젝트 ID: study-note-tts
+- 프로젝트 번호: 558407087449
+- 프로젝트 설정 파일: study-note/tts/cloud-project.json
+- TTS 연결 설정: study-note/tts/cloud-config.json (mode disabled)
 
-1. https://console.cloud.google.com/projectcreate 에서 프로젝트 이름 Study-Note-TTS 로 새 프로젝트 생성(또는 전용 기존 프로젝트 선택)
-2. 생성 후 프로젝트 ID만 공유. 비밀번호, 카드정보, 서비스 계정 비밀키, OAuth 토큰 공유 불필요.
-3. 결제수단·무료체험·결제 계정 연결 화면이 먼저 나오면 진행하지 말고 화면 상태만 알려주기.
-4. 프로젝트 확인 전에는 버킷 생성, TTS API 활성화, Cloud Run 배포를 하지 않기.
+## 다음 사용자 작업: 결제 상태 **확인만** (설정 변경/과금 없음)
+1. https://console.cloud.google.com/billing/linkedaccount?project=study-note-tts 에 접속.
+2. 상단 선택된 프로젝트가 Study-Note-TTS / study-note-tts인지 확인.
+3. 메뉴 > 결제(Billing)에서 "연결된 결제 계정" 여부만 확인.
+4. 결제 계정이 연결됨 / 연결 안 됨 / 무료 체험 및 결제 정보 등록 안내 / 다른 화면 중 무엇인지 알려주기.
+5. 카드 정보, 결제 계정 번호, 서비스 계정 비밀키 또는 OAuth 토큰을 채팅에 보내지 않기.
+6. 결제 연결·카드 등록·Cloud Storage 버킷 생성·API 활성화는 아직 하지 않기.
 
-**개발 상태:** GitHub 개발 브랜치에 비공개 GCS 음성 게이트웨이·업로드기·MP3 재생기 및 ‘연결 설정 확인(유료 호출 없음)’ 기능 구현. cloud-config.json은 disabled. 실제 Google Cloud 자원은 생성/연결하지 않았으며, main v4.6.3 및 복원 브랜치 변경 없음. Google Sheets·필기·Apps Script 데이터도 변경 없음.
+**이번 개발에서 완료한 안전 장치**
+- 지정 프로젝트 ID와 번호 확인 후에만 업로드/합성 준비 진행.
+- 업로드 시 버킷의 projectNumber가 558407087449와 일치하지 않으면 업로드 차단.
+- TTS 생성 시 프로젝트 ID가 study-note-tts와 일치하지 않으면 Cloud API 호출 차단.
+- 실제 구글 클라우드 API 요청은 사용자 승인 옵션 2개 없이는 실행되지 않음.
+- 생성 MP3가 없거나 서버가 연결되지 않으면 브라우저 내장 TTS로 전환하지 않음.
+- main 운영판 v4.6.3, Google Sheets, 필기 동기화, Apps Script 모두 변경 없음.
 
-**다음 사용자 단계(아직 하지 않음):** 프로젝트 확인 후 결제/무료 한도 점검 → 비공개 GCS 버킷 설정 → TTS 샘플 1~3개 생성 및 청취 → PC/태블릿/iPhone 검증 → 운영 반영 여부 판단.
+## 다음 개발 단계
+결제 상태 확인 후 비공개 Cloud Storage 버킷 생성 정책과 월 사용량 알림을 소규모 단계로 안내. Cloud Run과 TTS API는 사용자가 비용 조건을 확인하기 전 활성화하지 않음.
 
 ---
 
