@@ -33,38 +33,44 @@ Google Cloud에서는 **Cloud Run 소스 빌드에 별도 지정 서비스 계�
 이 전용 계정에는 프로젝트 `study-note-tts` 내의 `roles/run.builder`만 부여. 버킷 objectViewer, 서비스 계정 Token Creator, Owner, Editor 권한은 부여하지 않음.
 **Cloud Run 런타임 서비스 계정은 여전히 `study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com`** 입니다.
 
-## 전용 빌드 계정 생성 완료 · 역할 부여 전파 지연 대응 (2026-10-09)
+## 전용 빌드 계정 권한 완료 (2026-10-09)
 
-사용자가 제공한 Cloud Shell 결과:
-- `Created service account [study-tts-build]`
-- `Service account email: study-tts-build@study-note-tts.iam.gserviceaccount.com`
-- 프로젝트 `roles/run.builder` IAM 정책 부여는 `Service account ... does not exist` 오류로 실패
-- 새 서비스 계정 생성 직후 IAM 가시성은 Google 공식 문서상 60초 이상 지연될 수 있음
-- **기존 계정은 이미 생성 완료. 계정을 다시 만들거나 기본 Compute 서비스 계정에 권한을 추가하지 않음**
-- Google Cloud 실행/빌드/TTS/MP3 저장·업로드 모두 별도 실행하지 않음
+Cloud Shell 실행 결과에서 아래 사항을 사용자 화면으로 확인:
+- `Dedicated build service account already exists`: 재생성하지 않음
+- `Project Cloud Run Builder role granted ONLY to dedicated build account.`: 프로젝트의 `roles/run.builder`를 **study-tts-build 계정에만** 부여
+- `PROJECT_ROLE: roles/run.builder PRESENT`: IAM 재조회로 확인
+- `DEFAULT COMPUTE ACCOUNT: UNCHANGED`: 기본 Compute 계정 유지
+- `NO CLOUD RUN DEPLOY, TTS SYNTHESIS OR MP3 UPLOAD`: 실제 배포·음성 생성·MP3 업로드 없음
 
-### 사용자가 수행할 Cloud Shell 작업(묶음 실행)
+현재 Cloud Run 테스트 게이트웨이는 **아직 존재하지 않습니다**. 다음 작업은 과금 가능성이 있는 소스 빌드/Artifact Registry/Cloud Run 실제 배포이므로, 실행 전에 사용자에게 별도 명시적 동의를 요청해야 합니다.
 
-```bash
-(
-  set -e
-  git -C "$HOME/pe-tts-dev" pull --ff-only
-  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/setup_build_identity.sh" --execute --approve-project-builder-role
-)
-```
+### 테스트 서버 배포 계획
+- 프로젝트: `study-note-tts`, 지역: `us-central1`
+- 서비스: `study-tts-audio-gateway`
+- 빌드 계정: `study-tts-build@study-note-tts.iam.gserviceaccount.com`
+- 런타임 계정: `study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com`
+- 1 vCPU / 메모리 512Mi / 최소 인스턴스 0 / 최대 1 / 동시 요청 4
+- Cloud Run HTTPS 호출 허용. **MP3 목록·서명 URL은 Google ID 토큰과 허용 이메일 서버 검증이 필요**. 다른 사용자에게 MP3 접근 권한을 허용하지 않음
+- 서버는 MP3 합성·GCS 업로드·삭제 기능이 없으며 클라우드 읽기 전용
+- 배포 소스는 별도 기능 브랜치의 `study-note/tts/cloud-gateway` 내 Node 서버
+- 기존 학습노트 운영 `main`은 미변경; Cloud Run 배포만 수행해도 운영 앱에 자동 연결되지 않음
 
-변경된 스크립트 동작:
-1. 프로젝트 ID/번호와 기존 서비스 계정 존재 여부 확인.
-2. 이미 존재하는 `study-tts-build` 계정 재사용 (중복 생성하지 않음).
-3. 해당 계정의 `roles/run.builder` 직접 역할이 아직 없다면 부여.
-4. `INVALID_ARGUMENT: Service account ... does not exist` 오류일 때만 제한된 간격(10/20/40/60초)으로 **최대 5회** 시도.
-5. 권한 부족·다른 오류는 즉시 중단. 권한 확인이 완료되어야 성공 출력.
-6. **Cloud Run 배포·TTS 음성 생성·GCS MP3 업로드·서비스 계정 JSON 키 생성은 하지 않음**.
+### 비용 및 승인
+- 현재 Cloud Run 소스 배포는 이미지 빌드와 Artifact Registry 이미지 저장을 만들 수 있어 요금이 발생할 수 있음.
+- Cloud Run request-based 요금은 서비스 요청·CPU/메모리 사용량에 따르며, 최소 인스턴스 0을 설정해도 비용 0을 보장하지 않음.
+- Google Cloud 예산 경고는 자동 결제 차단 장치가 아님.
+- 사용자 명시적 승인 전까지 아래 잠금을 유지:
+  - `cloudRunDeploymentUserApproved=false`
+  - `cloudProvisioningApproved=false`
+  - `ttsGenerationApproved=false`
+  - `gcsUploadApproved=false`
+- 명시적 동의 후에만 배포 전용 두 잠금을 해제하고 `deploy_pilot.sh --execute --accept-possible-charges` 안내. TTS 생성 및 GCS 업로드 잠금은 그대로 유지.
+- 승인 전에는 Cloud Shell에서 `--execute` 명령을 실행하지 말 것.
 
-정상 완료 출력은 `=== DEDICATED BUILD ACCOUNT READY ===`, `PROJECT_ROLE: roles/run.builder PRESENT`, `DEFAULT COMPUTE ACCOUNT: UNCHANGED`.
-오류나 제한 횟수 소진 시 화면 결과를 그대로 공유; 안전하지 않은 광역 역할을 임의로 추가하지 말 것.
-
-참고: https://docs.cloud.google.com/iam/docs/service-accounts-create?hl=ko
+공식 비용 자료:
+- https://cloud.google.com/run/pricing
+- https://cloud.google.com/build/pricing
+- https://cloud.google.com/artifact-registry/pricing
 
 ## 실제 배포는 별도 승인 필수
 `deploy_pilot.sh`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:

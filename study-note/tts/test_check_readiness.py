@@ -41,7 +41,7 @@ class ReadinessTests(unittest.TestCase):
             "dedicatedBuildServiceAccountEmail": "study-tts-build@study-note-tts.iam.gserviceaccount.com",
             "dedicatedBuildRolePlanned": "roles/run.builder",
             "dedicatedBuildServiceAccountCreatedUserConfirmed": True,
-            "dedicatedBuildRoleGrantedUserConfirmed": False,
+            "dedicatedBuildRoleGrantedUserConfirmed": True,
             "cloudRunDeploymentUserApproved": False,
             "cloudRunDeploymentUserConfirmed": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
@@ -129,7 +129,11 @@ class ReadinessTests(unittest.TestCase):
         problems, prepared = ready.inspect(self.project, self.runtime)
         self.assertFalse(prepared)
         self.assertFalse(any("전용 Cloud Build 서비스 계정 생성" in text for text in problems))
-        self.assertTrue(any("전용 빌드 계정의 프로젝트" in text for text in problems))
+        self.assertFalse(any("전용 빌드 계정의 프로젝트" in text for text in problems))
+        no_builder_role = {**self.project, "dedicatedBuildRoleGrantedUserConfirmed": False}
+        issues, prepared = ready.inspect(no_builder_role, self.runtime)
+        self.assertFalse(prepared)
+        self.assertTrue(any("전용 빌드 계정의 프로젝트" in text for text in issues))
         missing_creation = {**self.project, "dedicatedBuildServiceAccountCreatedUserConfirmed": False}
         issues, prepared = ready.inspect(missing_creation, self.runtime)
         self.assertFalse(prepared)

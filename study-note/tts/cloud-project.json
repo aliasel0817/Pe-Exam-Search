@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Dedicated build account was CREATED, but first project role assignment immediately after creation failed because IAM did not yet recognize the new principal. Existing account must be reused; do not create it again. Bounded retry applies only to exact eventual-consistency missing-account error; Cloud Run deployment, TTS synthesis and MP3 upload still disabled.",
+  "comment": "Owner verified dedicated build account and roles/run.builder direct project IAM via Cloud Shell; separate runtime audio reader remains private. Source-deployment preflight is complete. Actual Cloud Run deployment, TTS generation and GCS audio upload still require separate owner consent; all paid-capable approval flags remain false.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -65,7 +65,9 @@
   "dedicatedBuildServiceAccountEmail": "study-tts-build@study-note-tts.iam.gserviceaccount.com",
   "dedicatedBuildRolePlanned": "roles/run.builder",
   "dedicatedBuildServiceAccountCreatedUserConfirmed": true,
-  "dedicatedBuildRoleGrantedUserConfirmed": false,
+  "dedicatedBuildRoleGrantedUserConfirmed": true,
   "dedicatedBuildServiceAccountCreationVerifiedBy": "User 2026-10-09 Cloud Shell screenshot shows Created service account [study-tts-build] and expected email.",
-  "dedicatedBuildRoleLastAttempt": "FAILED: INVALID_ARGUMENT Service account study-tts-build@study-note-tts.iam.gserviceaccount.com does not exist (possible initial IAM eventual consistency)."
+  "dedicatedBuildRoleLastAttempt": "SUCCESS: role granted to study-tts-build@study-note-tts.iam.gserviceaccount.com with post-write IAM policy confirmation.",
+  "dedicatedBuildRoleConfirmation": "Owner Cloud Shell screenshot 2026-10-09: dedicated build account already exists; Project Cloud Run Builder role granted ONLY to dedicated build account; PROJECT_ROLE: roles/run.builder PRESENT; DEFAULT COMPUTE ACCOUNT: UNCHANGED",
+  "cloudRunDeploymentPilotReady": true
 }

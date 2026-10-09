@@ -52,3 +52,5 @@
 - 기본 Compute Cloud Build 계정에 직접 Builder 역할 없음 확인. 프로젝트 TTS 전용 `study-tts-build@study-note-tts.iam.gserviceaccount.com`을 만드는 절차로 전환하여 `--build-service-account`으로 명시; `setup_build_identity.sh` 기본값은 dry-run, Cloud Run 배포는 여전히 별도 승인 잠금.
 
 - 2026-10-09: 전용 빌드 계정 생성 완료. 즉시 roles/run.builder 부여 시 IAM 전파 지연으로 'does not exist' 발생하여 권한 미확정. setup_build_identity.sh에 기존 계정 재사용과 IAM 가시성 오류 한정 백오프(최대 5회)를 추가. Cloud Run/TTS/GCS 쓰기 잠금 유지.
+
+- 2026-10-09: Cloud Shell 실행 결과로 전용 빌드 계정의 `roles/run.builder PRESENT` 확인. 현재 Cloud Run 배포는 별도 사용자 비용 승인 전까지 차단되며 TTS/GCS 쓰기도 잠금.

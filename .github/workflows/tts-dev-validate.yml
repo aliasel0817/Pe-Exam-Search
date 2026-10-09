@@ -72,7 +72,8 @@ jobs:
           assert project['dedicatedBuildServiceAccountEmail'] == 'study-tts-build@study-note-tts.iam.gserviceaccount.com'
           assert project['dedicatedBuildRolePlanned'] == 'roles/run.builder'
           assert project['dedicatedBuildServiceAccountCreatedUserConfirmed'] is True
-          assert project['dedicatedBuildRoleGrantedUserConfirmed'] is False
+          assert project['dedicatedBuildRoleGrantedUserConfirmed'] is True
+          assert project['cloudRunDeploymentPilotReady'] is True
           assert project['cloudRunDeploymentUserConfirmed'] is False
           assert project['cloudRunServiceNamePlanned'] == 'study-tts-audio-gateway'
           assert project['buildApisEnableCommandSuccess'] is True
