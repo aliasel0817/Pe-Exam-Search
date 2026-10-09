@@ -96,6 +96,18 @@ class UploadTests(unittest.TestCase):
             self.assertEqual(proc.returncode,2)
             self.assertIn("--accept-possible-cloud-charges",proc.stderr)
 
+    def test_cloud_upload_blocked_even_with_cli_opt_in_before_owner_approval(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder, _ = create_sample(Path(d))
+            cmd = [
+                sys.executable, str(MODULE_FILE), "--audio-dir", str(folder),
+                "--bucket", "study-audio-test123", "--execute",
+                "--accept-possible-cloud-charges"
+            ]
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            self.assertEqual(proc.returncode, 2)
+            self.assertIn("not yet approved", proc.stderr)
+
     def test_no_public_or_path_traversal_media(self):
         with tempfile.TemporaryDirectory() as d:
             folder,index=create_sample(Path(d))
