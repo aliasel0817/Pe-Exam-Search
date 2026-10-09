@@ -33,7 +33,7 @@ ZIP_NAME = "study-tts-topic-intro-v2-5.zip"
 def git_blob_hash(path: Path) -> str:
     data = path.read_bytes()
     return hashlib.sha1(
-        b"blob " + str(len(data)).encode("ascii") + b"\\0" + data
+        b"blob " + str(len(data)).encode("ascii") + b"\0" + data
     ).hexdigest()
 
 
@@ -108,7 +108,7 @@ def verify_plan() -> list[dict]:
             raise ValueError("Speech hash/markup/limits differ for: " + tid)
         rel = item["files"][0]
         if (not re.fullmatch(
-                rf"{VOICE}/{tid}/topic-[0-9a-f]{{12}}\\.mp3", rel)
+                rf"{VOICE}/{tid}/topic-[0-9a-f]{{12}}\.mp3", rel)
                 or rel in seen_paths):
             raise ValueError("Unexpected MP3 output name or duplicate: " + tid)
         seen_paths.add(rel)
