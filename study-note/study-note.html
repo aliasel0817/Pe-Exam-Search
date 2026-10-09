@@ -1828,6 +1828,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .tts-live-status { margin:-12px 0 14px; min-height:19px; font-size:.76rem; color:#475569; overflow-wrap:anywhere; }
 .tts-panel-actions { flex-wrap:wrap; }
 .tts-cloud-auth { margin:8px 0 14px; padding:10px; border:1px solid #dbe2ea; border-radius:9px; background:#fff; }
+.tts-cloud-check-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.tts-cloud-check-row .btn { font-size:.75rem; padding:6px 9px; min-height:34px; }
+.tts-cloud-check-row #ttsCloudStatus { flex:1 1 180px; }
 #ttsCloudStatus { margin-top:5px; font-size:.75rem; line-height:1.5; }
 #ttsStatus { font-size:.78rem; color:#475569; overflow-wrap:anywhere; }
 .tts-settings-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
@@ -2004,7 +2007,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
           <section id="ttsSettingsPanel" class="tts-settings-panel hidden" aria-label="AI 음성 읽기 설정">
             <div class="tts-panel-title"><strong>AI 자연음성 MP3 학습</strong></div>
-            <div class="tts-cloud-auth"><div id="ttsCloudLogin"></div><div id="ttsCloudStatus" class="muted" aria-live="polite">비공개 Google Cloud Storage 연결 준비 중</div></div>
+            <div class="tts-cloud-auth"><div id="ttsCloudLogin"></div><div class="tts-cloud-check-row"><div id="ttsCloudStatus" class="muted" aria-live="polite">비공개 Google Cloud Storage 연결 준비 중</div><button id="ttsCloudCheckBtn" class="btn" type="button" aria-label="Google Cloud 연결 설정만 점검하고 유료 API는 호출하지 않음">연결 설정 확인</button></div></div>
             <div class="tts-settings-grid">
               <label>목소리<select id="ttsOption-voice"><option value="ko-KR-Chirp3-HD-Aoede">여성 · Aoede</option><option value="ko-KR-Chirp3-HD-Kore">여성 · Kore</option><option value="ko-KR-Chirp3-HD-Charon">남성 · Charon</option></select></label>
               <label>재생 모드<select id="ttsOption-mode"><option value="continuous">검색 목록 연속 읽기</option><option value="one">현재 토픽만</option></select></label>
