@@ -70,6 +70,51 @@ class UploadTests(unittest.TestCase):
             upload.validate_bucket_metadata(
                 {**meta,"location":"ASIA-NORTHEAST3"}, "safe-private-bucket", "558407087449")
 
+    def test_cloud_upload_needs_confirmed_exact_bucket_after_budget(self):
+        target = "study-note-tts-audio-558407087449"
+        config = {
+            "gcsUploadApproved": True,
+            "budgetAlertsUserConfirmed": True,
+            "bucketCreatedUserConfirmed": False,
+            "bucketName": "",
+        }
+        with self.assertRaisesRegex(ValueError, "not been user-confirmed"):
+            upload.assert_upload_authorized(config, target)
+        config["bucketCreatedUserConfirmed"] = True
+        config["bucketName"] = target
+        upload.assert_upload_authorized(config, target)
+        with self.assertRaisesRegex(ValueError, "exact confirmed"):
+            upload.assert_upload_authorized(config, "another-bucket")
+        config["budgetAlertsUserConfirmed"] = False
+        with self.assertRaisesRegex(ValueError, "budget confirmation"):
+            upload.assert_upload_authorized(config, target)
+
+    def test_nonstandard_costly_storage_features_are_rejected(self):
+        good = {
+            "name": "study-note-tts-audio-test",
+            "projectNumber": "558407087449",
+            "location": "US-CENTRAL1",
+            "storageClass": "STANDARD",
+            "iamConfiguration": {
+                "publicAccessPrevention": "enforced",
+                "uniformBucketLevelAccess": {"enabled": True},
+            },
+            "softDeletePolicy": {"retentionDurationSeconds": "604800"},
+        }
+        upload.validate_bucket_metadata(good, good["name"], "558407087449")
+        for feature in (
+            {"versioning": {"enabled": True}},
+            {"autoclass": {"enabled": True}},
+            {"hierarchicalNamespace": {"enabled": True}},
+            {"billing": {"requesterPays": True}},
+            {"retentionPolicy": {"retentionPeriod": "7776000"}},
+            {"softDeletePolicy": {"retentionDurationSeconds": "7776000"}},
+        ):
+            with self.subTest(feature=feature):
+                with self.assertRaises(ValueError):
+                    upload.validate_bucket_metadata(
+                        {**good, **feature}, good["name"], "558407087449")
+
     def test_validates_private_mp3_before_cloud_action(self):
         with tempfile.TemporaryDirectory() as d:
             folder,manifest=create_sample(Path(d))
