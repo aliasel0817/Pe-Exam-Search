@@ -19,6 +19,7 @@
 - upload_gcs.py : 비공개 GCS 버킷으로 MP3 업로드. 기본 dry-run, Cloud 승인 플래그 필수.
 - audio/index.json : 클라우드 저장소로 올릴 음성 목록의 빈 예시. MP3는 GitHub에 업로드하지 않음.
 - cloud-config.json : 현재 disabled. Cloud Run 인증 연동 완료 전에는 GCS 요청 없음.
+- cloud-project.json : 확정된 프로젝트 ID·프로젝트 번호 및 TTS 생성·GCS 업로드의 **개별 승인 잠금값(false)**. 실행 옵션을 넣더라도 이 잠금이 유지되면 클라우드 호출 차단.
 - cloud-gateway/server.cjs : 토큰 검증, GCS 서명 URL 발급 서버. TTS API 호출 기능 없음.
 - cloud-gateway/gcs-cors.json : GitHub Pages origin만 GCS GET 허용.
 - preview.html : 로컬 격리 MP3 테스트용. 운영 PWA·Google Sheets·필기 데이터 미접근.
