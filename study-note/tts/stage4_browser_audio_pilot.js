@@ -216,17 +216,15 @@
     // Development-only injection into the existing login smoke page can call
     // this directly, without publishing or changing the live GitHub Pages repo.
     root.peStudyNoteStage4Pilot = Object.freeze({init, validateManifest, verifySignedUrl});
-    if (root.document?.readyState === 'complete') {
-      // Only auto-init the dedicated standalone test page.
-      if (root.document.getElementById('pilotStatus')) {
-        init(root.document, root.location.origin, root.google?.accounts?.id);
-      }
-    } else {
-      root.addEventListener('load', () => {
-        if (root.document.getElementById('pilotStatus')) {
-          init(root.document, root.location.origin, root.google?.accounts?.id);
-        }
-      }, {once:true});
+    // Only the standalone pilot.html auto-initializes. When this script
+    // is injected into the auth smoke page, the launcher explicitly calls
+    // init ONCE after loading. Double-init would duplicate GIS callbacks.
+    const standalone = root.location?.pathname?.endsWith('/stage4_browser_audio_pilot.html');
+    if (standalone && root.document?.readyState === 'complete') {
+      init(root.document, root.location.origin, root.google?.accounts?.id);
+    } else if (standalone) {
+      root.addEventListener('load', () => init(root.document, root.location.origin,
+        root.google?.accounts?.id), {once:true});
     }
   }
 })(typeof window === 'undefined' ? {} : window);
