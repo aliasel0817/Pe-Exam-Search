@@ -17,14 +17,14 @@ Cloud Run 테스트 서비스: `study-tts-audio-gateway`, 프로젝트 `study-no
 - [x] Cloud Run Gateway 최초 배포
 - [x] Cloud Run 무인증 MP3 목록 요청 차단 HTTP 401, GitHub Pages CORS, OPTIONS HTTP 204 실환경 검증
 - [x] GitHub 개발 브랜치에 TTS 재생 UI·선택 필드·반복·회상 간격·배속·연속 재생·MP3 생성기·GCS 업로더·인덱스·게이트웨이 코드 및 테스트 작성
-- [x] GitHub main에 **로그인 시험용 `tts-auth-check.html` 파일 한 개만 추가** (`55052c05c2b4330fe9798161b2ab4565076a852d`); Pages 워크플로 완료와 실제 Google 계정 시험은 별도로 확인 필요
+- [x] GitHub main에 **로그인 시험용 `tts-auth-check.html` 파일 한 개만 추가** (`55052c05c2b4330fe9798161b2ab4565076a852d`); Pages 빌드/배포 작업 `37894854490` 성공. **실제 Google 로그인은 아직 미검증**.
 
 **유의:** main 브랜치 커밋은 테스트 파일 한 개 추가로 변경되었음. 기존 `study-note/study-note.html` 운영 앱은 v4.6.3 그대로이고, 데이터·Apps Script·필기·백업은 미변경.
 
 ## 기능 완성까지 남은 8단계 (계획치, 오류에 따라 세분화 가능)
 
 ### 1. 실제 Google 계정 로그인·인증 검증 — 현재 진행 중
-- [ ] 학습노트 GitHub Pages의 `tts-auth-check.html` 페이지 실제 접근
+- [x] GitHub Pages 배포 작업 성공 확인; 사용자 브라우저에서 페이지 열기/로그인 버튼 실제 접근은 아래 단계에서 확인
 - [ ] Google Sign-In 실행 → 허용된 계정 ID 토큰을 Cloud Run에서 검증
 - [ ] **정상 시** MP3 목록이 아직 없어서 API가 503 `Audio manifest unavailable`이라고 응답할 수 있음. 이는 서버가 로그인 검증을 통과한 다음 GCS를 조회했을 경우의 정상적인 준비 상태
 - [ ] 로그인/출처/허용 계정 오류를 분리 진단; 토큰·헤더·계정 이메일을 채팅에 요청하지 않음
