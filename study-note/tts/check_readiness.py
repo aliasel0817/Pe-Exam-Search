@@ -24,6 +24,8 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("월 예산 알림 설정을 아직 사용자께 확인받지 않았습니다.")
     if project.get("bucketCreatedUserConfirmed") is not True:
         problems.append("비공개 Google Cloud Storage 버킷 생성은 아직 확인되지 않았습니다.")
+    if project.get("gcsCorsUserConfirmed") is not True:
+        problems.append("비공개 버킷의 웹 브라우저 음성 다운로드(CORS) 설정을 아직 확인하지 않았습니다.")
     if runtime.get("schemaVersion") != 1:
         problems.append("TTS 웹 설정 형식이 유효하지 않습니다.")
     if runtime.get("mode") == "disabled":
@@ -35,7 +37,7 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
     if project.get("gcsUploadApproved") is not True:
         problems.append("실제 MP3 클라우드 업로드는 별도 승인 전까지 잠겨 있습니다.")
     if project.get("cloudProvisioningApproved") is not True:
-        problems.append("Google Cloud 버킷/Cloud Run 생성 승인 전입니다.")
+        problems.append("Cloud Run 및 추가 클라우드 서비스 배포는 아직 별도 승인 전입니다.")
     ready = (
         not problems
         and runtime.get("mode") == "gcs-private"
@@ -58,6 +60,9 @@ def report(project: dict, runtime: dict) -> str:
         "추천 버킷 이름: " + str(project.get("plannedBucketName", "(미정)")),
         "비공개 버킷 생성(사용자 확인): "
         + ("확인" if project.get("bucketCreatedUserConfirmed") is True else "미확인"),
+        "실제 버킷 이름: " + str(project.get("bucketName", "(미확인)")),
+        "브라우저 CORS 설정(사용자 확인): "
+        + ("확인" if project.get("gcsCorsUserConfirmed") is True else "미확인"),
         "서버 연결 상태: " + str(runtime.get("mode", "(미설정)")),
         "외부 API 호출: 이 점검 프로그램에서는 없음",
         "점검 결과: " + ("배포 준비 상태 점검 통과" if ready else "실제 음성 API/업로드 미실행"),
