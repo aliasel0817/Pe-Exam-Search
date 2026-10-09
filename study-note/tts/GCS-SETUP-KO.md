@@ -17,6 +17,7 @@
 
 **이번 개발에서 완료한 안전 장치**
 - 지정 프로젝트 ID와 번호 확인 후에만 업로드/합성 준비 진행.
+- cloud-project.json 안의 ttsGenerationApproved, gcsUploadApproved 값은 둘 다 false. 비용 조건과 사용자 승인 후에만 각 단계별로 잠금을 해제함.
 - 업로드 시 버킷의 projectNumber가 558407087449와 일치하지 않으면 업로드 차단.
 - TTS 생성 시 프로젝트 ID가 study-note-tts와 일치하지 않으면 Cloud API 호출 차단.
 - 실제 구글 클라우드 API 요청은 사용자 승인 옵션 2개 없이는 실행되지 않음.
