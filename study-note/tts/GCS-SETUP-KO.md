@@ -1,31 +1,38 @@
-# 현재 체크포인트 — Google Cloud 프로젝트 생성 확인 (2026-10-09)
+# 현재 체크포인트 — 예산 알림 설정 진행 중 (2026-10-09)
 
-## 확인된 프로젝트 (설정 파일에만 반영)
+## 확정된 사항
 - 프로젝트 이름: Study-Note-TTS
 - 프로젝트 ID: study-note-tts
 - 프로젝트 번호: 558407087449
-- 프로젝트 설정 파일: study-note/tts/cloud-project.json
-- TTS 연결 설정: study-note/tts/cloud-config.json (mode disabled)
+- **결제 계정 연결됨: 사용자가 Google Cloud 화면에서 직접 확인하여 보고**
+- **예산 알림: 설정 완료 여부 아직 미확인**
+- **Google Cloud Storage 버킷, Cloud Run, 실제 TTS 음성 합성은 모두 미실행**
 
-## 다음 사용자 작업: 결제 상태 **확인만** (설정 변경/과금 없음)
-1. https://console.cloud.google.com/billing/linkedaccount?project=study-note-tts 에 접속.
-2. 상단 선택된 프로젝트가 Study-Note-TTS / study-note-tts인지 확인.
-3. 메뉴 > 결제(Billing)에서 "연결된 결제 계정" 여부만 확인.
-4. 결제 계정이 연결됨 / 연결 안 됨 / 무료 체험 및 결제 정보 등록 안내 / 다른 화면 중 무엇인지 알려주기.
-5. 카드 정보, 결제 계정 번호, 서비스 계정 비밀키 또는 OAuth 토큰을 채팅에 보내지 않기.
-6. 결제 연결·카드 등록·Cloud Storage 버킷 생성·API 활성화는 아직 하지 않기.
+## 이번에 사용자께서 하실 일: 월별 프로젝트 예산 알림 하나 만들기
+1. https://console.cloud.google.com/billing/budgets?project=study-note-tts 열기.
+2. 프로젝트가 Study-Note-TTS인지 확인. "예산 및 알림" → "예산 만들기".
+3. 예산 방식이 있다면 **알림 전용(Alerts only)** 을 선택.
+4. 예산 이름: Study-Note-TTS-Budget.
+5. 범위는 프로젝트 study-note-tts **한 개만**. 서비스는 모든 서비스.
+6. 기간은 월별. 목표 금액은 KRW 1,000원(통화가 USD라면 초기 시험용 약 $1). 허용되는 최소 금액이 더 높다면 임의로 높이지 말고 화면 내용을 알려줄 것.
+7. 알림은 실제 비용 10%, 50%, 90%, 100%로 설정(화면에 없는 값은 추가 가능할 때만).
+8. 사용자 이메일 알림을 켜고 저장. 예산 목록에 Study-Note-TTS-Budget이 표시되는지만 알려주기.
+9. 버킷, Cloud Run, API 활성화, 리소스 생성은 아직 하지 않기.
 
-**이번 개발에서 완료한 안전 장치**
-- 지정 프로젝트 ID와 번호 확인 후에만 업로드/합성 준비 진행.
-- cloud-project.json 안의 ttsGenerationApproved, gcsUploadApproved 값은 둘 다 false. 비용 조건과 사용자 승인 후에만 각 단계별로 잠금을 해제함.
-- 업로드 시 버킷의 projectNumber가 558407087449와 일치하지 않으면 업로드 차단.
-- TTS 생성 시 프로젝트 ID가 study-note-tts와 일치하지 않으면 Cloud API 호출 차단.
-- 실제 구글 클라우드 API 요청은 사용자 승인 옵션 2개 없이는 실행되지 않음.
-- 생성 MP3가 없거나 서버가 연결되지 않으면 브라우저 내장 TTS로 전환하지 않음.
-- main 운영판 v4.6.3, Google Sheets, 필기 동기화, Apps Script 모두 변경 없음.
+**경고:** 일반 예산 알림은 요금 발생을 멈추지 않는 알림 전용 기능입니다. Cloud Storage와 Cloud Text-to-Speech는 현재 별도 승인 잠금 상태이므로 무단 생성/업로드 요청은 실패해야 합니다.
 
-## 다음 개발 단계
-결제 상태 확인 후 비공개 Cloud Storage 버킷 생성 정책과 월 사용량 알림을 소규모 단계로 안내. Cloud Run과 TTS API는 사용자가 비용 조건을 확인하기 전 활성화하지 않음.
+## 개발 설정 및 안전 장치
+- cloud-project.json: billingLinkedUserConfirmed=true, budgetAlertsUserConfirmed=false
+- cloudProvisioningApproved=false, ttsGenerationApproved=false, gcsUploadApproved=false
+- cloud-config.json: mode=disabled
+- 생성/업로드 스크립트의 실행 승인 잠금은 서로 독립적.
+- check_readiness.py: 프로젝트·승인·예산 상태를 한글로 표시하고 **어떤 Google Cloud API도 호출하지 않음**.
+- 운영 main v4.6.3 / 복원 브랜치 불변. Google Sheets·필기 데이터·Apps Script 불변.
+
+## 다음 단계 (현재 진행하지 않음)
+예산 설정 완료 확인 후, us-central1의 비공개 Standard Cloud Storage 버킷 **하나만** 만드는 절차를 안내. 그다음 생성 도구·실제 음성 샘플 시험 단위로 진행.
+
+공식 참고: https://docs.cloud.google.com/billing/docs/how-to/budgets?hl=ko
 
 ---
 
