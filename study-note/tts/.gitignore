@@ -7,3 +7,13 @@
 *.pending
 __pycache__/
 *.pyc
+
+# Keep locally generated MP3 and audio indexes out of the public GitHub repository.
+/audio/
+/audio-pilot-local/
+/audio-*/
+*.mp3
+/topic-sample.json
+/topic-sample-*.json
+/topic-export*.json
+/private-topics*.json
