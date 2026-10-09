@@ -82,6 +82,9 @@ class UploadTests(unittest.TestCase):
             upload.assert_upload_authorized(config, target)
         config["bucketCreatedUserConfirmed"] = True
         config["bucketName"] = target
+        with self.assertRaisesRegex(ValueError, "CORS is not yet confirmed"):
+            upload.assert_upload_authorized(config, target)
+        config["gcsCorsUserConfirmed"] = True
         upload.assert_upload_authorized(config, target)
         with self.assertRaisesRegex(ValueError, "exact confirmed"):
             upload.assert_upload_authorized(config, "another-bucket")
