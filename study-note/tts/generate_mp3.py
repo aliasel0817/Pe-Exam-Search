@@ -184,15 +184,17 @@ def plan(topics: list[dict], voice: str, fields: set[str],
                 continue
             source_hash = digest(original)
             chunks = split_speech(for_speech(label, field, original, dictionary))
-            files = paths_for(ident, field, voice, source_hash, len(chunks))
+            speech_hash = digest("\n".join(chunks))
+            asset_hash = digest(source_hash + "|" + speech_hash)
+            files = paths_for(ident, field, voice, asset_hash, len(chunks))
             key = ident + ":" + field + ":" + voice
             entry = manifest["entries"].get(key)
             listed = entry.get("files", [entry.get("file")]) if isinstance(entry, dict) else []
             if (isinstance(entry, dict) and entry.get("sha256") == source_hash and
-                listed == files and all((audio_root / path).is_file() for path in files)):
+                entry.get("speechSha256") == speech_hash and listed == files and all((audio_root / path).is_file() for path in files)):
                 continue
             requests.append({
-                "key": key, "originalHash": source_hash, "chunks": chunks,
+                "key": key, "originalHash": source_hash, "speechHash": speech_hash, "chunks": chunks,
                 "files": files, "label": label, "topicId": ident,
             })
     return requests
@@ -304,6 +306,7 @@ def execute(args: argparse.Namespace, requests: list[dict], manifest: dict) -> N
                 time.sleep(0.3)
             manifest["entries"][record["key"]] = {
                 "sha256": record["originalHash"],
+                "speechSha256": record["speechHash"],
                 **({"file": record["files"][0]} if len(record["files"]) == 1
                    else {"files": record["files"]}),
             }
