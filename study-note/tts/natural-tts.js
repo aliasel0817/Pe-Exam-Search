@@ -108,6 +108,7 @@
       }
       $('ttsSelectAll')?.addEventListener('click', () => this.selectFields(true));
       $('ttsSelectNone')?.addEventListener('click', () => this.selectFields(false));
+      $('ttsExportBtn')?.addEventListener('click', () => this.exportSampleTopics());
       this.updateUI('AI MP3 음성 대기 중');
     }
     selectFields(checked) {
@@ -160,6 +161,36 @@
       if (this.playing) this.stop('검색 또는 필터가 변경되어 재생을 중지했습니다.');
     }
     getBridge() { return window.peStudyNoteTtsBridge || null; }
+    exportSampleTopics() {
+      const bridge = this.getBridge();
+      const current = bridge?.currentTopic?.();
+      const ids = bridge?.filteredTopicIds?.() || [];
+      const position = current ? ids.indexOf(current.topicId) : -1;
+      if (position < 0) {
+        this.updateUI('샘플을 내보내려면 먼저 토픽을 선택해 주세요.');
+        return;
+      }
+      const fields = ['topicId','studyTarget','topicName','concept','background',
+        'necessity','features','technicalComponents','keywords'];
+      const topics = ids.slice(position).map(id => bridge.getTopicById(id))
+        .filter(t => t && t.studyTarget === 'Y').slice(0, 3)
+        .map(t => Object.fromEntries(fields.map(field => [field, String(t[field] ?? '')])));
+      if (!topics.length) {
+        this.updateUI('내보낼 학습대상 토픽이 없습니다.');
+        return;
+      }
+      const content = JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), topics }, null, 2);
+      const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'study-note-tts-sample-' + topics[0].topicId + '.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      this.updateUI(topics.length + '개 토픽을 기기에 JSON으로 저장했습니다. 파일은 외부로 전송하지 않았습니다.');
+    }
     async manifest() {
       if (this.cacheIndex) return this.cacheIndex;
       if (this.manifestPromise) return this.manifestPromise;
@@ -188,23 +219,28 @@
       try { return await this.manifestPromise; } finally { this.manifestPromise = null; }
     }
     segmentKey(topicId, field) { return topicId + ':' + field + ':' + this.settings.voice; }
-    async segmentUrl(topic, field) {
+    async segmentUrls(topic, field) {
       const index = await this.manifest();
       const key = this.segmentKey(topic.topicId, field.key);
       const entry = index.entries[key];
-      if (!entry || !entry.file || !entry.sha256) {
-        throw new Error('미생성 AI MP3: ' + topic.topicId + ' / ' + field.label + ' / ' + this.settings.voice);
+      if (!entry || !entry.sha256) {
+        throw new Error('미생성 AI MP3: ' + topic.topicId + ' / ' + field.label +
+          '. 음성 생성 전에는 무료 API도 자동 호출하지 않습니다.');
       }
       const original = textOf(topic[field.prop]);
       const hash = await sha256(original);
       if (entry.sha256 !== hash) {
         throw new Error('학습 내용이 수정되어 MP3 재생성이 필요합니다: ' + topic.topicId + ' / ' + field.label);
       }
-      const path = String(entry.file);
-      if (!/^[A-Za-z0-9_-]+\/T[0-9]+\/[a-z]+-[a-f0-9]{12}\.mp3$/.test(path)) {
-        throw new Error('음성 파일 경로가 올바르지 않습니다.');
-      }
-      return new URL('./tts/audio/' + path, location.href).href;
+      const paths = Array.isArray(entry.files) ? entry.files : [entry.file];
+      if (!paths.length || paths.length > 100) throw new Error('음성 파일 목록이 올바르지 않습니다.');
+      return paths.map(path => {
+        if (typeof path !== 'string' ||
+          !/^[A-Za-z0-9_-]+\/T[0-9]+\/[a-z]+-[a-f0-9]{12}(?:-p[0-9]{2})?\.mp3$/.test(path)) {
+          throw new Error('음성 파일 경로가 올바르지 않습니다.');
+        }
+        return new URL('./tts/audio/' + path, location.href).href;
+      });
     }
     async fetchAudio(url, seq) {
       let response = null;
@@ -284,6 +320,7 @@
       ++this.seq;
       this.playing = false;
       this.expectedTopic = '';
+      this.topicId = '';
       this.cancelSegment?.();
       this.cancelGap?.();
       this.activeAudio.pause();
@@ -328,10 +365,13 @@
               this.markField(field.key);
               this.updateUI(topic.topicName + ' · ' + field.label +
                 (this.settings.repeat === 2 ? ' (' + (pass+1) + '/2)' : '') + ' 읽는 중');
-              const audioUrl = await this.segmentUrl(topic, field);
-              const objectUrl = await this.fetchAudio(audioUrl, seq);
-              if (seq !== this.seq) { URL.revokeObjectURL(objectUrl); throw stopped(); }
-              await this.playSegment(objectUrl, seq);
+              const urls = await this.segmentUrls(topic, field);
+              for (const audioUrl of urls) {
+                if (seq !== this.seq) throw stopped();
+                const objectUrl = await this.fetchAudio(audioUrl, seq);
+                if (seq !== this.seq) { URL.revokeObjectURL(objectUrl); throw stopped(); }
+                await this.playSegment(objectUrl, seq);
+              }
             }
           }
           this.clearMark();
