@@ -17,7 +17,7 @@ const originalTopics = [
 ];
 const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex");
 
-function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false, privateCloud=false, badSignedHost=false}={}) {
+function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false, privateCloud=false, badSignedHost=false, cloudDisabled=false}={}) {
   let currentId = "T0001";
   let played = 0;
   let paused = 0;
@@ -158,11 +158,12 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     fetch:async (url,options={})=>{
       const name = String(url);
       if (name.endsWith("/cloud-config.json")) {
-        return {ok:true,status:200,json:async()=>({
+        return {ok:true,status:200,json:async()=>cloudDisabled
+          ? {schemaVersion:1,mode:"disabled"} : {
           schemaVersion:1,mode:"gcs-private",
           gatewayUrl:"https://gateway.a.run.app",
           oauthClientId:"1234567-a.apps.googleusercontent.com"
-        })};
+        }};
       }
       if (name.endsWith("/index.json") || name.endsWith("/v1/manifest")) {
         if (privateCloud && name.endsWith("/v1/manifest")) {
@@ -287,4 +288,14 @@ test("private Cloud player rejects signed MP3 URL from unexpected host",async()=
   await waitFor(()=>!ctx.player.playing);
   assert.equal(ctx.played(),0);
   assert.match(ctx.element("ttsStatus").textContent,/검증되지 않은 Google Cloud/);
+});
+
+test("private GCS disabled by default: zero signed URLs and zero MP3 fetch",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,cloudDisabled:true});
+  await ctx.player.start();
+  assert.equal(ctx.played(),0);
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+  assert.match(ctx.element("ttsStatus").textContent,/Cloud Storage 연결 전/);
 });
