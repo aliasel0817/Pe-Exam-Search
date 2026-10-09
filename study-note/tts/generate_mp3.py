@@ -88,8 +88,32 @@ def load_dictionary(path: Path | None) -> dict[str, str]:
     return result
 
 
+# Only simple English(Korean) terminology is normalized for the *spoken* copy.
+# This never edits the Sheet source; uncertain/complex parentheses stay untouched.
+_BILINGUAL_TERMS = re.compile(
+    r"(?<![A-Za-z0-9_/])"
+    r"(?P<english>(?:[A-Z][A-Za-z0-9+._/-]*(?:[ \t]+[A-Z][A-Za-z0-9+._/-]*){0,3}"
+    r"|[a-z][A-Za-z0-9+._/-]*))"
+    r"[ \t]*\((?P<korean>[가-힣][가-힣 \t·/-]{0,39})\)"
+)
+
+
+def prefer_korean_bilingual_terms(text: str) -> str:
+    """Say Korean once for a simple English(Korean) pair, retaining uncertain text."""
+    def replace(match: re.Match) -> str:
+        english = match.group("english")
+        if sum(ch.isalpha() for ch in english) < 2:
+            return match.group(0)  # Single-letter variables, such as P(확률).
+        # Do not rewrite the final word of an unmatched lowercase English phrase.
+        if re.search(r"[A-Za-z][A-Za-z0-9+._/-]*[ \t]+$", match.string[:match.start()]):
+            return match.group(0)
+        return match.group("korean").strip()
+
+    return _BILINGUAL_TERMS.sub(replace, text)
+
+
 def for_speech(label: str, field: str, original: str, dictionary: dict[str, str]) -> str:
-    spoken = original
+    spoken = prefer_korean_bilingual_terms(original)
     for phrase, pronunciation in sorted(dictionary.items(), key=lambda pair: -len(pair[0])):
         # Avoid rewriting substrings inside longer English/digit identifiers.
         spoken = re.sub(
