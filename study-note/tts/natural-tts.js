@@ -118,6 +118,7 @@
       $('ttsSelectNone')?.addEventListener('click', () => this.selectFields(false));
       $('ttsExportBtn')?.addEventListener('click', () => this.exportSampleTopics());
       $('ttsCloudCheckBtn')?.addEventListener('click', () => this.checkCloudReady());
+      $('ttsAvailabilityBtn')?.addEventListener('click', () => this.checkCurrentTopicAvailability());
       this.updateUI('AI MP3 음성 대기 중');
     }
     selectFields(checked) {
@@ -262,6 +263,67 @@
         const message = '설정 점검 실패: ' + (error?.message || '알 수 없는 오류');
         if (status) status.textContent = message;
         return message;
+      }
+    }
+    async checkCurrentTopicAvailability() {
+      // Read-only, explicitly user-initiated diagnostics. No audio downloads,
+      // signing, generation, cache mutations, or PWA data writes.
+      const target = $('ttsAvailabilityStatus');
+      const show = message => {
+        if (target) target.textContent = message;
+        return message;
+      };
+      const topic = this.getBridge()?.currentTopic?.();
+      if (!topic) return show('현재 토픽을 선택한 후 확인해 주세요.');
+      if (topic.studyTarget !== 'Y') return show('학습대상 Y 토픽만 AI 음성 준비 상태를 확인할 수 있습니다.');
+      const fields = FIELDS.filter(f => f.fixed || this.settings.fields[f.key]);
+      if (fields.length < 2) return show('개념 등 읽기 항목을 하나 이상 선택해 주세요.');
+      try {
+        const config = await this.loadStorageConfig();
+        if (config.mode === 'disabled') {
+          return show('현재 PWA의 클라우드 음성 연결이 비활성화되어 있습니다. API 요청 없이 중단했습니다.');
+        }
+        if (config.mode === 'gcs-private' && !this.idToken) {
+          return show('먼저 Google 음성 계정으로 로그인해 주세요. 비인증 조회는 실행하지 않았습니다.');
+        }
+        const index = await this.manifest();
+        const requested = fields.filter(f => textOf(topic[f.prop]));
+        const ready = [];
+        const missing = [];
+        const changed = [];
+        const invalid = [];
+        let parts = 0;
+        for (const field of requested) {
+          const entry = index.entries[this.segmentKey(topic.topicId, field.key)];
+          if (!entry) {
+            missing.push(field.label);
+          } else if (entry.sha256 !== await sha256(textOf(topic[field.prop]))) {
+            changed.push(field.label);
+          } else {
+            try {
+              const files = await this.segmentUrls(topic, field);
+              parts += files.length;
+              ready.push(field.label);
+            } catch (_) {
+              invalid.push(field.label);
+            }
+          }
+        }
+        const skipped = fields.length - requested.length;
+        let message = '현재 토픽 ' + topic.topicId + ' · 음성 목록/원문 일치 ' +
+          ready.length + '/' + requested.length + '항목 (' + parts + '개 MP3).';
+        if (missing.length) message += ' 미생성: ' + missing.join(', ') + '.';
+        if (changed.length) message += ' 원문 변경: ' + changed.join(', ') + '.';
+        if (invalid.length) message += ' 경로 검증 실패: ' + invalid.join(', ') + '.';
+        if (skipped) message += ' 원문 없는 항목 ' + skipped + '개 제외.';
+        if (requested.some(f => f.key === 'topic') && !ready.includes('토픽명')) {
+          message += ' 토픽명 MP3가 없어 토픽명 선행 읽기는 아직 불가합니다.';
+        } else if (!missing.length && !changed.length && !invalid.length) {
+          message += ' 목록 검사는 통과했으며 실제 MP3 재생은 별도 검증이 필요합니다.';
+        }
+        return show(message);
+      } catch (error) {
+        return show('MP3 준비 상태 확인 실패: ' + (error?.message || '알 수 없는 오류'));
       }
     }
     async renderCloudLogin() {
