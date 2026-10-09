@@ -1,0 +1,16 @@
+{
+  "_note": "PUBLIC ILLUSTRATIVE AUDIO PLANNING ONLY. NOT A LIVE STUDY NOTE TOPIC. Never upload generated mock MP3 to the production GCS topic namespace.",
+  "topics": [
+    {
+      "topicId": "T99991",
+      "studyTarget": "Y",
+      "topicName": "LSM-Tree",
+      "concept": "메모리 쓰기 버퍼와 정렬된 파일의 단계적 병합으로 쓰기 성능을 높이는 저장 구조",
+      "background": "디스크 랜덤 쓰기 비용과 대규모 데이터 갱신 부담을 줄이기 위한 구조의 필요성",
+      "necessity": "쓰기 처리량 향상과 저장장치 접근 최소화를 통한 데이터 처리 효율 확보",
+      "features": "순차 쓰기, 멀티 레벨 저장, 읽기 증폭과 쓰기 증폭 간 절충",
+      "technicalComponents": "MemTable, SSTable, Compaction, Bloom Filter, Write Ahead Log",
+      "keywords": "LSM-Tree, MemTable, SSTable, Compaction, Bloom Filter"
+    }
+  ]
+}
