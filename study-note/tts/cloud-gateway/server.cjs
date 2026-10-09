@@ -72,7 +72,7 @@ function createGateway(deps) {
     let target;
     try { target = new URL(req.url, 'https://gateway.local'); }
     catch (_) { return reply(res,400,{error:'Invalid URL'}); }
-    if (target.pathname === '/healthz') return reply(res,200,{status:'ok'});
+    if (target.pathname === '/health') return reply(res,200,{status:'ok'});
     if (!['/v1/manifest','/v1/audio-url'].includes(target.pathname)) return reply(res,404,{error:'Not found'});
     const header = String(req.headers.authorization || '');
     const match = /^Bearer ([A-Za-z0-9._-]{80,6000})$/.exec(header);

@@ -43,6 +43,17 @@ test('production config requires explicit private bucket, Google client ID and o
     GOOGLE_WEB_CLIENT_ID:'123-abc.apps.googleusercontent.com',
     ALLOWED_GOOGLE_EMAILS:'user@example.com',TTS_ALLOWED_ORIGIN:'https://evil.example'}),/TTS_ALLOWED_ORIGIN/);
 });
+test('non-reserved /health returns 200 without a token, while private manifest requires authentication',async()=>{
+  const a=await setup();
+  try {
+    const health=await a.request('/health');
+    assert.equal(health.status,200);
+    assert.equal(health.body.status,'ok');
+    assert.equal((await a.request('/healthz')).status,404);
+    assert.equal((await a.request('/v1/manifest')).status,401);
+    assert.equal(a.calls(),0);
+  } finally {await a.close();}
+});
 test('no token, invalid token and other origin cannot read private manifest',async()=>{
   const a=await setup();
   try {
