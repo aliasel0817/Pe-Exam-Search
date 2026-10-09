@@ -16,7 +16,7 @@
   ENABLED=$(gcloud services list --enabled --project="$PROJECT" --format="value(config.name)")
 
   for api in iamcredentials.googleapis.com texttospeech.googleapis.com run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com; do
-    if printf '%s\\n' "$ENABLED" | grep -Fxq "$api"; then
+    if printf '%s\n' "$ENABLED" | grep -Fxq "$api"; then
       echo "OK: $api"
     else
       echo "NOT ENABLED: $api"
