@@ -1,7 +1,7 @@
 [
   {
     "origin": [
-      "https://aliasel0817.github.io"
+      "https://aliasel0817.github.io", "http://localhost:8765"
     ],
     "method": [
       "GET",
