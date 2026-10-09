@@ -75,15 +75,51 @@ print("PRESENT" if present else "NOT_FOUND")
 }
 status="$(get_role)"
 if [[ "$status" != "PRESENT" ]]; then
-  gcloud projects add-iam-policy-binding "$PROJECT" \
-    --member="serviceAccount:$BUILD_EMAIL" \
-    --role="$ROLE" --condition=None --quiet >/dev/null
-  echo "Project Cloud Run Builder role granted ONLY to dedicated build account."
+  # IAM can take 60+ seconds to recognize a newly created service account.
+  # Only the exact "new service account does not exist" error is retried.
+  # All other failures (permission denied, invalid role, wrong project) fail closed.
+  granted=0
+  for delay in 0 10 20 40 60; do
+    if [[ "$delay" -gt 0 ]]; then
+      echo "Waiting $delay seconds for Google IAM account propagation..."
+      sleep "$delay"
+    fi
+    if message="$(gcloud projects add-iam-policy-binding "$PROJECT" \
+      --member="serviceAccount:$BUILD_EMAIL" \
+      --role="$ROLE" --condition=None --quiet 2>&1)"; then
+      granted=1
+      echo "Project Cloud Run Builder role granted ONLY to dedicated build account."
+      break
+    fi
+    if [[ "$message" == *"Service account $BUILD_EMAIL does not exist"* ]]; then
+      echo "New service account is not yet visible to project IAM; bounded retry."
+    else
+      printf '%s\n' "$message" >&2
+      echo "IAM SETUP STOPPED: non-propagation error. No further attempts." >&2
+      exit 2
+    fi
+  done
+  if [[ "$granted" != 1 ]]; then
+    echo "IAM SETUP INCOMPLETE: service account propagation timeout; no deployment attempted." >&2
+    exit 2
+  fi
 else
   echo "Project Cloud Run Builder role already present on dedicated build account."
 fi
-if [[ "$(get_role)" != "PRESENT" ]]; then
-  echo "IAM SETUP INCOMPLETE: dedicated builder role not confirmed. No deployment attempted." >&2
+# Project policy reads can also briefly lag behind a successful IAM change.
+confirmed=0
+for delay in 0 5 10 20; do
+  if [[ "$delay" -gt 0 ]]; then
+    echo "Waiting $delay seconds for IAM role visibility..."
+    sleep "$delay"
+  fi
+  if [[ "$(get_role)" == "PRESENT" ]]; then
+    confirmed=1
+    break
+  fi
+done
+if [[ "$confirmed" != 1 ]]; then
+  echo "IAM SETUP INCOMPLETE: dedicated builder role not yet visible. No deployment attempted." >&2
   exit 2
 fi
 echo "=== DEDICATED BUILD ACCOUNT READY ==="

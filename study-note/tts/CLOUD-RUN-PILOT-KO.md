@@ -33,7 +33,17 @@ Google Cloud에서는 **Cloud Run 소스 빌드에 별도 지정 서비스 계�
 이 전용 계정에는 프로젝트 `study-note-tts` 내의 `roles/run.builder`만 부여. 버킷 objectViewer, 서비스 계정 Token Creator, Owner, Editor 권한은 부여하지 않음.
 **Cloud Run 런타임 서비스 계정은 여전히 `study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com`** 입니다.
 
-## 다음 사용자 Cloud Shell 일괄 작업 — 전용 빌드 계정 생성 + Builder 권한 확인
+## 전용 빌드 계정 생성 완료 · 역할 부여 전파 지연 대응 (2026-10-09)
+
+사용자가 제공한 Cloud Shell 결과:
+- `Created service account [study-tts-build]`
+- `Service account email: study-tts-build@study-note-tts.iam.gserviceaccount.com`
+- 프로젝트 `roles/run.builder` IAM 정책 부여는 `Service account ... does not exist` 오류로 실패
+- 새 서비스 계정 생성 직후 IAM 가시성은 Google 공식 문서상 60초 이상 지연될 수 있음
+- **기존 계정은 이미 생성 완료. 계정을 다시 만들거나 기본 Compute 서비스 계정에 권한을 추가하지 않음**
+- Google Cloud 실행/빌드/TTS/MP3 저장·업로드 모두 별도 실행하지 않음
+
+### 사용자가 수행할 Cloud Shell 작업(묶음 실행)
 
 ```bash
 (
@@ -43,16 +53,18 @@ Google Cloud에서는 **Cloud Run 소스 빌드에 별도 지정 서비스 계�
 )
 ```
 
-- 첫 명령은 기존 개발 브랜치 소스 업데이트.
-- 두 번째는 **정확한 프로젝트 번호를 확인**하고, `study-tts-build` 서비스 계정을 만들며, 프로젝트 수준 `roles/run.builder` IAM 정책을 해당 계정에게만 부여하고 재조회로 확인.
-- **일반 Cloud Run 서비스/컨테이너/Artifact Registry 이미지 생성, 실제 음성 합성/파일 업로드, JSON 비밀키 생성이 없음**.
-- 이 명령은 IAM 변경 작업이므로 본인의 Google Cloud 계정에서 실행하여 승인. 예상치 못한 에러 시 같은 명령을 반복하지 말고 오류 내용을 제공.
-- 결과에 `DEDICATED BUILD ACCOUNT READY`, `PROJECT_ROLE: roles/run.builder PRESENT`, `DEFAULT COMPUTE ACCOUNT: UNCHANGED`가 보이면 정상.
-- Google Cloud IAM 계정 생성 직후에는 전파 지연이 있을 수 있으며 권한 오류 발생 시 이후 단계 진행 전 확인.
+변경된 스크립트 동작:
+1. 프로젝트 ID/번호와 기존 서비스 계정 존재 여부 확인.
+2. 이미 존재하는 `study-tts-build` 계정 재사용 (중복 생성하지 않음).
+3. 해당 계정의 `roles/run.builder` 직접 역할이 아직 없다면 부여.
+4. `INVALID_ARGUMENT: Service account ... does not exist` 오류일 때만 제한된 간격(10/20/40/60초)으로 **최대 5회** 시도.
+5. 권한 부족·다른 오류는 즉시 중단. 권한 확인이 완료되어야 성공 출력.
+6. **Cloud Run 배포·TTS 음성 생성·GCS MP3 업로드·서비스 계정 JSON 키 생성은 하지 않음**.
 
-공식 문서:
-- https://docs.cloud.google.com/run/docs/configuring/services/build-service-account
-- https://docs.cloud.google.com/sdk/gcloud/reference/projects/add-iam-policy-binding
+정상 완료 출력은 `=== DEDICATED BUILD ACCOUNT READY ===`, `PROJECT_ROLE: roles/run.builder PRESENT`, `DEFAULT COMPUTE ACCOUNT: UNCHANGED`.
+오류나 제한 횟수 소진 시 화면 결과를 그대로 공유; 안전하지 않은 광역 역할을 임의로 추가하지 말 것.
+
+참고: https://docs.cloud.google.com/iam/docs/service-accounts-create?hl=ko
 
 ## 실제 배포는 별도 승인 필수
 `deploy_pilot.sh`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:

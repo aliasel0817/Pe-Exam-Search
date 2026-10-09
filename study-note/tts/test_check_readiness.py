@@ -40,7 +40,7 @@ class ReadinessTests(unittest.TestCase):
             "cloudBuildIdentityCheckedUserConfirmed": True,
             "dedicatedBuildServiceAccountEmail": "study-tts-build@study-note-tts.iam.gserviceaccount.com",
             "dedicatedBuildRolePlanned": "roles/run.builder",
-            "dedicatedBuildServiceAccountCreatedUserConfirmed": False,
+            "dedicatedBuildServiceAccountCreatedUserConfirmed": True,
             "dedicatedBuildRoleGrantedUserConfirmed": False,
             "cloudRunDeploymentUserApproved": False,
             "cloudRunDeploymentUserConfirmed": False,
@@ -128,8 +128,12 @@ class ReadinessTests(unittest.TestCase):
     def test_dedicated_builder_required_before_cloud_run(self):
         problems, prepared = ready.inspect(self.project, self.runtime)
         self.assertFalse(prepared)
-        self.assertTrue(any("전용 Cloud Build 서비스 계정 생성" in text for text in problems))
+        self.assertFalse(any("전용 Cloud Build 서비스 계정 생성" in text for text in problems))
         self.assertTrue(any("전용 빌드 계정의 프로젝트" in text for text in problems))
+        missing_creation = {**self.project, "dedicatedBuildServiceAccountCreatedUserConfirmed": False}
+        issues, prepared = ready.inspect(missing_creation, self.runtime)
+        self.assertFalse(prepared)
+        self.assertTrue(any("전용 Cloud Build 서비스 계정 생성" in text for text in issues))
 
     def test_wrong_dedicated_builder_or_role_rejected(self):
         for bad in (

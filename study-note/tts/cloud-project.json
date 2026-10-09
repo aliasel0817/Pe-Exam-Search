@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "The project default Compute build account is known but lacks directly assigned roles/run.builder. Per Google recommendation, use a dedicated study-tts-build account for Cloud Run source builds; default Compute account permissions remain unchanged. Cloud Run deployment, actual synthesis and MP3 uploads remain unapproved/disabled.",
+  "comment": "Dedicated build account was CREATED, but first project role assignment immediately after creation failed because IAM did not yet recognize the new principal. Existing account must be reused; do not create it again. Bounded retry applies only to exact eventual-consistency missing-account error; Cloud Run deployment, TTS synthesis and MP3 upload still disabled.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -64,6 +64,8 @@
   "dedicatedBuildServiceAccountId": "study-tts-build",
   "dedicatedBuildServiceAccountEmail": "study-tts-build@study-note-tts.iam.gserviceaccount.com",
   "dedicatedBuildRolePlanned": "roles/run.builder",
-  "dedicatedBuildServiceAccountCreatedUserConfirmed": false,
-  "dedicatedBuildRoleGrantedUserConfirmed": false
+  "dedicatedBuildServiceAccountCreatedUserConfirmed": true,
+  "dedicatedBuildRoleGrantedUserConfirmed": false,
+  "dedicatedBuildServiceAccountCreationVerifiedBy": "User 2026-10-09 Cloud Shell screenshot shows Created service account [study-tts-build] and expected email.",
+  "dedicatedBuildRoleLastAttempt": "FAILED: INVALID_ARGUMENT Service account study-tts-build@study-note-tts.iam.gserviceaccount.com does not exist (possible initial IAM eventual consistency)."
 }
