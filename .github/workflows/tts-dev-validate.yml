@@ -34,6 +34,21 @@ jobs:
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Verify Cloud Shell and gated deployment script syntax
         run: bash -n study-note/tts/verify_cloud_services.sh study-note/tts/cloud-gateway/deploy_pilot.sh study-note/tts/cloud-gateway/preflight_build.sh study-note/tts/cloud-gateway/setup_build_identity.sh study-note/tts/cloud-gateway/verify_remote.sh
+      - name: Verify three Korean Chirp3-HD voice estimates without synthesizing
+        shell: bash
+        run: |
+          set -e
+          for voice in Aoede Kore Charon; do
+            echo "=== DRY RUN VOICE: $voice ==="
+            python3 study-note/tts/generate_mp3.py \
+              --input study-note/tts/voice-pilot.sample.json \
+              --out /tmp/study-tts-simulation-output \
+              --voice "ko-KR-Chirp3-HD-$voice" \
+              --pronunciations study-note/tts/pronunciations.example.json \
+              --fields topic,concept,keywords \
+              --max-topics 1 --max-new-requests 3
+          done
+          test ! -e /tmp/study-tts-simulation-output
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
       - name: Verify explicit authorization for single Cloud Run pilot; TTS/GCS uploads still strictly disabled
