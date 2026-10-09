@@ -1,5 +1,6 @@
 """Cloud Run pilot approval tests; ALL deployments are mocked (never Google Cloud)."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,9 +10,23 @@ ROOT=Path(__file__).resolve().parent
 SCRIPT=ROOT/"cloud-gateway"/"deploy_pilot.sh"
 
 class CloudRunPilotTests(unittest.TestCase):
-    def command(self,*args,existing=False,wrong_project=False):
+    def command(self,*args,existing=False,wrong_project=False,predeploy=False):
         with tempfile.TemporaryDirectory() as tmp:
             base=Path(tmp)
+            # Simulate the historical BEFORE-deployment checkpoint in a temp clone.
+            # The committed project settings represent the ALREADY deployed service
+            # and must never be changed to enable a second real deployment.
+            sandbox=base/"test-repo"/"study-note"/"tts"
+            script_home=sandbox/"cloud-gateway"
+            script_home.mkdir(parents=True)
+            copy=script_home/"deploy_pilot.sh"
+            copy.write_text(SCRIPT.read_text(encoding="utf-8"),encoding="utf-8")
+            (script_home/"server.cjs").write_text("// mocked Node source")
+            (script_home/"package.json").write_text('{"private":true}')
+            fixture=json.loads((ROOT/"cloud-project.json").read_text(encoding="utf-8"))
+            if predeploy:
+                fixture["cloudRunDeploymentUserConfirmed"]=False
+            (sandbox/"cloud-project.json").write_text(json.dumps(fixture),encoding="utf-8")
             gcloud=base/"gcloud"
             gcloud.write_text(r'''#!/bin/sh
 echo "$*" >> "$MOCK_GCLOUD_LOG"
@@ -44,7 +59,7 @@ fi
                  "MOCK_GCLOUD_LOG":str(log),
                  "MOCK_EXISTING":"1" if existing else "0",
                  "MOCK_WRONG_PROJECT":"1" if wrong_project else "0"}
-            result=subprocess.run(["bash",str(SCRIPT),*args],env=env,
+            result=subprocess.run(["bash",str(copy),*args],env=env,
                                   capture_output=True,text=True,timeout=15)
             commands=log.read_text(encoding="utf-8") if log.exists() else ""
             return result,commands
@@ -65,7 +80,7 @@ fi
                 self.assertEqual(commands,"")
 
     def test_one_approved_gateway_deploy_calls_only_expected_gcloud_methods(self):
-        result,commands=self.command("--execute","--accept-possible-charges")
+        result,commands=self.command("--execute","--accept-possible-charges",predeploy=True)
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertIn("MOCK DEPLOY ONLY",result.stdout)
         self.assertEqual(commands.count("run deploy study-tts-audio-gateway "),1)
@@ -90,13 +105,13 @@ fi
             self.assertNotIn(forbidden,commands)
 
     def test_existing_service_fails_before_deploy(self):
-        result,commands=self.command("--execute","--accept-possible-charges",existing=True)
+        result,commands=self.command("--execute","--accept-possible-charges",existing=True,predeploy=True)
         self.assertNotEqual(result.returncode,0)
         self.assertIn("Existing Cloud Run service found",result.stderr)
         self.assertNotIn("run deploy",commands)
 
     def test_wrong_active_project_fails_before_deploy(self):
-        result,commands=self.command("--execute","--accept-possible-charges",wrong_project=True)
+        result,commands=self.command("--execute","--accept-possible-charges",wrong_project=True,predeploy=True)
         self.assertNotEqual(result.returncode,0)
         self.assertIn("must be study-note-tts",result.stderr)
         self.assertNotIn("run deploy",commands)
@@ -106,11 +121,18 @@ fi
         cfg=json.loads((ROOT/"cloud-project.json").read_text(encoding="utf-8"))
         self.assertTrue(cfg["cloudRunDeploymentUserApproved"])
         self.assertTrue(cfg["cloudProvisioningApproved"])
-        self.assertFalse(cfg["cloudRunDeploymentUserConfirmed"])
+        self.assertTrue(cfg["cloudRunDeploymentUserConfirmed"])
+        self.assertFalse(cfg["cloudRunRevisionUpdateUserApproved"])
         self.assertFalse(cfg["ttsGenerationApproved"])
         self.assertFalse(cfg["gcsUploadApproved"])
         self.assertEqual(cfg["cloudRunDeploymentApprovalScope"],
                          "one-service-study-tts-audio-gateway-us-central1")
+
+    def test_committed_already_deployed_state_blocks_repeat_deploy_without_cloud_calls(self):
+        result,commands=self.command("--execute","--accept-possible-charges")
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn("DEPLOYMENT BLOCKED",result.stderr)
+        self.assertEqual(commands,"")
 
     def test_strict_runtime_limits_and_browser_auth_are_explicit(self):
         source=SCRIPT.read_text(encoding="utf-8")
