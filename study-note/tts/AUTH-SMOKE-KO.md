@@ -1,3 +1,14 @@
+# 상태 갱신: 로그인 시험 페이지 GitHub Pages 게시 완료 (2026-10-09)
+
+- main에 단일 테스트 파일 `tts-auth-check.html` 추가: 커밋 `55052c05c2b4330fe9798161b2ab4565076a852d`
+- GitHub Pages 배포 워크플로 `37894854490` 성공
+- 테스트 주소: https://aliasel0817.github.io/Pe-Exam-Search/tts-auth-check.html
+- 별도의 GitHub Pages HTML이 추가된 것이지 **운영 학습노트 `study-note/study-note.html`은 v4.6.3 그대로**.
+- 실 브라우저 Google ID 토큰 인증은 아직 미검증. 사용자가 Google 계정으로 로그인해 결과를 제공해야 함.
+- 실제 TTS 생성·GCS 업로드·Cloud Run 추가 배포 모두 잠금 상태.
+
+---
+
 # 학습노트 TTS — 실제 Google 로그인 실검증 계획
 
 2026-10-09 현재: Cloud Run 게이트웨이 배포 및 실제 무인증 HTTP 401 / CORS HTTP 204 통과.
