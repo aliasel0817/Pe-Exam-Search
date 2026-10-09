@@ -178,6 +178,8 @@ def assert_upload_authorized(config: dict, bucket_name: str) -> None:
         raise ValueError("Google Cloud budget confirmation is required before GCS upload.")
     if config.get("bucketCreatedUserConfirmed") is not True:
         raise ValueError("Cloud Storage bucket creation has not been user-confirmed.")
+    if config.get("gcsCorsUserConfirmed") is not True:
+        raise ValueError("Private GCS bucket CORS is not yet confirmed; MP3 upload remains blocked.")
     if not isinstance(config.get("bucketName"), str) or config.get("bucketName") != bucket_name:
         raise ValueError("Upload destination is not the exact confirmed private GCS bucket.")
 
