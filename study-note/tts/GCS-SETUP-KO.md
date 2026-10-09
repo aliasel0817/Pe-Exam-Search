@@ -1,55 +1,35 @@
-# 학습노트 TTS — 체크포인트: 버킷 읽기 및 자체 서명 IAM 완료 (2026-10-09)
+# 학습노트 TTS — 체크포인트: Google Cloud 사전 인프라 준비 완료
 
-## 완료
-- GCP 프로젝트 study-note-tts / 프로젝트 번호 558407087449, 결제 및 예산 알림 확인
-- 버킷 study-note-tts-audio-558407087449 (US-CENTRAL1, STANDARD, uniform, public access prevention enforced)
-- MP3 GET/HEAD 전용 브라우저 CORS 업데이트 Completed 1 (실효 CORS 설정 확인은 이번 배치)
-- 전용 서비스 계정 study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
-- 버킷 하나에만 roles/storage.objectViewer 부여 (사용자 스크린샷)
-- **서비스 계정 자체의 IAM에 roles/iam.serviceAccountTokenCreator 부여 완료** (사용자 스크린샷)
-- Cloud Run 미배포, Cloud TTS 합성 미실행, MP3 클라우드 업로드 미실행, 운영 main v4.6.3 무변경
+## 사용자 화면에서 완료를 확인한 항목
+- Google Cloud 프로젝트: study-note-tts / 프로젝트 번호 558407087449
+- 결제 계정 연결 및 예산 알림 설정 완료 (사용자 보고)
+- 비공개 버킷: study-note-tts-audio-558407087449 / US-CENTRAL1 / STANDARD / Uniform / 공개 접근 방지
+- GCS CORS: GET, HEAD 허용 및 `https://aliasel0817.github.io`와 `http://localhost:8765` 허용, 3600초
+- 전용 서비스 계정: study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
+- 버킷 하나의 roles/storage.objectViewer 및 서비스 계정 자신에 대한 roles/iam.serviceAccountTokenCreator
+- API 3개 활성화: iamcredentials.googleapis.com, texttospeech.googleapis.com, run.googleapis.com
+- **주의:** 스크린샷 위쪽의 404는 이전 명령의 출력이며, 이번 명령은 Operation finished successfully 및 실제 CORS 출력으로 완료됨.
 
-## 사용자 다음 작업: Cloud Shell 4개 관련 작업을 한 번에 실행하는 묶음
+## Google 인증 간소화 검토
+기존 학습노트 PWA의 코드에서 아래 공개 OAuth 웹 클라이언트 ID를 확인함:
+`1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com`
 
-Cloud Shell에 아래 블록 전체를 붙여넣고 실행한 후 **결과 화면을 한 번만** 공유.
+기존 기기 보안 등록은 `google.accounts.oauth2.initCodeClient` (OAuth 2.0 Authorization Code Flow)를 사용.
+TTS 플레이어는 `google.accounts.id.initialize` (Google Sign-In ID token)를 사용하여 로그인하므로 호출하는 JS API가 다름.
+같은 앱·도메인의 기존 웹 클라이언트를 재사용하면 별도 OAuth 클라이언트를 생성하는 사용자 작업을 생략할 수 있을 것으로 판단하였으나, **실제 브라우저 Google ID 토큰 로그인과 Cloud Run audience 검증은 아직 테스트되지 않았음**.
+TTS용 클라이언트는 Google 웹 클라이언트 식별자이며 비밀키가 아님. 실제 테스트 중 ID 토큰 자체는 기록하거나 채팅으로 보내지 말 것.
 
-```bash
-(
-  PROJECT=study-note-tts
-  BUCKET=study-note-tts-audio-558407087449
-  READER=study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
+## 다음 단계
+- Cloud Run 게이트웨이 코드에서 기존 웹 클라이언트 ID를 활용하도록 보안 검증 정리.
+- 기존 데이터/Apps Script 로그인 동작과 충돌이 없는지 모의 시험.
+- Cloud Run 배포와 TTS API 첫 호출은 실제 비용이 발생할 수 있으므로 사용자가 명시적으로 승인한 범위 안에서만 진행.
+- `cloud-config.json`: mode disabled. 전용 Cloud Run 서버 주소는 아직 없음.
+- TTS 생성·GCS 파일 업로드·Cloud Run 배포 승인 플래그는 모두 false.
+- GitHub 운영 main v4.6.3 / 복원 브랜치 / Google Sheets 및 필기 / Apps Script **변경 없음**.
 
-  gcloud services enable iamcredentials.googleapis.com texttospeech.googleapis.com run.googleapis.com --project="$PROJECT" &&
-  echo "=== ENABLED TTS APIS ===" &&
-  gcloud services list --enabled --project="$PROJECT" --format="value(config.name)" | grep -E '^(iamcredentials|texttospeech|run)\.googleapis\.com$' &&
-  echo "=== SERVICE ACCOUNT SELF-SIGN IAM ===" &&
-  gcloud iam service-accounts get-iam-policy "$READER" --project="$PROJECT" --format="json(bindings)" &&
-  echo "=== STORAGE CORS CONFIG ===" &&
-  gcloud storage buckets describe "gs://$BUCKET" --project="$PROJECT" --format="default(cors_config)"
-)
-```
-
-수행 내용:
-1. 프로젝트에 IAM Service Account Credentials API, Cloud Text-to-Speech API, Cloud Run Admin API **활성화만** 수행.
-2. 사용 설정된 API 3개를 조회.
-3. 서비스 계정 자체의 Token Creator 권한 조회.
-4. 버킷의 실제 CORS 설정 조회.
-
-명령어 사이 && 연결과 괄호로 구성해 오류 발생 시 후속 설정 명령을 멈추되 Cloud Shell 메인 셸을 종료하지 않음. 오류 시 다시 실행하지 말고 오류문 전체 전달.
-
-Service Usage 자체는 무료이며 API를 활성화하는 것만으로 음성 합성이나 서버 사용 요금이 발생하는 것은 아님. **활성화된 API를 나중에 사용하거나 서버를 배포하면 요금이 발생할 수 있으므로** 별도의 승인과 사용 제한이 반드시 필요.
-이 배치에는 음성 생성, Cloud Run 배포, MP3 업로드, 서비스 계정 키 생성/다운로드가 없음.
-
-## 개발 잠금 유지
-- cloud-project.json: signBlobRoleUserConfirmed=true, requiredApisUserConfirmed=false
-- cloud-config.json: mode=disabled
-- cloudProvisioningApproved=false, ttsGenerationApproved=false, gcsUploadApproved=false
-- 정상 결과 회신 후 필수 API 완료 상태 업데이트, 다음에는 Google 웹 OAuth 클라이언트 설정을 단계적으로 진행.
-
-공식 문서:
-- https://cloud.google.com/service-usage/pricing
-- https://docs.cloud.google.com/service-usage/docs/enable-disable
-- https://docs.cloud.google.com/storage/docs/using-cors
+공식 참고:
+https://developers.google.com/identity/gsi/web/reference/js-reference
+https://developers.google.com/identity/sign-in/web/backend-auth
 
 ---
 

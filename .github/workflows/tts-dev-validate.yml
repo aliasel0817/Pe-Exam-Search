@@ -30,7 +30,7 @@ jobs:
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify service-account self-sign done; three API activations pending
+      - name: Verify three APIs enabled; old OAuth web client reused but no Cloud deploy allowed
         shell: bash
         run: |
           python3 - <<'PY'
@@ -54,7 +54,11 @@ jobs:
           assert project['bucketReaderIamUserConfirmed'] is True
           assert project['signBlobRoleUserConfirmed'] is True
           assert project['plannedEnabledApis'] == ['iamcredentials.googleapis.com','texttospeech.googleapis.com','run.googleapis.com']
-          assert project['requiredApisUserConfirmed'] is False
+          assert project['requiredApisUserConfirmed'] is True
+          assert project['gcsCorsEffectiveVerified'] is True
+          assert project['oauthWebClientIdCandidate'] == '1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com'
+          assert project['oauthReusedClientVerified'] is False
+          assert conf['oauthClientId'] == project['oauthWebClientIdCandidate']
           assert project['plannedSigningRole'] == 'roles/iam.serviceAccountTokenCreator'
           assert project['plannedSigningPrincipal'] == 'serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
           assert project['plannedSigningScope'] == 'study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
@@ -68,7 +72,7 @@ jobs:
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('Bucket reader and self-sign permissions confirmed; Cloud API activation pending, deployment/synthesis/upload still locked')
+          print('Three APIs & GCS CORS ready; old OAuth Web Client ID reuse planned; Cloud deployment/synthesis/upload still locked')
           PY
       - name: Verify TTS module is linked from development HTML
         shell: bash

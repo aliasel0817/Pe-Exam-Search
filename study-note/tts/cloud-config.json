@@ -4,6 +4,6 @@
   "projectId": "study-note-tts",
   "projectNumber": "558407087449",
   "gatewayUrl": "",
-  "oauthClientId": "",
-  "note": "Project information only; billing association not verified. Cloud Run, GCS and paid-capable TTS remain disabled."
+  "oauthClientId": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
+  "note": "Reuse the existing PWA's public OAuth Web Client ID for Google ID token login; project is study-note-tts but token audience identifies the existing app OAuth client. Mode DISABLED until Cloud Run backend and account allowlist are tested and owner authorizes deployment."
 }

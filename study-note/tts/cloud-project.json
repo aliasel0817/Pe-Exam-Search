@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Service account self-scoped Token Creator and bucket-scoped objectViewer confirmed via Cloud Shell screenshots. Next safe batch: enable three required APIs and read back API status, keyless IAM binding and bucket CORS. No Cloud Run deployment, MP3 upload or synthesis approved.",
+  "comment": "Three APIs and bucket CORS verified from user screenshot; original PWA web OAuth client ID available for reuse as Google Sign-In ID token audience; no new client creation planned unless live testing reveals a mismatch. Cloud Run deployment, actual TTS synthesis and MP3 upload remain disabled.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -36,5 +36,11 @@
     "texttospeech.googleapis.com",
     "run.googleapis.com"
   ],
-  "requiredApisUserConfirmed": false
+  "requiredApisUserConfirmed": true,
+  "apiActivationVerifiedBy": "User Cloud Shell screenshot lists iamcredentials.googleapis.com, run.googleapis.com, texttospeech.googleapis.com as enabled and reports operation finished successfully",
+  "gcsCorsEffectiveVerified": true,
+  "gcsCorsEffectiveVerifiedBy": "User Cloud Shell screenshot lists exact allowed origins, GET, HEAD, and maxAgeSeconds 3600",
+  "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
+  "oauthClientSource": "Existing study-note.html GOOGLE_OAUTH_CLIENT_ID in both main and dev GitHub source; OAuth2 code login uses google.accounts.oauth2.initCodeClient. New TTS uses independent google.accounts.id Sign-In button. Actual ID token login not yet validated.",
+  "oauthReusedClientVerified": false
 }

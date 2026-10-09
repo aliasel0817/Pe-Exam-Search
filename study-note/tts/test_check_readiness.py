@@ -30,7 +30,10 @@ class ReadinessTests(unittest.TestCase):
             "plannedSigningScope": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "signBlobRoleUserConfirmed": True,
             "plannedEnabledApis": ["iamcredentials.googleapis.com", "texttospeech.googleapis.com", "run.googleapis.com"],
-            "requiredApisUserConfirmed": False,
+            "requiredApisUserConfirmed": True,
+            "gcsCorsEffectiveVerified": True,
+            "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
+            "oauthReusedClientVerified": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "plannedReaderBucketName": "study-note-tts-audio-558407087449",
             "plannedReaderBucketRole": "roles/storage.objectViewer",
@@ -41,10 +44,10 @@ class ReadinessTests(unittest.TestCase):
         }
         self.runtime = {"schemaVersion": 1, "mode": "disabled"}
 
-    def test_current_stage_indicates_api_activation_pending(self):
+    def test_current_stage_indicates_google_id_token_login_pending(self):
         problems, result = ready.inspect(self.project, self.runtime)
         self.assertFalse(result)
-        self.assertTrue(any("필수 API 활성화" in item for item in problems))
+        self.assertTrue(any("TTS 로그인 시험" in item for item in problems))
         status = ready.report(self.project, self.runtime)
         self.assertIn("결제 계정 연결(사용자 확인): 확인", status)
         self.assertIn("예산 알림(사용자 확인): 확인", status)
@@ -53,7 +56,8 @@ class ReadinessTests(unittest.TestCase):
         self.assertIn("전용 서비스 계정 생성(사용자 확인): 확인", status)
         self.assertIn("MP3 버킷 읽기 권한(사용자 확인): 확인", status)
         self.assertIn("다운로드 링크 서명 권한(사용자 확인): 확인", status)
-        self.assertIn("필수 API 활성화(사용자 확인): 미확인", status)
+        self.assertIn("필수 API 활성화(사용자 확인): 확인", status)
+        self.assertIn("기존 Google 로그인 재사용(실제 검증): 미검증", status)
         self.assertIn("외부 API 호출: 이 점검 프로그램에서는 없음", status)
 
     def test_wrong_project_always_rejected(self):
@@ -90,6 +94,12 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(ready_flag)
         self.assertTrue(any("API 목록" in item for item in issues))
 
+    def test_rejects_wrong_existing_oauth_audience(self):
+        bad = {**self.project, "oauthWebClientIdCandidate": "other-client.apps.googleusercontent.com"}
+        issues, is_ready = ready.inspect(bad, self.runtime)
+        self.assertFalse(is_ready)
+        self.assertTrue(any("클라이언트 ID" in item for item in issues))
+
     def test_all_approvals_required(self):
         project = {**self.project,
             "budgetAlertsUserConfirmed": True,
@@ -100,6 +110,7 @@ class ReadinessTests(unittest.TestCase):
             "bucketReaderIamUserConfirmed": True,
             "signBlobRoleUserConfirmed": True,
             "requiredApisUserConfirmed": True,
+            "oauthReusedClientVerified": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,
         }
