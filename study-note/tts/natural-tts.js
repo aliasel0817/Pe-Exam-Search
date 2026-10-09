@@ -117,6 +117,7 @@
       $('ttsSelectAll')?.addEventListener('click', () => this.selectFields(true));
       $('ttsSelectNone')?.addEventListener('click', () => this.selectFields(false));
       $('ttsExportBtn')?.addEventListener('click', () => this.exportSampleTopics());
+      $('ttsCloudCheckBtn')?.addEventListener('click', () => this.checkCloudReady());
       this.updateUI('AI MP3 음성 대기 중');
     }
     selectFields(checked) {
@@ -237,6 +238,31 @@
       })();
       try { this.storageConfig = await this.storageConfigPromise; return this.storageConfig; }
       finally { this.storageConfigPromise = null; }
+    }
+    async checkCloudReady() {
+      const status = $('ttsCloudStatus');
+      if (status) status.textContent = '연결 설정 점검 중...';
+      try {
+        // This check only reads the static configuration. No Cloud Run, GCS,
+        // synthesis, signing or other potentially billable API is called.
+        const config = await this.loadStorageConfig();
+        let message;
+        if (config.mode === 'disabled') {
+          message = '아직 Google Cloud Storage를 연결하지 않았습니다. 현재 클라우드 API 호출과 요금 발생은 없습니다.';
+        } else if (config.mode === 'local-preview') {
+          message = '로컬 테스트 모드입니다. 저장된 MP3 파일만 확인하며 Google Cloud로 접속하지 않습니다.';
+        } else if (this.idToken) {
+          message = 'Cloud Storage 주소와 로그인 설정이 준비되었습니다. 실제 서버·MP3 통신은 아직 점검하지 않았습니다.';
+        } else {
+          message = 'Cloud Storage 주소가 등록되었습니다. Google 계정 로그인 후 재생 테스트가 필요합니다.';
+        }
+        if (status) status.textContent = message;
+        return message;
+      } catch (error) {
+        const message = '설정 점검 실패: ' + (error?.message || '알 수 없는 오류');
+        if (status) status.textContent = message;
+        return message;
+      }
     }
     async renderCloudLogin() {
       const status = $('ttsCloudStatus');
