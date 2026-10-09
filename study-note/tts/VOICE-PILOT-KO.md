@@ -1,4 +1,17 @@
-# Study-Note-TTS — 2단계 자연음성 품질 파일럿 (실제 합성 전 DRY RUN)
+# Study-Note-TTS — 2단계 자연음성 품질 파일럿 (Aoede 선정 완료)
+
+## 최신 완료 기록 (2026-10-09)
+
+- 사용자가 여성 음성 Aoede·Kore·Leda·Zephyr의 음색을 비교하여 **Aoede의 억양이 가장 만족스럽다**고 선정. 기본 음성 `ko-KR-Chirp3-HD-Aoede`.
+- 초기 3개 목소리(Aoede·Kore·Charon) 샘플: 사용자 Cloud Shell 화면에서 실제 **9요청, 336자, MP3 9개 생성 및 합성 승인 잠금 복원** 확인. 이후 Leda·Zephyr 샘플도 사용자 실청취. 청취용 Cloud Shell 로컬 MP3는 공개 GitHub/GCS에 게시하지 않음.
+- `pronunciations.ko-candidates.json`에 기술 용어 발음 후보 30건. 아직 **검수 후보**이며 확정 사전 아님.
+- 사용자가 Cloud Shell에서 기존 테스트 **81개 모두 OK** 확인. Aoede+후보 사전으로 가상 T99991의 3필드 무료 DRY RUN **3요청·96자·232바이트**, 실제 유료 API 요청 **0회**.
+- 실데이터 5건의 사전 추산 및 3단계 비공개 CSV→JSON/DRY RUN 절차는 `STAGE3-PRIVATE-SAMPLE-KO.md`를 참조.
+- **현재 승인 잠금:** `ttsGenerationApproved=false`, `gcsUploadApproved=false`, `cloudRunRevisionUpdateUserApproved=false`. 새로운 합성·업로드·배포는 각각 별도 명시적 승인 필요.
+
+---
+## 최초 사전 준비 기록 (이하 내용은 실제 합성 승인 이전 스냅샷)
+
 
 작성/검증: 2026-10-09. Google 로그인 실검증 완료(브라우저에서 Google ID 토큰/허용 계정 검사 통과, 목록 미생성으로 HTTP 503).
 
