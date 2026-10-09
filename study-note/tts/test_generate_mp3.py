@@ -111,6 +111,8 @@ class StudyTtsGeneratorTests(unittest.TestCase):
             outcome = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
             self.assertEqual(outcome.returncode, 0, outcome.stderr)
             self.assertIn("DRY RUN - NO API CALLS", outcome.stdout)
+            self.assertIn("Estimated new TTS characters", outcome.stdout)
+            self.assertIn("does not charge TTS API", outcome.stdout)
             self.assertFalse((root / "audio").exists())
 
     def test_execute_without_opt_in_refused(self):
