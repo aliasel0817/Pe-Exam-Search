@@ -6,5 +6,7 @@
   "region": "us-central1",
   "storageClass": "STANDARD",
   "cloudProvisioningApproved": false,
-  "comment": "Only the project identifiers are confirmed. Billing state and GCS bucket are not verified; no cloud resources may be created by this config."
+  "ttsGenerationApproved": false,
+  "gcsUploadApproved": false,
+  "comment": "Billing status not yet verified. All paid-capable cloud operations are locked until user expressly approves each stage."
 }
