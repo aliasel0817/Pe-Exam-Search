@@ -91,6 +91,21 @@ def validate_bucket_metadata(obj: dict, bucket: str, expected_project_number: st
         raise ValueError("Cloud bucket storage class must be STANDARD.")
     if public != "enforced" or not uniform:
         raise ValueError("Cloud bucket must enforce public access prevention and uniform access.")
+    if (obj.get("billing") or {}).get("requesterPays") is True:
+        raise ValueError("Requester Pays is not approved for the Study Note TTS bucket.")
+    if (obj.get("autoclass") or {}).get("enabled") is True:
+        raise ValueError("Autoclass must be disabled for this standard storage test.")
+    if (obj.get("hierarchicalNamespace") or {}).get("enabled") is True:
+        raise ValueError("Hierarchical namespace must be disabled for this small MP3 bucket.")
+    if (obj.get("versioning") or {}).get("enabled") is True:
+        raise ValueError("Object versioning is not approved for this cost-controlled test.")
+    if obj.get("retentionPolicy"):
+        raise ValueError("Object retention policy is not approved for this test.")
+    soft_delete = obj.get("softDeletePolicy") or {}
+    if soft_delete:
+        seconds = int(soft_delete.get("retentionDurationSeconds", 0))
+        if seconds > 7 * 24 * 60 * 60:
+            raise ValueError("Soft delete retention is longer than the approved 7-day test period.")
 
 
 def check_bucket(bucket: str, expected_project_id: str, expected_project_number: str) -> None:
@@ -156,6 +171,17 @@ def execute(audio_dir: Path, bucket: str, local: dict, objects: list[tuple[str, 
         print("Private GCS audio manifest uploaded successfully.")
 
 
+def assert_upload_authorized(config: dict, bucket_name: str) -> None:
+    if config.get("gcsUploadApproved") is not True:
+        raise ValueError("Cloud GCS upload is not yet approved in cloud-project.json; NO cloud request made.")
+    if config.get("budgetAlertsUserConfirmed") is not True:
+        raise ValueError("Google Cloud budget confirmation is required before GCS upload.")
+    if config.get("bucketCreatedUserConfirmed") is not True:
+        raise ValueError("Cloud Storage bucket creation has not been user-confirmed.")
+    if not isinstance(config.get("bucketName"), str) or config.get("bucketName") != bucket_name:
+        raise ValueError("Upload destination is not the exact confirmed private GCS bucket.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="GCS private MP3 upload: dry-run unless explicitly authorized")
     parser.add_argument("--audio-dir", type=Path, default=Path(__file__).resolve().parent / "audio")
@@ -180,8 +206,7 @@ def main() -> int:
             raise ValueError("--execute requires --accept-possible-cloud-charges")
         if args.execute:
             permissions = json.loads(PROJECT_CONFIG.read_text(encoding="utf-8"))
-            if permissions.get("gcsUploadApproved") is not True:
-                raise ValueError("Cloud GCS upload is not yet approved in cloud-project.json; NO cloud request made.")
+            assert_upload_authorized(permissions, args.bucket)
             execute(args.audio_dir.resolve(), args.bucket, local, objects,
                     project_id, project_number)
         else:
