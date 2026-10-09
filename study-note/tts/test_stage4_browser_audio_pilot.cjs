@@ -136,3 +136,17 @@ test('signed link refuses invalid expiry, alternate port and fragments',()=>{
     assert.throws(()=>m.verifySignedUrl(bad,file),/서명 주소/);
   }
 });
+
+test('injected smoke-page pilot never auto-initializes a second Google callback',()=>{
+  const vm=require('node:vm');
+  const script=fs.readFileSync(path.join(__dirname,'stage4_browser_audio_pilot.js'),'utf8');
+  let initialized=0;
+  const root={
+    document:{readyState:'complete',getElementById(){initialized++;throw Error('auto init called')}},
+    location:{origin:m.ORIGIN,pathname:'/Pe-Exam-Search/tts-auth-check.html'},
+    addEventListener(){throw Error('should not register load handler');}
+  };
+  vm.runInNewContext(script,{window:root,URL,console});
+  assert.equal(initialized,0);
+  assert.equal(typeof root.peStudyNoteStage4Pilot?.init,'function');
+});
