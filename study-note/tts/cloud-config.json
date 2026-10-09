@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "mode": "disabled",
+  "gatewayUrl": "",
+  "oauthClientId": "",
+  "note": "Cloud Run and private GCS are not deployed. No cloud audio request is enabled."
+}
