@@ -24,8 +24,10 @@ jobs:
         run: node --check study-note/tts/natural-tts.js
       - name: Exercise AI MP3 player with mocked browser/audio
         run: node --test study-note/tts/test_player.cjs
+      - name: Test private GCS signed URL gateway without cloud credentials
+        run: node --test study-note/tts/cloud-gateway/test_gateway.cjs
       - name: Verify Python syntax
-        run: python3 -m py_compile study-note/tts/generate_mp3.py
+        run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
       - name: Verify TTS module is linked from development HTML
@@ -35,6 +37,8 @@ jobs:
           from pathlib import Path
           s = Path('study-note/study-note.html').read_text(encoding='utf-8')
           required = [
+            'id="ttsCloudLogin"',
+            'id="ttsCloudStatus"',
             'id="ttsToggleBtn"',
             'id="ttsSettingsPanel"',
             'window.peStudyNoteTtsBridge',
