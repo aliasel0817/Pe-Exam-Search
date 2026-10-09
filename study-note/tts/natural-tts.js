@@ -169,6 +169,11 @@
       if (this.playing) this.stop('검색 또는 필터가 변경되어 재생을 중지했습니다.');
     }
     getBridge() { return window.peStudyNoteTtsBridge || null; }
+    canNavigateSafely() {
+      // Keep annotation and management workflows untouched while a viewer/modal is open.
+      return ['imageViewerModal','mediaViewerModal','referencePdfViewerModal','manageModal']
+        .every(id => { const element = $(id); return !element || element.classList.contains('hidden'); });
+    }
     exportSampleTopics() {
       const bridge = this.getBridge();
       const current = bridge?.currentTopic?.();
@@ -493,6 +498,9 @@
           if (!topic) continue;
           this.topicId = topic.topicId;
           if (bridge.currentTopic()?.topicId !== topic.topicId) {
+            if (!this.canNavigateSafely()) {
+              throw new Error('첨부자료 뷰어 또는 관리 화면이 열려 있어 자동 토픽 이동을 중지했습니다.');
+            }
             this.expectedTopic = topic.topicId;
             bridge.selectTopic(topic.topicId);
             if (this.expectedTopic === topic.topicId) this.expectedTopic = '';
