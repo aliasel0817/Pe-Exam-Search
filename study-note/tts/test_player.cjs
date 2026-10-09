@@ -120,6 +120,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   FakeURL.revokeObjectURL=()=>{};
   const storage=new Map();
   const doc={
+    currentScript:{src:"https://example.com/study-note/tts/natural-tts.js"},
     readyState:"complete",
     visibilityState:"visible",
     getElementById:id=>elements.get(id)||null,
@@ -129,6 +130,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   const sandbox={
     document:doc,
     window:{
+      PE_TTS_LOCAL_PREVIEW:true,
       peStudyNoteTtsBridge:{
         currentTopic:()=>data.get(currentId),
         getTopicById:id=>data.get(id),
@@ -139,7 +141,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         }
       }
     },
-    location:{href:"https://example.com/study-note/study-note.html"},
+    location:{href:"https://example.com/study-note/tts/preview.html"},
     crypto:crypto.webcrypto,TextEncoder, Audio:MockAudio,
     URL:FakeURL, Blob,console,
     setTimeout,clearTimeout,setImmediate,
