@@ -340,12 +340,15 @@ def main() -> int:
         manifest = load_manifest(args.out / "index.json")
         requests = plan(topics, args.voice, fields, dictionary, args.out, manifest, args.max_topics)
         pieces = sum(len(item["chunks"]) for item in requests)
+        char_count = sum(len(chunk) for item in requests for chunk in item["chunks"])
         byte_count = sum(utf8_len(chunk) for item in requests for chunk in item["chunks"])
         print("Mode: " + ("EXECUTE - API CALLS ENABLED" if args.execute else "DRY RUN - NO API CALLS"))
         print("Selected topics: " + str(min(len(topics), args.max_topics)) +
               " | missing fields: " + str(len(requests)) + " | requests: " + str(pieces))
+        print("Estimated new TTS characters (includes spoken field labels): " + str(char_count))
         print("Conservative NEW request bytes: " + str(byte_count) +
               " | local monthly hard limit: " + str(HARD_MONTHLY_LIMIT))
+        print("DRY RUN does not generate audio and does not charge TTS API.") if not args.execute else None
         if byte_count > HARD_MONTHLY_LIMIT:
             raise ValueError("Planned requests exceed 50,000-byte safety cap.")
         if args.execute:
