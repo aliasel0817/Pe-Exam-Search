@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>학습노트 Aoede — 승인된 MP3 7개 독립 재생 검증</title>
+<style>
+:root{font:16px/1.65 system-ui,-apple-system,"Noto Sans KR",sans-serif;color-scheme:light dark}
+body{margin:0;padding:20px;background:Canvas;color:CanvasText}
+main{max-width:680px;margin:auto}
+h1{font-size:1.4rem}
+button{border:1px solid #8888;border-radius:10px;padding:10px 14px;margin:5px 5px 5px 0;background:ButtonFace;color:ButtonText;font:inherit;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+#pilotLogin{margin:16px 0;min-height:44px}
+#pilotStatus{border:1px solid #8886;border-radius:12px;padding:14px;min-height:50px}
+audio{display:block;width:100%;margin:16px 0}
+.notice{font-size:.9rem;opacity:.83}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/gh/aliasel0817/Pe-Exam-Search@4d66e9f4204f589cba269d08bc46242e266c1622/study-note/tts/stage4_browser_audio_pilot.js" integrity="sha384-aJQQUfvvwH4xWo8wk161Ny1ai6vxVRqoCzpD/YtupM4YAfoFvW6u7gMQhiU84Q94" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+</head>
+<body>
+<main>
+<h1>Aoede MP3 7개 · 비공개 GCS 읽기 시험</h1>
+<p class="notice">기존 학습노트와 무관한 독립 테스트입니다. Google 계정 인증 후 선택한 MP3만 읽습니다. 생성·업로드·Cloud Run 배포·Sheets 수정은 하지 않습니다. 다운로드·인증 요청에 소액의 클라우드 요금이 발생할 수 있습니다.</p>
+<div id="pilotLogin" aria-label="Google 로그인"></div>
+<p id="pilotStatus" role="status" aria-live="polite">로그인을 준비하고 있습니다.</p>
+<div aria-label="승인된 음성 항목">
+<button type="button" data-pilot="T0001:concept:ko-KR-Chirp3-HD-Aoede" disabled>T0001 · 개념 (1개)</button>
+<button type="button" data-pilot="T2176:components:ko-KR-Chirp3-HD-Aoede" disabled>T2176 · 기술요소 (2개)</button>
+<button type="button" data-pilot="T2354:components:ko-KR-Chirp3-HD-Aoede" disabled>T2354 · 기술요소 (4개)</button>
+</div>
+<audio id="pilotAudio" controls preload="none" playsinline></audio>
+<button type="button" id="pilotStop" disabled>■ 재생 중지</button>
+<p class="notice">토픽명 MP3는 아직 없어 이 화면에서는 본문 3개 항목만 개별 확인합니다. 학습노트의 기존 ‘토픽명부터 읽기’ 규칙은 변경하지 않습니다. Google ID 토큰·서명 URL은 화면에 출력하거나 저장하지 않습니다. 운영 학습노트와 완전히 분리된 일회성 검사 화면입니다. 테스트가 끝나면 이 HTML 파일만 철회할 수 있습니다.</p>
+</main>
+</body>
+</html>
