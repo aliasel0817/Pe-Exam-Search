@@ -8,11 +8,13 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Budget setup completion was reported by owner, not independently verified against Cloud Billing. Planned bucket is a recommendation only. Real bucket name not yet user-confirmed. Automated provisioning, TTS synthesis and GCS uploading remain locked.",
+  "comment": "User showed successful gcloud storage buckets describe for this bucket: region us-central1, STANDARD, uniform=true, public access prevention enforced, 7-day soft delete. Owner project number is not shown in screenshot; uploader must validate. CORS not yet configured/confirmed. Cloud Run/TTS generation/GCS uploading remain disabled; no separate cloud operations are authorized by this record.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
   "plannedBucketName": "study-note-tts-audio-558407087449",
-  "bucketName": "",
-  "bucketCreatedUserConfirmed": false
+  "bucketName": "study-note-tts-audio-558407087449",
+  "bucketCreatedUserConfirmed": true,
+  "bucketSettingsCheckedFromScreenshot": true,
+  "gcsCorsUserConfirmed": false
 }
