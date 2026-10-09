@@ -336,6 +336,7 @@ test("stage5 check requires Google login before reading private manifest",async(
 test("stage5 check validates topic-first and selected field against source without downloading audio",async()=>{
   const ctx=makeEnvironment({privateCloud:true});
   await ctx.googleLogin();
+  ctx.player.selectFields(true);
   const report=await ctx.player.checkCurrentTopicAvailability();
   assert.match(report,/T0001/);
   assert.match(report,/2\/2항목/);
