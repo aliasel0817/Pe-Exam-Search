@@ -115,6 +115,23 @@ class StudyTtsGeneratorTests(unittest.TestCase):
             self.assertIn("does not charge TTS API", outcome.stdout)
             self.assertFalse((root / "audio").exists())
 
+    def test_wrong_billing_project_rejected_before_tts_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "topics.json"
+            src.write_text(json.dumps({"topics": [{
+                "topicId": "T0001", "studyTarget": "Y", "topicName": "정규화"
+            }]}, ensure_ascii=False), encoding="utf-8")
+            command = [
+                sys.executable, str(MODULE_FILE), "--input", str(src),
+                "--out", str(root / "audio"), "--project", "wrong-billing-project",
+                "--execute", "--accept-possible-charges"
+            ]
+            outcome = subprocess.run(command, capture_output=True, text=True, timeout=20)
+            self.assertEqual(outcome.returncode, 2)
+            self.assertIn("does not match the confirmed", outcome.stderr)
+            self.assertFalse((root / "audio").exists())
+
     def test_execute_without_opt_in_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
