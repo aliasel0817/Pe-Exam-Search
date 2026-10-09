@@ -1,0 +1,17 @@
+{
+  "name": "study-note-private-tts-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.cjs",
+    "test": "node --test test_gateway.cjs"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.17.3",
+    "google-auth-library": "^9.15.1"
+  }
+}
