@@ -57,10 +57,13 @@ class ReadinessTests(unittest.TestCase):
         }
         self.runtime = {"schemaVersion": 1, "mode": "disabled"}
 
-    def test_current_stage_indicates_google_id_token_login_pending(self):
+    def test_current_stage_marks_google_id_token_login_done_but_speech_upload_still_locked(self):
         problems, result = ready.inspect(self.project, self.runtime)
         self.assertFalse(result)
-        self.assertTrue(any("TTS 로그인 시험" in item for item in problems))
+        self.assertFalse(any("TTS 로그인 시험" in item for item in problems))
+        self.assertFalse(any("ID 토큰의 Cloud Run 로그인" in item for item in problems))
+        self.assertTrue(any("음성 생성은 별도 승인" in item for item in problems))
+        self.assertTrue(any("MP3 클라우드 업로드" in item for item in problems))
         status = ready.report(self.project, self.runtime)
         self.assertIn("결제 계정 연결(사용자 확인): 확인", status)
         self.assertIn("예산 알림(사용자 확인): 확인", status)
