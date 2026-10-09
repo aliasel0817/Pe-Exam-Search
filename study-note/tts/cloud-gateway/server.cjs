@@ -33,8 +33,14 @@ function validateSettings(env) {
   if (!/^[a-z0-9][a-z0-9._-]{1,60}[a-z0-9]$/.test(bucket)) throw Error('TTS_BUCKET missing or invalid');
   if (!/^[0-9a-zA-Z._-]+\.apps\.googleusercontent\.com$/.test(clientId)) throw Error('GOOGLE_WEB_CLIENT_ID missing');
   if (!emails.length || emails.some(x => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) throw Error('ALLOWED_GOOGLE_EMAILS missing');
-  if (!allowedOrigin || allowedOrigin !== 'https://aliasel0817.github.io') {
-    throw Error('TTS_ALLOWED_ORIGIN must be https://aliasel0817.github.io in production');
+  const isDev = String(env.TTS_ENV || 'production') === 'development';
+  const originAllowed = isDev && allowedOrigin === 'http://localhost:8765'
+    || allowedOrigin === 'https://aliasel0817.github.io';
+  if (!allowedOrigin || !originAllowed) {
+    throw Error('TTS_ALLOWED_ORIGIN must be the production GitHub origin or approved localhost development origin');
+  }
+  if (!isDev && allowedOrigin !== 'https://aliasel0817.github.io') {
+    throw Error('Only production GitHub origin is allowed without TTS_ENV=development');
   }
   return { bucket, clientId, emails: new Set(emails), allowedOrigin };
 }
