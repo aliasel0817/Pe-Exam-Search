@@ -27,6 +27,49 @@ def create_sample(path:Path):
     return audio,index
 
 class UploadTests(unittest.TestCase):
+    def test_cloud_project_matches_confirmed_id_and_number(self):
+        project_id, project_number = upload.project_binding()
+        self.assertEqual(project_id, "study-note-tts")
+        self.assertEqual(project_number, "558407087449")
+
+    def test_wrong_bucket_owner_blocks_upload_before_write(self):
+        good = {
+            "name": "study-note-tts-audio-test",
+            "projectNumber": "558407087449",
+            "location": "US-CENTRAL1",
+            "storageClass": "STANDARD",
+            "iamConfiguration": {
+                "publicAccessPrevention": "enforced",
+                "uniformBucketLevelAccess": {"enabled": True}
+            },
+        }
+        upload.validate_bucket_metadata(good, good["name"], "558407087449")
+        wrong = {**good, "projectNumber": "111222333444"}
+        with self.assertRaisesRegex(ValueError, "NOT owned"):
+            upload.validate_bucket_metadata(wrong, good["name"], "558407087449")
+        with self.assertRaisesRegex(ValueError, "bucket name mismatch"):
+            upload.validate_bucket_metadata(good, "another-bucket", "558407087449")
+
+    def test_public_bucket_or_wrong_region_rejected(self):
+        meta = {
+            "name": "safe-private-bucket",
+            "projectNumber": "558407087449",
+            "location": "US-CENTRAL1",
+            "storageClass": "STANDARD",
+            "iamConfiguration": {
+                "publicAccessPrevention": "enforced",
+                "uniformBucketLevelAccess": {"enabled": True}
+            }
+        }
+        upload.validate_bucket_metadata(meta, "safe-private-bucket", "558407087449")
+        with self.assertRaisesRegex(ValueError, "public access prevention"):
+            upload.validate_bucket_metadata(
+                {**meta,"iamConfiguration":{**meta["iamConfiguration"],"publicAccessPrevention":"inherited"}},
+                "safe-private-bucket", "558407087449")
+        with self.assertRaisesRegex(ValueError, "us-central1"):
+            upload.validate_bucket_metadata(
+                {**meta,"location":"ASIA-NORTHEAST3"}, "safe-private-bucket", "558407087449")
+
     def test_validates_private_mp3_before_cloud_action(self):
         with tempfile.TemporaryDirectory() as d:
             folder,manifest=create_sample(Path(d))
