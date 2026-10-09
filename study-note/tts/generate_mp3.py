@@ -282,6 +282,8 @@ def execute(args: argparse.Namespace, requests: list[dict], manifest: dict) -> N
     confirmed_project = str(confirmed_binding.get("projectId", "")).strip()
     if confirmed_binding.get("schemaVersion") != 1 or project != confirmed_project:
         raise ValueError("TTS project does not match the confirmed study-note-tts project; API request blocked.")
+    if confirmed_binding.get("ttsGenerationApproved") is not True:
+        raise ValueError("Cloud TTS synthesis is not yet approved in cloud-project.json; NO API call made.")
     if args.max_new_requests > MAX_REQUESTS or args.max_new_requests < 1:
         raise ValueError("Maximum new requests must be between 1 and 200.")
     if args.max_topics > MAX_TOPICS or args.max_topics < 1:
