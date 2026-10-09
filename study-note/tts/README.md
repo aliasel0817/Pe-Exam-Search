@@ -41,10 +41,10 @@
 
 ### 현재 인프라 체크포인트 (2026-10-09)
 - 프로젝트와 비공개 버킷, 서비스 계정, 버킷 objectViewer 및 self-only Token Creator 완료.
-- API 5개 \`ENABLED\`, Cloud Run 서비스 0개: 사용자 스크린샷 확인.
+- API 5개 `ENABLED`, Cloud Run 서비스 0개: 사용자 스크린샷 확인.
 - Cloud Run은 **미배포**, TTS MP3 미생성, 업로드 미실시.
-- \`cloud-project.json\`의 \`cloudRunDeploymentUserApproved\`, \`cloudProvisioningApproved\`,
-  \`ttsGenerationApproved\`, \`gcsUploadApproved\` 모두 false.
-- Cloud Run 배포 미리보기 스크립트: \`cloud-gateway/deploy_pilot.sh\`
+- `cloud-project.json`의 `cloudRunDeploymentUserApproved`, `cloudProvisioningApproved`,
+  `ttsGenerationApproved`, `gcsUploadApproved` 모두 false.
+- Cloud Run 배포 미리보기 스크립트: `cloud-gateway/deploy_pilot.sh`
   (기본 dry-run, 승인 잠금 해제 전 실제 배포 원천 차단).
-- 쉬운 Cloud Shell 실행 안내: \`CLOUD-RUN-PILOT-KO.md\`.
+- 쉬운 Cloud Shell 실행 안내: `CLOUD-RUN-PILOT-KO.md`.
