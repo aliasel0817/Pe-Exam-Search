@@ -90,7 +90,7 @@ fi
     def test_existing_service_fails_before_deploy(self):
         result,commands=self.command("--execute","--accept-possible-charges",existing=True)
         self.assertNotEqual(result.returncode,0)
-        self.assertIn("service already exists",result.stderr)
+        self.assertIn("Existing Cloud Run service found",result.stderr)
         self.assertNotIn("run deploy",commands)
 
     def test_wrong_active_project_fails_before_deploy(self):

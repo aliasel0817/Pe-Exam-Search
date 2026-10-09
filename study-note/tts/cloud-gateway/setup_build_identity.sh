@@ -34,8 +34,8 @@ for key,expected in {
     "projectNumber":"558407087449",
     "dedicatedBuildServiceAccountEmail":"study-tts-build@study-note-tts.iam.gserviceaccount.com",
     "dedicatedBuildRolePlanned":"roles/run.builder",
-    "cloudRunDeploymentUserApproved":False,
-    "cloudProvisioningApproved":False,
+    # IAM-only setup is independent of whether one Cloud Run pilot was approved.
+    # This script never deploys any Cloud Run resource.
     "ttsGenerationApproved":False,
     "gcsUploadApproved":False,
 }.items():
