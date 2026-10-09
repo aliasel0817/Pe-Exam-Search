@@ -116,10 +116,14 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(ready_flag)
         self.assertTrue(any("빌드 준비 API" in item for item in problems))
 
-    def test_build_account_preflight_required(self):
+    def test_default_build_account_preflight_is_recorded_and_required(self):
         issues, ready_flag = ready.inspect(self.project, self.runtime)
         self.assertFalse(ready_flag)
-        self.assertTrue(any("빌드 서비스 계정" in item for item in issues))
+        self.assertFalse(any("기본 빌드 계정 사전 점검" in item for item in issues))
+        missing = {**self.project, "cloudBuildIdentityCheckedUserConfirmed": False}
+        issues, ready_flag = ready.inspect(missing, self.runtime)
+        self.assertFalse(ready_flag)
+        self.assertTrue(any("기본 빌드 계정 사전 점검" in item for item in issues))
 
     def test_dedicated_builder_required_before_cloud_run(self):
         problems, prepared = ready.inspect(self.project, self.runtime)
