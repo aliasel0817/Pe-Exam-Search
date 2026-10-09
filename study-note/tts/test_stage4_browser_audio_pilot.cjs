@@ -117,3 +117,22 @@ test('HTML is a standalone test that does not change the production PWA',()=>{
   assert.equal((html.match(/data-pilot=/g)||[]).length,3);
   assert.doesNotMatch(html,/study-note\.html|texttospeech\.googleapis\.com/);
 });
+
+test('pilot rejects any unapproved extra manifest entry',()=>{
+  const index=sample();
+  index.entries['T9999:topic:'+m.VOICE]={sha256:sha,file:'unsafe.mp3'};
+  assert.throws(()=>m.validateManifest(index),/3개 항목/);
+});
+test('signed link refuses invalid expiry, alternate port and fragments',()=>{
+  const file=m.validateManifest(sample()).get(m.entryKey(m.PILOTS[0]))[0];
+  for (const bad of [
+    signed(file).replace('X-Goog-Expires=300','X-Goog-Expires=nan'),
+    signed(file).replace('X-Goog-Expires=300','X-Goog-Expires=0'),
+    signed(file).replace('X-Goog-Expires=300','X-Goog-Expires=-1'),
+    signed(file).replace('X-Goog-Expires=300','X-Goog-Expires=301'),
+    signed(file).replace('storage.googleapis.com','storage.googleapis.com:9443'),
+    signed(file)+'#fragment'
+  ]) {
+    assert.throws(()=>m.verifySignedUrl(bad,file),/서명 주소/);
+  }
+});
