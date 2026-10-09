@@ -24,6 +24,7 @@
   const SCRIPT_DIR = new URL('./', document.currentScript?.src || new URL('./tts/', location.href)).href;
   const MANIFEST_URL = new URL('./audio/index.json', SCRIPT_DIR).href;
   const AUDIO_BASE_URL = new URL('./audio/', SCRIPT_DIR).href;
+  const CLOUD_CONFIG_URL = new URL('./cloud-config.json', SCRIPT_DIR).href;
   const $ = id => document.getElementById(id);
   const clamp = (n, low, high) => Math.min(Math.max(n, low), high);
   const defaultSettings = () => ({
@@ -67,6 +68,10 @@
       this.expectedTopic = '';
       this.cacheIndex = null;
       this.manifestPromise = null;
+      this.storageConfig = null;
+      this.storageConfigPromise = null;
+      this.idToken = null;
+      this.loginButtonRendered = false;
       this.activeAudio = new Audio();
       this.activeAudio.preload = 'auto';
       this.activeAudio.setAttribute('playsinline', '');
@@ -86,6 +91,7 @@
       this.settingsBtn.addEventListener('click', () => {
         const hidden = this.settingsPanel.classList.toggle('hidden');
         this.settingsBtn.setAttribute('aria-expanded', String(!hidden));
+        if (!hidden) this.renderCloudLogin();
       });
       for (const name of ['voice','rate','mode','repeat','gap']) {
         const input = $('ttsOption-' + name);
@@ -193,26 +199,130 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       this.updateUI(topics.length + '개 토픽을 기기에 JSON으로 저장했습니다. 파일은 외부로 전송하지 않았습니다.');
     }
+    async loadStorageConfig() {
+      if (this.storageConfig) return this.storageConfig;
+      if (this.storageConfigPromise) return this.storageConfigPromise;
+      this.storageConfigPromise = (async () => {
+        // Local preview is an explicitly separate page; production never silently loads GitHub MP3.
+        if (window.PE_TTS_LOCAL_PREVIEW === true &&
+            new URL(location.href).pathname.endsWith('/tts/preview.html')) {
+          return { mode: 'local-preview' };
+        }
+        let response;
+        try { response = await fetch(CLOUD_CONFIG_URL, { cache: 'no-store' }); }
+        catch (_) { throw new Error('AI 음성 클라우드 설정을 불러오지 못했습니다.'); }
+        if (!response.ok) throw new Error('AI 음성 클라우드 설정을 찾지 못했습니다.');
+        const config = await response.json();
+        if (!config || config.schemaVersion !== 1) throw new Error('AI 음성 설정 파일이 올바르지 않습니다.');
+        if (config.mode === 'disabled') return {mode:'disabled'};
+        if (config.mode !== 'gcs-private' || !config.gatewayUrl || !config.oauthClientId) {
+          throw new Error('GCS 음성 연결 설정이 아직 완료되지 않았습니다.');
+        }
+        let url;
+        try { url = new URL(config.gatewayUrl); }
+        catch (_) { throw new Error('Cloud Run 주소 형식이 올바르지 않습니다.'); }
+        if (url.protocol !== 'https:' || !url.hostname.endsWith('.run.app') ||
+            url.pathname !== '/' || url.search || url.hash ||
+            !/^[0-9a-zA-Z._-]+\.apps\.googleusercontent\.com$/.test(config.oauthClientId)) {
+          throw new Error('Cloud Run 또는 Google OAuth 클라이언트 설정이 올바르지 않습니다.');
+        }
+        return {
+          mode:'gcs-private', gatewayUrl:url.origin, oauthClientId:config.oauthClientId
+        };
+      })();
+      try { this.storageConfig = await this.storageConfigPromise; return this.storageConfig; }
+      finally { this.storageConfigPromise = null; }
+    }
+    async renderCloudLogin() {
+      const status = $('ttsCloudStatus');
+      const host = $('ttsCloudLogin');
+      if (!host) return;
+      try {
+        const config = await this.loadStorageConfig();
+        if (config.mode === 'local-preview') {
+          if (status) status.textContent = '로컬 음성 테스트 모드 (Cloud 인증 없음)';
+          return;
+        }
+        if (config.mode === 'disabled') {
+          if (status) status.textContent = 'Cloud Storage 연결 전입니다. 운영 TTS는 비활성화 상태입니다.';
+          return;
+        }
+        if (this.idToken) {
+          if (status) status.textContent = 'Google 음성 계정 인증 완료 (이 탭에서만 유지)';
+          return;
+        }
+        const gis = window.google?.accounts?.id;
+        if (!gis) {
+          if (status) status.textContent = 'Google 로그인 화면을 불러올 수 없습니다. 네트워크를 확인해 주세요.';
+          return;
+        }
+        if (this.loginButtonRendered) return;
+        gis.initialize({
+          client_id:config.oauthClientId,
+          callback: response => {
+            if (!response || typeof response.credential !== 'string' || !response.credential) return;
+            // A Google ID token is temporary and exists only in memory.
+            this.idToken = response.credential;
+            this.cacheIndex = null;
+            this.loginButtonRendered = true;
+            if (status) status.textContent = 'Google 음성 계정 인증 완료 (서버에서 계정 권한 재확인)';
+            this.updateUI('Google 인증 완료. 스피커를 눌러 MP3를 재생해 주세요.');
+          }
+        });
+        gis.renderButton(host, {type:'standard',size:'medium',theme:'outline',text:'signin_with'});
+        this.loginButtonRendered = true;
+        if (status) status.textContent = '비공개 MP3를 이용하려면 Google 계정으로 로그인해 주세요.';
+      } catch (error) {
+        if (status) status.textContent = error.message || '음성 인증 설정 오류';
+      }
+    }
+    async authenticatedGatewayFetch(path) {
+      const config = await this.loadStorageConfig();
+      if (config.mode !== 'gcs-private') throw new Error('비공개 GCS 연결이 아닙니다.');
+      if (!this.idToken) throw new Error('음성 설정에서 Google 계정으로 로그인해 주세요.');
+      const response = await fetch(config.gatewayUrl + path, {
+        method:'GET', mode:'cors', cache:'no-store', credentials:'omit',
+        headers:{Authorization:'Bearer ' + this.idToken}
+      });
+      if (response.status === 401 || response.status === 403) {
+        this.idToken = null;
+        this.loginButtonRendered = false;
+        const host = $('ttsCloudLogin');
+        if (host) host.textContent = '';
+        throw new Error('Google 음성 계정 인증이 만료되었거나 접근 권한이 없습니다. 다시 로그인해 주세요.');
+      }
+      if (!response.ok) throw new Error('비공개 음성 서버 오류: HTTP ' + response.status);
+      return response;
+    }
     async manifest() {
       if (this.cacheIndex) return this.cacheIndex;
       if (this.manifestPromise) return this.manifestPromise;
       this.manifestPromise = (async () => {
-        const url = new URL(MANIFEST_URL, location.href);
+        const config = await this.loadStorageConfig();
+        if (config.mode === 'disabled') {
+          throw new Error('Google Cloud Storage 연결 전입니다. 현재는 무료·안전 테스트 단계입니다.');
+        }
         let response = null;
-        try {
-          response = await fetch(url.href, { cache: 'no-store' });
-          if (!response.ok) throw new Error('HTTP ' + response.status);
-          if ('caches' in window) {
-            try { (await caches.open(CACHE_NAME)).put(url.href, response.clone()); } catch (_) {}
+        if (config.mode === 'gcs-private') {
+          response = await this.authenticatedGatewayFetch('/v1/manifest');
+        } else {
+          const url = new URL(MANIFEST_URL, location.href);
+          try {
+            response = await fetch(url.href, { cache: 'no-store' });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            if ('caches' in window) {
+              try { await (await caches.open(CACHE_NAME)).put(url.href, response.clone()); } catch (_) {}
+            }
+          } catch (_) {
+            if ('caches' in window) {
+              try { response = await (await caches.open(CACHE_NAME)).match(url.href); } catch (_) {}
+            }
+            if (!response) throw new Error('로컬 음성 목록을 찾지 못했습니다.');
           }
-        } catch (error) {
-          if ('caches' in window) {
-            try { response = await (await caches.open(CACHE_NAME)).match(url.href); } catch (_) {}
-          }
-          if (!response) throw new Error('음성 목록 파일에 연결할 수 없습니다. 인터넷을 확인해 주세요.');
         }
         const index = await response.json();
-        if (index.schemaVersion !== 1 || !index.entries || typeof index.entries !== 'object') {
+        if (index.schemaVersion !== 1 || !index.entries || typeof index.entries !== 'object' ||
+            Array.isArray(index.entries)) {
           throw new Error('AI 음성 목록 파일 형식이 올바르지 않습니다.');
         }
         this.cacheIndex = index;
@@ -241,27 +351,54 @@
           !/^[A-Za-z0-9_-]+\/T[0-9]+\/[a-z]+-[a-f0-9]{12}(?:-p[0-9]{2})?\.mp3$/.test(path)) {
           throw new Error('음성 파일 경로가 올바르지 않습니다.');
         }
-        return new URL(path, AUDIO_BASE_URL).href;
+        return this.storageConfig?.mode === 'gcs-private' ? path : new URL(path, AUDIO_BASE_URL).href;
       });
     }
-    async fetchAudio(url, seq) {
+    async fetchAudio(urlOrPath, seq) {
+      const config = await this.loadStorageConfig();
+      const privateMode = config.mode === 'gcs-private';
+      const cacheKey = privateMode
+        ? new URL('./cached-mp3/' + urlOrPath, SCRIPT_DIR).href
+        : urlOrPath;
       let response = null;
       let cache = null;
       if ('caches' in window) {
         try {
           cache = await caches.open(CACHE_NAME);
-          response = await cache.match(url);
+          response = await cache.match(cacheKey);
         } catch (_) {}
       }
       if (!response) {
-        response = await fetch(url, { cache: 'force-cache' });
-        if (!response.ok) throw new Error('AI 음성 파일을 불러오지 못했습니다: HTTP ' + response.status);
+        let downloadUrl = urlOrPath;
+        if (privateMode) {
+          const signedResponse = await this.authenticatedGatewayFetch(
+            '/v1/audio-url?file=' + encodeURIComponent(urlOrPath));
+          const ticket = await signedResponse.json();
+          let signedUrl;
+          try { signedUrl = new URL(ticket.url); }
+          catch (_) { throw new Error('Google Cloud MP3 다운로드 주소가 올바르지 않습니다.'); }
+          if (signedUrl.protocol !== 'https:' ||
+            (signedUrl.hostname !== 'storage.googleapis.com' &&
+             !signedUrl.hostname.endsWith('.storage.googleapis.com')) ||
+            !signedUrl.searchParams.has('X-Goog-Signature')) {
+            throw new Error('검증되지 않은 Google Cloud MP3 주소는 사용하지 않습니다.');
+          }
+          downloadUrl = signedUrl.href;
+        }
+        response = await fetch(downloadUrl, {
+          mode:privateMode ? 'cors' : 'same-origin',
+          cache:privateMode ? 'no-store' : 'force-cache',
+          credentials:'omit'
+        });
+        if (!response.ok) {
+          throw new Error('AI MP3 다운로드에 실패했습니다: HTTP ' + response.status);
+        }
         if (cache) {
           try {
             const keys = await cache.keys();
             const audioKeys = keys.filter(x => x.url.endsWith('.mp3'));
             if (audioKeys.length >= MAX_CACHE_ITEMS) await cache.delete(audioKeys[0]);
-            await cache.put(url, response.clone());
+            await cache.put(cacheKey, response.clone());
           } catch (_) {}
         }
       }
