@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": true,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Cloud Run gateway DEPLOYED and its actual 401 bearer authentication gate + GitHub Pages CORS 204 preflight verified from owner Cloud Shell screenshot. No live Google ID token login or private MP3 manifest access performed. No redeployment approved; text-to-speech synthesis & GCS upload remain disabled. Production main v4.6.3 untouched.",
+  "comment": "Login test page is published on main (one new root HTML file only) and GitHub Pages workflow succeeded; user live login still untested. Existing PWA study-note.html remains v4.6.3 (but main HEAD changed due to independent test page). Cloud Run unauthed 401 / CORS 204 verified. Speech synthesis, GCS upload, revision redeploy remain LOCKED.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -88,5 +88,10 @@
     "githubPagesCors": "OK",
     "browserPreflight": 204
   },
-  "cloudRunNextStage": "Owner Google Sign-In ID-token end-to-end authentication from authorized https://aliasel0817.github.io origin; no MP3 uploaded or synthesized; standalone isolated test page must be separately approved for publication."
+  "cloudRunNextStage": "Google Sign-In smoke page published on GitHub main as one new root HTML file; main GitHub Pages build successful. Next user action: open URL, select account, report response summary. No extra Cloud Run deployment, real TTS synthesis or GCS upload authorized.",
+  "authSmokeTestPagePublishedOnMain": true,
+  "authSmokeTestPageGitHubPagesDeploymentSuccess": true,
+  "authSmokeTestPageMainCommit": "55052c05c2b4330fe9798161b2ab4565076a852d",
+  "authSmokeTestPageWebUrl": "https://aliasel0817.github.io/Pe-Exam-Search/tts-auth-check.html",
+  "authSmokeLiveGoogleLoginVerified": false
 }
