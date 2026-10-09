@@ -61,7 +61,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   }
   const required = [
     "ttsToggleBtn","ttsSettingsBtn","ttsSettingsPanel","ttsStatus","ttsSelectAll",
-    "ttsSelectNone","ttsExportBtn", "detailTitle","detailConcept",
+    "ttsSelectNone","ttsExportBtn","ttsCloudLogin","ttsCloudStatus","detailTitle","detailConcept",
     "detailBackground","detailNecessity","detailFeatures",
     "detailTechnicalComponents","detailKeywords",
     ...["voice","rate","mode","repeat","gap"].map(x=>"ttsOption-"+x),
