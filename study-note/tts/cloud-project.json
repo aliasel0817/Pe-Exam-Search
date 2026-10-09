@@ -8,7 +8,11 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "User reports billing account connected. Budget alerts not yet confirmed. Cloud provisioning, TTS synthesis and GCS uploads remain locked; account billing state has not been independently queried.",
+  "comment": "Budget setup completion was reported by owner, not independently verified against Cloud Billing. Planned bucket is a recommendation only. Real bucket name not yet user-confirmed. Automated provisioning, TTS synthesis and GCS uploading remain locked.",
   "billingLinkedUserConfirmed": true,
-  "budgetAlertsUserConfirmed": false
+  "budgetAlertsUserConfirmed": true,
+  "budgetName": "Study-Note-TTS-Budget",
+  "plannedBucketName": "study-note-tts-audio-558407087449",
+  "bucketName": "",
+  "bucketCreatedUserConfirmed": false
 }
