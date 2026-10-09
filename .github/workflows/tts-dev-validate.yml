@@ -29,7 +29,7 @@ jobs:
       - name: Verify Python syntax
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Verify Cloud Shell and gated deployment script syntax
-        run: bash -n study-note/tts/verify_cloud_services.sh study-note/tts/cloud-gateway/deploy_pilot.sh study-note/tts/cloud-gateway/preflight_build.sh
+        run: bash -n study-note/tts/verify_cloud_services.sh study-note/tts/cloud-gateway/deploy_pilot.sh study-note/tts/cloud-gateway/preflight_build.sh study-note/tts/cloud-gateway/setup_build_identity.sh
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
       - name: Verify all five APIs enabled; Cloud Run deployment still requires user billing consent
@@ -65,8 +65,14 @@ jobs:
           assert project['cloudRunServicesCheckedUserConfirmed'] is True
           assert project['cloudRunServiceCountAtVerification'] == 0
           assert project['cloudRunDeploymentUserApproved'] is False
-          assert project['cloudBuildIdentityCheckedUserConfirmed'] is False
-          assert project['cloudBuildRoleStatus'] == 'not_checked'
+          assert project['cloudBuildIdentityCheckedUserConfirmed'] is True
+          assert project['cloudBuildRoleStatus'] == 'default_compute_direct_role_not_found'
+          assert project['observedDefaultBuildServiceAccount'] == '558407087449-compute@developer.gserviceaccount.com'
+          assert project['dedicatedBuildServiceAccountId'] == 'study-tts-build'
+          assert project['dedicatedBuildServiceAccountEmail'] == 'study-tts-build@study-note-tts.iam.gserviceaccount.com'
+          assert project['dedicatedBuildRolePlanned'] == 'roles/run.builder'
+          assert project['dedicatedBuildServiceAccountCreatedUserConfirmed'] is False
+          assert project['dedicatedBuildRoleGrantedUserConfirmed'] is False
           assert project['cloudRunDeploymentUserConfirmed'] is False
           assert project['cloudRunServiceNamePlanned'] == 'study-tts-audio-gateway'
           assert project['buildApisEnableCommandSuccess'] is True

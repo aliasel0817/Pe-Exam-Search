@@ -48,10 +48,14 @@ class CloudRunPilotTests(unittest.TestCase):
         for expected in (
             "--min-instances=0","--max-instances=1","--no-cpu-boost",
             "--cpu=1","--memory=512Mi","--concurrency=4",
-            "--service-account=","--allow-unauthenticated",
+            "--service-account=","--build-service-account=",
+            "study-tts-build@study-note-tts.iam.gserviceaccount.com",
+            "--allow-unauthenticated",
             "--set-env-vars=","--source=","--region=",
             "cloudRunDeploymentUserApproved","cloudProvisioningApproved",
-            "ttsGenerationApproved","gcsUploadApproved"):
+            "ttsGenerationApproved","gcsUploadApproved",
+            "dedicatedBuildServiceAccountCreatedUserConfirmed",
+            "dedicatedBuildRoleGrantedUserConfirmed"):
             self.assertIn(expected,source)
 
 if __name__=="__main__":

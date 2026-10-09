@@ -22,29 +22,37 @@
 사용자가 Cloud Shell 화면을 제공했고, GitHub TTS 개발 브랜치의 소스 clone과 `deploy_pilot.sh --dry-run` 성공을 확인함.
 출력에 `No build, no deploy, no paid-capable API request made.` 표시. 실제 배포/비용 가능 작업 미실시.
 
-## 다음 사용자 작업: Cloud Build 빌드 계정 사전 점검 (설정 변경 없음)
+## Cloud Build 기본 계정 점검 결과 및 보안 선택 (2026-10-09)
+사용자의 Cloud Shell 화면에서 아래 결과 확인:
+- 기본 빌드 계정: `558407087449-compute@developer.gserviceaccount.com`
+- 직접 Cloud Run Builder 권한: `RUN_BUILDER_DIRECT_ROLE: NOT_FOUND`
+- `PREDEPLOY CHECK COMPLETE; NO CHANGES MADE` 정상 출력
 
-다음 Cloud Shell 블록을 한 번에 붙여넣고 결과를 전달:
+Google Cloud에서는 **Cloud Run 소스 빌드에 별도 지정 서비스 계정 사용을 권장**합니다.
+이에 따라 기본 Compute 계정의 권한을 변경하지 않고, TTS 전용 서비스 계정 `study-tts-build@study-note-tts.iam.gserviceaccount.com`을 새로 사용하도록 코드를 변경했습니다.
+이 전용 계정에는 프로젝트 `study-note-tts` 내의 `roles/run.builder`만 부여. 버킷 objectViewer, 서비스 계정 Token Creator, Owner, Editor 권한은 부여하지 않음.
+**Cloud Run 런타임 서비스 계정은 여전히 `study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com`** 입니다.
+
+## 다음 사용자 Cloud Shell 일괄 작업 — 전용 빌드 계정 생성 + Builder 권한 확인
 
 ```bash
 (
   set -e
   git -C "$HOME/pe-tts-dev" pull --ff-only
-  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/preflight_build.sh"
+  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/setup_build_identity.sh" --execute --approve-project-builder-role
 )
 ```
 
-- `git pull --ff-only`는 기존 Cloud Shell의 개발 브랜치 소스를 최신 GitHub 커밋으로 갱신할 뿐 실제 클라우드 인프라를 생성하지 않음.
-- `preflight_build.sh`는 Google Cloud Build의 기본 서비스 계정을 조회하고, 프로젝트의 `roles/run.builder` 직접 부여 여부를 확인하여 요약만 출력.
-- `RUN_BUILDER_DIRECT_ROLE: PRESENT`면 기본 빌드 계정에 직접 역할 부여가 확인됨.
-- `RUN_BUILDER_DIRECT_ROLE: NOT_FOUND`면 추가 IAM 권한 부여를 검토해야 함. 바로 무단 권한을 추가하지 말고 결과 공유.
-- `BUILD_SERVICE_ACCOUNT_UNAVAILABLE`면 빌드 계정이 자동 설정되지 않아 별도 점검이 필요.
-- 권한 조회는 안전한 읽기 전용 요청이지만, 일반적인 Google Cloud API 요청 처리로 집계될 수 있음. 서비스 실행/빌드/MP3 업로드 작업은 아님.
-- 실제 배포는 다음 단계에서 비용 영향과 Google 로그인 허용 계정을 검토한 뒤 별도 승인 받아 진행.
+- 첫 명령은 기존 개발 브랜치 소스 업데이트.
+- 두 번째는 **정확한 프로젝트 번호를 확인**하고, `study-tts-build` 서비스 계정을 만들며, 프로젝트 수준 `roles/run.builder` IAM 정책을 해당 계정에게만 부여하고 재조회로 확인.
+- **일반 Cloud Run 서비스/컨테이너/Artifact Registry 이미지 생성, 실제 음성 합성/파일 업로드, JSON 비밀키 생성이 없음**.
+- 이 명령은 IAM 변경 작업이므로 본인의 Google Cloud 계정에서 실행하여 승인. 예상치 못한 에러 시 같은 명령을 반복하지 말고 오류 내용을 제공.
+- 결과에 `DEDICATED BUILD ACCOUNT READY`, `PROJECT_ROLE: roles/run.builder PRESENT`, `DEFAULT COMPUTE ACCOUNT: UNCHANGED`가 보이면 정상.
+- Google Cloud IAM 계정 생성 직후에는 전파 지연이 있을 수 있으며 권한 오류 발생 시 이후 단계 진행 전 확인.
 
 공식 문서:
-- https://docs.cloud.google.com/build/docs/cloud-build-service-account-updates
-- https://docs.cloud.google.com/run/docs/deploying-source-code
+- https://docs.cloud.google.com/run/docs/configuring/services/build-service-account
+- https://docs.cloud.google.com/sdk/gcloud/reference/projects/add-iam-policy-binding
 
 ## 실제 배포는 별도 승인 필수
 `deploy_pilot.sh`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:
@@ -55,6 +63,7 @@
 
 승인 후 서버 계획:
 - 서비스명 study-tts-audio-gateway / 지역 us-central1
+- 전용 Cloud Build: study-tts-build@study-note-tts.iam.gserviceaccount.com (프로젝트 roles/run.builder)
 - 1 vCPU / 512 MiB RAM / 0 최소 인스턴스 / 최대 인스턴스 1 / 동시 요청 4 / CPU 요청 시만 할당
 - GitHub Pages 및 별도 로컬 테스트 환경용 브라우저 CORS 정책
 - HTTPS 공개 접근 허용은 브라우저 preflight를 위한 전달 계층 설정일 뿐, **MP3 목록과 다운로드 링크는 Google 로그인 ID 토큰 검증/허용 이메일 검사를 통과해야만 조회 가능**.

@@ -9,12 +9,14 @@ BUCKET="study-note-tts-audio-558407087449"
 REGION="us-central1"
 SERVICE="study-tts-audio-gateway"
 READER="study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com"
+BUILD_EMAIL="study-tts-build@study-note-tts.iam.gserviceaccount.com"
 CLIENT="1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com"
 
 if [[ "$#" == 0 || ("$#" == 1 && "$1" == "--dry-run") ]]; then
   echo "=== CLOUD RUN GATEWAY: DRY RUN, NO GOOGLE API REQUEST ==="
   echo "Project: $PROJECT / Region: $REGION / Service: $SERVICE"
   echo "Private MP3 storage: $BUCKET / runtime reader: $READER"
+  echo "Dedicated Cloud Build identity: $BUILD_EMAIL (default Compute service account unchanged)"
   echo "1 vCPU, 512 MiB RAM, 0 minimum and 1 maximum instance, concurrency 4"
   echo "Cloud Run accepts HTTPS/CORS, but MP3 manifest and signed URLs require Google login."
   echo "Actual source build/deployment may use Cloud Build, Artifact Registry, Cloud Run, egress and logs."
@@ -37,6 +39,9 @@ checks={
   "budgetAlertsUserConfirmed":True, "bucketReaderIamUserConfirmed":True,
   "signBlobRoleUserConfirmed":True, "requiredApisUserConfirmed":True,
   "buildApisUserConfirmed":True, "cloudBuildIdentityCheckedUserConfirmed":True,
+  "dedicatedBuildServiceAccountEmail":"study-tts-build@study-note-tts.iam.gserviceaccount.com",
+  "dedicatedBuildServiceAccountCreatedUserConfirmed":True,
+  "dedicatedBuildRoleGrantedUserConfirmed":True,
   "cloudRunServiceNamePlanned":"study-tts-audio-gateway",
   "cloudRunDeploymentUserApproved":True, "cloudProvisioningApproved":True,
   "ttsGenerationApproved":False, "gcsUploadApproved":False
@@ -75,6 +80,7 @@ gcloud run deploy "$SERVICE" \
   --project="$PROJECT" \
   --region="$REGION" \
   --source="$HERE" \
+  --build-service-account="projects/$PROJECT/serviceAccounts/$BUILD_EMAIL" \
   --service-account="$READER" \
   --allow-unauthenticated \
   --ingress=all \

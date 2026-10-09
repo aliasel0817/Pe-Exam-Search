@@ -37,7 +37,11 @@ class ReadinessTests(unittest.TestCase):
             "plannedBuildApis": ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"],
             "buildApisUserConfirmed": True,
             "cloudRunServicesCheckedUserConfirmed": True,
-            "cloudBuildIdentityCheckedUserConfirmed": False,
+            "cloudBuildIdentityCheckedUserConfirmed": True,
+            "dedicatedBuildServiceAccountEmail": "study-tts-build@study-note-tts.iam.gserviceaccount.com",
+            "dedicatedBuildRolePlanned": "roles/run.builder",
+            "dedicatedBuildServiceAccountCreatedUserConfirmed": False,
+            "dedicatedBuildRoleGrantedUserConfirmed": False,
             "cloudRunDeploymentUserApproved": False,
             "cloudRunDeploymentUserConfirmed": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
@@ -117,6 +121,22 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(ready_flag)
         self.assertTrue(any("빌드 서비스 계정" in item for item in issues))
 
+    def test_dedicated_builder_required_before_cloud_run(self):
+        problems, prepared = ready.inspect(self.project, self.runtime)
+        self.assertFalse(prepared)
+        self.assertTrue(any("전용 Cloud Build 서비스 계정 생성" in text for text in problems))
+        self.assertTrue(any("전용 빌드 계정의 프로젝트" in text for text in problems))
+
+    def test_wrong_dedicated_builder_or_role_rejected(self):
+        for bad in (
+            {"dedicatedBuildServiceAccountEmail": "558407087449-compute@developer.gserviceaccount.com"},
+            {"dedicatedBuildRolePlanned": "roles/owner"},
+        ):
+            with self.subTest(bad=bad):
+                problems, prepared = ready.inspect({**self.project, **bad}, self.runtime)
+                self.assertFalse(prepared)
+                self.assertTrue(any("빌드 계정 또는 Builder 역할 계획" in text for text in problems))
+
     def test_cloud_run_requires_separate_owner_approval(self):
         data = {**self.project, "cloudRunDeploymentUserApproved": False}
         issues, is_ready = ready.inspect(data, self.runtime)
@@ -137,6 +157,8 @@ class ReadinessTests(unittest.TestCase):
             "buildApisUserConfirmed": True,
             "cloudRunDeploymentUserApproved": True,
             "cloudBuildIdentityCheckedUserConfirmed": True,
+            "dedicatedBuildServiceAccountCreatedUserConfirmed": True,
+            "dedicatedBuildRoleGrantedUserConfirmed": True,
             "cloudRunDeploymentUserConfirmed": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,

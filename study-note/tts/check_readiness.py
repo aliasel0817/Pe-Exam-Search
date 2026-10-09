@@ -62,7 +62,13 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
     if project.get("cloudRunServicesCheckedUserConfirmed") is not True:
         problems.append("Cloud Run 서비스 목록의 현재 상태가 확인되지 않았습니다.")
     if project.get("cloudBuildIdentityCheckedUserConfirmed") is not True:
-        problems.append("Cloud Run 빌드 서비스 계정 및 최소 권한 사전 점검이 아직 완료되지 않았습니다.")
+        problems.append("Cloud Run 기본 빌드 계정 사전 점검이 아직 완료되지 않았습니다.")
+    if project.get("dedicatedBuildServiceAccountEmail") != "study-tts-build@study-note-tts.iam.gserviceaccount.com" or project.get("dedicatedBuildRolePlanned") != "roles/run.builder":
+        problems.append("Cloud Run 전용 빌드 계정 또는 Builder 역할 계획이 예상과 다릅니다.")
+    if project.get("dedicatedBuildServiceAccountCreatedUserConfirmed") is not True:
+        problems.append("TTS 전용 Cloud Build 서비스 계정 생성은 아직 확인되지 않았습니다.")
+    if project.get("dedicatedBuildRoleGrantedUserConfirmed") is not True:
+        problems.append("TTS 전용 빌드 계정의 프로젝트 Cloud Run Builder 권한이 아직 확인되지 않았습니다.")
     if project.get("cloudRunDeploymentUserApproved") is not True:
         problems.append("사용자가 Cloud Run 테스트 서버 배포 가능 요금을 별도 승인하지 않았습니다.")
     if project.get("cloudRunDeploymentUserConfirmed") is not True:
@@ -118,8 +124,12 @@ def report(project: dict, runtime: dict) -> str:
         + ("확인" if project.get("buildApisUserConfirmed") is True else "미확인"),
         "Cloud Run 서비스 목록 조회: "
         + ("완료" if project.get("cloudRunServicesCheckedUserConfirmed") is True else "미실시"),
-        "Cloud Build 계정 사전 점검: "
+        "Cloud Build 기본 계정 사전 점검: "
         + ("완료" if project.get("cloudBuildIdentityCheckedUserConfirmed") is True else "미실시"),
+        "전용 TTS 빌드 계정 생성: "
+        + ("완료" if project.get("dedicatedBuildServiceAccountCreatedUserConfirmed") is True else "미실시"),
+        "전용 TTS Builder 권한: "
+        + ("확인" if project.get("dedicatedBuildRoleGrantedUserConfirmed") is True else "미확인"),
         "Cloud Run 배포 비용 사전 동의: "
         + ("동의" if project.get("cloudRunDeploymentUserApproved") is True else "미동의"),
         "서버 연결 상태: " + str(runtime.get("mode", "(미설정)")),

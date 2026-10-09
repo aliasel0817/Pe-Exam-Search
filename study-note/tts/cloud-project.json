@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Cloud Run dry-run output confirmed by user on 2026-10-09. GitHub source cloned in Cloud Shell; no real build/deploy/synthesis/upload. Before any paid-capable Cloud Run pilot deploy, inspect effective default Cloud Build identity and direct run.builder IAM role using read-only preflight. Actual deployment still requires explicit consent.",
+  "comment": "The project default Compute build account is known but lacks directly assigned roles/run.builder. Per Google recommendation, use a dedicated study-tts-build account for Cloud Run source builds; default Compute account permissions remain unchanged. Cloud Run deployment, actual synthesis and MP3 uploads remain unapproved/disabled.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -56,7 +56,14 @@
   "cloudRunDeploymentUserApproved": false,
   "cloudRunDeploymentUserConfirmed": false,
   "cloudRunServiceNamePlanned": "study-tts-audio-gateway",
-  "cloudBuildIdentityCheckedUserConfirmed": false,
-  "cloudBuildRoleStatus": "not_checked",
-  "cloudBuildPreflightScript": "study-note/tts/cloud-gateway/preflight_build.sh"
+  "cloudBuildIdentityCheckedUserConfirmed": true,
+  "cloudBuildRoleStatus": "default_compute_direct_role_not_found",
+  "cloudBuildPreflightScript": "study-note/tts/cloud-gateway/preflight_build.sh",
+  "observedDefaultBuildServiceAccount": "558407087449-compute@developer.gserviceaccount.com",
+  "observedDefaultBuildIdentitySource": "2026-10-09 user Cloud Shell screenshot: preflight_build.sh BUILD_SERVICE_ACCOUNT=...compute@developer.gserviceaccount.com, RUN_BUILDER_DIRECT_ROLE=NOT_FOUND",
+  "dedicatedBuildServiceAccountId": "study-tts-build",
+  "dedicatedBuildServiceAccountEmail": "study-tts-build@study-note-tts.iam.gserviceaccount.com",
+  "dedicatedBuildRolePlanned": "roles/run.builder",
+  "dedicatedBuildServiceAccountCreatedUserConfirmed": false,
+  "dedicatedBuildRoleGrantedUserConfirmed": false
 }

@@ -48,3 +48,5 @@
 - Cloud Run 배포 미리보기 스크립트: `cloud-gateway/deploy_pilot.sh`
   (기본 dry-run, 승인 잠금 해제 전 실제 배포 원천 차단).
 - 쉬운 Cloud Shell 실행 안내: `CLOUD-RUN-PILOT-KO.md`.
+
+- 기본 Compute Cloud Build 계정에 직접 Builder 역할 없음 확인. 프로젝트 TTS 전용 `study-tts-build@study-note-tts.iam.gserviceaccount.com`을 만드는 절차로 전환하여 `--build-service-account`으로 명시; `setup_build_identity.sh` 기본값은 dry-run, Cloud Run 배포는 여전히 별도 승인 잠금.
