@@ -83,6 +83,18 @@ test('GIS credential callback performs only one request and never displays the t
   assert.ok(status.textContent.length>0);
 });
 
+test('single-file GitHub Pages login tester lives outside the Study Note PWA scope',()=>{
+  const one=fs.readFileSync(path.join(__dirname,'../../tts-auth-check.html'),'utf8');
+  const source=fs.readFileSync(path.join(__dirname,'auth-smoke.js'),'utf8');
+  assert.ok(one.includes('<meta name="robots" content="noindex,nofollow">'));
+  const found=one.match(/<script id="tts-auth-smoke">\s*([\s\S]*?)\s*<\/script>/);
+  assert.ok(found,'Single-file smoke page must embed tested script');
+  assert.equal(found[1].trim(),source.trim());
+  assert.ok(one.includes('https://accounts.google.com/gsi/client'));
+  assert.ok(!one.includes('study-note.html'));
+  assert.ok(!one.includes('service-worker.js'));
+});
+
 test('HTML is an isolated tester with no token persistence or mutation controls',()=>{
   const html=fs.readFileSync(path.join(__dirname,'auth-smoke.html'),'utf8');
   const js=fs.readFileSync(path.join(__dirname,'auth-smoke.js'),'utf8');
