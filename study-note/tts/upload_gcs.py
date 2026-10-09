@@ -25,6 +25,20 @@ ALLOWED_FILE = re.compile(
 BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,60}[a-z0-9]$")
 MAX_FILES = 100
 MAX_BYTES = 40 * 1024 * 1024
+PROJECT_CONFIG = Path(__file__).resolve().parent / "cloud-project.json"
+
+
+def project_binding(path: Path = PROJECT_CONFIG) -> tuple[str, str]:
+    """Read the previously confirmed Cloud project; fail if not explicitly approved."""
+    config = json.loads(path.read_text(encoding="utf-8"))
+    project_id = str(config.get("projectId", "")).strip()
+    project_number = str(config.get("projectNumber", "")).strip()
+    if (config.get("schemaVersion") != 1 or
+        not re.fullmatch(r"[a-z][a-z0-9-]{3,62}", project_id) or
+        not re.fullmatch(r"[0-9]{6,20}", project_number)):
+        raise ValueError("Invalid cloud-project.json; no cloud action allowed.")
+    return project_id, project_number
+
 
 
 def validate_manifest(audio_dir: Path) -> tuple[dict[str, Any], list[tuple[str, Path]]]:
@@ -61,10 +75,11 @@ def run(args: list[str], *, check: bool = True, input_bytes: bytes | None = None
     return subprocess.run(args, input=input_bytes, capture_output=True, check=check, timeout=120)
 
 
-def check_bucket(bucket: str) -> None:
-    res = run(["gcloud", "storage", "buckets", "describe", "gs://" + bucket,
-               "--raw", "--format=json"])
-    obj = json.loads(res.stdout.decode("utf-8"))
+def validate_bucket_metadata(obj: dict, bucket: str, expected_project_number: str) -> None:
+    if obj.get("name") != bucket:
+        raise ValueError("GCS bucket name mismatch; upload aborted.")
+    if str(obj.get("projectNumber", "")) != expected_project_number:
+        raise ValueError("GCS bucket is NOT owned by the confirmed Study-Note-TTS project; upload aborted.")
     iam = obj.get("iamConfiguration") or {}
     public = str(iam.get("publicAccessPrevention", "")).lower()
     uniform = (iam.get("uniformBucketLevelAccess") or {}).get("enabled") is True
@@ -78,6 +93,13 @@ def check_bucket(bucket: str) -> None:
         raise ValueError("Cloud bucket must enforce public access prevention and uniform access.")
 
 
+def check_bucket(bucket: str, expected_project_id: str, expected_project_number: str) -> None:
+    res = run(["gcloud", "storage", "buckets", "describe", "gs://" + bucket,
+               "--raw", "--format=json", "--project=" + expected_project_id])
+    obj = json.loads(res.stdout.decode("utf-8"))
+    validate_bucket_metadata(obj, bucket, expected_project_number)
+
+
 def merged_manifest(local: dict, cloud: dict | None) -> dict:
     if cloud is None:
         return local
@@ -88,10 +110,10 @@ def merged_manifest(local: dict, cloud: dict | None) -> dict:
     return {"schemaVersion": 1, "entries": {**old, **new}}
 
 
-def remote_manifest(bucket: str) -> tuple[dict | None, str]:
+def remote_manifest(bucket: str, project_id: str) -> tuple[dict | None, str]:
     uri = "gs://" + bucket + "/" + OBJECT_ROOT + "/index.json"
     meta = run(["gcloud", "storage", "objects", "describe", uri,
-                "--format=json"], check=False)
+                "--format=json", "--project=" + project_id], check=False)
     if meta.returncode:
         # Only a genuine not-found may be treated as a new object; other errors abort.
         details = (meta.stderr or b"").decode("utf-8", errors="replace").lower()
@@ -102,15 +124,16 @@ def remote_manifest(bucket: str) -> tuple[dict | None, str]:
     generation = str(props.get("generation", ""))
     if not re.fullmatch(r"[0-9]{1,25}", generation):
         raise RuntimeError("Unable to establish cloud manifest generation.")
-    data = run(["gcloud", "storage", "cat", uri]).stdout
+    data = run(["gcloud", "storage", "cat", uri, "--project=" + project_id]).stdout
     if len(data) > 20*1024*1024:
         raise ValueError("Cloud manifest too large.")
     return json.loads(data.decode("utf-8")), generation
 
 
-def execute(audio_dir: Path, bucket: str, local: dict, objects: list[tuple[str, Path]]) -> None:
-    check_bucket(bucket)
-    previous, generation = remote_manifest(bucket)
+def execute(audio_dir: Path, bucket: str, local: dict, objects: list[tuple[str, Path]],
+            project_id: str, project_number: str) -> None:
+    check_bucket(bucket, project_id, project_number)
+    previous, generation = remote_manifest(bucket, project_id)
     next_index = merged_manifest(local, previous)
     with tempfile.TemporaryDirectory(prefix="study-tts-manifest-") as tmp:
         index_file = Path(tmp) / "index.json"
@@ -120,14 +143,16 @@ def execute(audio_dir: Path, bucket: str, local: dict, objects: list[tuple[str, 
             dest = "gs://" + bucket + "/" + OBJECT_ROOT + "/" + name
             run(["gcloud", "storage", "cp", str(path), dest,
                  "--no-clobber", "--content-type=audio/mpeg",
-                 "--cache-control=private, max-age=86400"])
+                 "--cache-control=private, max-age=86400",
+                 "--project=" + project_id])
             print("Uploaded/kept " + name)
         dest = "gs://" + bucket + "/" + OBJECT_ROOT + "/index.json"
         # Atomic compare-and-swap protects another uploader's changes.
         run(["gcloud", "storage", "cp", str(index_file), dest,
              "--content-type=application/json",
              "--cache-control=private, no-store",
-             "--if-generation-match=" + generation])
+             "--if-generation-match=" + generation,
+             "--project=" + project_id])
         print("Private GCS audio manifest uploaded successfully.")
 
 
@@ -141,18 +166,21 @@ def main() -> int:
     try:
         if not BUCKET_NAME.fullmatch(args.bucket):
             raise ValueError("Invalid GCS bucket name.")
+        project_id, project_number = project_binding()
         local, objects = validate_manifest(args.audio_dir.resolve())
         bytes_total = sum(file.stat().st_size for _, file in objects)
         if len(objects) > MAX_FILES or bytes_total > MAX_BYTES:
             raise ValueError("Upload safety cap: max 100 MP3 files and 40 MiB per invocation.")
         print("Mode:", "GCS UPLOAD EXECUTE" if args.execute else "DRY RUN - NO CLOUD REQUESTS")
+        print("Confirmed project:", project_id, "| project number:", project_number)
         print("Bucket:", args.bucket, "| prefix:", OBJECT_ROOT)
         print("Audio files:", len(objects), "| bytes:", bytes_total)
         print("Manifest entries:", len(local["entries"]))
         if args.execute and not args.accept_possible_cloud_charges:
             raise ValueError("--execute requires --accept-possible-cloud-charges")
         if args.execute:
-            execute(args.audio_dir.resolve(), args.bucket, local, objects)
+            execute(args.audio_dir.resolve(), args.bucket, local, objects,
+                    project_id, project_number)
         else:
             print("Dry run complete; no GCS calls, bucket creation, or writes.")
         return 0
