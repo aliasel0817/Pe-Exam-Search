@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>학습노트 TTS — Google 로그인 검증(격리 테스트)</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+body{margin:0;padding:24px;background:Canvas;color:CanvasText}
+main{max-width:640px;margin:0 auto}
+h1{font-size:1.45rem;margin-top:0}
+p,li{line-height:1.75}
+.note{padding:14px;border:1px solid #8885;border-radius:10px}
+#login{min-height:44px;margin:24px 0}
+#result{border:1px solid #8885;border-radius:10px;padding:14px;min-height:46px;white-space:pre-wrap;line-height:1.6}
+#result[data-state="success"]{border-color:#27965a}
+#result[data-state="warning"]{border-color:#cf8525}
+#result[data-state="failure"]{border-color:#b84c4c}
+small{opacity:.8}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="./auth-smoke.js" defer></script>
+</head>
+<body>
+<main>
+<h1>학습노트 TTS — Google 로그인 실검증</h1>
+<p>이 페이지는 개발용 테스트 화면입니다. 현재 운영 학습노트와 PDF·필기·Sheets 데이터는 변경하지 않습니다.</p>
+<div class="note">
+<p><strong>시험하는 내용</strong>: Google 로그인으로 발급받은 ID 토큰이 현재 Cloud Run 서버의 인증·허용 계정 검사를 통과하는지 확인합니다.</p>
+<p><strong>하지 않는 내용</strong>: 음성 생성, MP3 업로드·다운로드, 새 Cloud Run 배포, 토큰 저장 또는 화면 표시.</p>
+</div>
+<div id="login" aria-label="Google 로그인 버튼"></div>
+<div id="result" aria-live="polite" role="status">페이지를 열면 로그인 준비 상태를 확인합니다.</div>
+<p><small>계정이 허용되지 않으면 HTTP 403이 나타날 수 있습니다. 오디오 목록이 아직 없으면 인증 성공 후 HTTP 503이 나타날 수 있습니다. 결과 화면만 공유하고 개발자 도구의 인증 토큰이나 네트워크 헤더는 공유하지 마세요.</small></p>
+</main>
+</body>
+</html>
