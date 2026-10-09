@@ -30,7 +30,7 @@ jobs:
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify keyless service account created; scope IAM to one private MP3 bucket
+      - name: Verify bucket objectViewer done; scoped service account self-sign still pending
         shell: bash
         run: |
           python3 - <<'PY'
@@ -51,7 +51,11 @@ jobs:
           assert project['plannedServiceAccountId'] == 'study-tts-audio-reader'
           assert project['plannedServiceAccountEmail'] == 'study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
           assert project['serviceAccountCreatedUserConfirmed'] is True
-          assert project['bucketReaderIamUserConfirmed'] is False
+          assert project['bucketReaderIamUserConfirmed'] is True
+          assert project['signBlobRoleUserConfirmed'] is False
+          assert project['plannedSigningRole'] == 'roles/iam.serviceAccountTokenCreator'
+          assert project['plannedSigningPrincipal'] == 'serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
+          assert project['plannedSigningScope'] == 'study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
           assert project['plannedReaderBucketName'] == 'study-note-tts-audio-558407087449'
           assert project['plannedReaderBucketRole'] == 'roles/storage.objectViewer'
           cors = json.loads((base / 'cloud-gateway/gcs-cors.json').read_text(encoding='utf-8'))
@@ -62,7 +66,7 @@ jobs:
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('Private MP3 reader identity created, bucket IAM not yet confirmed; Cloud Run/TTS/upload remain disabled')
+          print('Bucket-only objectViewer confirmed; service-account self-sign permission pending; cloud execution disabled')
           PY
       - name: Verify TTS module is linked from development HTML
         shell: bash

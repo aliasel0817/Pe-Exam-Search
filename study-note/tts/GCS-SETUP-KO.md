@@ -1,39 +1,36 @@
-# 학습노트 TTS — 단계별 진행 기록 (2026-10-09)
+# 학습노트 TTS — 체크포인트: MP3 버킷 읽기 권한 완료
 
-## 완료된 단계
-- 프로젝트 study-note-tts (번호 558407087449) 및 결제 계정 확인
-- 예산 Study-Note-TTS-Budget 사용자 완료 확인
-- 비공개 GCS 버킷 study-note-tts-audio-558407087449 생성, US-CENTRAL1 STANDARD, uniform, public access prevention enforced, soft delete 7일
-- MP3 다운로드용 CORS 설정 명령 Completed 1 확인
-- **서비스 계정 생성 완료**: 사용자 Cloud Shell 스크린샷에서 Created service account [study-tts-audio-reader] / 예상 이메일 확인
-- 서비스 계정에 **비밀키 발급 없음**, GCS 읽기 권한은 아직 부여되지 않음
-- 운영 main v4.6.3, 필기/Google Sheets/Apps Script 변경 없음
-- Cloud Run 구축·실제 AI 음성 생성·MP3 업로드: 잠금 상태, 미실행
+## 완료 및 확인된 항목 (2026-10-09)
+- Google Cloud 프로젝트: study-note-tts (번호 558407087449)
+- Cloud Storage 버킷: study-note-tts-audio-558407087449, US-CENTRAL1, Standard, 공개 접근 방지
+- GCS CORS 변경: 사용자 Cloud Shell Completed 1 확인
+- 서비스 계정: study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
+- **버킷 단위 객체 읽기 IAM 완료:** 사용자 Cloud Shell 정책 출력에 member=serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com, role=roles/storage.objectViewer, resourceId=projects/_/buckets/study-note-tts-audio-558407087449 표시
+- 아직 **Cloud Run 미배포, 실제 TTS 합성 미실행, GCS MP3 업로드 미실행, 운영 main v4.6.3 미변경**. 과금 가능 실행 잠금값 3종 전부 false.
 
-## 사용자 이번 한 단계 — 해당 비공개 버킷에서만 읽기 권한 부여
+## 사용자 이번 한 단계 — 임시 MP3 다운로드 링크 서명 권한을 서비스 계정 자신에게만 부여
 
-현재 열려 있는 Google Cloud Shell에서 아래 명령어 한 줄만 실행:
+현재 Google Cloud Shell에 아래 명령어를 복사하여 한 번만 실행:
 
-    gcloud storage buckets add-iam-policy-binding gs://study-note-tts-audio-558407087449 --member="serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com" --role="roles/storage.objectViewer" --project=study-note-tts
+    gcloud iam service-accounts add-iam-policy-binding study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com --member="serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com" --role="roles/iam.serviceAccountTokenCreator" --project=study-note-tts
 
-IAM 권한의 범위: **이 버킷 하나**. 적용할 주체는 study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com 하나.
-권한 roles/storage.objectViewer = 버킷 내 객체를 읽고 목록 확인 가능(수정/업로드/삭제 불가).
-프로젝트 전체에 roles/storage.admin, roles/editor 등의 광범위한 권한을 부여하지 말 것.
-버킷은 공개되지 않으며 allUsers/allAuthenticatedUsers를 권한에 추가하지 않음.
-이 IAM 정책 변경은 Google Cloud 설정 작업으로 미세한 API 사용량이 발생할 수 있음.
-명령이 정상 완료되면 Cloud Shell 출력 화면 또는 오류를 사용자 채팅에 전달.
-**오류 시 다시 반복 실행하거나 다른 권한으로 바꾸지 않기.**
+이 명령은 **서비스 계정 리소스 하나**에만 roles/iam.serviceAccountTokenCreator 역할을 부여하고,
+역할을 받는 주체 역시 해당 서비스 계정 자기 자신임. 프로젝트 전체 IAM에 부여하지 않음.
+필요 목적은 Cloud Run 런타임에서 `iam.serviceAccounts.signBlob`으로 **5분짜리 읽기 전용 MP3 Signed URL**을 만드는 것.
+이 사전 정의 역할은 단순 서명 외에 해당 서비스 계정 자체에 대한 토큰 생성 권한도 포함하므로, 다른 계정/프로젝트로 확대하지 않을 것.
+**서비스 계정 키 JSON 파일을 만들지 않음.**
 
-다음 단계(이번에는 하지 않음): 실제 IAM 반영 상태 조회 → 향후 서명 URL 생성 권한 및 Google Sign-in 준비를 한 단계씩 진행.
+명령 실패 시 반복 실행·광역 프로젝트 권한 대체 부여를 하지 말고 오류 메시지를 공유할 것.
+명령 성공 이후에도 **IAM Service Account Credentials API 활성화** 등 추가 설정이 필요하며, 다음 턴에 한 단계씩 확인.
+Google Cloud IAM 정책 적용은 소량의 설정 API 요청을 사용. Cloud Run을 배포하거나 MP3를 생성하는 명령은 아님.
 
-## 개발 브랜치 체크포인트
-- cloud-project.json: serviceAccountCreatedUserConfirmed=true, bucketReaderIamUserConfirmed=false
-- cloud-config.json: mode=disabled
+## 개발 상태
+- cloud-project.json: bucketReaderIamUserConfirmed=true, signBlobRoleUserConfirmed=false
 - cloudProvisioningApproved=false, ttsGenerationApproved=false, gcsUploadApproved=false
-- 생성/업로드/배포 잠금 유지, 오디오 파일 공개 없음
-- GitHub 자동 검증: JS player, Cloud gateway, Python 생성/업로드, 승인 경로 및 최소 권한 검증
+- cloud-config.json: mode=disabled, 운영 앱은 변화 없음
+- Apps Script: 저장/실행/재배포 모두 불필요
 
-공식 Google 문서: https://docs.cloud.google.com/storage/docs/access-control/using-iam-permissions
+공식 안내: https://docs.cloud.google.com/storage/docs/access-control/signing-urls-with-helpers
 
 ---
 
