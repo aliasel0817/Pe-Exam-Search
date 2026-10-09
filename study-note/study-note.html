@@ -1817,7 +1817,27 @@ button { -webkit-tap-highlight-color: transparent; }
   .annotation-palette-hex { font-size: 16px; }
 }
 
-  </style>
+  
+/* AI MP3 TTS: independent UI, no changes to note/annotation storage. */
+.tts-title-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.tts-title-row #detailTitle { min-width:0; margin-right:auto; }
+.tts-title-row .btn { flex:0 0 auto; min-height:40px; }
+.tts-main-btn.tts-playing { background:#ffe4e6; border-color:#fda4af; color:#9f1239; }
+.tts-settings-panel { margin:0 0 14px; padding:14px; border:1px solid #cbd5e1; border-radius:12px; background:#f8fafc; }
+.tts-panel-title { display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+#ttsStatus { font-size:.78rem; color:#475569; overflow-wrap:anywhere; }
+.tts-settings-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.tts-settings-grid label { display:flex; flex-direction:column; gap:5px; font-size:.8rem; font-weight:700; }
+.tts-settings-grid select { min-width:0; width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:7px; background:white; }
+.tts-field-title { font-size:.84rem; font-weight:700; margin:15px 0 9px; }
+.tts-field-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.tts-field-grid label { font-size:.83rem; display:flex; align-items:center; gap:7px; }
+.tts-field-grid input { width:18px; height:18px; accent-color:#2563eb; }
+.tts-panel-actions { display:flex; gap:8px; margin-top:12px; }
+.tts-help { margin:12px 0 0; color:#64748b; font-size:.76rem; line-height:1.5; }
+.tts-reading-highlight { outline:3px solid #60a5fa; outline-offset:3px; background:#eff6ff!important; transition:background .2s; }
+@media(max-width:760px){.tts-settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tts-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tts-title-row #detailTitle{flex-basis:100%}}
+</style>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -1971,11 +1991,33 @@ button { -webkit-tap-highlight-color: transparent; }
           <header class="topic-header question-topic-header">
             <div class="question-topic-header-copy">
               <div id="detailCategory" class="eyebrow">대분류</div>
-              <h2 id="detailTitle">토픽명</h2>
+              <div class="tts-title-row"><h2 id="detailTitle">토픽명</h2><button id="ttsToggleBtn" class="btn tts-main-btn" type="button" aria-pressed="false" aria-label="AI 음성 듣기">🔊 듣기</button><button id="ttsSettingsBtn" class="btn tts-settings-btn" type="button" aria-expanded="false" aria-controls="ttsSettingsPanel" aria-label="음성 설정">⚙</button></div>
               <div id="detailDomainName" class="muted"></div>
             </div>
             <button id="questionSearchBtn" class="btn question-search-trigger" type="button" aria-label="현재 토픽으로 문제 검색">⌕ <span class="question-search-trigger-label">문제 검색</span></button>
           </header>
+
+          <section id="ttsSettingsPanel" class="tts-settings-panel hidden" aria-label="AI 음성 읽기 설정">
+            <div class="tts-panel-title"><strong>AI 자연음성 MP3 학습</strong><span id="ttsStatus" role="status" aria-live="polite">AI MP3 음성 대기 중</span></div>
+            <div class="tts-settings-grid">
+              <label>목소리<select id="ttsOption-voice"><option value="ko-KR-Chirp3-HD-Aoede">여성 · Aoede</option><option value="ko-KR-Chirp3-HD-Kore">여성 · Kore</option><option value="ko-KR-Chirp3-HD-Charon">남성 · Charon</option></select></label>
+              <label>재생 모드<select id="ttsOption-mode"><option value="continuous">검색 목록 연속 읽기</option><option value="one">현재 토픽만</option></select></label>
+              <label>읽기 속도<select id="ttsOption-rate"><option value="0.85">0.85배</option><option value="1">1.0배</option><option value="1.15">1.15배</option><option value="1.25">1.25배</option></select></label>
+              <label>토픽 반복<select id="ttsOption-repeat"><option value="1">1회</option><option value="2">2회</option></select></label>
+              <label>다음 토픽 회상 시간<select id="ttsOption-gap"><option value="0">0초</option><option value="3">3초</option><option value="5">5초</option></select></label>
+            </div>
+            <div class="tts-field-title">읽기 항목 · 토픽명은 항상 먼저 읽습니다</div>
+            <div class="tts-field-grid">
+              <label><input id="ttsField-concept" type="checkbox" checked> 개념</label>
+              <label><input id="ttsField-background" type="checkbox" checked> 등장배경</label>
+              <label><input id="ttsField-necessity" type="checkbox" checked> 필요성</label>
+              <label><input id="ttsField-features" type="checkbox" checked> 특징</label>
+              <label><input id="ttsField-components" type="checkbox" checked> 기술요소/구성요소</label>
+              <label><input id="ttsField-keywords" type="checkbox" checked> 키워드</label>
+            </div>
+            <div class="tts-panel-actions"><button id="ttsSelectAll" class="btn" type="button">전체 선택</button><button id="ttsSelectNone" class="btn" type="button">전체 해제</button></div>
+            <p class="tts-help">브라우저 내장 TTS는 사용하지 않습니다. AI로 생성한 MP3가 저장되어 있어야 재생됩니다. 미생성 파일은 자동 과금 없이 안내합니다.</p>
+          </section>
 
           <section class="learning-action-bar" aria-label="학습 기능">
             <button id="favoriteBtn" class="learning-action-btn" type="button">☆ 즐겨찾기</button>
@@ -5432,6 +5474,7 @@ function resetFilters({ render = true } = {}) {
 }
 
 function applyFilters({ preserveCurrent = false } = {}) {
+  window.peStudyNoteTTS?.onFilterChanged();
   const searchTerms = getSafeSearchTerms();
   const searchTargets = getSelectedSearchTargets();
   const target = els.studyTargetFilter.value;
@@ -5542,6 +5585,7 @@ function renderTopicList() {
 }
 
 function showTopicById(topicId, { scrollList = true } = {}) {
+  window.peStudyNoteTTS?.onTopicChanged(topicId);
   const topic = filteredTopics.find(t => t.topicId === topicId);
   if (!topic) {
     if (filteredTopics.length) return showTopicById(filteredTopics[0].topicId, { scrollList });
@@ -12236,5 +12280,14 @@ function cssEscape(value) {
 }
 
   </script>
+<script>
+window.peStudyNoteTtsBridge = {
+  currentTopic: () => allTopics.find(t => t.topicId === currentTopicId) || null,
+  getTopicById: id => allTopics.find(t => t.topicId === id) || null,
+  filteredTopicIds: () => filteredTopics.map(t => t.topicId),
+  selectTopic: id => showTopicById(id)
+};
+</script>
+<script src="./tts/natural-tts.js"></script>
 </body>
 </html>
