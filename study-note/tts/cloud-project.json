@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Bucket IAM now confirms objectViewer only for the intended service account on the single MP3 bucket. NEXT: approve self-only iam.serviceAccountTokenCreator role to sign short-lived GET URLs, scoped on the service account resource (not project). NO service account key. TTS, upload, Cloud Run deployment remain disabled.",
+  "comment": "Service account self-scoped Token Creator and bucket-scoped objectViewer confirmed via Cloud Shell screenshots. Next safe batch: enable three required APIs and read back API status, keyless IAM binding and bucket CORS. No Cloud Run deployment, MP3 upload or synthesis approved.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -29,5 +29,12 @@
   "plannedSigningRole": "roles/iam.serviceAccountTokenCreator",
   "plannedSigningPrincipal": "serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
   "plannedSigningScope": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
-  "signBlobRoleUserConfirmed": false
+  "signBlobRoleUserConfirmed": true,
+  "signBlobRoleConfirmation": "User Cloud Shell screenshot: Updated IAM policy for serviceAccount study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com; member itself has roles/iam.serviceAccountTokenCreator",
+  "plannedEnabledApis": [
+    "iamcredentials.googleapis.com",
+    "texttospeech.googleapis.com",
+    "run.googleapis.com"
+  ],
+  "requiredApisUserConfirmed": false
 }

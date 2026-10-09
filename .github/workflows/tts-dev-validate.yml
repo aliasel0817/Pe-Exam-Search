@@ -30,7 +30,7 @@ jobs:
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify bucket objectViewer done; scoped service account self-sign still pending
+      - name: Verify service-account self-sign done; three API activations pending
         shell: bash
         run: |
           python3 - <<'PY'
@@ -52,7 +52,9 @@ jobs:
           assert project['plannedServiceAccountEmail'] == 'study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
           assert project['serviceAccountCreatedUserConfirmed'] is True
           assert project['bucketReaderIamUserConfirmed'] is True
-          assert project['signBlobRoleUserConfirmed'] is False
+          assert project['signBlobRoleUserConfirmed'] is True
+          assert project['plannedEnabledApis'] == ['iamcredentials.googleapis.com','texttospeech.googleapis.com','run.googleapis.com']
+          assert project['requiredApisUserConfirmed'] is False
           assert project['plannedSigningRole'] == 'roles/iam.serviceAccountTokenCreator'
           assert project['plannedSigningPrincipal'] == 'serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
           assert project['plannedSigningScope'] == 'study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
@@ -66,7 +68,7 @@ jobs:
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('Bucket-only objectViewer confirmed; service-account self-sign permission pending; cloud execution disabled')
+          print('Bucket reader and self-sign permissions confirmed; Cloud API activation pending, deployment/synthesis/upload still locked')
           PY
       - name: Verify TTS module is linked from development HTML
         shell: bash

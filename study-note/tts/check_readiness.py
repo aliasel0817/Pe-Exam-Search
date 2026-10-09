@@ -44,6 +44,11 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("임시 MP3 링크 서명 권한 설정의 계정 또는 범위가 예상과 다릅니다.")
     if project.get("signBlobRoleUserConfirmed") is not True:
         problems.append("임시 다운로드 링크를 위한 서비스 계정 자체 서명 권한이 아직 확인되지 않았습니다.")
+    if project.get("plannedEnabledApis") != [
+            "iamcredentials.googleapis.com", "texttospeech.googleapis.com", "run.googleapis.com"]:
+        problems.append("준비할 Google Cloud API 목록이 예상과 일치하지 않습니다.")
+    if project.get("requiredApisUserConfirmed") is not True:
+        problems.append("Google Cloud 필수 API 활성화 완료가 아직 확인되지 않았습니다.")
     if runtime.get("schemaVersion") != 1:
         problems.append("TTS 웹 설정 형식이 유효하지 않습니다.")
     if runtime.get("mode") == "disabled":
@@ -87,6 +92,8 @@ def report(project: dict, runtime: dict) -> str:
         + ("확인" if project.get("bucketReaderIamUserConfirmed") is True else "미확인"),
         "다운로드 링크 서명 권한(사용자 확인): "
         + ("확인" if project.get("signBlobRoleUserConfirmed") is True else "미확인"),
+        "필수 API 활성화(사용자 확인): "
+        + ("확인" if project.get("requiredApisUserConfirmed") is True else "미확인"),
         "서버 연결 상태: " + str(runtime.get("mode", "(미설정)")),
         "외부 API 호출: 이 점검 프로그램에서는 없음",
         "점검 결과: " + ("배포 준비 상태 점검 통과" if ready else "실제 음성 API/업로드 미실행"),

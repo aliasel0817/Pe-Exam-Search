@@ -1,36 +1,55 @@
-# 학습노트 TTS — 체크포인트: MP3 버킷 읽기 권한 완료
+# 학습노트 TTS — 체크포인트: 버킷 읽기 및 자체 서명 IAM 완료 (2026-10-09)
 
-## 완료 및 확인된 항목 (2026-10-09)
-- Google Cloud 프로젝트: study-note-tts (번호 558407087449)
-- Cloud Storage 버킷: study-note-tts-audio-558407087449, US-CENTRAL1, Standard, 공개 접근 방지
-- GCS CORS 변경: 사용자 Cloud Shell Completed 1 확인
-- 서비스 계정: study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
-- **버킷 단위 객체 읽기 IAM 완료:** 사용자 Cloud Shell 정책 출력에 member=serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com, role=roles/storage.objectViewer, resourceId=projects/_/buckets/study-note-tts-audio-558407087449 표시
-- 아직 **Cloud Run 미배포, 실제 TTS 합성 미실행, GCS MP3 업로드 미실행, 운영 main v4.6.3 미변경**. 과금 가능 실행 잠금값 3종 전부 false.
+## 완료
+- GCP 프로젝트 study-note-tts / 프로젝트 번호 558407087449, 결제 및 예산 알림 확인
+- 버킷 study-note-tts-audio-558407087449 (US-CENTRAL1, STANDARD, uniform, public access prevention enforced)
+- MP3 GET/HEAD 전용 브라우저 CORS 업데이트 Completed 1 (실효 CORS 설정 확인은 이번 배치)
+- 전용 서비스 계정 study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
+- 버킷 하나에만 roles/storage.objectViewer 부여 (사용자 스크린샷)
+- **서비스 계정 자체의 IAM에 roles/iam.serviceAccountTokenCreator 부여 완료** (사용자 스크린샷)
+- Cloud Run 미배포, Cloud TTS 합성 미실행, MP3 클라우드 업로드 미실행, 운영 main v4.6.3 무변경
 
-## 사용자 이번 한 단계 — 임시 MP3 다운로드 링크 서명 권한을 서비스 계정 자신에게만 부여
+## 사용자 다음 작업: Cloud Shell 4개 관련 작업을 한 번에 실행하는 묶음
 
-현재 Google Cloud Shell에 아래 명령어를 복사하여 한 번만 실행:
+Cloud Shell에 아래 블록 전체를 붙여넣고 실행한 후 **결과 화면을 한 번만** 공유.
 
-    gcloud iam service-accounts add-iam-policy-binding study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com --member="serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com" --role="roles/iam.serviceAccountTokenCreator" --project=study-note-tts
+```bash
+(
+  PROJECT=study-note-tts
+  BUCKET=study-note-tts-audio-558407087449
+  READER=study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
 
-이 명령은 **서비스 계정 리소스 하나**에만 roles/iam.serviceAccountTokenCreator 역할을 부여하고,
-역할을 받는 주체 역시 해당 서비스 계정 자기 자신임. 프로젝트 전체 IAM에 부여하지 않음.
-필요 목적은 Cloud Run 런타임에서 `iam.serviceAccounts.signBlob`으로 **5분짜리 읽기 전용 MP3 Signed URL**을 만드는 것.
-이 사전 정의 역할은 단순 서명 외에 해당 서비스 계정 자체에 대한 토큰 생성 권한도 포함하므로, 다른 계정/프로젝트로 확대하지 않을 것.
-**서비스 계정 키 JSON 파일을 만들지 않음.**
+  gcloud services enable iamcredentials.googleapis.com texttospeech.googleapis.com run.googleapis.com --project="$PROJECT" &&
+  echo "=== ENABLED TTS APIS ===" &&
+  gcloud services list --enabled --project="$PROJECT" --format="value(config.name)" | grep -E '^(iamcredentials|texttospeech|run)\.googleapis\.com$' &&
+  echo "=== SERVICE ACCOUNT SELF-SIGN IAM ===" &&
+  gcloud iam service-accounts get-iam-policy "$READER" --project="$PROJECT" --format="json(bindings)" &&
+  echo "=== STORAGE CORS CONFIG ===" &&
+  gcloud storage buckets describe "gs://$BUCKET" --project="$PROJECT" --format="default(cors_config)"
+)
+```
 
-명령 실패 시 반복 실행·광역 프로젝트 권한 대체 부여를 하지 말고 오류 메시지를 공유할 것.
-명령 성공 이후에도 **IAM Service Account Credentials API 활성화** 등 추가 설정이 필요하며, 다음 턴에 한 단계씩 확인.
-Google Cloud IAM 정책 적용은 소량의 설정 API 요청을 사용. Cloud Run을 배포하거나 MP3를 생성하는 명령은 아님.
+수행 내용:
+1. 프로젝트에 IAM Service Account Credentials API, Cloud Text-to-Speech API, Cloud Run Admin API **활성화만** 수행.
+2. 사용 설정된 API 3개를 조회.
+3. 서비스 계정 자체의 Token Creator 권한 조회.
+4. 버킷의 실제 CORS 설정 조회.
 
-## 개발 상태
-- cloud-project.json: bucketReaderIamUserConfirmed=true, signBlobRoleUserConfirmed=false
+명령어 사이 && 연결과 괄호로 구성해 오류 발생 시 후속 설정 명령을 멈추되 Cloud Shell 메인 셸을 종료하지 않음. 오류 시 다시 실행하지 말고 오류문 전체 전달.
+
+Service Usage 자체는 무료이며 API를 활성화하는 것만으로 음성 합성이나 서버 사용 요금이 발생하는 것은 아님. **활성화된 API를 나중에 사용하거나 서버를 배포하면 요금이 발생할 수 있으므로** 별도의 승인과 사용 제한이 반드시 필요.
+이 배치에는 음성 생성, Cloud Run 배포, MP3 업로드, 서비스 계정 키 생성/다운로드가 없음.
+
+## 개발 잠금 유지
+- cloud-project.json: signBlobRoleUserConfirmed=true, requiredApisUserConfirmed=false
+- cloud-config.json: mode=disabled
 - cloudProvisioningApproved=false, ttsGenerationApproved=false, gcsUploadApproved=false
-- cloud-config.json: mode=disabled, 운영 앱은 변화 없음
-- Apps Script: 저장/실행/재배포 모두 불필요
+- 정상 결과 회신 후 필수 API 완료 상태 업데이트, 다음에는 Google 웹 OAuth 클라이언트 설정을 단계적으로 진행.
 
-공식 안내: https://docs.cloud.google.com/storage/docs/access-control/signing-urls-with-helpers
+공식 문서:
+- https://cloud.google.com/service-usage/pricing
+- https://docs.cloud.google.com/service-usage/docs/enable-disable
+- https://docs.cloud.google.com/storage/docs/using-cors
 
 ---
 
