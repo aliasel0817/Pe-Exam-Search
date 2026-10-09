@@ -48,6 +48,21 @@ class StudyTtsGeneratorTests(unittest.TestCase):
         self.assertTrue(one[0].endswith("concept-" + sha[:12] + ".mp3"))
         self.assertTrue(three[2].endswith("p03.mp3"))
 
+
+    def test_pronunciation_change_invalidates_cached_audio(self):
+        record = {"topicId": "T0001", "studyTarget": "Y",
+                  "topicName": "SQL 분석"}
+        voice = "ko-KR-Chirp3-HD-Aoede"
+        base = {"schemaVersion": 1, "entries": {}}
+        with tempfile.TemporaryDirectory() as tmp:
+            original = tts.plan([record], voice, {"topic"}, {},
+                                Path(tmp), base, 1)[0]
+            modified = tts.plan([record], voice, {"topic"}, {"SQL": "에스큐엘"},
+                                Path(tmp), base, 1)[0]
+            self.assertEqual(original["originalHash"], modified["originalHash"])
+            self.assertNotEqual(original["speechHash"], modified["speechHash"])
+            self.assertNotEqual(original["files"], modified["files"])
+
     def test_study_target_n_is_excluded(self):
         with tempfile.TemporaryDirectory() as tmp:
             src = Path(tmp) / "topics.json"
@@ -69,7 +84,8 @@ class StudyTtsGeneratorTests(unittest.TestCase):
             fullpath.parent.mkdir(parents=True, exist_ok=True)
             fullpath.write_bytes(b"ID3" + b"0" * 128)
             manifest = {"schemaVersion": 1, "entries": {item["key"]: {
-                "sha256": item["originalHash"], "file": item["files"][0]
+                "sha256": item["originalHash"], "speechSha256": item["speechHash"],
+                "file": item["files"][0]
             }}}
             self.assertEqual(tts.plan([record], "ko-KR-Chirp3-HD-Aoede",
                                       {"topic"}, {}, root, manifest, 1), [])
