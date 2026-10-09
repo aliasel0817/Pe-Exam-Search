@@ -61,7 +61,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   }
   const required = [
     "ttsToggleBtn","ttsSettingsBtn","ttsSettingsPanel","ttsStatus","ttsSelectAll",
-    "ttsSelectNone","ttsExportBtn","ttsCloudLogin","ttsCloudStatus","detailTitle","detailConcept",
+    "ttsSelectNone","ttsExportBtn","ttsCloudLogin","ttsCloudStatus","ttsCloudCheckBtn","detailTitle","detailConcept",
     "detailBackground","detailNecessity","detailFeatures",
     "detailTechnicalComponents","detailKeywords",
     ...["voice","rate","mode","repeat","gap"].map(x=>"ttsOption-"+x),
@@ -298,4 +298,17 @@ test("private GCS disabled by default: zero signed URLs and zero MP3 fetch",asyn
   assert.equal(ctx.signedCount(),0);
   assert.equal(ctx.apiFetchCount(),0);
   assert.match(ctx.element("ttsStatus").textContent,/Cloud Storage 연결 전/);
+});
+
+test("safe cloud settings diagnostic does not invoke any billable gateway or MP3 download",async()=>{
+  for (const config of [{privateCloud:true,cloudDisabled:true},{privateCloud:true}]) {
+    const ctx = makeEnvironment(config);
+    const status = await ctx.player.checkCloudReady();
+    assert.equal(ctx.played(),0);
+    assert.equal(ctx.manifestCount(),0);
+    assert.equal(ctx.signedCount(),0);
+    assert.equal(ctx.apiFetchCount(),0);
+    assert.match(status,config.cloudDisabled ? /연결하지 않았습니다/ : /Cloud Storage 주소가 등록/);
+    assert.equal(ctx.element("ttsCloudStatus").textContent,status);
+  }
 });
