@@ -25,6 +25,9 @@
         Array.isArray(index.entries) || typeof index.entries !== 'object') {
       throw new Error('GCS 음성 목록 형식 오류');
     }
+    if (Object.keys(index.entries).length !== PILOTS.length) {
+      throw new Error('이번 검증은 승인된 음성 3개 항목만 허용합니다.');
+    }
     const rows = new Map();
     const seen = new Set();
     for (const pilot of PILOTS) {
@@ -59,10 +62,12 @@
       url.pathname === '/' + BUCKET + '/' + ROOT + file;
     const virtualStyle = url.hostname === BUCKET + '.storage.googleapis.com' &&
       url.pathname === '/' + ROOT + file;
-    if (url.protocol !== 'https:' || !(pathStyle || virtualStyle) ||
+    const expires = url.searchParams.get('X-Goog-Expires') || '';
+    if (url.protocol !== 'https:' || url.port || url.username || url.password ||
+        url.hash || !(pathStyle || virtualStyle) ||
         !/^[a-fA-F0-9]+$/.test(url.searchParams.get('X-Goog-Signature') || '') ||
-        Number(url.searchParams.get('X-Goog-Expires')) > 300 ||
-        !url.searchParams.has('X-Goog-Expires')) {
+        !/^[0-9]{1,3}$/.test(expires) ||
+        Number(expires) < 1 || Number(expires) > 300) {
       throw new Error('승인된 GCS MP3 서명 주소가 아닙니다.');
     }
     return url.href;
@@ -208,7 +213,20 @@
     module.exports = {ORIGIN, GATEWAY, BUCKET, VOICE, PILOTS, entryKey,
       validateManifest, verifySignedUrl, fetchManifest, init};
   } else {
-    root.addEventListener('load', () => init(root.document, root.location.origin,
-      root.google?.accounts?.id), {once:true});
+    // Development-only injection into the existing login smoke page can call
+    // this directly, without publishing or changing the live GitHub Pages repo.
+    root.peStudyNoteStage4Pilot = Object.freeze({init, validateManifest, verifySignedUrl});
+    if (root.document?.readyState === 'complete') {
+      // Only auto-init the dedicated standalone test page.
+      if (root.document.getElementById('pilotStatus')) {
+        init(root.document, root.location.origin, root.google?.accounts?.id);
+      }
+    } else {
+      root.addEventListener('load', () => {
+        if (root.document.getElementById('pilotStatus')) {
+          init(root.document, root.location.origin, root.google?.accounts?.id);
+        }
+      }, {once:true});
+    }
   }
 })(typeof window === 'undefined' ? {} : window);
