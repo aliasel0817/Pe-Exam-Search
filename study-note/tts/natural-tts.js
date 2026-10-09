@@ -21,7 +21,9 @@
   const SETTINGS_KEY = 'peStudyNote.aiTts.options.v1';
   const CACHE_NAME = 'pe-study-note-ai-tts-mp3-v1';
   const MAX_CACHE_ITEMS = 120;
-  const MANIFEST_URL = './tts/audio/index.json';
+  const SCRIPT_DIR = new URL('./', document.currentScript?.src || new URL('./tts/', location.href)).href;
+  const MANIFEST_URL = new URL('./audio/index.json', SCRIPT_DIR).href;
+  const AUDIO_BASE_URL = new URL('./audio/', SCRIPT_DIR).href;
   const $ = id => document.getElementById(id);
   const clamp = (n, low, high) => Math.min(Math.max(n, low), high);
   const defaultSettings = () => ({
@@ -239,7 +241,7 @@
           !/^[A-Za-z0-9_-]+\/T[0-9]+\/[a-z]+-[a-f0-9]{12}(?:-p[0-9]{2})?\.mp3$/.test(path)) {
           throw new Error('음성 파일 경로가 올바르지 않습니다.');
         }
-        return new URL('./tts/audio/' + path, location.href).href;
+        return new URL(path, AUDIO_BASE_URL).href;
       });
     }
     async fetchAudio(url, seq) {
