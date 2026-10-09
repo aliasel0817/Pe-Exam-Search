@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "The owner showed Cloud Shell 'Updating gs://study-note-tts-audio-558407087449/... Completed 1' confirming CORS update command success. Exact effective CORS policy not independently queried. Next planned task is to create a dedicated service account WITHOUT roles/keys. Cloud Run provision, real synthesis, GCS MP3 uploads still unapproved and disabled.",
+  "comment": "Service account was created, confirmed by Cloud Shell screenshot. NEXT: grant only roles/storage.objectViewer to that service account on the one private MP3 bucket. No storage IAM grant confirmed. Cloud Run deployment, TTS generation and GCS audio upload stay disabled.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -20,5 +20,9 @@
   "gcsCorsConfirmedBy": "User Cloud Shell screenshot: gcloud storage buckets update ... --cors-file returned Completed 1; final CORS rules not independently fetched",
   "plannedServiceAccountId": "study-tts-audio-reader",
   "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
-  "serviceAccountCreatedUserConfirmed": false
+  "serviceAccountCreatedUserConfirmed": true,
+  "serviceAccountCreatedVerifiedBy": "User Cloud Shell screenshot shows Created service account [study-tts-audio-reader] and expected service account email",
+  "plannedReaderBucketName": "study-note-tts-audio-558407087449",
+  "plannedReaderBucketRole": "roles/storage.objectViewer",
+  "bucketReaderIamUserConfirmed": false
 }
