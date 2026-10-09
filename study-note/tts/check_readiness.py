@@ -55,6 +55,8 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("기존 학습노트 Google 웹 클라이언트 ID를 확인할 수 없습니다.")
     if project.get("oauthReusedClientVerified") is not True:
         problems.append("기존 Google 웹 클라이언트로 TTS 로그인 시험을 아직 수행하지 않았습니다.")
+    if project.get("authSmokeLiveGoogleLoginVerified") is not True:
+        problems.append("Google ID 토큰의 Cloud Run 로그인과 계정 허용 실검증이 아직 완료되지 않았습니다.")
     if project.get("plannedBuildApis") != ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"]:
         problems.append("Cloud Run 빌드 준비 API 목록이 예상과 일치하지 않습니다.")
     if project.get("buildApisUserConfirmed") is not True:
@@ -124,6 +126,8 @@ def report(project: dict, runtime: dict) -> str:
         + ("확인" if project.get("requiredApisUserConfirmed") is True else "미확인"),
         "기존 Google 로그인 재사용(실제 검증): "
         + ("확인" if project.get("oauthReusedClientVerified") is True else "미검증"),
+        "Google ID 토큰·허용 계정 실검증: "
+        + ("통과" if project.get("authSmokeLiveGoogleLoginVerified") is True else "미실시"),
         "Cloud Run 빌드 API 활성화(사용자 확인): "
         + ("확인" if project.get("buildApisUserConfirmed") is True else "미확인"),
         "Cloud Run 서비스 목록 조회: "

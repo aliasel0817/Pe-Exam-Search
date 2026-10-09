@@ -63,7 +63,10 @@ jobs:
           assert project['requiredApisUserConfirmed'] is True
           assert project['gcsCorsEffectiveVerified'] is True
           assert project['oauthWebClientIdCandidate'] == '1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com'
-          assert project['oauthReusedClientVerified'] is False
+          assert project['oauthReusedClientVerified'] is True
+          assert project['authSmokeLiveGoogleLoginVerified'] is True
+          assert project['authSmokeLiveHttpStatus'] == 503
+          assert 'no audio index' in project['authSmokeLiveAuthOutcome']
           assert project['plannedBuildApis'] == ['cloudbuild.googleapis.com','artifactregistry.googleapis.com']
           assert project['buildApisUserConfirmed'] is True
           assert project['cloudRunServicesCheckedUserConfirmed'] is True
@@ -108,7 +111,7 @@ jobs:
           assert all(project[key] is False for key in (
               'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('Deployed Cloud Run auth gate 401/CORS 204 verified, real Google login pending; synthesis and GCS upload LOCKED')
+          print('Live Google ID-token authentication and allowlist passed (expected 503: no MP3 index). TTS and GCS writes LOCKED')
           PY
       - name: Prevent Google login code-flow conflict and secret exposure
         shell: bash

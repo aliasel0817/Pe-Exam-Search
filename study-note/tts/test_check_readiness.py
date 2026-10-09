@@ -33,7 +33,8 @@ class ReadinessTests(unittest.TestCase):
             "requiredApisUserConfirmed": True,
             "gcsCorsEffectiveVerified": True,
             "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
-            "oauthReusedClientVerified": False,
+            "oauthReusedClientVerified": True,
+            "authSmokeLiveGoogleLoginVerified": True,
             "plannedBuildApis": ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"],
             "buildApisUserConfirmed": True,
             "cloudRunServicesCheckedUserConfirmed": True,
@@ -69,7 +70,8 @@ class ReadinessTests(unittest.TestCase):
         self.assertIn("MP3 버킷 읽기 권한(사용자 확인): 확인", status)
         self.assertIn("다운로드 링크 서명 권한(사용자 확인): 확인", status)
         self.assertIn("필수 API 활성화(사용자 확인): 확인", status)
-        self.assertIn("기존 Google 로그인 재사용(실제 검증): 미검증", status)
+        self.assertIn("기존 Google 로그인 재사용(실제 검증): 확인", status)
+        self.assertIn("Google ID 토큰·허용 계정 실검증: 통과", status)
         self.assertIn("외부 API 호출: 이 점검 프로그램에서는 없음", status)
 
     def test_wrong_project_always_rejected(self):
@@ -178,6 +180,14 @@ class ReadinessTests(unittest.TestCase):
         issues, is_ready = ready.inspect(data, self.runtime)
         self.assertFalse(is_ready)
         self.assertTrue(any("별도 승인" in x for x in issues))
+
+    def test_google_login_live_verified_and_required(self):
+        problems, _ = ready.inspect(self.project, self.runtime)
+        self.assertFalse(any("ID 토큰의 Cloud Run 로그인" in p for p in problems))
+        unverified = {**self.project, "authSmokeLiveGoogleLoginVerified": False}
+        problems, ready_flag = ready.inspect(unverified, self.runtime)
+        self.assertFalse(ready_flag)
+        self.assertTrue(any("ID 토큰의 Cloud Run 로그인" in p for p in problems))
 
     def test_all_approvals_required(self):
         project = {**self.project,

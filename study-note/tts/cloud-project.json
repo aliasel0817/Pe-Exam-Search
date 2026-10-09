@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": true,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Login test page is published on main (one new root HTML file only) and GitHub Pages workflow succeeded; user live login still untested. Existing PWA study-note.html remains v4.6.3 (but main HEAD changed due to independent test page). Cloud Run unauthed 401 / CORS 204 verified. Speech synthesis, GCS upload, revision redeploy remain LOCKED.",
+  "comment": "Live Google ID token verified with Cloud Run user's email allowlist: authenticated GET manifest reached GCS and returned expected HTTP 503 (no audio index). Identity/CORS phase COMPLETE. Voice quality pilot next; TTS synthesize, GCS upload, Cloud Run revision deploy all remain unapproved.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -42,7 +42,7 @@
   "gcsCorsEffectiveVerifiedBy": "User Cloud Shell screenshot lists exact allowed origins, GET, HEAD, and maxAgeSeconds 3600",
   "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
   "oauthClientSource": "Existing study-note.html GOOGLE_OAUTH_CLIENT_ID in both main and dev GitHub source; OAuth2 code login uses google.accounts.oauth2.initCodeClient. New TTS uses independent google.accounts.id Sign-In button. Actual ID token login not yet validated.",
-  "oauthReusedClientVerified": false,
+  "oauthReusedClientVerified": true,
   "plannedBuildApis": [
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com"
@@ -88,10 +88,13 @@
     "githubPagesCors": "OK",
     "browserPreflight": 204
   },
-  "cloudRunNextStage": "Google Sign-In smoke page published on GitHub main as one new root HTML file; main GitHub Pages build successful. Next user action: open URL, select account, report response summary. No extra Cloud Run deployment, real TTS synthesis or GCS upload authorized.",
+  "cloudRunNextStage": "Voice-quality pilot preflight and local DRY RUN only; actual Cloud Text-to-Speech requests and GCS uploads still need separately explicit owner approval.",
   "authSmokeTestPagePublishedOnMain": true,
   "authSmokeTestPageGitHubPagesDeploymentSuccess": true,
   "authSmokeTestPageMainCommit": "55052c05c2b4330fe9798161b2ab4565076a852d",
   "authSmokeTestPageWebUrl": "https://aliasel0817.github.io/Pe-Exam-Search/tts-auth-check.html",
-  "authSmokeLiveGoogleLoginVerified": false
+  "authSmokeLiveGoogleLoginVerified": true,
+  "authSmokeLiveGoogleLoginVerifiedBy": "User browser screenshot 2026-10-09: Google login displayed green result 'Google ID token and permitted account verified; HTTP 503 because MP3 manifest not yet prepared'; no token or email captured.",
+  "authSmokeLiveHttpStatus": 503,
+  "authSmokeLiveAuthOutcome": "ID token audience, email_verified, allowlist passed; private GCS audio index unavailable (expected until upload)"
 }

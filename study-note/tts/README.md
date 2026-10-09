@@ -1,3 +1,5 @@
+
+**2026-10-09 단계 완료:** 기존 Google OAuth 웹 클라이언트로 실제 ID 토큰 검증, 허용 Google 계정 검사 통과. MP3 manifest 미작성으로 예상된 HTTP 503을 사용자 화면에서 확인. 이제 음성 품질 파일럿 준비 단계. TTS 생성·GCS 업로드·Cloud Run 추가 리비전 배포는 여전히 금지.
 # 학습노트 AI 자연음성 TTS — 개발용
 
 **현재 진행 현황 (2026-10-09):** Cloud Run 단일 테스트 서버 최초 배포 성공, 무인증 /v1/manifest 앱 HTTP 401, GitHub Pages Origin CORS 및 OPTIONS 204 실제 검증 완료. 다음은 Google ID 토큰 로그인 실검증. AI 음성 생성/GCS MP3 업로드 금지 유지; 운영 main v4.6.3 불변.
