@@ -81,7 +81,7 @@ jobs:
           assert project['oauthReusedClientVerified'] is True
           assert project['authSmokeLiveGoogleLoginVerified'] is True
           assert project['authSmokeLiveHttpStatus'] == 503
-          assert 'no audio index' in project['authSmokeLiveAuthOutcome']
+          assert 'audio index unavailable' in project['authSmokeLiveAuthOutcome']
           assert project['plannedBuildApis'] == ['cloudbuild.googleapis.com','artifactregistry.googleapis.com']
           assert project['buildApisUserConfirmed'] is True
           assert project['cloudRunServicesCheckedUserConfirmed'] is True
