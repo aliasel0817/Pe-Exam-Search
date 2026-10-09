@@ -1,42 +1,38 @@
-# 학습노트 AI 자연음성 MP3 모듈 (개발 중)
+# 학습노트 AI 자연음성 TTS — 개발용
 
-기준: v4.6.3 / 운영 main 브랜치 미변경. 브라우저 `speechSynthesis`는 사용하지 않습니다.
+**운영 main은 v4.6.3 그대로입니다.** 소스는 feature/ai-natural-tts-20261009 에서만 수정했습니다.
 
-## 현재 구현
-- 메인 토픽 제목 옆 스피커 듣기/중지, 설정 열기.
-- 토픽명 고정 + 개념/등장배경/필요성/특징/기술요소·구성요소/키워드 선택.
-- 연속·단일, 1~2회 반복, 0·3·5초 회상 간격, 0.85~1.25배 재생.
-- 순서는 기존 `filteredTopics`과 `showTopicById()` 재사용. 목록 선택·필터 변경 시 중단.
-- 원문 해시 확인으로 수정된 항목의 구 MP3 오독 방지, 개별 파일 캐시.
-- AI MP3 미존재 시 이유 안내, 내장 TTS 대체나 유료 API 자동 호출 없음.
+## 음성 저장 방식 (2026-10-09 확정)
+- Google Cloud Storage의 비공개 버킷에 AI 자연음성 MP3를 토픽/항목/목소리별 저장.
+- Cloud Run cloud-gateway는 별도 Google 계정 ID 토큰 검증 후 5분짜리 읽기 전용 서명 URL을 발급.
+- 모든 기기는 같은 MP3를 재생하고 각 기기에서는 제한된 Cache Storage에 저장.
+- 브라우저 내장 음성 합성은 사용하지 않으며, 재생 시 새로운 음성 생성 API를 호출하지 않음.
+- 저장소가 아직 없으므로 cloud-config.json은 mode disabled. 실제 클라우드 사용 및 요금 없음.
+- Google Cloud 프로젝트 연결 이후에도 운영 main으로 반영하기 전에 사용자가 직접 기기별 품질 검증 필요.
 
-## 음성 파일 목록 스키마
-`audio/index.json`의 `entries` 키는 `T0001:concept:ko-KR-Chirp3-HD-Aoede` 형식입니다.
-값은 예: `{"file":"ko-KR-Chirp3-HD-Aoede/T0001/concept-aabbccddee11.mp3","sha256":"<원문 UTF-8 SHA-256>"}`.
-경로 파일 이름의 해시 12자리는 원문 해시의 첫 12자를 사용합니다.
-음성 내용은 원문 의미를 유지해 Google Cloud TTS로 합성합니다. 실제 응답 오디오를 MP3로 저장해야 합니다.
-현재 음성 파일 및 자격 증명은 제공되지 않았으며 테스트 오디오는 생성되지 않았습니다.
+## 읽기 항목
+토픽명은 항상 첫 번째. 개념 → 등장배경 → 필요성 → 특징 → 기술요소/구성요소 → 키워드 순서이며 본문 여섯 항목 개별 선택, 단일/연속 재생, 반복, 회상 간격, 속도, 읽는 위치 강조 지원.
 
-## 유료 요청 차단 원칙
-이 개발 브랜치는 음성 생성 API를 호출하지 않습니다. 브라우저에 Google Cloud API 키, 서비스 계정, OAuth 토큰을 두지 않습니다.
-기기 인증 및 요금 제한 서버 구현 전까지 자동 생성·선제 생성 비활성.
-서버 연동 시 월 생성 한도 50,000자(보수적 자체 한도), 누적 사용량 원자적 카운트, 최대 입력 길이 제한, 사용자 인증, 동시 요청 제한, 캐시 우선, 한도 초과 시 거절을 필수로 검증할 것.
-이 자체 한도만으로 Cloud 비용 0원을 보증하지 못하므로 Google Cloud 프로젝트의 다른 사용량, 과금 활성화, 공식 무료 한도, 가격 변동을 별도로 확인해야 합니다.
+## 개발 파일
+- natural-tts.js : MP3 재생/음성 캐시/목소리 설정/Google Sign-In/서명 URL 사용.
+- generate_mp3.py : 한국어 AI 음성 생성 프로그램. 기본 dry-run, 요금 승인 플래그 없이는 실행 차단.
+- upload_gcs.py : 비공개 GCS 버킷으로 MP3 업로드. 기본 dry-run, Cloud 승인 플래그 필수.
+- audio/index.json : 클라우드 저장소로 올릴 음성 목록의 빈 예시. MP3는 GitHub에 업로드하지 않음.
+- cloud-config.json : 현재 disabled. Cloud Run 인증 연동 완료 전에는 GCS 요청 없음.
+- cloud-gateway/server.cjs : 토큰 검증, GCS 서명 URL 발급 서버. TTS API 호출 기능 없음.
+- cloud-gateway/gcs-cors.json : GitHub Pages origin만 GCS GET 허용.
+- preview.html : 로컬 격리 MP3 테스트용. 운영 PWA·Google Sheets·필기 데이터 미접근.
+- GCS-SETUP-KO.md : 클라우드 계정 설정 및 유료 가능 작업 승인 절차.
+- test_*.py / test_player.cjs / cloud-gateway/test_gateway.cjs : 클라우드 호출 없이 CI 자동 검사.
 
-## 보안·상용화 주의
-현재 재생 경로는 GitHub Pages 정적 파일입니다. `audio/` 아래에 MP3를 업로드하면 **파일이 공개**됩니다.
-공개 불가 데이터·상용 음성 배포에는 이 경로를 사용하지 말고 인증 가능한 비공개 저장소/서버를 사용해야 합니다.
-영구 저장은 공개 GitHub에 자동 추가하지 않으며, 저장소 정책 확정 후 구현해야 합니다.
-
-## 준비되지 않은 부분
-1. Google Cloud 프로젝트/결제 승인 및 TTS 계정 인증 확인.
-2. 실제 한국어 AI 음성 샘플의 생성·청취 평가.
-3. 비공개 공통 저장소 선택, 보호된 서버 측 생성·재사용 및 요금 제한.
-4. PC·Galaxy Tab·iPhone 실기기 재생과 화면 잠금 검증.
-5. 음성 생성 후 통합 기능 테스트와 운영 배포.
+## 중요한 제한
+- 초기 버전은 사용자의 Google 계정이 별도로 Cloud 게이트웨이에 로그인해야 합니다. 기존 신뢰기기 승인과 완전히 동일한 인증체계는 아닙니다.
+- Cloud 서비스 개통 및 진짜 한국어 MP3 생성은 계정/결제 정보 확인 후에만 가능.
+- Cloud TTS 로컬 월 50,000 UTF-8 바이트 사용 제한은 컴퓨터 단위이며 Google Cloud 전체 지출의 절대 상한이 아닙니다.
+- GitHub public repo에 개인 학습 음성 MP3 또는 Google OAuth 비밀키를 올리지 않음.
+- iPhone 화면잠금/백그라운드 자동재생은 실기기 검증 전 미보증.
 
 ## 롤백
-v4.6.3 커밋: `d062ced02be599d93487c6ba1785b65af1edc071`
-복원 브랜치: `backup/v4.6.3-before-ai-tts-20261009`.
-TTS 개발 브랜치: `feature/ai-natural-tts-20261009`.
-기존 암기장 Google Sheets, 주석동기화, 필기 데이터는 이 작업에서 변경하지 않았습니다.
+기준 SHA d062ced02be599d93487c6ba1785b65af1edc071
+복원 브랜치 backup/v4.6.3-before-ai-tts-20261009
+개발 브랜치 feature/ai-natural-tts-20261009
