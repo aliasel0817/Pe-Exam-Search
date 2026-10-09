@@ -61,7 +61,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   }
   const required = [
     "ttsToggleBtn","ttsSettingsBtn","ttsSettingsPanel","ttsStatus","ttsSelectAll",
-    "ttsSelectNone","ttsExportBtn","ttsCloudLogin","ttsCloudStatus","ttsCloudCheckBtn","detailTitle","detailConcept",
+    "ttsSelectNone","ttsExportBtn","ttsCloudLogin","ttsCloudStatus","ttsCloudCheckBtn",
+    "ttsAvailabilityBtn","ttsAvailabilityStatus","detailTitle","detailConcept",
     "detailBackground","detailNecessity","detailFeatures",
     "detailTechnicalComponents","detailKeywords",
     ...["voice","rate","mode","repeat","gap"].map(x=>"ttsOption-"+x),
@@ -311,4 +312,72 @@ test("safe cloud settings diagnostic does not invoke any billable gateway or MP3
     assert.match(status,config.cloudDisabled ? /연결하지 않았습니다/ : /Cloud Storage 주소가 등록/);
     assert.equal(ctx.element("ttsCloudStatus").textContent,status);
   }
+});
+
+test("stage5 readiness check is manual-only and disabled mode never contacts Cloud Run",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,cloudDisabled:true});
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/연결이 비활성화/);
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+});
+test("stage5 check requires Google login before reading private manifest",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/로그인/);
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+});
+test("stage5 check validates topic-first and selected field against source without downloading audio",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/T0001/);
+  assert.match(report,/2\/2항목/);
+  assert.match(report,/2개 MP3/);
+  assert.match(report,/목록 검사는 통과/);
+  assert.match(report,/원문 없는 항목 5개 제외/);
+  assert.equal(ctx.element("ttsAvailabilityStatus").textContent,report);
+  assert.equal(ctx.manifestCount(),1);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+  assert.equal(ctx.played(),0);
+});
+test("stage5 readiness reports missing essential MP3 instead of skipping topic name",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  const key="T0001:topic:"+voice;
+  delete ctx.manifest.entries[key];
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/미생성: 토픽명/);
+  assert.match(report,/토픽명 MP3가 없어/);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+});
+test("stage5 readiness warns when source concept changed without paid regeneration",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  ctx.topics[0].concept="바뀐 개념 내용";
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/원문 변경: 개념/);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+});
+test("stage5 readiness respects selected text fields and reports missing components",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  ctx.topics[0].technicalComponents="기술요소 테스트";
+  ctx.player.settings.fields={
+    concept:false,background:false,necessity:false,features:false,components:true,keywords:false
+  };
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/1\/2항목/);
+  assert.match(report,/미생성: 기술요소\/구성요소/);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
 });
