@@ -28,6 +28,8 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("비공개 버킷의 웹 브라우저 음성 다운로드(CORS) 설정을 아직 확인하지 않았습니다.")
     if project.get("serviceAccountCreatedUserConfirmed") is not True:
         problems.append("비공개 MP3 다운로드용 전용 서비스 계정 생성은 아직 확인되지 않았습니다.")
+    if project.get("bucketReaderIamUserConfirmed") is not True:
+        problems.append("MP3 버킷 한정 읽기 권한 부여가 아직 확인되지 않았습니다.")
     if runtime.get("schemaVersion") != 1:
         problems.append("TTS 웹 설정 형식이 유효하지 않습니다.")
     if runtime.get("mode") == "disabled":
@@ -67,6 +69,8 @@ def report(project: dict, runtime: dict) -> str:
         + ("확인" if project.get("gcsCorsUserConfirmed") is True else "미확인"),
         "전용 서비스 계정 생성(사용자 확인): "
         + ("확인" if project.get("serviceAccountCreatedUserConfirmed") is True else "미확인"),
+        "MP3 버킷 읽기 권한(사용자 확인): "
+        + ("확인" if project.get("bucketReaderIamUserConfirmed") is True else "미확인"),
         "서버 연결 상태: " + str(runtime.get("mode", "(미설정)")),
         "외부 API 호출: 이 점검 프로그램에서는 없음",
         "점검 결과: " + ("배포 준비 상태 점검 통과" if ready else "실제 음성 API/업로드 미실행"),
