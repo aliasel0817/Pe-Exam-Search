@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Service account was created, confirmed by Cloud Shell screenshot. NEXT: grant only roles/storage.objectViewer to that service account on the one private MP3 bucket. No storage IAM grant confirmed. Cloud Run deployment, TTS generation and GCS audio upload stay disabled.",
+  "comment": "Bucket IAM now confirms objectViewer only for the intended service account on the single MP3 bucket. NEXT: approve self-only iam.serviceAccountTokenCreator role to sign short-lived GET URLs, scoped on the service account resource (not project). NO service account key. TTS, upload, Cloud Run deployment remain disabled.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -24,5 +24,10 @@
   "serviceAccountCreatedVerifiedBy": "User Cloud Shell screenshot shows Created service account [study-tts-audio-reader] and expected service account email",
   "plannedReaderBucketName": "study-note-tts-audio-558407087449",
   "plannedReaderBucketRole": "roles/storage.objectViewer",
-  "bucketReaderIamUserConfirmed": false
+  "bucketReaderIamUserConfirmed": true,
+  "bucketReaderIamConfirmation": "User Cloud Shell IAM bindings screenshot showing serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com under roles/storage.objectViewer with resourceId projects/_/buckets/study-note-tts-audio-558407087449",
+  "plannedSigningRole": "roles/iam.serviceAccountTokenCreator",
+  "plannedSigningPrincipal": "serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
+  "plannedSigningScope": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
+  "signBlobRoleUserConfirmed": false
 }
