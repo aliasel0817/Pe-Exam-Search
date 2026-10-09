@@ -20,7 +20,9 @@ class ReadinessTests(unittest.TestCase):
             "projectNumber": "558407087449",
             "billingLinkedUserConfirmed": True,
             "budgetAlertsUserConfirmed": True,
-            "bucketCreatedUserConfirmed": False,
+            "bucketCreatedUserConfirmed": True,
+            "bucketName": "study-note-tts-audio-558407087449",
+            "gcsCorsUserConfirmed": False,
             "plannedBucketName": "study-note-tts-audio-558407087449",
             "cloudProvisioningApproved": False,
             "ttsGenerationApproved": False,
@@ -28,14 +30,15 @@ class ReadinessTests(unittest.TestCase):
         }
         self.runtime = {"schemaVersion": 1, "mode": "disabled"}
 
-    def test_current_stage_indicates_bucket_not_confirmed(self):
+    def test_current_stage_indicates_cors_not_confirmed(self):
         problems, result = ready.inspect(self.project, self.runtime)
         self.assertFalse(result)
-        self.assertTrue(any("버킷 생성" in item for item in problems))
+        self.assertTrue(any("CORS" in item for item in problems))
         status = ready.report(self.project, self.runtime)
         self.assertIn("결제 계정 연결(사용자 확인): 확인", status)
         self.assertIn("예산 알림(사용자 확인): 확인", status)
-        self.assertIn("비공개 버킷 생성(사용자 확인): 미확인", status)
+        self.assertIn("비공개 버킷 생성(사용자 확인): 확인", status)
+        self.assertIn("브라우저 CORS 설정(사용자 확인): 미확인", status)
         self.assertIn("외부 API 호출: 이 점검 프로그램에서는 없음", status)
 
     def test_wrong_project_always_rejected(self):
@@ -49,6 +52,7 @@ class ReadinessTests(unittest.TestCase):
             "budgetAlertsUserConfirmed": True,
             "cloudProvisioningApproved": True,
             "bucketCreatedUserConfirmed": True,
+            "gcsCorsUserConfirmed": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,
         }
