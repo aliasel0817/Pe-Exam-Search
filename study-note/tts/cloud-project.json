@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Cloud Build and Artifact Registry activation command succeeded (owner screenshot). Prior next read-only command was invalid gcloud services describe, so verified API list and Cloud Run list are pending. New commands use officially supported gcloud services list --enabled. No build/deploy/synthesis/upload.",
+  "comment": "All five APIs confirmed enabled, Cloud Run services list empty (owner screenshot). Cloud Run deployment requires separate express owner consent because build, image registry and usage may incur charges. Project resource operations disabled; no Cloud Run, TTS synthesis, GCS upload authorized.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -47,7 +47,13 @@
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com"
   ],
-  "buildApisUserConfirmed": false,
+  "buildApisUserConfirmed": true,
   "buildApisEnableCommandSuccess": true,
-  "buildApisPendingCheckReason": "Cloud Shell screenshot confirms gcloud services enable two APIs 'Operation ... finished successfully'; following gcloud services describe failed because no such CLI command; read-only gcloud services list will verify enabled state."
+  "buildApisPendingCheckReason": "Cloud Shell screenshot confirms gcloud services enable two APIs 'Operation ... finished successfully'; following gcloud services describe failed because no such CLI command; read-only gcloud services list will verify enabled state.",
+  "buildApisVerifiedBy": "User Cloud Shell 2026-10-09 screenshot lists OK for iamcredentials, texttospeech, run, cloudbuild and artifactregistry; Cloud Run listed 0 services and CHECK COMPLETE",
+  "cloudRunServiceCountAtVerification": 0,
+  "cloudRunServicesCheckedUserConfirmed": true,
+  "cloudRunDeploymentUserApproved": false,
+  "cloudRunDeploymentUserConfirmed": false,
+  "cloudRunServiceNamePlanned": "study-tts-audio-gateway"
 }

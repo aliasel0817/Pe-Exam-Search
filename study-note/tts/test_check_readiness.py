@@ -35,7 +35,10 @@ class ReadinessTests(unittest.TestCase):
             "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
             "oauthReusedClientVerified": False,
             "plannedBuildApis": ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"],
-            "buildApisUserConfirmed": False,
+            "buildApisUserConfirmed": True,
+            "cloudRunServicesCheckedUserConfirmed": True,
+            "cloudRunDeploymentUserApproved": False,
+            "cloudRunDeploymentUserConfirmed": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "plannedReaderBucketName": "study-note-tts-audio-558407087449",
             "plannedReaderBucketRole": "roles/storage.objectViewer",
@@ -108,6 +111,12 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(ready_flag)
         self.assertTrue(any("빌드 준비 API" in item for item in problems))
 
+    def test_cloud_run_requires_separate_owner_approval(self):
+        data = {**self.project, "cloudRunDeploymentUserApproved": False}
+        issues, is_ready = ready.inspect(data, self.runtime)
+        self.assertFalse(is_ready)
+        self.assertTrue(any("별도 승인" in x for x in issues))
+
     def test_all_approvals_required(self):
         project = {**self.project,
             "budgetAlertsUserConfirmed": True,
@@ -120,6 +129,8 @@ class ReadinessTests(unittest.TestCase):
             "requiredApisUserConfirmed": True,
             "oauthReusedClientVerified": True,
             "buildApisUserConfirmed": True,
+            "cloudRunDeploymentUserApproved": True,
+            "cloudRunDeploymentUserConfirmed": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,
         }

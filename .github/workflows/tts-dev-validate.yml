@@ -32,7 +32,7 @@ jobs:
         run: bash -n study-note/tts/verify_cloud_services.sh
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify three APIs enabled; old OAuth web client reused but no Cloud deploy allowed
+      - name: Verify all five APIs enabled; Cloud Run deployment still requires user billing consent
         shell: bash
         run: |
           python3 - <<'PY'
@@ -61,7 +61,12 @@ jobs:
           assert project['oauthWebClientIdCandidate'] == '1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com'
           assert project['oauthReusedClientVerified'] is False
           assert project['plannedBuildApis'] == ['cloudbuild.googleapis.com','artifactregistry.googleapis.com']
-          assert project['buildApisUserConfirmed'] is False
+          assert project['buildApisUserConfirmed'] is True
+          assert project['cloudRunServicesCheckedUserConfirmed'] is True
+          assert project['cloudRunServiceCountAtVerification'] == 0
+          assert project['cloudRunDeploymentUserApproved'] is False
+          assert project['cloudRunDeploymentUserConfirmed'] is False
+          assert project['cloudRunServiceNamePlanned'] == 'study-tts-audio-gateway'
           assert project['buildApisEnableCommandSuccess'] is True
           assert conf['oauthClientId'] == project['oauthWebClientIdCandidate']
           assert project['plannedSigningRole'] == 'roles/iam.serviceAccountTokenCreator'
@@ -77,7 +82,7 @@ jobs:
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('Build APIs enable operation succeeded; full 5-API read-only verification pending; Cloud services locked')
+          print('All five APIs active, Cloud Run empty, deployment needs express owner approval; GCS upload and TTS generation remain locked')
           PY
       - name: Prevent Google login code-flow conflict and secret exposure
         shell: bash
