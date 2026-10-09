@@ -26,6 +26,12 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("비공개 Google Cloud Storage 버킷 생성은 아직 확인되지 않았습니다.")
     if project.get("gcsCorsUserConfirmed") is not True:
         problems.append("비공개 버킷의 웹 브라우저 음성 다운로드(CORS) 설정을 아직 확인하지 않았습니다.")
+    if project.get("plannedServiceAccountEmail") != "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com":
+        problems.append("전용 서비스 계정 이메일이 계획과 일치하지 않습니다.")
+    if (project.get("plannedReaderBucketRole") != "roles/storage.objectViewer"
+            or project.get("plannedReaderBucketName") != "study-note-tts-audio-558407087449"
+            or project.get("bucketName") != project.get("plannedReaderBucketName")):
+        problems.append("계획된 읽기 권한이 정확한 MP3 버킷의 objectViewer 권한인지 확인할 수 없습니다.")
     if project.get("serviceAccountCreatedUserConfirmed") is not True:
         problems.append("비공개 MP3 다운로드용 전용 서비스 계정 생성은 아직 확인되지 않았습니다.")
     if project.get("bucketReaderIamUserConfirmed") is not True:
