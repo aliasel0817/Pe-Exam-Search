@@ -95,7 +95,9 @@ jobs:
           assert set(cors[0]['method']) == {'GET','HEAD'}
           assert cors[0]['maxAgeSeconds'] == 3600
           assert project['cloudProvisioningApproved'] is True
-          assert project['cloudRunDeploymentUserConfirmed'] is False
+          assert project['cloudRunDeploymentUserConfirmed'] is True
+          assert project['cloudRunInitialHealthCheckStatus'] == 404
+          assert project['cloudRunInitialHealthCheckPath'] == '/healthz'
           assert all(project[key] is False for key in (
               'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
