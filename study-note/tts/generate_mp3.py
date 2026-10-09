@@ -277,6 +277,11 @@ def execute(args: argparse.Namespace, requests: list[dict], manifest: dict) -> N
     project = args.project or os.getenv("GOOGLE_CLOUD_PROJECT", "")
     if not re.fullmatch(r"[a-z][a-z0-9:-]{3,80}", project):
         raise ValueError("Set --project or GOOGLE_CLOUD_PROJECT to a valid project ID.")
+    binding_file = Path(__file__).resolve().parent / "cloud-project.json"
+    confirmed_binding = json.loads(binding_file.read_text(encoding="utf-8"))
+    confirmed_project = str(confirmed_binding.get("projectId", "")).strip()
+    if confirmed_binding.get("schemaVersion") != 1 or project != confirmed_project:
+        raise ValueError("TTS project does not match the confirmed study-note-tts project; API request blocked.")
     if args.max_new_requests > MAX_REQUESTS or args.max_new_requests < 1:
         raise ValueError("Maximum new requests must be between 1 and 200.")
     if args.max_topics > MAX_TOPICS or args.max_topics < 1:
