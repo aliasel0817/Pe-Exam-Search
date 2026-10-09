@@ -157,7 +157,10 @@ def for_speech(label: str, field: str, original: str, dictionary: dict[str, str]
     spoken = spoken.replace(";", ". ")
     if field == "topic":
         return spoken
-    return label + ". " + spoken
+    # Separate the spoken section heading from its body: "개념은, [pause short] ...".
+    # Use the existing Korean final-consonant logic for 은/는. Keep source data intact.
+    heading = label + _agree_particle("는", label)
+    return heading + ", " + PAUSE_MARKER + " " + spoken
 
 
 # Markup tags must stay atomic even when breaking up long technical components.

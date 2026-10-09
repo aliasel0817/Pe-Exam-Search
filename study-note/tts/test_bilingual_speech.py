@@ -57,12 +57,13 @@ class BilingualSpeechTests(unittest.TestCase):
     def test_source_hash_is_preserved_but_spoken_text_uses_dictionary(self):
         original = "SQL(구조화 질의 언어)과 단독 SQL"
         spoken = t.for_speech("개념", "concept", original, {"SQL": "에스큐엘"})
-        self.assertEqual(spoken, "개념. 구조화 질의 언어와 단독 에스큐엘")
+        self.assertEqual(spoken, "개념은, [pause short] 구조화 질의 언어와 단독 에스큐엘")
         self.assertEqual(t.digest(original), t.digest("SQL(구조화 질의 언어)과 단독 SQL"))
 
     def test_dot_separator_inserts_pause_markup(self):
         text = "데이터 포인터를 리프에 모음 · 내부노드는 인덱스에 집중"
         spoken = t.for_speech("기술요소", "components", text, {})
+        self.assertTrue(spoken.startswith("기술요소는, [pause short] "))
         self.assertIn(", [pause short] 내부노드는", spoken)
         self.assertEqual(t.synthesis_input(spoken), {"markup": spoken})
         self.assertEqual(t.synthesis_input("개념. SQL"), {"text": "개념. SQL"})

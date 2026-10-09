@@ -16,3 +16,11 @@
 - 기존 35회 승인형 `run_approved_stage3_aoede.py`는 원본 생성기 Git blob을 고정 검증하며, 이미 성공한 일회성 파일럿이므로 재실행하지 말 것. 생성기 수정 후 원본 승인형 실행기의 hash mismatch는 재실행을 방지하는 정상적인 보호 동작.
 - 무료 전체 회귀 테스트: `python3 -m unittest discover -s study-note/tts -p "test_*.py" -q`
 - 최종 소량 재합성은 별도 승인하에 정확한 토픽/문장/호출수/글자수 산출 후 진행.
+
+## 2026-10-09 추가 보정: 본문 항목 제목과 내용 분리
+- 본문 6개 필드: `개념은`, `등장배경은`, `필요성은`, `특징은`, `기술요소 및 구성요소는`, `키워드는` 다음에 쉼표와 `[pause short]`를 넣고 내용을 읽음. 기존 `_agree_particle`로 은/는을 선택.
+- 토픽명은 기존처럼 제목 없이 그대로 읽고, 내용 첫머리가 기술용어이더라도 별도 제거/변경하지 않음.
+- 모든 본문에 `[pause short]`가 생기므로 `input.markup`을 사용하며, 실제 쉼 길이는 청취 검증 전에는 보장하지 않음.
+- 원본 데이터, 기존 35개/7개 MP3, GCS/Cloud Run, 운영 main 변경 없음. 새 MP3의 문자수·요청 건수·음성 해시는 다시 계산해야 함.
+- 기존 승인형 `run_approved_quality_aoede_7.py`는 이전 `generate_mp3.py` Git blob과 7회·939자를 고정 검증하므로 **이 변경 뒤 재실행 금지**. 실행 시 버전 불일치 차단은 정상적인 안전 동작이며, 이미 실행했다면 결과물을 보존. 새로운 실제 합성은 승인 건수 및 글자수를 재산출하고 별도 확인한 뒤 전용 실행기 작성.
+- 변경 파일: `generate_mp3.py`, `test_bilingual_speech.py`, `test_pronunciations.py`, `test_speech_headings.py`, 이 문서. 전부 개발 브랜치 한정.

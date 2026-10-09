@@ -63,7 +63,7 @@ class KoreanPronunciationTests(unittest.TestCase):
         )
         self.assertEqual(
             spoken,
-            "기술요소 및 구성요소. 멤 테이블, 에스에스 테이블, "
+            "기술요소 및 구성요소는, [pause short] 멤 테이블, 에스에스 테이블, "
             "컴팩션, 블룸 필터, 라이트 어헤드 로그",
         )
 
