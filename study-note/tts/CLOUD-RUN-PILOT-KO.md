@@ -1,6 +1,6 @@
 # 학습노트 AI TTS — Cloud Run 배포 직전 체크리스트
 
-작성 기준: 2026-10-09 / 작업 브랜치 \`feature/ai-natural-tts-20261009\`
+작성 기준: 2026-10-09 / 작업 브랜치 `feature/ai-natural-tts-20261009`
 
 ## 확인 완료
 - Google Cloud 프로젝트: study-note-tts / 프로젝트 번호 558407087449
@@ -15,13 +15,13 @@
   - run.googleapis.com
   - cloudbuild.googleapis.com
   - artifactregistry.googleapis.com
-- Cloud Run 서비스 조회 결과 \`Listed 0 items.\`
+- Cloud Run 서비스 조회 결과 `Listed 0 items.`
 - 실제 AI 음성 생성, MP3 업로드, Cloud Run 배포는 아직 하지 않음
 
 ## 이번 사용자의 안전한 Cloud Shell 작업: 배포 미리보기만
 다음 명령을 통째로 한 번 붙여넣기. **실제 클라우드 배포는 발생하지 않음.**
 
-\`\`\`bash
+```bash
 (
   set -e
   if [ ! -d "$HOME/pe-tts-dev/.git" ]; then
@@ -33,7 +33,7 @@
   git -C "$HOME/pe-tts-dev" sparse-checkout set study-note/tts
   bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/deploy_pilot.sh" --dry-run
 )
-\`\`\`
+```
 
 1. GitHub 공개 저장소의 **TTS 개발 브랜치 소스만** Cloud Shell 홈에 준비.
 2. Node Cloud Run 서버의 예상 배포 구성/권한/비용 위험을 읽기만.
@@ -41,11 +41,11 @@
 4. 결과를 캡처해 공유. 오류가 나면 그대로 알려주고 불필요한 재시도 금지.
 
 ## 실제 배포는 별도 승인 필수
-\`deploy_pilot.sh\`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:
-- \`cloudRunDeploymentUserApproved=false\`
-- \`cloudProvisioningApproved=false\`
+`deploy_pilot.sh`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:
+- `cloudRunDeploymentUserApproved=false`
+- `cloudProvisioningApproved=false`
 
-이것을 변경하려면 사용자가 **Cloud Run 배포의 과금 가능성과 공개 HTTP 도달성(백엔드의 JWT 인증 적용)을 확인하고 명시적으로 동의**해야 함. \`--execute --accept-possible-charges\` 플래그만 추가해도 잠금이 유지되면 실행되지 않음.
+이것을 변경하려면 사용자가 **Cloud Run 배포의 과금 가능성과 공개 HTTP 도달성(백엔드의 JWT 인증 적용)을 확인하고 명시적으로 동의**해야 함. `--execute --accept-possible-charges` 플래그만 추가해도 잠금이 유지되면 실행되지 않음.
 
 승인 후 서버 계획:
 - 서비스명 study-tts-audio-gateway / 지역 us-central1
