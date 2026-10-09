@@ -30,7 +30,7 @@ jobs:
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify project billing stages are locked before owner budget approval
+      - name: Verify budget confirmed and cloud write stages remain locked before bucket approval
         shell: bash
         run: |
           python3 - <<'PY'
@@ -42,11 +42,14 @@ jobs:
           assert project['projectId'] == 'study-note-tts'
           assert str(project['projectNumber']) == '558407087449'
           assert project['billingLinkedUserConfirmed'] is True
-          assert project['budgetAlertsUserConfirmed'] is False
+          assert project['budgetAlertsUserConfirmed'] is True
+          assert project['budgetName'] == 'Study-Note-TTS-Budget'
+          assert project['plannedBucketName'] == 'study-note-tts-audio-558407087449'
+          assert project['bucketCreatedUserConfirmed'] is False
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('All Google Cloud paid-capable stages remain disabled and owner budget is pending')
+          print('Budget confirmed, bucket not yet confirmed; all paid-capable stages remain locked')
           PY
       - name: Verify TTS module is linked from development HTML
         shell: bash
