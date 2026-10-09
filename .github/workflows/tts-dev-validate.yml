@@ -30,7 +30,7 @@ jobs:
         run: python3 -m py_compile study-note/tts/generate_mp3.py study-note/tts/upload_gcs.py
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify CORS updated and dedicated service account pending; keep billing actions locked
+      - name: Verify keyless service account created; scope IAM to one private MP3 bucket
         shell: bash
         run: |
           python3 - <<'PY'
@@ -50,7 +50,10 @@ jobs:
           assert project['gcsCorsUserConfirmed'] is True
           assert project['plannedServiceAccountId'] == 'study-tts-audio-reader'
           assert project['plannedServiceAccountEmail'] == 'study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
-          assert project['serviceAccountCreatedUserConfirmed'] is False
+          assert project['serviceAccountCreatedUserConfirmed'] is True
+          assert project['bucketReaderIamUserConfirmed'] is False
+          assert project['plannedReaderBucketName'] == 'study-note-tts-audio-558407087449'
+          assert project['plannedReaderBucketRole'] == 'roles/storage.objectViewer'
           cors = json.loads((base / 'cloud-gateway/gcs-cors.json').read_text(encoding='utf-8'))
           assert isinstance(cors,list) and len(cors) == 1
           assert set(cors[0]['origin']) == {'https://aliasel0817.github.io','http://localhost:8765'}
@@ -59,7 +62,7 @@ jobs:
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('CORS update reported complete; dedicated service account pending, all paid-capable stages still locked')
+          print('Private MP3 reader identity created, bucket IAM not yet confirmed; Cloud Run/TTS/upload remain disabled')
           PY
       - name: Verify TTS module is linked from development HTML
         shell: bash
