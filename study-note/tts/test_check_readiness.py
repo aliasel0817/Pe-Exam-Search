@@ -25,6 +25,9 @@ class ReadinessTests(unittest.TestCase):
             "gcsCorsUserConfirmed": True,
             "serviceAccountCreatedUserConfirmed": True,
             "bucketReaderIamUserConfirmed": False,
+            "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
+            "plannedReaderBucketName": "study-note-tts-audio-558407087449",
+            "plannedReaderBucketRole": "roles/storage.objectViewer",
             "plannedBucketName": "study-note-tts-audio-558407087449",
             "cloudProvisioningApproved": False,
             "ttsGenerationApproved": False,
@@ -50,6 +53,17 @@ class ReadinessTests(unittest.TestCase):
         problems, result = ready.inspect(wrong, self.runtime)
         self.assertFalse(result)
         self.assertTrue(any("프로젝트 ID" in issue for issue in problems))
+
+    def test_rejects_project_level_or_wrong_bucket_read_permissions(self):
+        for incorrect in (
+            {"plannedReaderBucketRole": "roles/storage.admin"},
+            {"plannedReaderBucketName": "different-bucket"},
+            {"plannedServiceAccountEmail": "other@study-note-tts.iam.gserviceaccount.com"},
+        ):
+            with self.subTest(incorrect=incorrect):
+                problems, is_ready = ready.inspect({**self.project, **incorrect}, self.runtime)
+                self.assertFalse(is_ready)
+                self.assertTrue(any("계정 이메일" in item or "읽기 권한" in item for item in problems))
 
     def test_all_approvals_required(self):
         project = {**self.project,
