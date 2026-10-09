@@ -150,3 +150,15 @@ test('injected smoke-page pilot never auto-initializes a second Google callback'
   assert.equal(initialized,0);
   assert.equal(typeof root.peStudyNoteStage4Pilot?.init,'function');
 });
+
+test('single public test HTML pins immutable JS with matching SHA-384 SRI',()=>{
+  const crypto=require('node:crypto');
+  const html=fs.readFileSync(path.join(__dirname,'stage4_browser_audio_pilot.html'),'utf8');
+  const script=fs.readFileSync(path.join(__dirname,'stage4_browser_audio_pilot.js'));
+  const sri='sha384-'+crypto.createHash('sha384').update(script).digest('base64');
+  assert.ok(html.includes('integrity="'+sri+'"'),'browser integrity pin must match exact JS bytes');
+  assert.match(html,/cdn\.jsdelivr\.net\/gh\/aliasel0817\/Pe-Exam-Search@[a-f0-9]{40}\/study-note\/tts\/stage4_browser_audio_pilot\.js/);
+  assert.match(html,/crossorigin="anonymous"/);
+  assert.match(html,/referrerpolicy="no-referrer"/);
+  assert.doesNotMatch(html,/\.\/stage4_browser_audio_pilot\.js/);
+});
