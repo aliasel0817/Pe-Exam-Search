@@ -65,6 +65,8 @@ jobs:
           assert project['cloudRunServicesCheckedUserConfirmed'] is True
           assert project['cloudRunServiceCountAtVerification'] == 0
           assert project['cloudRunDeploymentUserApproved'] is False
+          assert project['cloudBuildIdentityCheckedUserConfirmed'] is False
+          assert project['cloudBuildRoleStatus'] == 'not_checked'
           assert project['cloudRunDeploymentUserConfirmed'] is False
           assert project['cloudRunServiceNamePlanned'] == 'study-tts-audio-gateway'
           assert project['buildApisEnableCommandSuccess'] is True

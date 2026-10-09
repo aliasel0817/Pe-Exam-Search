@@ -18,27 +18,33 @@
 - Cloud Run 서비스 조회 결과 `Listed 0 items.`
 - 실제 AI 음성 생성, MP3 업로드, Cloud Run 배포는 아직 하지 않음
 
-## 이번 사용자의 안전한 Cloud Shell 작업: 배포 미리보기만
-다음 명령을 통째로 한 번 붙여넣기. **실제 클라우드 배포는 발생하지 않음.**
+## DRY RUN 완료 (2026-10-09)
+사용자가 Cloud Shell 화면을 제공했고, GitHub TTS 개발 브랜치의 소스 clone과 `deploy_pilot.sh --dry-run` 성공을 확인함.
+출력에 `No build, no deploy, no paid-capable API request made.` 표시. 실제 배포/비용 가능 작업 미실시.
+
+## 다음 사용자 작업: Cloud Build 빌드 계정 사전 점검 (설정 변경 없음)
+
+다음 Cloud Shell 블록을 한 번에 붙여넣고 결과를 전달:
 
 ```bash
 (
   set -e
-  if [ ! -d "$HOME/pe-tts-dev/.git" ]; then
-    git clone --depth=1 --filter=blob:none --sparse \
-      --branch feature/ai-natural-tts-20261009 \
-      https://github.com/aliasel0817/Pe-Exam-Search.git \
-      "$HOME/pe-tts-dev"
-  fi
-  git -C "$HOME/pe-tts-dev" sparse-checkout set study-note/tts
-  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/deploy_pilot.sh" --dry-run
+  git -C "$HOME/pe-tts-dev" pull --ff-only
+  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/preflight_build.sh"
 )
 ```
 
-1. GitHub 공개 저장소의 **TTS 개발 브랜치 소스만** Cloud Shell 홈에 준비.
-2. Node Cloud Run 서버의 예상 배포 구성/권한/비용 위험을 읽기만.
-3. Google Cloud API 호출, 이미지 빌드, Cloud Run 서비스 생성, TTS 음성 생성 및 GCS 업로드는 수행하지 않음.
-4. 결과를 캡처해 공유. 오류가 나면 그대로 알려주고 불필요한 재시도 금지.
+- `git pull --ff-only`는 기존 Cloud Shell의 개발 브랜치 소스를 최신 GitHub 커밋으로 갱신할 뿐 실제 클라우드 인프라를 생성하지 않음.
+- `preflight_build.sh`는 Google Cloud Build의 기본 서비스 계정을 조회하고, 프로젝트의 `roles/run.builder` 직접 부여 여부를 확인하여 요약만 출력.
+- `RUN_BUILDER_DIRECT_ROLE: PRESENT`면 기본 빌드 계정에 직접 역할 부여가 확인됨.
+- `RUN_BUILDER_DIRECT_ROLE: NOT_FOUND`면 추가 IAM 권한 부여를 검토해야 함. 바로 무단 권한을 추가하지 말고 결과 공유.
+- `BUILD_SERVICE_ACCOUNT_UNAVAILABLE`면 빌드 계정이 자동 설정되지 않아 별도 점검이 필요.
+- 권한 조회는 안전한 읽기 전용 요청이지만, 일반적인 Google Cloud API 요청 처리로 집계될 수 있음. 서비스 실행/빌드/MP3 업로드 작업은 아님.
+- 실제 배포는 다음 단계에서 비용 영향과 Google 로그인 허용 계정을 검토한 뒤 별도 승인 받아 진행.
+
+공식 문서:
+- https://docs.cloud.google.com/build/docs/cloud-build-service-account-updates
+- https://docs.cloud.google.com/run/docs/deploying-source-code
 
 ## 실제 배포는 별도 승인 필수
 `deploy_pilot.sh`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:

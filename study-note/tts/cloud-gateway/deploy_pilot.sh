@@ -36,7 +36,8 @@ checks={
   "bucketName":"study-note-tts-audio-558407087449", "region":"us-central1",
   "budgetAlertsUserConfirmed":True, "bucketReaderIamUserConfirmed":True,
   "signBlobRoleUserConfirmed":True, "requiredApisUserConfirmed":True,
-  "buildApisUserConfirmed":True, "cloudRunServiceNamePlanned":"study-tts-audio-gateway",
+  "buildApisUserConfirmed":True, "cloudBuildIdentityCheckedUserConfirmed":True,
+  "cloudRunServiceNamePlanned":"study-tts-audio-gateway",
   "cloudRunDeploymentUserApproved":True, "cloudProvisioningApproved":True,
   "ttsGenerationApproved":False, "gcsUploadApproved":False
 }

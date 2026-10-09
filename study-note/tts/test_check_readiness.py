@@ -37,6 +37,7 @@ class ReadinessTests(unittest.TestCase):
             "plannedBuildApis": ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"],
             "buildApisUserConfirmed": True,
             "cloudRunServicesCheckedUserConfirmed": True,
+            "cloudBuildIdentityCheckedUserConfirmed": False,
             "cloudRunDeploymentUserApproved": False,
             "cloudRunDeploymentUserConfirmed": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
@@ -111,6 +112,11 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(ready_flag)
         self.assertTrue(any("빌드 준비 API" in item for item in problems))
 
+    def test_build_account_preflight_required(self):
+        issues, ready_flag = ready.inspect(self.project, self.runtime)
+        self.assertFalse(ready_flag)
+        self.assertTrue(any("빌드 서비스 계정" in item for item in issues))
+
     def test_cloud_run_requires_separate_owner_approval(self):
         data = {**self.project, "cloudRunDeploymentUserApproved": False}
         issues, is_ready = ready.inspect(data, self.runtime)
@@ -130,6 +136,7 @@ class ReadinessTests(unittest.TestCase):
             "oauthReusedClientVerified": True,
             "buildApisUserConfirmed": True,
             "cloudRunDeploymentUserApproved": True,
+            "cloudBuildIdentityCheckedUserConfirmed": True,
             "cloudRunDeploymentUserConfirmed": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,

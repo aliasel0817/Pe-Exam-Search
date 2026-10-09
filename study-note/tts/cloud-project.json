@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "All five APIs confirmed enabled, Cloud Run services list empty (owner screenshot). Cloud Run deployment requires separate express owner consent because build, image registry and usage may incur charges. Project resource operations disabled; no Cloud Run, TTS synthesis, GCS upload authorized.",
+  "comment": "Cloud Run dry-run output confirmed by user on 2026-10-09. GitHub source cloned in Cloud Shell; no real build/deploy/synthesis/upload. Before any paid-capable Cloud Run pilot deploy, inspect effective default Cloud Build identity and direct run.builder IAM role using read-only preflight. Actual deployment still requires explicit consent.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -55,5 +55,8 @@
   "cloudRunServicesCheckedUserConfirmed": true,
   "cloudRunDeploymentUserApproved": false,
   "cloudRunDeploymentUserConfirmed": false,
-  "cloudRunServiceNamePlanned": "study-tts-audio-gateway"
+  "cloudRunServiceNamePlanned": "study-tts-audio-gateway",
+  "cloudBuildIdentityCheckedUserConfirmed": false,
+  "cloudBuildRoleStatus": "not_checked",
+  "cloudBuildPreflightScript": "study-note/tts/cloud-gateway/preflight_build.sh"
 }
