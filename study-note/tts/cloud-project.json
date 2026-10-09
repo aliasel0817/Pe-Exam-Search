@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Three Cloud TTS/gateway APIs and the precise CORS policy are verified; OAuth web client reuse candidate is configured while cloud mode is disabled. Next safely enable Cloud Build and Artifact Registry APIs only (not actual build/deploy). All billable cloud operations remain gated.",
+  "comment": "Cloud Build and Artifact Registry activation command succeeded (owner screenshot). Prior next read-only command was invalid gcloud services describe, so verified API list and Cloud Run list are pending. New commands use officially supported gcloud services list --enabled. No build/deploy/synthesis/upload.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -47,5 +47,7 @@
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com"
   ],
-  "buildApisUserConfirmed": false
+  "buildApisUserConfirmed": false,
+  "buildApisEnableCommandSuccess": true,
+  "buildApisPendingCheckReason": "Cloud Shell screenshot confirms gcloud services enable two APIs 'Operation ... finished successfully'; following gcloud services describe failed because no such CLI command; read-only gcloud services list will verify enabled state."
 }

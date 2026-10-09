@@ -1,47 +1,49 @@
-# 학습노트 TTS — 체크포인트: 필수 API 3개와 버킷 CORS 확인 완료
+# 학습노트 TTS — Cloud Build / Artifact Registry API 활성화 명령 성공 (조회 재시도)
 
-## 결과 확인
-- 사용자 Cloud Shell 화면에서 iamcredentials.googleapis.com, texttospeech.googleapis.com, run.googleapis.com 3개 모두 활성화 성공
-- 서비스 계정 자신에게 roles/iam.serviceAccountTokenCreator 확인
-- Cloud Storage CORS: GitHub Pages/localhost(8765), GET/HEAD, maxAgeSeconds 3600 실제 설정 확인
-- 스크린샷 상단의 404는 이전 출력. 이번 작업은 Operation finished successfully 및 마지막 CORS 설정 출력으로 종료됨.
-- 운영 main과 복원 브랜치 그대로. TTS 합성·Cloud Run 배포·GCS MP3 업로드 잠금 유지.
+## 이번 Cloud Shell 화면에서 확인된 사항
+- \`gcloud services enable cloudbuild.googleapis.com artifactregistry.googleapis.com --project=study-note-tts\` 결과에 \`Operation ... finished successfully\` 표시. API 활성화 요청 성공.
+- 뒤이어 안내된 \`gcloud services describe\`는 **지원하지 않는 명령어**여서 \`Invalid choice: 'describe'\` 발생. 이는 안내 명령어 오류이며 프로젝트/권한 오류가 아님.
+- 해당 묶음이 오류로 중단되어 **API 5개 전체 목록 검증과 Cloud Run 서비스 목록 조회는 아직 미실행**.
+- 운영 main v4.6.3, Google Sheets, 필기, Apps Script는 그대로; 실제 Cloud Run 배포/MP3 합성/GCS 업로드 없음.
 
-## 기존 Google OAuth 웹 클라이언트 재사용
-기존 PWA에서 사용하던 공개 ID:
-`1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com`
-새 Google 로그인 클라이언트를 만들지 않고 재사용하도록 `tts/cloud-config.json`에 준비함. TTS 서비스 모드는 여전히 disabled.
-기존 앱 기기 인증은 google.accounts.oauth2.initCodeClient, 새 TTS 화면은 google.accounts.id.initialize로 서로 다른 API를 사용. **실제 Google ID 토큰 로그인 및 백엔드 audience 검증은 아직 미검증**.
-
-## 다음 사용자 Cloud Shell 묶음 작업: Cloud Run 빌드 전 API 준비와 읽기 전용 확인
-```bash
+## 사용자 다음 작업 — 조회만 수행 (Cloud Shell 전체 붙여넣기)
+\`\`\`bash
 (
   PROJECT=study-note-tts
   set -e
-  echo "=== ENABLE BUILD PREPARATION APIS ==="
-  gcloud services enable cloudbuild.googleapis.com artifactregistry.googleapis.com --project="$PROJECT"
-  echo "=== 5 REQUIRED APIS ==="
+
+  echo "=== API STATUS CHECK ==="
+  ENABLED=$(gcloud services list --enabled --project="$PROJECT" --format="value(config.name)")
+
   for api in iamcredentials.googleapis.com texttospeech.googleapis.com run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com; do
-    state=$(gcloud services describe "$api" --project="$PROJECT" --format="value(state)")
-    echo "$api : $state"
-    test "$state" = "ENABLED"
+    if printf '%s\\n' "$ENABLED" | grep -Fxq "$api"; then
+      echo "OK: $api"
+    else
+      echo "NOT ENABLED: $api"
+      exit 1
+    fi
   done
-  echo "=== CLOUD RUN SERVICES (READ ONLY) ==="
+
+  echo "=== CLOUD RUN SERVICES ==="
   gcloud run services list --region=us-central1 --project="$PROJECT"
-  echo "=== FINISHED; NO DEPLOY, NO TTS REQUEST ==="
+
+  echo "=== CHECK COMPLETE ==="
 )
-```
-- Cloud Build / Artifact Registry API 두 개를 **활성화만** 하고 기존 3개를 포함해 상태를 검증.
-- Cloud Run 서비스 목록을 조회할 뿐 실제 서비스, 이미지 저장소, 서버를 만들지 않음.
-- 실행 명령에 `set -e` 포함: 오류 시 다음 명령 실행 차단. 메인 Cloud Shell은 괄호 서브셸이므로 유지.
-- 오류가 나면 반복 실행하지 말고 출력 내용을 공유.
+\`\`\`
 
-이 단계는 Service Usage 설정이며 빌드 실행, 리포지토리 생성, 배포는 수행하지 않음. **Cloud Build/Artifact Registry/Cloud Run을 실제 사용할 때 비용 가능**.
-사용자께서는 전체 결과를 한 번만 캡처해 알려주면 됨. 다음 배포는 별도의 예상 비용 및 실행 권한 확인 후 진행.
+명령은 공식적으로 지원되는 \`gcloud services list --enabled\` 와 \`gcloud run services list\` 만 사용합니다. **API 재활성화·Cloud Run 생성·이미지 빌드·TTS 생성·파일 업로드 없음**.
+- 모두 정상: \`OK:\` 항목이 5개, 마지막 \`CHECK COMPLETE\` 표시.
+- Cloud Run 서비스가 없다면 \`Listed 0 items.\` 정상.
+- 오류 시 후속 명령은 중단되며 메인 Cloud Shell은 유지됨. 전체 출력 화면을 한 번만 공유.
 
-공식 안내:
-https://docs.cloud.google.com/run/docs/deploying-source-code
-https://docs.cloud.google.com/service-usage/docs/enable-disable
+## 개발 작업
+- \`verify_cloud_services.sh\`: 조회 전용 점검 도구.
+- \`test_cloud_services_check.py\`: 가짜 gcloud CLI로 지원되는 명령만 호출하고 API 누락 시 Cloud Run 조회 전 중단되는지 검사.
+- \`cloud-project.json\`: buildApisEnableCommandSuccess=true, buildApisUserConfirmed=false(실제 목록 재조회 대기), Cloud 실행 승인 3종 false 유지.
+
+공식 CLI: https://docs.cloud.google.com/sdk/gcloud/reference/services/list
+공식 Cloud Run: https://docs.cloud.google.com/sdk/gcloud/reference/run/services/list
+
 
 ---
 

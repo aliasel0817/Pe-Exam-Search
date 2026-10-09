@@ -13,7 +13,7 @@ for api in \
   cloudbuild.googleapis.com \
   artifactregistry.googleapis.com
 do
-  if printf '%s\n' "$ENABLED" | grep -Fxq "$api"; then
+  if grep -Fxq -- "$api" <<< "$ENABLED"; then
     echo "OK: $api"
   else
     echo "NOT ENABLED: $api" >&2
