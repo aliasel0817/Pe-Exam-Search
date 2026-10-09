@@ -80,7 +80,7 @@ Cloud Shell 실행 결과에서 아래 사항을 사용자 화면으로 확인:
 ### 이번 승인 범위
 - Google Cloud 프로젝트: `study-note-tts`
 - 서비스: `study-tts-audio-gateway`, 리전: `us-central1`
-- 메모리 512MiB, 1 vCPU, 최소 인스턴스 0, 최대 인스턴스 1
+- 메모리 512MiB, 1 vCPU, 최소 인스턴스 0, 최대 인스턴스 1 (서비스 수준 `--min=0 --max=1` 및 리비전 수준 `--min-instances=0 --max-instances=1` 이중 제한)
 - 전용 빌드 계정 `study-tts-build@study-note-tts.iam.gserviceaccount.com`
 - MP3 조회용 런타임 계정 `study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com`
 - Cloud Run 공용 HTTPS 접근은 허용. 비공개 MP3 조회 API는 Google ID 토큰/허용 이메일 검사. `/healthz`는 인증 없이 허용.

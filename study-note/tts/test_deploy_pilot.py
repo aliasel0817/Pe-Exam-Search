@@ -75,6 +75,8 @@ fi
             "--source=",
             "--build-service-account=projects/study-note-tts/serviceAccounts/study-tts-build@study-note-tts.iam.gserviceaccount.com",
             "--service-account=study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
+            "--min=0",
+            "--max=1",
             "--min-instances=0",
             "--max-instances=1",
             "--concurrency=4",
@@ -113,7 +115,7 @@ fi
     def test_strict_runtime_limits_and_browser_auth_are_explicit(self):
         source=SCRIPT.read_text(encoding="utf-8")
         for expected in (
-            "--min-instances=0","--max-instances=1","--no-cpu-boost",
+            "--min=0","--max=1","--min-instances=0","--max-instances=1","--no-cpu-boost",
             "--cpu-throttling","--cpu=1","--memory=512Mi","--concurrency=4",
             "--service-account=","--build-service-account=",
             "study-tts-build@study-note-tts.iam.gserviceaccount.com",
