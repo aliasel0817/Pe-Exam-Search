@@ -44,6 +44,9 @@ checks={
   "dedicatedBuildRoleGrantedUserConfirmed":True,
   "cloudRunServiceNamePlanned":"study-tts-audio-gateway",
   "cloudRunDeploymentUserApproved":True, "cloudProvisioningApproved":True,
+  "cloudProvisioningApprovedScope":"single-cloud-run-tts-gateway-source-deploy-only",
+  "cloudRunDeploymentApprovalScope":"one-service-study-tts-audio-gateway-us-central1",
+  "cloudRunDeploymentUserConfirmed":False,
   "ttsGenerationApproved":False, "gcsUploadApproved":False
 }
 for name, expected in checks.items():
@@ -91,6 +94,7 @@ gcloud run deploy "$SERVICE" \
   --min-instances=0 \
   --max-instances=1 \
   --no-cpu-boost \
+  --cpu-throttling \
   --set-env-vars="TTS_BUCKET=$BUCKET,GOOGLE_WEB_CLIENT_ID=$CLIENT,ALLOWED_GOOGLE_EMAILS=$ACTIVE_EMAIL,TTS_ALLOWED_ORIGIN=https://aliasel0817.github.io" \
   --quiet
 

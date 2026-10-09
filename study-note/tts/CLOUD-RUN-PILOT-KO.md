@@ -72,7 +72,71 @@ Cloud Shell 실행 결과에서 아래 사항을 사용자 화면으로 확인:
 - https://cloud.google.com/build/pricing
 - https://cloud.google.com/artifact-registry/pricing
 
-## 실제 배포는 별도 승인 필수
+## Cloud Run 테스트 게이트웨이 1개 배포 명시적 승인 완료 (2026-10-09)
+
+사용자가 **Cloud Run 서버 1개 배포에 따른 과금 가능성을 이해하고 명시적으로 동의**함.
+동시에 **실제 Google Cloud TTS 음성 합성과 MP3 GCS 업로드는 계속 비활성화**하도록 요청함.
+
+### 이번 승인 범위
+- Google Cloud 프로젝트: `study-note-tts`
+- 서비스: `study-tts-audio-gateway`, 리전: `us-central1`
+- 메모리 512MiB, 1 vCPU, 최소 인스턴스 0, 최대 인스턴스 1
+- 전용 빌드 계정 `study-tts-build@study-note-tts.iam.gserviceaccount.com`
+- MP3 조회용 런타임 계정 `study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com`
+- Cloud Run 공용 HTTPS 접근은 허용. 비공개 MP3 조회 API는 Google ID 토큰/허용 이메일 검사. `/healthz`는 인증 없이 허용.
+- Cloud Run 소스 빌드·Artifact Registry 이미지 저장·서버 실행 요금이 발생할 수 있음.
+- Cloud Shell 사용자 본인의 활성 Google 이메일만 `ALLOWED_GOOGLE_EMAILS`로 설정하고, 허용된 Google 웹 OAuth 클라이언트만 신뢰.
+- 실제 배포 성공 및 Google 계정 로그인 검증은 **아직 수행 전**.
+
+### 승인 상태
+- `cloudRunDeploymentUserApproved=true`
+- `cloudProvisioningApproved=true` (이 단일 서비스 배포만)
+- `cloudRunDeploymentApprovalScope=one-service-study-tts-audio-gateway-us-central1`
+- `cloudRunDeploymentUserConfirmed=false` (실제 배포 결과 대기)
+- `ttsGenerationApproved=false`, `gcsUploadApproved=false` (**유지, 변경 불가**)
+- `cloud-config.json.mode=disabled` / GitHub 운영 `main` 미변경
+
+### 실제 Cloud Shell 일괄 배포 및 기본 접근 제어 검증
+아래 전체 복사 후 한 번 실행:
+
+```bash
+(
+  set -e
+  git -C "$HOME/pe-tts-dev" pull --ff-only
+  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/deploy_pilot.sh" --execute --accept-possible-charges
+
+  SERVICE_URL=$(gcloud run services describe study-tts-audio-gateway \
+    --project=study-note-tts --region=us-central1 \
+    --format='value(status.url)')
+  test -n "$SERVICE_URL"
+  echo "=== CLOUD RUN SERVICE URL ==="
+  echo "$SERVICE_URL"
+
+  echo "=== HEALTH CHECK (EXPECT HTTP 200) ==="
+  HEALTH_STATUS=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$SERVICE_URL/healthz")
+  echo "HEALTH_HTTP=$HEALTH_STATUS"
+  test "$HEALTH_STATUS" = "200"
+
+  echo "=== PRIVATE MANIFEST, WITHOUT LOGIN (EXPECT HTTP 401) ==="
+  AUTH_STATUS=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$SERVICE_URL/v1/manifest")
+  echo "UNAUTH_MANIFEST_HTTP=$AUTH_STATUS"
+  test "$AUTH_STATUS" = "401"
+
+  echo "=== DEPLOY AND BASIC SECURITY CHECKS COMPLETE ==="
+)
+```
+
+정상 시 `HEALTH_HTTP=200`, `UNAUTH_MANIFEST_HTTP=401`. 이 검증은 인증된 MP3를 읽지 않고, 구글 클라우드 음성 합성·GCS 파일 업로드를 하지 않음.
+오류 시 `set -e`가 후속 검사를 중단. 배포 성공 후 조회 단계만 실패해도 **같은 배포 명령을 다시 실행하지 말 것**, 결과를 공유할 것. 재배포 스크립트는 기존 서비스가 있다면 거부함.
+
+Cloud Run 서비스와 빌드 이미지는 사용하지 않아도 비용이 발생할 수 있으며 예산 경고는 강제 한도가 아님. 최소 0/최대 1은 사용량을 줄일 뿐 비용 상한을 보장하지 않음.
+
+공식:
+- https://docs.cloud.google.com/run/docs/deploying-source-code
+- https://docs.cloud.google.com/run/docs/configuring/services/build-service-account
+- https://cloud.google.com/run/pricing
+
+## 실제 배포 동의 기록(이전 설계)
 `deploy_pilot.sh`는 기본 dry-run. 다음 두 잠금값을 승인 전까지 false로 유지:
 - `cloudRunDeploymentUserApproved=false`
 - `cloudProvisioningApproved=false`

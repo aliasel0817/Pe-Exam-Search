@@ -32,7 +32,7 @@ jobs:
         run: bash -n study-note/tts/verify_cloud_services.sh study-note/tts/cloud-gateway/deploy_pilot.sh study-note/tts/cloud-gateway/preflight_build.sh study-note/tts/cloud-gateway/setup_build_identity.sh
       - name: Run tests without cloud API
         run: python3 -m unittest discover -s study-note/tts -p 'test_*.py' -v
-      - name: Verify all five APIs enabled; Cloud Run deployment still requires user billing consent
+      - name: Verify explicit authorization for single Cloud Run pilot; TTS/GCS uploads still strictly disabled
         shell: bash
         run: |
           python3 - <<'PY'
@@ -64,7 +64,9 @@ jobs:
           assert project['buildApisUserConfirmed'] is True
           assert project['cloudRunServicesCheckedUserConfirmed'] is True
           assert project['cloudRunServiceCountAtVerification'] == 0
-          assert project['cloudRunDeploymentUserApproved'] is False
+          assert project['cloudRunDeploymentUserApproved'] is True
+          assert project['cloudRunDeploymentApprovalScope'] == 'one-service-study-tts-audio-gateway-us-central1'
+          assert project['cloudProvisioningApprovedScope'] == 'single-cloud-run-tts-gateway-source-deploy-only'
           assert project['cloudBuildIdentityCheckedUserConfirmed'] is True
           assert project['cloudBuildRoleStatus'] == 'default_compute_direct_role_not_found'
           assert project['observedDefaultBuildServiceAccount'] == '558407087449-compute@developer.gserviceaccount.com'
@@ -88,10 +90,12 @@ jobs:
           assert set(cors[0]['origin']) == {'https://aliasel0817.github.io','http://localhost:8765'}
           assert set(cors[0]['method']) == {'GET','HEAD'}
           assert cors[0]['maxAgeSeconds'] == 3600
+          assert project['cloudProvisioningApproved'] is True
+          assert project['cloudRunDeploymentUserConfirmed'] is False
           assert all(project[key] is False for key in (
-              'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
+              'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('All five APIs active, Cloud Run empty, deployment needs express owner approval; GCS upload and TTS generation remain locked')
+          print('One Cloud Run TTS gateway deploy explicitly approved; speech synthesis and MP3 uploads NOT approved')
           PY
       - name: Prevent Google login code-flow conflict and secret exposure
         shell: bash

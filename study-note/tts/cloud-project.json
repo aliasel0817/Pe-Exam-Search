@@ -5,10 +5,10 @@
   "projectNumber": "558407087449",
   "region": "us-central1",
   "storageClass": "STANDARD",
-  "cloudProvisioningApproved": false,
+  "cloudProvisioningApproved": true,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Owner verified dedicated build account and roles/run.builder direct project IAM via Cloud Shell; separate runtime audio reader remains private. Source-deployment preflight is complete. Actual Cloud Run deployment, TTS generation and GCS audio upload still require separate owner consent; all paid-capable approval flags remain false.",
+  "comment": "User explicitly approved deployment of one Cloud Run gateway service ONLY. Region us-central1; 1 vCPU, 512Mi, min0/max1; dedicated build and runtime SAs; public HTTPS transport with protected MP3 endpoints. GCS MP3 upload and AI TTS generation are NOT approved and stay false. Actual Cloud Run deployment not yet run.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -53,7 +53,7 @@
   "buildApisVerifiedBy": "User Cloud Shell 2026-10-09 screenshot lists OK for iamcredentials, texttospeech, run, cloudbuild and artifactregistry; Cloud Run listed 0 services and CHECK COMPLETE",
   "cloudRunServiceCountAtVerification": 0,
   "cloudRunServicesCheckedUserConfirmed": true,
-  "cloudRunDeploymentUserApproved": false,
+  "cloudRunDeploymentUserApproved": true,
   "cloudRunDeploymentUserConfirmed": false,
   "cloudRunServiceNamePlanned": "study-tts-audio-gateway",
   "cloudBuildIdentityCheckedUserConfirmed": true,
@@ -69,5 +69,8 @@
   "dedicatedBuildServiceAccountCreationVerifiedBy": "User 2026-10-09 Cloud Shell screenshot shows Created service account [study-tts-build] and expected email.",
   "dedicatedBuildRoleLastAttempt": "SUCCESS: role granted to study-tts-build@study-note-tts.iam.gserviceaccount.com with post-write IAM policy confirmation.",
   "dedicatedBuildRoleConfirmation": "Owner Cloud Shell screenshot 2026-10-09: dedicated build account already exists; Project Cloud Run Builder role granted ONLY to dedicated build account; PROJECT_ROLE: roles/run.builder PRESENT; DEFAULT COMPUTE ACCOUNT: UNCHANGED",
-  "cloudRunDeploymentPilotReady": true
+  "cloudRunDeploymentPilotReady": true,
+  "cloudProvisioningApprovedScope": "single-cloud-run-tts-gateway-source-deploy-only",
+  "cloudRunDeploymentApprovalScope": "one-service-study-tts-audio-gateway-us-central1",
+  "cloudRunDeploymentApprovalVerifiedBy": "User explicitly approved one Cloud Run gateway test-service deploy with possible fees, 2026-10-09. User expressly excludes actual TTS synthesis and GCS MP3 upload."
 }

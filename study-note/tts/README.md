@@ -54,3 +54,5 @@
 - 2026-10-09: 전용 빌드 계정 생성 완료. 즉시 roles/run.builder 부여 시 IAM 전파 지연으로 'does not exist' 발생하여 권한 미확정. setup_build_identity.sh에 기존 계정 재사용과 IAM 가시성 오류 한정 백오프(최대 5회)를 추가. Cloud Run/TTS/GCS 쓰기 잠금 유지.
 
 - 2026-10-09: Cloud Shell 실행 결과로 전용 빌드 계정의 `roles/run.builder PRESENT` 확인. 현재 Cloud Run 배포는 별도 사용자 비용 승인 전까지 차단되며 TTS/GCS 쓰기도 잠금.
+
+- 2026-10-09: 사용자 명시적 동의로 **Cloud Run TTS 테스트 게이트웨이 한 개에 한하여** source deploy 승인 플래그 2개 true. AI TTS 생성·GCS MP3 업로드는 false 유지. 배포는 사용자가 Cloud Shell에서 명령을 실행하기 전에는 일어나지 않음.

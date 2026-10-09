@@ -42,13 +42,13 @@ class ReadinessTests(unittest.TestCase):
             "dedicatedBuildRolePlanned": "roles/run.builder",
             "dedicatedBuildServiceAccountCreatedUserConfirmed": True,
             "dedicatedBuildRoleGrantedUserConfirmed": True,
-            "cloudRunDeploymentUserApproved": False,
+            "cloudRunDeploymentUserApproved": True,
             "cloudRunDeploymentUserConfirmed": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "plannedReaderBucketName": "study-note-tts-audio-558407087449",
             "plannedReaderBucketRole": "roles/storage.objectViewer",
             "plannedBucketName": "study-note-tts-audio-558407087449",
-            "cloudProvisioningApproved": False,
+            "cloudProvisioningApproved": True,
             "ttsGenerationApproved": False,
             "gcsUploadApproved": False,
         }
@@ -148,6 +148,13 @@ class ReadinessTests(unittest.TestCase):
                 problems, prepared = ready.inspect({**self.project, **bad}, self.runtime)
                 self.assertFalse(prepared)
                 self.assertTrue(any("빌드 계정 또는 Builder 역할 계획" in text for text in problems))
+
+    def test_pilot_approval_keeps_audio_synthesis_and_upload_locked(self):
+        self.assertTrue(self.project["cloudRunDeploymentUserApproved"])
+        self.assertTrue(self.project["cloudProvisioningApproved"])
+        self.assertFalse(self.project["ttsGenerationApproved"])
+        self.assertFalse(self.project["gcsUploadApproved"])
+        self.assertFalse(self.project["cloudRunDeploymentUserConfirmed"])
 
     def test_cloud_run_requires_separate_owner_approval(self):
         data = {**self.project, "cloudRunDeploymentUserApproved": False}
