@@ -1,35 +1,47 @@
-# 학습노트 TTS — 체크포인트: Google Cloud 사전 인프라 준비 완료
+# 학습노트 TTS — 체크포인트: 필수 API 3개와 버킷 CORS 확인 완료
 
-## 사용자 화면에서 완료를 확인한 항목
-- Google Cloud 프로젝트: study-note-tts / 프로젝트 번호 558407087449
-- 결제 계정 연결 및 예산 알림 설정 완료 (사용자 보고)
-- 비공개 버킷: study-note-tts-audio-558407087449 / US-CENTRAL1 / STANDARD / Uniform / 공개 접근 방지
-- GCS CORS: GET, HEAD 허용 및 `https://aliasel0817.github.io`와 `http://localhost:8765` 허용, 3600초
-- 전용 서비스 계정: study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
-- 버킷 하나의 roles/storage.objectViewer 및 서비스 계정 자신에 대한 roles/iam.serviceAccountTokenCreator
-- API 3개 활성화: iamcredentials.googleapis.com, texttospeech.googleapis.com, run.googleapis.com
-- **주의:** 스크린샷 위쪽의 404는 이전 명령의 출력이며, 이번 명령은 Operation finished successfully 및 실제 CORS 출력으로 완료됨.
+## 결과 확인
+- 사용자 Cloud Shell 화면에서 iamcredentials.googleapis.com, texttospeech.googleapis.com, run.googleapis.com 3개 모두 활성화 성공
+- 서비스 계정 자신에게 roles/iam.serviceAccountTokenCreator 확인
+- Cloud Storage CORS: GitHub Pages/localhost(8765), GET/HEAD, maxAgeSeconds 3600 실제 설정 확인
+- 스크린샷 상단의 404는 이전 출력. 이번 작업은 Operation finished successfully 및 마지막 CORS 설정 출력으로 종료됨.
+- 운영 main과 복원 브랜치 그대로. TTS 합성·Cloud Run 배포·GCS MP3 업로드 잠금 유지.
 
-## Google 인증 간소화 검토
-기존 학습노트 PWA의 코드에서 아래 공개 OAuth 웹 클라이언트 ID를 확인함:
+## 기존 Google OAuth 웹 클라이언트 재사용
+기존 PWA에서 사용하던 공개 ID:
 `1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com`
+새 Google 로그인 클라이언트를 만들지 않고 재사용하도록 `tts/cloud-config.json`에 준비함. TTS 서비스 모드는 여전히 disabled.
+기존 앱 기기 인증은 google.accounts.oauth2.initCodeClient, 새 TTS 화면은 google.accounts.id.initialize로 서로 다른 API를 사용. **실제 Google ID 토큰 로그인 및 백엔드 audience 검증은 아직 미검증**.
 
-기존 기기 보안 등록은 `google.accounts.oauth2.initCodeClient` (OAuth 2.0 Authorization Code Flow)를 사용.
-TTS 플레이어는 `google.accounts.id.initialize` (Google Sign-In ID token)를 사용하여 로그인하므로 호출하는 JS API가 다름.
-같은 앱·도메인의 기존 웹 클라이언트를 재사용하면 별도 OAuth 클라이언트를 생성하는 사용자 작업을 생략할 수 있을 것으로 판단하였으나, **실제 브라우저 Google ID 토큰 로그인과 Cloud Run audience 검증은 아직 테스트되지 않았음**.
-TTS용 클라이언트는 Google 웹 클라이언트 식별자이며 비밀키가 아님. 실제 테스트 중 ID 토큰 자체는 기록하거나 채팅으로 보내지 말 것.
+## 다음 사용자 Cloud Shell 묶음 작업: Cloud Run 빌드 전 API 준비와 읽기 전용 확인
+```bash
+(
+  PROJECT=study-note-tts
+  set -e
+  echo "=== ENABLE BUILD PREPARATION APIS ==="
+  gcloud services enable cloudbuild.googleapis.com artifactregistry.googleapis.com --project="$PROJECT"
+  echo "=== 5 REQUIRED APIS ==="
+  for api in iamcredentials.googleapis.com texttospeech.googleapis.com run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com; do
+    state=$(gcloud services describe "$api" --project="$PROJECT" --format="value(state)")
+    echo "$api : $state"
+    test "$state" = "ENABLED"
+  done
+  echo "=== CLOUD RUN SERVICES (READ ONLY) ==="
+  gcloud run services list --region=us-central1 --project="$PROJECT"
+  echo "=== FINISHED; NO DEPLOY, NO TTS REQUEST ==="
+)
+```
+- Cloud Build / Artifact Registry API 두 개를 **활성화만** 하고 기존 3개를 포함해 상태를 검증.
+- Cloud Run 서비스 목록을 조회할 뿐 실제 서비스, 이미지 저장소, 서버를 만들지 않음.
+- 실행 명령에 `set -e` 포함: 오류 시 다음 명령 실행 차단. 메인 Cloud Shell은 괄호 서브셸이므로 유지.
+- 오류가 나면 반복 실행하지 말고 출력 내용을 공유.
 
-## 다음 단계
-- Cloud Run 게이트웨이 코드에서 기존 웹 클라이언트 ID를 활용하도록 보안 검증 정리.
-- 기존 데이터/Apps Script 로그인 동작과 충돌이 없는지 모의 시험.
-- Cloud Run 배포와 TTS API 첫 호출은 실제 비용이 발생할 수 있으므로 사용자가 명시적으로 승인한 범위 안에서만 진행.
-- `cloud-config.json`: mode disabled. 전용 Cloud Run 서버 주소는 아직 없음.
-- TTS 생성·GCS 파일 업로드·Cloud Run 배포 승인 플래그는 모두 false.
-- GitHub 운영 main v4.6.3 / 복원 브랜치 / Google Sheets 및 필기 / Apps Script **변경 없음**.
+이 단계는 Service Usage 설정이며 빌드 실행, 리포지토리 생성, 배포는 수행하지 않음. **Cloud Build/Artifact Registry/Cloud Run을 실제 사용할 때 비용 가능**.
+사용자께서는 전체 결과를 한 번만 캡처해 알려주면 됨. 다음 배포는 별도의 예상 비용 및 실행 권한 확인 후 진행.
 
-공식 참고:
-https://developers.google.com/identity/gsi/web/reference/js-reference
-https://developers.google.com/identity/sign-in/web/backend-auth
+공식 안내:
+https://docs.cloud.google.com/run/docs/deploying-source-code
+https://docs.cloud.google.com/service-usage/docs/enable-disable
 
 ---
 

@@ -58,6 +58,8 @@ jobs:
           assert project['gcsCorsEffectiveVerified'] is True
           assert project['oauthWebClientIdCandidate'] == '1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com'
           assert project['oauthReusedClientVerified'] is False
+          assert project['plannedBuildApis'] == ['cloudbuild.googleapis.com','artifactregistry.googleapis.com']
+          assert project['buildApisUserConfirmed'] is False
           assert conf['oauthClientId'] == project['oauthWebClientIdCandidate']
           assert project['plannedSigningRole'] == 'roles/iam.serviceAccountTokenCreator'
           assert project['plannedSigningPrincipal'] == 'serviceAccount:study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com'
@@ -72,7 +74,25 @@ jobs:
           assert all(project[key] is False for key in (
               'cloudProvisioningApproved', 'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('Three APIs & GCS CORS ready; old OAuth Web Client ID reuse planned; Cloud deployment/synthesis/upload still locked')
+          print('Three APIs & CORS ready; existing OAuth web client configured; build APIs pending, Cloud deployment/synthesis/upload disabled')
+          PY
+      - name: Prevent Google login code-flow conflict and secret exposure
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          base=Path('study-note')
+          html=(base/'study-note.html').read_text(encoding='utf-8')
+          tts=(base/'tts/natural-tts.js').read_text(encoding='utf-8')
+          config=json.loads((base/'tts/cloud-config.json').read_text(encoding='utf-8'))
+          match=re.search(r"const GOOGLE_OAUTH_CLIENT_ID = '([^']+)'", html)
+          assert match and match.group(1)==config['oauthClientId']
+          assert 'google.accounts.oauth2.initCodeClient' in html
+          assert 'google.accounts.id.initialize' not in html
+          assert 'gis.initialize' in tts and 'gis.renderButton' in tts
+          assert config['mode']=='disabled' and config['gatewayUrl']==''
+          print('Existing OAuth2 code flow kept intact; separate GSI ID-token button prepared, no cloud backend enabled')
           PY
       - name: Verify TTS module is linked from development HTML
         shell: bash

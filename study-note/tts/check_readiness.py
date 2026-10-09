@@ -55,6 +55,10 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("기존 학습노트 Google 웹 클라이언트 ID를 확인할 수 없습니다.")
     if project.get("oauthReusedClientVerified") is not True:
         problems.append("기존 Google 웹 클라이언트로 TTS 로그인 시험을 아직 수행하지 않았습니다.")
+    if project.get("plannedBuildApis") != ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"]:
+        problems.append("Cloud Run 빌드 준비 API 목록이 예상과 일치하지 않습니다.")
+    if project.get("buildApisUserConfirmed") is not True:
+        problems.append("Cloud Run 빌드용 Cloud Build/Artifact Registry API 준비가 아직 확인되지 않았습니다.")
     if runtime.get("schemaVersion") != 1:
         problems.append("TTS 웹 설정 형식이 유효하지 않습니다.")
     if runtime.get("mode") == "disabled":
@@ -102,6 +106,8 @@ def report(project: dict, runtime: dict) -> str:
         + ("확인" if project.get("requiredApisUserConfirmed") is True else "미확인"),
         "기존 Google 로그인 재사용(실제 검증): "
         + ("확인" if project.get("oauthReusedClientVerified") is True else "미검증"),
+        "Cloud Run 빌드 API 활성화(사용자 확인): "
+        + ("확인" if project.get("buildApisUserConfirmed") is True else "미확인"),
         "서버 연결 상태: " + str(runtime.get("mode", "(미설정)")),
         "외부 API 호출: 이 점검 프로그램에서는 없음",
         "점검 결과: " + ("배포 준비 상태 점검 통과" if ready else "실제 음성 API/업로드 미실행"),

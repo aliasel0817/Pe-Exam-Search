@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Three APIs and bucket CORS verified from user screenshot; original PWA web OAuth client ID available for reuse as Google Sign-In ID token audience; no new client creation planned unless live testing reveals a mismatch. Cloud Run deployment, actual TTS synthesis and MP3 upload remain disabled.",
+  "comment": "Three Cloud TTS/gateway APIs and the precise CORS policy are verified; OAuth web client reuse candidate is configured while cloud mode is disabled. Next safely enable Cloud Build and Artifact Registry APIs only (not actual build/deploy). All billable cloud operations remain gated.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -42,5 +42,10 @@
   "gcsCorsEffectiveVerifiedBy": "User Cloud Shell screenshot lists exact allowed origins, GET, HEAD, and maxAgeSeconds 3600",
   "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
   "oauthClientSource": "Existing study-note.html GOOGLE_OAUTH_CLIENT_ID in both main and dev GitHub source; OAuth2 code login uses google.accounts.oauth2.initCodeClient. New TTS uses independent google.accounts.id Sign-In button. Actual ID token login not yet validated.",
-  "oauthReusedClientVerified": false
+  "oauthReusedClientVerified": false,
+  "plannedBuildApis": [
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com"
+  ],
+  "buildApisUserConfirmed": false
 }

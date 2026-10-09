@@ -34,6 +34,8 @@ class ReadinessTests(unittest.TestCase):
             "gcsCorsEffectiveVerified": True,
             "oauthWebClientIdCandidate": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
             "oauthReusedClientVerified": False,
+            "plannedBuildApis": ["cloudbuild.googleapis.com", "artifactregistry.googleapis.com"],
+            "buildApisUserConfirmed": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "plannedReaderBucketName": "study-note-tts-audio-558407087449",
             "plannedReaderBucketRole": "roles/storage.objectViewer",
@@ -100,6 +102,12 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(is_ready)
         self.assertTrue(any("클라이언트 ID" in item for item in issues))
 
+    def test_rejects_wrong_build_api_list(self):
+        project = {**self.project, "plannedBuildApis": ["compute.googleapis.com"]}
+        problems, ready_flag = ready.inspect(project, self.runtime)
+        self.assertFalse(ready_flag)
+        self.assertTrue(any("빌드 준비 API" in item for item in problems))
+
     def test_all_approvals_required(self):
         project = {**self.project,
             "budgetAlertsUserConfirmed": True,
@@ -111,6 +119,7 @@ class ReadinessTests(unittest.TestCase):
             "signBlobRoleUserConfirmed": True,
             "requiredApisUserConfirmed": True,
             "oauthReusedClientVerified": True,
+            "buildApisUserConfirmed": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,
         }
