@@ -8,5 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "Billing status not yet verified. All paid-capable cloud operations are locked until user expressly approves each stage."
+  "comment": "User reports billing account connected. Budget alerts not yet confirmed. Cloud provisioning, TTS synthesis and GCS uploads remain locked; account billing state has not been independently queried.",
+  "billingLinkedUserConfirmed": true,
+  "budgetAlertsUserConfirmed": false
 }
