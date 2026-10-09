@@ -1,0 +1,9 @@
+# Generated or sensitive local files must never be committed by default.
+/audio/**/*.mp3
+/private-tts-ledger.json
+/private-tts-ledger.json.lock
+/*-sample-*.json
+/topics*.json
+*.pending
+__pycache__/
+*.pyc
