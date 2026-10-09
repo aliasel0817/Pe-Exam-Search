@@ -69,7 +69,7 @@
   // SRI blocks a changed or swapped script, including a compromised CDN.
   const js = document.createElement('script');
   js.src = new URL('./stage4_browser_audio_pilot.js', sourceTag.src).href;
-  js.integrity = 'sha384-HWc/8j83ndEAsrvv9SmwvseIricUxsWbV4BdWkDPoR2d6D2rqlQHOt+b9GGdKt1d';
+  js.integrity = 'sha384-aJQQUfvvwH4xWo8wk161Ny1ai6vxVRqoCzpD/YtupM4YAfoFvW6u7gMQhiU84Q94';
   js.crossOrigin = 'anonymous';
   js.referrerPolicy = 'no-referrer';
   js.onload = () => {
