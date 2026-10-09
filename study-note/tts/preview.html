@@ -63,7 +63,7 @@ input[type=file]{max-width:100%;border:1px solid var(--line);padding:9px;border-
   <div id="ttsStatus" class="tts-live-status" role="status" aria-live="polite">AI MP3 음성 대기 중</div>
   <section id="ttsSettingsPanel" class="tts-settings-panel hidden" aria-label="AI 음성 읽기 설정">
     <strong>AI 자연음성 MP3 학습</strong>
-    <div id="ttsCloudLogin"></div><div id="ttsCloudStatus" class="muted">로컬 음성 미리보기, 클라우드 인증 없음</div>
+    <div id="ttsCloudLogin"></div><div id="ttsCloudStatus" class="muted">로컬 음성 미리보기, 클라우드 인증 없음</div><button id="ttsCloudCheckBtn" class="btn" type="button">연결 설정 확인(유료 호출 없음)</button>
     <div class="tts-settings-grid">
       <label>목소리<select id="ttsOption-voice"><option value="ko-KR-Chirp3-HD-Aoede">여성 · Aoede</option><option value="ko-KR-Chirp3-HD-Kore">여성 · Kore</option><option value="ko-KR-Chirp3-HD-Charon">남성 · Charon</option></select></label>
       <label>재생 모드<select id="ttsOption-mode"><option value="continuous">토픽 연속 읽기</option><option value="one">현재 토픽만</option></select></label>
