@@ -8,7 +8,7 @@
   "cloudProvisioningApproved": false,
   "ttsGenerationApproved": false,
   "gcsUploadApproved": false,
-  "comment": "User showed successful gcloud storage buckets describe for this bucket: region us-central1, STANDARD, uniform=true, public access prevention enforced, 7-day soft delete. Owner project number is not shown in screenshot; uploader must validate. CORS not yet configured/confirmed. Cloud Run/TTS generation/GCS uploading remain disabled; no separate cloud operations are authorized by this record.",
+  "comment": "The owner showed Cloud Shell 'Updating gs://study-note-tts-audio-558407087449/... Completed 1' confirming CORS update command success. Exact effective CORS policy not independently queried. Next planned task is to create a dedicated service account WITHOUT roles/keys. Cloud Run provision, real synthesis, GCS MP3 uploads still unapproved and disabled.",
   "billingLinkedUserConfirmed": true,
   "budgetAlertsUserConfirmed": true,
   "budgetName": "Study-Note-TTS-Budget",
@@ -16,5 +16,9 @@
   "bucketName": "study-note-tts-audio-558407087449",
   "bucketCreatedUserConfirmed": true,
   "bucketSettingsCheckedFromScreenshot": true,
-  "gcsCorsUserConfirmed": false
+  "gcsCorsUserConfirmed": true,
+  "gcsCorsConfirmedBy": "User Cloud Shell screenshot: gcloud storage buckets update ... --cors-file returned Completed 1; final CORS rules not independently fetched",
+  "plannedServiceAccountId": "study-tts-audio-reader",
+  "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
+  "serviceAccountCreatedUserConfirmed": false
 }
