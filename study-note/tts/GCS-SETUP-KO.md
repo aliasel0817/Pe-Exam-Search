@@ -1,34 +1,39 @@
-# 현재 체크포인트 — 비공개 GCS 버킷 생성 완료 · CORS 설정 (2026-10-09)
+# 학습노트 TTS — 단계별 진행 기록 (2026-10-09)
 
-## 화면으로 확인한 현재 상태
-- 프로젝트 ID: study-note-tts / 프로젝트 번호: 558407087449 (이전 사용자 제공)
-- 버킷 실제 생성: study-note-tts-audio-558407087449
-- 2026-10-09 Cloud Shell 조회에서 name, location US-CENTRAL1, STANDARD, uniform_bucket_level_access true, public_access_prevention enforced, soft_delete_policy retentionDurationSeconds 604800 확인
-- GCS 버킷 조회는 성공했지만 소유 프로젝트 번호는 스크린샷에 표시되지 않았으므로 이후 업로드 전에 API에서 다시 검증 필요
-- 예산 Study-Note-TTS-Budget: 사용자 완료 보고
-- **Cloud Run / TTS 생성 / MP3 업로드: 모두 실행 잠금(false), GCS 브라우저 CORS는 아직 사용자 완료 확인 전**
-- 운영 main v4.6.3 / 필기 데이터 / Google Sheets / Apps Script 불변
+## 현재 단계: 전용 Cloud Run 서비스 계정 하나 만들기
 
-## 사용자 다음 한 가지 작업 — Cloud Shell에서 버킷 CORS 설정
+확정된 상태:
+- GCP 프로젝트 study-note-tts (번호 558407087449).
+- 예산 알림 Study-Note-TTS-Budget 사용자가 생성 완료 보고.
+- 비공개 Cloud Storage 버킷 study-note-tts-audio-558407087449 생성됨.
+- US-CENTRAL1 / STANDARD / public access prevention enforced / uniform bucket-level access / soft delete 7일: 사용자 Cloud Shell 조회 스크린샷 확인.
+- CORS 업데이트 명령 gcloud storage buckets update ... --cors-file 완료 결과 Completed 1: 사용자 스크린샷 확인. 실효 CORS 응답은 아직 별도 조회하지 않았음.
+- mp3 합성, MP3 업로드, Cloud Run 구축·배포는 여전히 미실시/비활성화.
+- Google Sheets, 필기 데이터, GitHub main, Apps Script 불변.
 
-브라우저가 비공개 버킷에 저장된 서명 URL의 MP3 파일을 받아 재생하려면 버킷의 CORS 정책이 필요함.
-아래 한 줄을 기존 Cloud Shell에 그대로 복사해 실행:
+사용자께서 이번에 할 한 가지 명령: Cloud Shell에서 서비스 계정 만들기 (권한·비밀키·서버 배포 없음)
 
-    printf '%s\n' '[{"origin":["https://aliasel0817.github.io","http://localhost:8765"],"method":["GET","HEAD"],"responseHeader":["Content-Type","Cache-Control"],"maxAgeSeconds":3600}]' > "$HOME/study-note-tts-cors.json" && gcloud storage buckets update gs://study-note-tts-audio-558407087449 --cors-file="$HOME/study-note-tts-cors.json" --project=study-note-tts
+    gcloud iam service-accounts create study-tts-audio-reader --project=study-note-tts --display-name="Study Note TTS Audio Reader" --description="Read private MP3 for Study Note Cloud Run"
 
-이 명령은 홈 폴더에 CORS 설정 JSON 파일을 만든 다음, **오직 이 버킷의 CORS 설정만 갱신**.
-허용 origin은 GitHub Pages 운영 사이트 https://aliasel0817.github.io 및 향후 개발기 로컬 테스트 http://localhost:8765.
-허용 메서드는 GET과 HEAD이며, PUT/POST/DELETE 등의 브라우저 업로드는 허용하지 않음.
-**CORS는 접근 제어(IAM)가 아님.** 버킷은 계속 비공개이며 Cloud Run 로그인 인증과 GCS 서명 URL이 있어야 MP3 다운로드 가능.
-Cloud Storage 버킷 구성 변경은 API 작업이므로 미세한 사용량 과금 가능성을 배제하지 않음.
+의도한 서비스 계정 이메일:
+    study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com
 
-명령이 끝나면 Cloud Shell의 출력 메시지를 사용자에게 알려주시기 바람. 오류 시 다시 실행하지 말고 원문 오류를 전달.
-설정이 성공하면 개발 프로젝트의 gcsCorsUserConfirmed 값을 사용자 확인 후 true로 변경할 예정.
+서비스 계정은 서버가 클라우드 자원에 접근할 때 사용할 Google 관리 신원이며 일반 사용자의 Google 로그인 계정이 아님.
+이 단계에서 roles/storage.objectViewer, Token Creator, 서비스 계정 키, Cloud Run 배포는 수행하지 않음.
+계정 생성 명령은 일반적으로 별도의 서비스 실행 비용을 만들지 않지만, Google Cloud의 리소스 생성은 프로젝트 IAM 제한의 적용을 받음.
+이미 존재한다거나 IAM API 비활성화 또는 권한 부족 오류가 나오면 추가 작업을 하지 않고 전체 오류 문구를 확인할 것.
+사용자는 생성된 계정 이름 또는 결과만 알려주면 되고 개인 인증 토큰/키/결제정보는 공유하지 않음.
 
-## 다음 단계 (이번에 하지 않음)
-CORS 확인 → Google ID 토큰으로 접근 제한하는 Cloud Run 서비스 계정 및 권한 구성 → 소량 AI 음성 합성 → 비공개 MP3 저장/재생 테스트.
+다음 사용자 작업은 서비스 계정 생성 성공을 확인한 이후 **비공개 버킷 범위에서 읽기 권한** 하나를 부여하는 것. 현재 진행하지 않음.
 
-공식 안내: https://docs.cloud.google.com/storage/docs/using-cors
+## 개발 브랜치 상태
+- cloud-project.json: gcsCorsUserConfirmed=true / serviceAccountCreatedUserConfirmed=false.
+- 실제 합성·업로드·추가 클라우드 구축용 승인 플래그는 모두 false.
+- cloud-config.json: mode=disabled.
+- 자동 테스트: 서버 로그인·서명 URL·MP3 재생·차단·Python 생성·GCS 업로드·준비도 및 승인 잠금.
+- 롤백 기준: main / backup/v4.6.3-before-ai-tts-20261009.
+
+공식 문서: https://docs.cloud.google.com/iam/docs/service-accounts-create?hl=ko
 
 ---
 
