@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>학습노트 TTS — Google 로그인 검증(독립 시험 페이지)</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+body{margin:0;padding:24px;background:Canvas;color:CanvasText}
+main{max-width:640px;margin:0 auto}
+h1{font-size:1.45rem;margin-top:0}
+p,li{line-height:1.75}
+.note{padding:14px;border:1px solid #8885;border-radius:10px}
+#login{min-height:44px;margin:24px 0}
+#result{border:1px solid #8885;border-radius:10px;padding:14px;min-height:46px;white-space:pre-wrap;line-height:1.6}
+#result[data-state="success"]{border-color:#27965a}
+#result[data-state="warning"]{border-color:#cf8525}
+#result[data-state="failure"]{border-color:#b84c4c}
+small{opacity:.8}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script id="tts-auth-smoke">
+'use strict';
+/*
+ * Isolated Google Identity Services ID-token smoke test for Study Note TTS.
+ * No audio synthesis, GCS write, user-data mutation, ID-token logging or storage.
+ * Not used by the live PWA. Must be published only with the owner's approval.
+ */
+(function (root) {
+  const APPROVED_ORIGIN = 'https://aliasel0817.github.io';
+  const CLIENT_ID = '1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com';
+  const GATEWAY_URL = 'https://study-tts-audio-gateway-hgli3gua6q-uc.a.run.app';
+  const MANIFEST_PATH = '/v1/manifest';
+  function classify(status, payload) {
+    const error = payload && typeof payload === 'object' ? payload.error : null;
+    if (status === 200 && payload?.schemaVersion === 1) {
+      return {state:'success', message:'Google 계정 인증 및 MP3 목록 접근 확인(HTTP 200). 음성 파일 자체는 다운로드하지 않았습니다.'};
+    }
+    if (status === 503 && ['Audio manifest unavailable','Invalid audio manifest'].includes(error)) {
+      return {state:'success', message:'Google ID 토큰·허용 계정 검증 통과. MP3 목록이 아직 준비되지 않아 서버가 HTTP 503을 반환했습니다. 음성 생성·업로드는 하지 않았습니다.'};
+    }
+    if (status === 403) {
+      return {state:'warning', message:'Google 계정 또는 토큰이 서버의 인증·허용 계정 검사에서 거절됐습니다(HTTP 403). 현재 Cloud Shell 로그인 계정과 실제 Google 로그인 계정이 다른지 확인이 필요할 수 있습니다.'};
+    }
+    if (status === 401) {
+      return {state:'warning', message:'인증 요청이 거절됐습니다(HTTP 401). 다시 로그인하거나 서버 설정을 확인해야 합니다.'};
+    }
+    return {state:'failure', message:'로그인 검증을 완료하지 못했습니다(HTTP '+status+'). 서버 또는 네트워크 원인 확인이 필요합니다.'};
+  }
+  async function probeToken(token, request=fetch) {
+    if (typeof token !== 'string' || token.length < 80 || token.length > 6000) {
+      return {state:'failure', message:'Google 로그인 응답에 유효한 ID 토큰이 없습니다.'};
+    }
+    try {
+      const response = await request(GATEWAY_URL+MANIFEST_PATH, {
+        method:'GET',
+        mode:'cors',
+        cache:'no-store',
+        credentials:'omit',
+        headers:{Authorization:'Bearer '+token}
+      });
+      let body = null;
+      try { body = await response.json(); } catch (_) {}
+      return classify(response.status,body);
+    } catch (_) {
+      return {state:'failure', message:'Cloud Run 서버 연결 또는 브라우저 CORS 오류가 발생했습니다. 네트워크 연결과 브라우저 정책을 확인해 주세요.'};
+    }
+  }
+  function init(doc, origin, googleIdentity) {
+    const result = doc.getElementById('result');
+    const login = doc.getElementById('login');
+    function show(state,message) {
+      result.dataset.state=state;
+      result.textContent=message; // Never embed token, email, raw JSON or request headers.
+    }
+    if (origin !== APPROVED_ORIGIN) {
+      show('warning','이 테스트 페이지는 승인된 학습노트 GitHub Pages 주소에서만 실행할 수 있습니다. 개발 브랜치 소스만 올린 상태에서는 사용할 수 없습니다.');
+      return;
+    }
+    if (!googleIdentity || typeof googleIdentity.initialize !== 'function' ||
+        typeof googleIdentity.renderButton !== 'function') {
+      show('failure','Google 로그인 라이브러리를 불러오지 못했습니다. 브라우저의 팝업·쿠키·콘텐츠 차단 설정을 확인해 주세요.');
+      return;
+    }
+    show('info','Google 계정을 선택하면 로그인 검증만 수행합니다. 토큰은 저장하거나 화면에 표시하지 않습니다.');
+    googleIdentity.initialize({
+      client_id:CLIENT_ID,
+      auto_select:false,
+      cancel_on_tap_outside:true,
+      callback:async function (response) {
+        show('info','Cloud Run에서 Google 로그인 정보를 확인하고 있습니다.');
+        const assessment = await probeToken(response && response.credential);
+        show(assessment.state,assessment.message);
+      }
+    });
+    googleIdentity.renderButton(login, {
+      type:'standard', theme:'outline', size:'large', shape:'pill',
+      text:'signin_with', width:280
+    });
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports={APPROVED_ORIGIN,CLIENT_ID,GATEWAY_URL,MANIFEST_PATH,classify,probeToken,init};
+  } else {
+    root.addEventListener('load',()=>{
+      init(root.document,root.location.origin,root.google?.accounts?.id);
+    },{once:true});
+  }
+})(typeof window === 'undefined'?{}:window);
+</script>
+</head>
+<body>
+<main>
+<h1>학습노트 TTS — Google 로그인 실검증</h1>
+<p>이 페이지는 개발용 테스트 화면입니다. 현재 운영 학습노트와 PDF·필기·Sheets 데이터는 변경하지 않습니다.</p>
+<div class="note">
+<p><strong>시험하는 내용</strong>: Google 로그인으로 발급받은 ID 토큰이 현재 Cloud Run 서버의 인증·허용 계정 검사를 통과하는지 확인합니다.</p>
+<p><strong>하지 않는 내용</strong>: 음성 생성, MP3 업로드·다운로드, 새 Cloud Run 배포, 토큰 저장 또는 화면 표시.</p>
+</div>
+<div id="login" aria-label="Google 로그인 버튼"></div>
+<div id="result" aria-live="polite" role="status">페이지를 열면 로그인 준비 상태를 확인합니다.</div>
+<p><small>계정이 허용되지 않으면 HTTP 403이 나타날 수 있습니다. 오디오 목록이 아직 없으면 인증 성공 후 HTTP 503이 나타날 수 있습니다. 결과 화면만 공유하고 개발자 도구의 인증 토큰이나 네트워크 헤더는 공유하지 마세요.</small></p>
+</main>
+</body>
+</html>
