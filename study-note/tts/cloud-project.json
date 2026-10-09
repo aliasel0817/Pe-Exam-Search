@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "displayName": "Study-Note-TTS",
+  "projectId": "study-note-tts",
+  "projectNumber": "558407087449",
+  "region": "us-central1",
+  "storageClass": "STANDARD",
+  "cloudProvisioningApproved": false,
+  "comment": "Only the project identifiers are confirmed. Billing state and GCS bucket are not verified; no cloud resources may be created by this config."
+}
