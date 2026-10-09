@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>학습노트 AI 자연음성 | 독립 테스트</title>
+<style>
+:root{color-scheme:light;--blue:#2563eb;--line:#dbe3ef;--ink:#172033;--bg:#f2f6fb;}
+*{box-sizing:border-box}
+body{margin:0;padding:18px;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
+main{max-width:900px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}
+h1{margin:0 0 10px;font-size:1.5rem}h2{font-size:1.36rem}h3{margin:0 0 7px;font-size:1rem}
+p{line-height:1.55}.muted{color:#64748b;font-size:.88rem}
+.safe{border:1px solid #bfd8c7;background:#f2faf5;padding:12px;border-radius:10px}
+.file-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:14px 0}
+input[type=file]{max-width:100%;border:1px solid var(--line);padding:9px;border-radius:9px;background:white}
+.btn{border:1px solid #b7c4d7;background:white;border-radius:9px;padding:9px 13px;min-height:42px;cursor:pointer;font-size:.93rem}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #bfdbfe}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hidden{display:none!important}
+.tts-title-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.tts-title-row h2{min-width:0;margin:0;flex:1 1 auto}
+.tts-main-btn{background:#2563eb;color:#fff;border-color:#1d4ed8}
+.tts-main-btn.tts-playing{background:#fff1f2;color:#9f1239;border-color:#fda4af}
+.tts-live-status{min-height:22px;margin:8px 0 14px;font-size:.83rem;color:#334155;overflow-wrap:anywhere}
+.tts-settings-panel{border:1px solid #cbd5e1;background:#f8fafc;border-radius:12px;padding:14px;margin:12px 0}
+.tts-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tts-settings-grid label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:700}
+.tts-settings-grid select{min-width:0;width:100%;height:40px;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.tts-field-title{font-weight:700;margin:16px 0 10px}
+.tts-field-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tts-field-grid label{display:flex;align-items:center;gap:6px;font-size:.84rem}
+.tts-field-grid input{width:17px;height:17px}
+.tts-panel-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.tts-help{font-size:.82rem;color:#64748b;margin:12px 0 0}
+.study-card{border:1px solid var(--line);padding:16px;border-radius:10px;margin:10px 0}
+.study-card>div{white-space:pre-wrap;font-size:.91rem;line-height:1.6;overflow-wrap:anywhere}
+.tts-reading-highlight{outline:3px solid #60a5fa;background:#eff6ff!important;outline-offset:2px}
+.nav-row{display:flex;justify-content:space-between;gap:8px;margin:12px 0}
+@media(max-width:650px){body{padding:7px}main{padding:12px}.tts-settings-grid,.tts-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tts-title-row h2{flex-basis:100%}}
+</style>
+</head>
+<body>
+<main>
+  <h1>학습노트 AI 자연음성 독립 테스트</h1>
+  <p class="muted">운영 PWA 및 필기 데이터와 분리된 개발 화면입니다. 실제 AI MP3를 준비해야 소리가 납니다.</p>
+  <div class="safe"><strong>개인 학습 데이터 보호</strong><div class="muted">선택한 JSON은 이 브라우저에서만 읽으며 서버로 업로드하지 않습니다. 이 페이지는 Google Sheets를 수정하거나 TTS 생성 API를 호출하지 않습니다.</div></div>
+  <div class="file-row">
+    <label for="ttsFileInput"><strong>음성 테스트용 토픽 JSON</strong></label>
+    <input id="ttsFileInput" type="file" accept=".json,application/json">
+  </div>
+  <div class="muted" id="fileMessage">먼저 T0001~T0003 예시 JSON을 선택해 주세요.</div>
+  <div class="nav-row">
+    <button id="previewPrev" class="btn" type="button" disabled>← 이전 토픽</button>
+    <strong id="previewCounter">0 / 0</strong>
+    <button id="previewNext" class="btn" type="button" disabled>다음 토픽 →</button>
+  </div>
+  <div class="tts-title-row">
+    <h2 id="detailTitle">학습 토픽</h2>
+    <button id="ttsToggleBtn" class="btn tts-main-btn" aria-label="AI 음성 듣기" type="button" aria-pressed="false">🔊 듣기</button>
+    <button id="ttsSettingsBtn" class="btn" type="button" aria-expanded="false" aria-controls="ttsSettingsPanel">⚙ 설정</button>
+  </div>
+  <div id="ttsStatus" class="tts-live-status" role="status" aria-live="polite">AI MP3 음성 대기 중</div>
+  <section id="ttsSettingsPanel" class="tts-settings-panel hidden" aria-label="AI 음성 읽기 설정">
+    <strong>AI 자연음성 MP3 학습</strong>
+    <div class="tts-settings-grid">
+      <label>목소리<select id="ttsOption-voice"><option value="ko-KR-Chirp3-HD-Aoede">여성 · Aoede</option><option value="ko-KR-Chirp3-HD-Kore">여성 · Kore</option><option value="ko-KR-Chirp3-HD-Charon">남성 · Charon</option></select></label>
+      <label>재생 모드<select id="ttsOption-mode"><option value="continuous">토픽 연속 읽기</option><option value="one">현재 토픽만</option></select></label>
+      <label>속도<select id="ttsOption-rate"><option value="0.85">0.85배</option><option value="1">1.0배</option><option value="1.15">1.15배</option><option value="1.25">1.25배</option></select></label>
+      <label>반복<select id="ttsOption-repeat"><option value="1">1회</option><option value="2">2회</option></select></label>
+      <label>회상 대기<select id="ttsOption-gap"><option value="0">0초</option><option value="3">3초</option><option value="5">5초</option></select></label>
+    </div>
+    <div class="tts-field-title">토픽명은 항상 읽고 다음에서 선택한 본문 항목만 읽습니다.</div>
+    <div class="tts-field-grid">
+      <label><input id="ttsField-concept" type="checkbox" checked> 개념</label>
+      <label><input id="ttsField-background" type="checkbox" checked> 등장배경</label>
+      <label><input id="ttsField-necessity" type="checkbox" checked> 필요성</label>
+      <label><input id="ttsField-features" type="checkbox" checked> 특징</label>
+      <label><input id="ttsField-components" type="checkbox" checked> 기술요소/구성요소</label>
+      <label><input id="ttsField-keywords" type="checkbox" checked> 키워드</label>
+    </div>
+    <div class="tts-panel-actions">
+      <button id="ttsSelectAll" class="btn" type="button">전체 선택</button>
+      <button id="ttsSelectNone" class="btn" type="button">전체 해제</button>
+      <button id="ttsExportBtn" class="btn" type="button">현재 토픽 샘플 저장</button>
+    </div>
+    <p class="tts-help">MP3가 없으면 정상적으로 '미생성' 상태가 표시됩니다. 음성은 절대 자동 생성되지 않습니다.</p>
+  </section>
+  <section class="study-card"><h3>개념</h3><div id="detailConcept">-</div></section>
+  <section class="study-card"><h3>등장배경</h3><div id="detailBackground">-</div></section>
+  <section class="study-card"><h3>필요성</h3><div id="detailNecessity">-</div></section>
+  <section class="study-card"><h3>특징</h3><div id="detailFeatures">-</div></section>
+  <section class="study-card"><h3>기술요소/구성요소</h3><div id="detailTechnicalComponents">-</div></section>
+  <section class="study-card"><h3>키워드</h3><div id="detailKeywords">-</div></section>
+</main>
+<script>
+(function(){
+  let topics=[];
+  let cursor=0;
+  const $ = id=>document.getElementById(id);
+  const byId = id=>topics.find(t=>t.topicId===id)||null;
+  function current(){return topics[cursor]||null}
+  function render(){
+    const t=current();
+    $('previewPrev').disabled=cursor===0;
+    $('previewNext').disabled=!t||cursor>=topics.length-1;
+    $('previewCounter').textContent=t?(cursor+1)+' / '+topics.length:'0 / 0';
+    for(const [id,key] of [
+      ['detailTitle','topicName'],['detailConcept','concept'],['detailBackground','background'],
+      ['detailNecessity','necessity'],['detailFeatures','features'],
+      ['detailTechnicalComponents','technicalComponents'],['detailKeywords','keywords']
+    ])$(id).textContent=String(t?.[key]||'-');
+  }
+  function select(id){
+    const idx=topics.findIndex(t=>t.topicId===id);
+    if(idx<0)return;
+    window.peStudyNoteTTS?.onTopicChanged(id);
+    cursor=idx;render();
+  }
+  window.peStudyNoteTtsBridge={
+    currentTopic:current,getTopicById:byId,
+    filteredTopicIds:()=>topics.map(t=>t.topicId),selectTopic:select
+  };
+  $('previewPrev').addEventListener('click',()=>{if(cursor>0)select(topics[cursor-1].topicId)});
+  $('previewNext').addEventListener('click',()=>{if(cursor<topics.length-1)select(topics[cursor+1].topicId)});
+  $('ttsFileInput').addEventListener('change',async event=>{
+    const file=event.target.files?.[0];if(!file)return;
+    try{
+      const obj=JSON.parse(await file.text());
+      const data=Array.isArray(obj)?obj:obj.topics;
+      if(!Array.isArray(data)||!data.length||data.length>5000)throw Error('토픽 배열이 없거나 너무 많습니다.');
+      const ids=new Set();
+      const clean=data.filter(t=>{
+        if(!t||typeof t!=='object'||!/^T[0-9]{4,6}$/.test(String(t.topicId)))throw Error('통합ID 형식 오류');
+        if(ids.has(t.topicId))throw Error('중복 통합ID: '+t.topicId);
+        ids.add(t.topicId);
+        return t.studyTarget==='Y';
+      });
+      if(!clean.length)throw Error('학습대상 Y 토픽이 없습니다.');
+      window.peStudyNoteTTS?.stop('샘플을 불러왔습니다. 듣기 버튼으로 재생하세요.');
+      topics=clean;cursor=0;render();
+      $('fileMessage').textContent='로컬 JSON '+file.name+' · '+topics.length+'개 토픽';
+    }catch(error){
+      $('fileMessage').textContent='JSON 읽기 오류: '+(error?.message||error);
+    }
+  });
+  render();
+})();
+</script>
+<script src="./natural-tts.js"></script>
+</body>
+</html>
