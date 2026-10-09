@@ -179,6 +179,9 @@ def main() -> int:
         if args.execute and not args.accept_possible_cloud_charges:
             raise ValueError("--execute requires --accept-possible-cloud-charges")
         if args.execute:
+            permissions = json.loads(PROJECT_CONFIG.read_text(encoding="utf-8"))
+            if permissions.get("gcsUploadApproved") is not True:
+                raise ValueError("Cloud GCS upload is not yet approved in cloud-project.json; NO cloud request made.")
             execute(args.audio_dir.resolve(), args.bucket, local, objects,
                     project_id, project_number)
         else:
