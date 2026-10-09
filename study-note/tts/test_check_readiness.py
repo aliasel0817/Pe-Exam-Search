@@ -19,20 +19,23 @@ class ReadinessTests(unittest.TestCase):
             "projectId": "study-note-tts",
             "projectNumber": "558407087449",
             "billingLinkedUserConfirmed": True,
-            "budgetAlertsUserConfirmed": False,
+            "budgetAlertsUserConfirmed": True,
+            "bucketCreatedUserConfirmed": False,
+            "plannedBucketName": "study-note-tts-audio-558407087449",
             "cloudProvisioningApproved": False,
             "ttsGenerationApproved": False,
             "gcsUploadApproved": False,
         }
         self.runtime = {"schemaVersion": 1, "mode": "disabled"}
 
-    def test_current_stage_indicates_budget_not_confirmed(self):
+    def test_current_stage_indicates_bucket_not_confirmed(self):
         problems, result = ready.inspect(self.project, self.runtime)
         self.assertFalse(result)
-        self.assertTrue(any("예산 알림" in item for item in problems))
+        self.assertTrue(any("버킷 생성" in item for item in problems))
         status = ready.report(self.project, self.runtime)
         self.assertIn("결제 계정 연결(사용자 확인): 확인", status)
-        self.assertIn("예산 알림(사용자 확인): 미확인", status)
+        self.assertIn("예산 알림(사용자 확인): 확인", status)
+        self.assertIn("비공개 버킷 생성(사용자 확인): 미확인", status)
         self.assertIn("외부 API 호출: 이 점검 프로그램에서는 없음", status)
 
     def test_wrong_project_always_rejected(self):
@@ -45,6 +48,7 @@ class ReadinessTests(unittest.TestCase):
         project = {**self.project,
             "budgetAlertsUserConfirmed": True,
             "cloudProvisioningApproved": True,
+            "bucketCreatedUserConfirmed": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,
         }
