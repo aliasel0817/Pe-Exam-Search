@@ -73,6 +73,10 @@ def inspect(project: dict, runtime: dict) -> tuple[list[str], bool]:
         problems.append("사용자가 Cloud Run 테스트 서버 배포 가능 요금을 별도 승인하지 않았습니다.")
     if project.get("cloudRunDeploymentUserConfirmed") is not True:
         problems.append("Cloud Run 테스트 서버의 실제 배포가 아직 확인되지 않았습니다.")
+    if project.get("cloudRunRemoteUnauthManifestVerified") is not True:
+        problems.append("배포된 Cloud Run의 로그인 없는 MP3 목록 접근 차단(HTTP 401) 시험이 아직 완료되지 않았습니다.")
+    if project.get("cloudRunRemoteCorsPreflightVerified") is not True:
+        problems.append("배포된 Cloud Run의 GitHub Pages 브라우저 CORS(HTTP 204) 시험이 아직 완료되지 않았습니다.")
     if runtime.get("schemaVersion") != 1:
         problems.append("TTS 웹 설정 형식이 유효하지 않습니다.")
     if runtime.get("mode") == "disabled":
@@ -132,6 +136,12 @@ def report(project: dict, runtime: dict) -> str:
         + ("확인" if project.get("dedicatedBuildRoleGrantedUserConfirmed") is True else "미확인"),
         "Cloud Run 배포 비용 사전 동의: "
         + ("동의" if project.get("cloudRunDeploymentUserApproved") is True else "미동의"),
+        "Cloud Run 게이트웨이 배포(사용자 확인): "
+        + ("확인" if project.get("cloudRunDeploymentUserConfirmed") is True else "미확인"),
+        "배포된 서버의 로그인 보호(HTTP 401): "
+        + ("통과" if project.get("cloudRunRemoteUnauthManifestVerified") is True else "미검증"),
+        "배포된 서버의 CORS(HTTP 204): "
+        + ("통과" if project.get("cloudRunRemoteCorsPreflightVerified") is True else "미검증"),
         "서버 연결 상태: " + str(runtime.get("mode", "(미설정)")),
         "외부 API 호출: 이 점검 프로그램에서는 없음",
         "점검 결과: " + ("배포 준비 상태 점검 통과" if ready else "실제 음성 API/업로드 미실행"),

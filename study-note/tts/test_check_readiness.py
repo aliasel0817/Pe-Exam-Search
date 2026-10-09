@@ -43,7 +43,9 @@ class ReadinessTests(unittest.TestCase):
             "dedicatedBuildServiceAccountCreatedUserConfirmed": True,
             "dedicatedBuildRoleGrantedUserConfirmed": True,
             "cloudRunDeploymentUserApproved": True,
-            "cloudRunDeploymentUserConfirmed": False,
+            "cloudRunDeploymentUserConfirmed": True,
+            "cloudRunRemoteUnauthManifestVerified": False,
+            "cloudRunRemoteCorsPreflightVerified": False,
             "plannedServiceAccountEmail": "study-tts-audio-reader@study-note-tts.iam.gserviceaccount.com",
             "plannedReaderBucketName": "study-note-tts-audio-558407087449",
             "plannedReaderBucketRole": "roles/storage.objectViewer",
@@ -156,6 +158,12 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(self.project["gcsUploadApproved"])
         self.assertFalse(self.project["cloudRunDeploymentUserConfirmed"])
 
+    def test_deployed_gateway_requires_live_unauthenticated_and_cors_checks(self):
+        issues, is_ready = ready.inspect(self.project, self.runtime)
+        self.assertFalse(is_ready)
+        self.assertTrue(any("로그인 없는 MP3 목록" in x for x in issues))
+        self.assertTrue(any("브라우저 CORS" in x for x in issues))
+
     def test_cloud_run_requires_separate_owner_approval(self):
         data = {**self.project, "cloudRunDeploymentUserApproved": False}
         issues, is_ready = ready.inspect(data, self.runtime)
@@ -179,6 +187,8 @@ class ReadinessTests(unittest.TestCase):
             "dedicatedBuildServiceAccountCreatedUserConfirmed": True,
             "dedicatedBuildRoleGrantedUserConfirmed": True,
             "cloudRunDeploymentUserConfirmed": True,
+            "cloudRunRemoteUnauthManifestVerified": True,
+            "cloudRunRemoteCorsPreflightVerified": True,
             "ttsGenerationApproved": True,
             "gcsUploadApproved": True,
         }

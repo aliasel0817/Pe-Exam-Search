@@ -56,3 +56,5 @@
 - 2026-10-09: Cloud Shell 실행 결과로 전용 빌드 계정의 `roles/run.builder PRESENT` 확인. 현재 Cloud Run 배포는 별도 사용자 비용 승인 전까지 차단되며 TTS/GCS 쓰기도 잠금.
 
 - 2026-10-09: 사용자 명시적 동의로 **Cloud Run TTS 테스트 게이트웨이 한 개에 한하여** source deploy 승인 플래그 2개 true. AI TTS 생성·GCS MP3 업로드는 false 유지. 배포는 사용자가 Cloud Shell에서 명령을 실행하기 전에는 일어나지 않음.
+
+- 2026-10-09: Cloud Run gateway 최초 배포 성공(사용자 화면). /healthz 404는 Google Cloud Run의 z-종료 예약 URL 경로에 해당. GitHub 개발 코드만 /health로 수정. 배포된 서버의 /v1/manifest 무인증 401 및 CORS 204 실검증을 위한 읽기 전용 verify_remote.sh 추가. 추가 리비전 배포 미승인. 실제 음성 생성·MP3 업로드 금지 유지.

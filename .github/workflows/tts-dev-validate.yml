@@ -63,7 +63,7 @@ jobs:
           assert project['plannedBuildApis'] == ['cloudbuild.googleapis.com','artifactregistry.googleapis.com']
           assert project['buildApisUserConfirmed'] is True
           assert project['cloudRunServicesCheckedUserConfirmed'] is True
-          assert project['cloudRunServiceCountAtVerification'] == 0
+          assert project['cloudRunServiceCountAtVerification'] == 1
           assert project['cloudRunDeploymentUserApproved'] is True
           assert project['cloudRunDeploymentApprovalScope'] == 'one-service-study-tts-audio-gateway-us-central1'
           assert project['cloudProvisioningApprovedScope'] == 'single-cloud-run-tts-gateway-source-deploy-only'
@@ -76,7 +76,11 @@ jobs:
           assert project['dedicatedBuildServiceAccountCreatedUserConfirmed'] is True
           assert project['dedicatedBuildRoleGrantedUserConfirmed'] is True
           assert project['cloudRunDeploymentPilotReady'] is True
-          assert project['cloudRunDeploymentUserConfirmed'] is False
+          assert project['cloudRunDeploymentUserConfirmed'] is True
+          assert project['cloudRunRevisionUpdateUserApproved'] is False
+          assert project['cloudRunRemoteUnauthManifestVerified'] is False
+          assert project['cloudRunRemoteCorsPreflightVerified'] is False
+          assert project['deployedCloudRunServiceUrl'] == 'https://study-tts-audio-gateway-558407087449.us-central1.run.app'
           assert project['cloudRunServiceNamePlanned'] == 'study-tts-audio-gateway'
           assert project['buildApisEnableCommandSuccess'] is True
           assert conf['oauthClientId'] == project['oauthWebClientIdCandidate']
@@ -95,7 +99,7 @@ jobs:
           assert all(project[key] is False for key in (
               'ttsGenerationApproved', 'gcsUploadApproved'))
           assert conf['mode'] == 'disabled'
-          print('One Cloud Run TTS gateway deploy explicitly approved; speech synthesis and MP3 uploads NOT approved')
+          print('One Cloud Run gateway deployed; reserved /healthz 404 observed; live auth/CORS checks pending; speech synthesis and upload LOCKED')
           PY
       - name: Prevent Google login code-flow conflict and secret exposure
         shell: bash

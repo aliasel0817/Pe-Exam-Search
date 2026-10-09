@@ -1,3 +1,47 @@
+# 학습노트 TTS — Cloud Run 최초 배포 성공, 404 원인 분석 (2026-10-09)
+
+## 화면에서 확인된 현황
+- Cloud Run 서비스: `study-tts-audio-gateway` / 프로젝트 `study-note-tts` / 지역 `us-central1`.
+- **사용자 Cloud Shell 화면에 빌드·배포 Done, 리비전 트래픽 100% 표시**. 최초 Cloud Run 테스트 서비스 1개 배포 완료.
+- 최초 상태 검사 `/healthz`: `HEALTH_HTTP=404`. 후속 `/v1/manifest` 무인증 검사는 `set -e`로 중단되어 실행되지 않음.
+- Google 공식 Cloud Run known issues: `z`로 끝나는 일부 URL 경로가 예약되어 있음. `/healthz`가 해당하여 404를 반환할 수 있음.
+- GitHub **개발 브랜치에만** 상태 경로를 `/health`로 수정함. 기존 Cloud Run 최초 리비전은 그대로이며 재배포되지 않음.
+- 운영 GitHub `main` 학습노트 v4.6.3, Google Sheets, 필기, Apps Script 변경 없음.
+- AI TTS 합성 및 GCS MP3 업로드: **승인 없음(false)·미실시**.
+
+## 사용자 다음 Cloud Shell 묶음 작업 — 현재 배포의 로그인 차단·CORS 실동작 점검
+아래 명령을 한 번에 실행합니다. **Cloud Run 추가 배포, 이미지 빌드, GCS 쓰기, TTS API 요청이 없음**.
+
+```bash
+(
+  set -e
+  git -C "$HOME/pe-tts-dev" pull --ff-only
+  bash "$HOME/pe-tts-dev/study-note/tts/cloud-gateway/verify_remote.sh"
+)
+```
+
+조회 스크립트에서 수행:
+1. Cloud Run의 현재 `status.url`을 조회.
+2. **로그인 없이 `GET /v1/manifest`** → 서버 자신의 JSON `{"error":"Google login required"}`, **HTTP 401**을 기대.
+3. Origin `https://aliasel0817.github.io`에 대한 응답 CORS 헤더 검사.
+4. 동일한 경로에 `OPTIONS` 브라우저 사전 요청 → **HTTP 204**를 기대.
+
+예상 정상 결과: `UNAUTH_MANIFEST_HTTP=401`, `APP_AUTH_GATE=OK`, `GITHUB_PAGES_CORS=OK`, `CORS_PREFLIGHT_HTTP=204`, `EXISTING CLOUD RUN SECURITY CHECK COMPLETE`.
+이 조회는 Cloud Run 요청/로그 소량 과금 가능성이 있지만 신규 빌드·배포는 없음.
+오류 시 반복 배포하지 말고 결과를 공유. 실패하면 서비스 URL/접근 정책/로그를 분리해서 진단.
+
+## 보호 잠금
+- `cloudRunDeploymentUserConfirmed=true`; **이미 배포된 서버가 있으므로 초기 배포 스크립트는 재실행 차단**.
+- `cloudRunRevisionUpdateUserApproved=false`: 건강 상태 경로 `/health`를 실제 서버에 반영하는 새 리비전의 배포는 아직 별도 승인받지 않음.
+- `ttsGenerationApproved=false` 및 `gcsUploadApproved=false` 유지.
+- `cloud-config.json.mode=disabled`; 운영 학습노트에 연결되지 않음.
+
+공식: https://docs.cloud.google.com/run/docs/known-issues
+
+---
+
+# 이전 Cloud Run 배포 준비 기록
+
 # 학습노트 AI TTS — Cloud Run 배포 직전 체크리스트
 
 작성 기준: 2026-10-09 / 작업 브랜치 `feature/ai-natural-tts-20261009`
