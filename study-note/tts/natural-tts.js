@@ -491,7 +491,7 @@
           const signedResponse = await this.authenticatedGatewayFetch(
             '/v1/audio-url?file=' + encodeURIComponent(urlOrPath));
           const ticket = await signedResponse.json();
-          downloadUrl = validateSignedPrivateAudioUrl(ticket.url, urlOrPath);downloadUrl = signedUrl.href;
+          downloadUrl = validateSignedPrivateAudioUrl(ticket.url, urlOrPath);
         }
         response = await fetch(downloadUrl, {
           mode:privateMode ? 'cors' : 'same-origin',
