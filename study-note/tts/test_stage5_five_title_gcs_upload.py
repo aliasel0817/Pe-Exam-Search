@@ -27,24 +27,32 @@ class NewTitleAppendOnlyTests(unittest.TestCase):
         self.journal = self.base / "upload-attempts.jsonl"
         self.objects_old = []
         self.objects_new = []
-        for i in range(7):
-            name = f"{pre.VOICE}/T2176/concept-{i:012x}.mp3"
-            file = self.base / f"old-{i}.mp3"
-            file.write_bytes(b"ID3" + bytes([i+1]) * 256)
-            self.objects_old.append((name, file))
+        self.old_index = {"schemaVersion": 1, "entries": {}}
+        counter = 0
+        # Exact production shape: 3 body fields, split into 1 + 2 + 4 MP3s.
+        for topic_id, field, parts in (
+            ("T0001", "concept", 1),
+            ("T2176", "components", 2),
+            ("T2354", "components", 4),
+        ):
+            part_names = []
+            for number in range(1, parts + 1):
+                counter += 1
+                suffix = "" if parts == 1 else f"-p{number:02d}"
+                name = f"{pre.VOICE}/{topic_id}/{field}-{counter:012x}{suffix}.mp3"
+                file = self.base / f"old-{counter}.mp3"
+                file.write_bytes(b"ID3" + bytes([counter]) * 256)
+                self.objects_old.append((name, file))
+                part_names.append(name)
+            self.old_index["entries"][f"{topic_id}:{field}:{pre.VOICE}"] = {
+                "sha256": "a"*64,
+                **({"file": part_names[0]} if parts == 1 else {"files": part_names}),
+            }
         for i, tid in enumerate(["T0001","T1961","T2238","T2176","T2354"], 1):
             name = f"{pre.VOICE}/{tid}/topic-{i:012x}.mp3"
             file = self.base / f"new-{i}.mp3"
             file.write_bytes(b"ID3" + bytes([i+13]) * 300)
             self.objects_new.append((name, file))
-        self.old_index = {
-            "schemaVersion": 1,
-            "entries": {
-                f"T{i:04d}:concept:{pre.VOICE}": {
-                    "sha256": "a"*64, "file": key}
-                for i, (key, _) in enumerate(self.objects_old, start=1)
-            },
-        }
         self.new_index = {
             "schemaVersion": 1,
             "entries": {
@@ -166,7 +174,10 @@ class NewTitleAppendOnlyTests(unittest.TestCase):
         self.assertEqual(len(puts),6)
         self.assertEqual(len(reads),17) # five immediate checks, then all twelve
         self.assertTrue(all("--if-generation-match=0" in cmd for cmd in puts[:5]))
-        self.assertTrue(all(":topic:" not in cmd[-1] for cmd in puts))
+        self.assertTrue(all("/topic-" in cmd[4] for cmd in puts[:5]))
+        old_remote_names = {name for name, _ in self.objects_old}
+        self.assertTrue(all(not any(cmd[4].endswith(old_name) for old_name in old_remote_names)
+                            for cmd in puts))
         self.assertTrue(all(cmd[3].endswith(".mp3") for cmd in puts[:5]))
         self.assertTrue(all(cmd[3].endswith("index.json") for cmd in puts[5:]))
         self.assertIn("--if-generation-match="+self.generation,puts[5])
