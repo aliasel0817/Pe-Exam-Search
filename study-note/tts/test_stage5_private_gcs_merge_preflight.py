@@ -194,14 +194,18 @@ class PrivateGcsMergeTests(unittest.TestCase):
                 merger.check_remote_readonly(plan)
 
     def test_unauthorized_extra_topic_manifest_field_is_rejected(self):
+        extra_path = f"{merger.VOICE}/T9999/topic-999999999999.mp3"
+        self.save_file(self.new, extra_path, b"ID3" + b"z" * 200)
         self.new_index["entries"]["T9999:topic:" + merger.VOICE] = {
-            "sha256": "c" * 64, "file": next(iter(self.new_objects))
+            "sha256": "c" * 64, "file": extra_path
         }
         (self.new / "index.json").write_text(json.dumps(self.new_index))
         with self.assertRaisesRegex(ValueError, "Unexpected or colliding"):
             merger.build_local_plan()
 
     def test_legacy_key_collision_blocks_merge(self):
+        for rel, data in self.old_objects.items():
+            self.save_file(self.new, rel, data)
         self.new_index["entries"] = {
             **self.new_index["entries"],
             **{k: value for k, value in self.old_index["entries"].items()},
