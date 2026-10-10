@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -18,7 +19,11 @@ test('stage5 PWA retains single speaker/settings/status controls', () => {
     const re = new RegExp('id="' + id + '"', 'g');
     assert.equal((html.match(re) || []).length, 1, 'expected exactly one ' + id);
   }
-  assert.match(html, /<script src="\.\/tts\/natural-tts\.js\?v=3672248e"><\/script>/);
+  const blobHash=crypto.createHash('sha1')
+    .update('blob '+Buffer.byteLength(player,'utf8')+'\0')
+    .update(player,'utf8').digest('hex').slice(0,8);
+  assert.ok(html.includes('<script src="./tts/natural-tts.js?v='+blobHash+'"></script>'),
+    'The linked JS cache-buster must match exactly the current player Git blob.');
   assert.match(html, /<script src="https:\/\/accounts\.google\.com\/gsi\/client" async defer><\/script>/);
 });
 
@@ -40,7 +45,7 @@ test('readiness check is a distinct explicit user action; no auto cloud download
   assert.match(html, /id="ttsAvailabilityStatus"[^>]*aria-live="polite"/);
   assert.match(player, /async checkCurrentTopicAvailability\(\)/);
   assert.doesNotMatch(player.slice(player.indexOf('async checkCurrentTopicAvailability()'),
-    player.indexOf('async renderCloudLogin()')), /fetchAudio\(|playSegment\(|getSignedUrl|synthesizeSpeech/);
+    player.indexOf('hasReturningGoogleConsent()')), /fetchAudio\(|playSegment\(|getSignedUrl|synthesizeSpeech/);
 });
 
 test('PWA topic/filters still notify TTS without altering viewer, notes or search flows', () => {
