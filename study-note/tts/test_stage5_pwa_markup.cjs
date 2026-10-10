@@ -12,7 +12,7 @@ const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'cloud-config.jso
 const locks = JSON.parse(fs.readFileSync(path.join(__dirname, 'cloud-project.json'), 'utf8'));
 
 test('stage5 PWA retains single speaker/settings/status controls', () => {
-  for (const id of ['ttsToggleBtn', 'ttsSettingsBtn', 'ttsSettingsPanel',
+  for (const id of ['ttsToggleBtn', 'ttsRepeatBtn', 'ttsSettingsPanel', 'ttsSettingsCloseBtn',
       'ttsStatus', 'ttsCloudCheckBtn', 'ttsCloudStatus',
       'ttsAvailabilityBtn', 'ttsAvailabilityStatus']) {
     const re = new RegExp('id="' + id + '"', 'g');
@@ -99,4 +99,37 @@ test('Aoede is the only selectable voice in the approved twelve-MP3 PWA pilot',(
   const choices=player.slice(player.indexOf('const VOICES = ['),player.indexOf('const SETTINGS_KEY'));
   assert.match(choices,/ko-KR-Chirp3-HD-Aoede/);
   assert.doesNotMatch(choices,/ko-KR-Chirp3-HD-Kore|ko-KR-Chirp3-HD-Charon/);
+});
+
+test('compact listening UI has no gear button, and repeat one/two is next to listening',()=>{
+  assert.doesNotMatch(html,/id="ttsSettingsBtn"/);
+  assert.doesNotMatch(html,/id="ttsOption-repeat"/);
+  assert.match(html,/<button id="ttsToggleBtn"[^>]*aria-haspopup="dialog"[^>]*aria-controls="ttsSettingsPanel"/);
+  const titleStart=html.indexOf('class="tts-title-row"');
+  const listenAt=html.indexOf('id="ttsToggleBtn"',titleStart);
+  const repeatAt=html.indexOf('id="ttsRepeatBtn"',listenAt);
+  const titleEnd=html.indexOf('</div>',titleStart);
+  assert.ok(titleStart>=0 && titleStart<listenAt && listenAt<repeatAt && repeatAt<titleEnd);
+  assert.match(html,/id="ttsRepeatBtn"[^>]*aria-pressed="false"/);
+  assert.match(html,/id="ttsSettingsPanel"[^>]*role="dialog"/);
+  assert.match(html,/id="ttsSettingsCloseBtn"/);
+});
+test('short click and 550ms hold share the original Listen button; long hold suppresses click',()=>{
+  assert.match(player,/bindListenGesture\(\)/);
+  assert.match(player,/timer = setTimeout\(\(\) => \{/);
+  assert.match(player,/\}, 550\);/);
+  assert.match(player,/suppressClick = true;/);
+  assert.match(player,/event\.preventDefault\(\);\s*event\.stopImmediatePropagation\?\.\(\);/);
+  assert.match(player,/if \(this\.playing\) this\.stop\('음성 재생을 중지했습니다\.'\);/);
+  assert.match(player,/event\.altKey && event\.key === 'ArrowDown'/);
+  assert.match(player,/event\.key === 'Escape'/);
+  assert.match(html,/touch-action:manipulation/);
+  assert.match(html,/\.tts-settings-panel\s*\{\s*position:fixed/);
+});
+test('repeat button is persisted without duplicating the option in the popup',()=>{
+  assert.match(player,/this\.repeatBtn\.addEventListener\('click', \(\) => this\.toggleTopicRepeat\(\)\)/);
+  assert.match(player,/this\.settings\.repeat === 1 \? 2 : 1/);
+  assert.match(player,/this\.saveSettings\(\);/);
+  assert.match(player,/for \(let pass = 0; pass < this\.settings\.repeat; pass\+\+\)/);
+  assert.doesNotMatch(html,/label>토픽 반복<select/);
 });
