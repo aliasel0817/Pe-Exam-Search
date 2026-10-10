@@ -194,6 +194,19 @@
       $('ttsCloudCheckBtn')?.addEventListener('click', () => this.checkCloudReady());
       $('ttsAvailabilityBtn')?.addEventListener('click', () => this.checkCurrentTopicAvailability());
       this.updateUI('AI MP3 대기 중 · 듣기 버튼을 길게 누르면 옵션');
+      this.syncTopicControls(this.getBridge()?.currentTopic?.());
+    }
+    isEligibleTopic(topic) {
+      // T0000 is the PWA home page even though the sheet marks it Y.
+      // Study-target N rows are likewise excluded; no remote reads needed.
+      return Boolean(topic && topic.studyTarget === 'Y' && topic.topicId !== 'T0000');
+    }
+    syncTopicControls(topic) {
+      const visible = this.isEligibleTopic(topic);
+      for (const control of [this.toggleBtn, this.repeatBtn, this.statusNode]) {
+        if (control) control.classList[visible ? 'remove' : 'add']('hidden');
+      }
+      if (!visible) this.closeOptions();
     }
     bindListenGesture() {
       // Match the annotation pen: 550ms long press, 12px move tolerance.
@@ -359,6 +372,7 @@
       if (this.playing && !auto && this.topicId && id !== this.topicId) {
         this.stop('다른 토픽을 선택하여 재생을 중지했습니다.');
       }
+      this.syncTopicControls(this.getBridge()?.getTopicById?.(id));
     }
     onFilterChanged() {
       if (this.playing) this.stop('검색 또는 필터가 변경되어 재생을 중지했습니다.');
@@ -468,6 +482,9 @@
       };
       const topic = this.getBridge()?.currentTopic?.();
       if (!topic) return show('현재 토픽을 선택한 후 확인해 주세요.');
+      if (topic.topicId === 'T0000') {
+        return show('학습노트 홈 화면은 AI 음성 합성 대상에서 제외합니다.');
+      }
       if (topic.studyTarget !== 'Y') return show('학습대상 Y 토픽만 AI 음성 준비 상태를 확인할 수 있습니다.');
       const fields = FIELDS.filter(f => f.fixed || this.settings.fields[f.key]);
       // The topic name remains playable even with all six optional fields off.
@@ -774,13 +791,17 @@
       const bridge = this.getBridge();
       const current = bridge?.currentTopic?.();
       if (!current) { this.updateUI('읽을 토픽을 선택해 주세요.'); return; }
+      if (!this.isEligibleTopic(current)) {
+        this.updateUI('홈 화면 및 학습제외 토픽은 AI 음성 재생 대상이 아닙니다.');
+        return;
+      }
       const selected = FIELDS.filter(f => f.fixed || this.settings.fields[f.key]);
       // Fixed topic-name MP3 can play even when no optional body field is selected.
       const ids = bridge.filteredTopicIds?.() || [];
       const start = ids.indexOf(current.topicId);
       if (start < 0) { this.updateUI('현재 토픽이 목록에 없습니다.'); return; }
       const playlist = (this.settings.mode === 'one' ? ids.slice(start, start+1) : ids.slice(start))
-        .filter(id => bridge.getTopicById(id)?.studyTarget === 'Y');
+        .filter(id => this.isEligibleTopic(bridge.getTopicById(id)));
       if (!playlist.length) { this.updateUI('재생할 학습대상 토픽이 없습니다.'); return; }
       const seq = ++this.seq;
       this.playing = true;
