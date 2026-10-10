@@ -1834,6 +1834,11 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .tts-panel-title { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
 .tts-settings-close { flex:0 0 auto; min-height:34px; padding:5px 10px; }
+.tts-diagnostics { margin-top:10px; border-top:1px solid #dbe2ea; padding-top:9px; }
+.tts-diagnostics summary { cursor:pointer; font-size:.82rem; font-weight:700; color:#334155; padding:5px 1px; }
+.tts-diagnostics .tts-cloud-check-row { padding-top:8px; }
+.tts-diagnostics #ttsAvailabilityStatus { margin-top:8px; line-height:1.55; }
+#ttsCloudLogin.hidden { display:none!important; }
 .tts-settings-panel button:focus-visible,.tts-settings-panel select:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
 .tts-live-status { margin:-12px 0 14px; min-height:19px; font-size:.76rem; color:#475569; overflow-wrap:anywhere; }
 .tts-panel-actions { flex-wrap:wrap; }
@@ -2018,7 +2023,17 @@ button { -webkit-tap-highlight-color: transparent; }
           <section id="ttsSettingsPanel" class="tts-settings-panel hidden" role="dialog" aria-modal="false" aria-label="AI 음성 옵션" tabindex="-1">
             <div class="tts-panel-title"><strong>AI 음성 옵션</strong><button id="ttsSettingsCloseBtn" type="button" class="btn tts-settings-close" aria-label="음성 옵션 닫기">✕ 닫기</button></div>
             <p class="tts-help">듣기 버튼: 짧게 재생·정지, 길게(0.55초) 옵션. 토픽 반복 횟수는 듣기 버튼 옆에서 설정합니다.</p>
-            <div class="tts-cloud-auth"><div id="ttsCloudLogin"></div><div class="tts-cloud-check-row"><div id="ttsCloudStatus" class="muted" aria-live="polite">비공개 Google Cloud Storage 연결 준비 중</div><button id="ttsCloudCheckBtn" class="btn" type="button" aria-label="Google Cloud 연결 설정만 점검하고 유료 API는 호출하지 않음">연결 설정 확인</button></div><div class="tts-cloud-check-row"><button id="ttsAvailabilityBtn" class="btn" type="button" aria-label="현재 토픽의 읽기 항목 MP3 준비 상태를 확인. 로그인 후 목록 조회에 소액의 클라우드 요금이 발생할 수 있음">현재 토픽 MP3 준비 확인</button><div id="ttsAvailabilityStatus" class="muted" role="status" aria-live="polite">조회 버튼을 눌러 선택한 6개 항목과 토픽명의 음성 준비 여부를 확인할 수 있습니다. 로그인 후 조회에는 소액의 클라우드 비용이 발생할 수 있습니다.</div></div></div>
+            <div class="tts-cloud-auth">
+              <div id="ttsCloudLogin"></div>
+              <div id="ttsCloudStatus" class="muted" role="status" aria-live="polite">음성 인증 상태 확인 중</div>
+              <p class="tts-help">메인뷰의 신뢰기기 인증과 별도로 음성 서버가 Google 계정을 확인합니다. 음성 로그인은 처음에만 필요하며, 재방문 시 브라우저가 허용하면 Google 계정 선택을 자동으로 간소화합니다.</p>
+              <details id="ttsDiagnostics" class="tts-diagnostics">
+                <summary>연결·MP3 준비 진단 (필요할 때만)</summary>
+                <div class="tts-cloud-check-row"><button id="ttsCloudCheckBtn" class="btn" type="button" aria-label="Google Cloud 연결 설정만 확인하고 유료 음성 API는 호출하지 않음">연결 설정 확인</button></div>
+                <div class="tts-cloud-check-row"><button id="ttsAvailabilityBtn" class="btn" type="button" aria-label="선택한 음성 MP3 상태를 별도로 진단합니다. 일반 재생에는 필요하지 않음">현재 토픽 MP3 준비 확인</button></div>
+                <div id="ttsAvailabilityStatus" class="muted" role="status" aria-live="polite">평소에는 확인할 필요가 없습니다. 🔊 듣기를 누르면 MP3 존재 여부와 원문 일치를 자동 검사합니다.</div>
+              </details>
+            </div>
             <div class="tts-settings-grid">
               <label>목소리<select id="ttsOption-voice"><option value="ko-KR-Chirp3-HD-Aoede">여성 · Aoede (선정)</option><option value="ko-KR-Chirp3-HD-Kore" disabled>여성 · Kore (음성 미생성)</option><option value="ko-KR-Chirp3-HD-Charon" disabled>남성 · Charon (음성 미생성)</option></select></label>
               <label>재생 모드<select id="ttsOption-mode"><option value="continuous">검색 목록 연속 읽기</option><option value="one">현재 토픽만</option></select></label>
@@ -2035,7 +2050,7 @@ button { -webkit-tap-highlight-color: transparent; }
               <label><input id="ttsField-keywords" type="checkbox" checked> 키워드</label>
             </div>
             <div class="tts-panel-actions"><button id="ttsSelectAll" class="btn" type="button">전체 선택</button><button id="ttsSelectNone" class="btn" type="button">전체 해제</button><button id="ttsExportBtn" class="btn" type="button">샘플 3개 JSON 저장</button></div>
-            <p class="tts-help">AI 자연음성 Aoede 파일만 재생합니다. 현재 검증된 MP3는 5개 토픽의 토픽명 및 일부 본문으로, 전체 항목은 아직 생성되지 않았습니다. 테스트 시 '현재 토픽만'을 선택하고 '현재 토픽 MP3 준비 확인'을 눌러 주세요. 선택한 음성이 없거나 원문이 바뀌면 재생 전에 중지하며 자동 합성·과금은 하지 않습니다. 인증 조회·다운로드에는 소액의 클라우드 비용이 발생할 수 있습니다.</p>
+            <p class="tts-help">Aoede AI MP3만 재생합니다. 현재 등록된 것은 5개 토픽의 토픽명과 일부 본문뿐이며, 다른 항목은 아직 미생성입니다. 🔊 듣기를 누를 때 MP3 목록과 원문 일치를 자동 검사하고, 준비되지 않은 음성은 생성·과금 없이 안내합니다. 인증 조회·다운로드에는 소액의 클라우드 읽기 요금이 발생할 수 있습니다.</p>
           </section>
 
           <section class="learning-action-bar" aria-label="학습 기능">
@@ -12307,6 +12322,6 @@ window.peStudyNoteTtsBridge = {
   selectTopic: id => showTopicById(id)
 };
 </script>
-<script src="./tts/natural-tts.js?v=3672248e"></script>
+<script src="./tts/natural-tts.js?v=9e6e67c0"></script>
 </body>
 </html>
