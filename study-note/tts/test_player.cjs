@@ -21,7 +21,9 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   multipartCount=2, privateCloud=false, badSignedHost=false, badSignedPath=false,
   badSignedExpiry=false, cloudDisabled=false, stageTrial=false,
   preserveDefaults=false, aliasTopic=null, returningConsent=false,
-  googleOneTapBlocked=false, unauthorizedManifest=false}={}) {
+  googleOneTapBlocked=false, unauthorizedManifest=false,
+  holdSignedRequest=false, holdAudioDownload=false,
+  extraMissingTopics=0}={}) {
   let currentId = aliasTopic?.topicId || "T0001";
   let played = 0;
   let paused = 0;
@@ -30,6 +32,13 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   if (aliasTopic) {
     topics[0].topicId=aliasTopic.topicId;
     topics[0].topicName=aliasTopic.recorded;
+  }
+  for (let i=0;i<extraMissingTopics;i++) {
+    const topicId="T"+String(10000+i);
+    topics.push({topicId,topicName:"음성 미생성 토픽 "+i,
+      concept:"",background:"",necessity:"",features:"",
+      technicalComponents:"",keywords:"",studyTarget:"Y"});
+    selected.splice(selected.length-1,0,topicId);
   }
   const data = new Map(topics.map(x=>[x.topicId,x]));
   const elements = new Map();
@@ -104,6 +113,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   let bytesRequested=0;
   let manifestRequests=0;
   let signedRequests=0;
+  let audioAbortCount=0;
+  let signedAbortCount=0;
   let googleCallback=null;
   let googleInitializeCount=0, googleButtonCount=0, googlePromptCount=0;
   let googleInitOptions=null;
@@ -181,7 +192,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         ? "/Pe-Exam-Search/study-note/tts/stage5_pwa_trial.html"
         : privateCloud?"/study-note/study-note.html":"/study-note/tts/preview.html"
     },
-    crypto:crypto.webcrypto,TextEncoder, Audio:MockAudio,
+    crypto:crypto.webcrypto,TextEncoder, AbortController, Audio:MockAudio,
     URL:FakeURL, Blob,console,
     setTimeout,clearTimeout,setImmediate,
     localStorage:{
@@ -211,6 +222,17 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
       if (name.includes("/v1/audio-url?file=")) {
         assert.equal(options.headers.Authorization,"Bearer mock-google-id-token");
         signedRequests++;
+        if (holdSignedRequest) {
+          return new Promise((resolve,reject)=>{
+            assert.ok(options.signal, "signed-URL request must receive an AbortSignal");
+            options.signal.addEventListener("abort",()=>{
+              signedAbortCount++;
+              const error=new Error("stopped signed request");
+              error.name="AbortError";
+              reject(error);
+            },{once:true});
+          });
+        }
         const file = decodeURIComponent(name.split("?file=")[1]);
         const bucket="study-note-tts-audio-558407087449";
         const fixedObject=badSignedPath ? file.replace("/T0001/", "/T9999/") : file;
@@ -223,6 +245,17 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         return {ok:true,status:200,json:async()=>({url})};
       }
       bytesRequested++;
+      if (holdAudioDownload) {
+        return new Promise((resolve,reject)=>{
+          assert.ok(options.signal, "MP3 request must receive an AbortSignal");
+          options.signal.addEventListener("abort",()=>{
+            audioAbortCount++;
+            const error=new Error("stopped MP3 download");
+            error.name="AbortError";
+            reject(error);
+          },{once:true});
+        });
+      }
       return {
         ok:true,status:200,
         blob:async()=>new Blob([Buffer.concat([Buffer.from("ID3"),Buffer.alloc(200)])],{type:"audio/mpeg"}),
@@ -254,6 +287,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     apiFetchCount:()=>bytesRequested,
     manifestCount:()=>manifestRequests,
     signedCount:()=>signedRequests,
+    audioAbortCount:()=>audioAbortCount,
+    signedAbortCount:()=>signedAbortCount,
     googleLogin:async()=>{await player.renderCloudLogin();googleCallback?.({credential:"mock-google-id-token"});}
   };
 }
@@ -288,13 +323,14 @@ test("stop during playback prevents next topic",async()=>{
   assert.equal(ctx.player.playing,false);
   assert.match(ctx.element("ttsStatus").textContent,/수동 중지/);
 });
-test("missing cloud MP3 stops before navigating to incomplete next topic",async()=>{
+test("continuous reading skips missing next topic without silently failing",async()=>{
   const ctx=makeEnvironment({includeSecond:false});
   await ctx.player.start();
   await waitFor(()=>!ctx.player.playing);
   assert.equal(ctx.played(),2);
   assert.equal(ctx.currentTopicId(),"T0001");
-  assert.match(ctx.element("ttsStatus").textContent,/미생성 AI MP3/);
+  assert.match(ctx.element("ttsStatus").textContent,/미생성 1개 건너뜀/);
+  assert.equal(ctx.signedCount(),0);
 });
 test("multipart field reads every MP3 chunk",async()=>{
   const ctx=makeEnvironment({multipart:true});
@@ -891,4 +927,91 @@ test("manual topic switch while playing prioritizes stop reason over cached stat
   await playing;
   assert.match(c.element("ttsStatus").textContent,/다른 토픽을 선택하여 재생을 중지/);
   assert.equal(c.player.playing,false);
+});
+
+test("continuous skips missing selected body MP3 without partial topic playback",async()=>{
+  const c=makeEnvironment({privateCloud:true});
+  await c.googleLogin();
+  delete c.manifest.entries["T0002:concept:"+voice];
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),2); // title+concept of T0001 only
+  assert.equal(c.currentTopicId(),"T0001");
+  assert.match(c.element("ttsStatus").textContent,/미생성 1개 건너뜀/);
+  assert.equal(c.signedCount(),2);
+});
+test("single-topic mode remains strict when selected MP3 is missing",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.settings.fields.concept=true;
+  delete c.manifest.entries["T0001:concept:"+voice];
+  await c.googleLogin();
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),0);
+  assert.equal(c.signedCount(),0);
+  assert.match(c.element("ttsStatus").textContent,/미생성 AI MP3/);
+});
+test("continuous with all entries missing terminates without navigation, downloads or TTS synthesis",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.settings.mode="continuous";
+  delete c.manifest.entries["T0001:topic:"+voice];
+  delete c.manifest.entries["T0002:topic:"+voice];
+  await c.googleLogin();
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+  assert.equal(c.currentTopicId(),"T0001");
+  assert.match(c.element("ttsStatus").textContent,/2개 토픽 모두 MP3가 미생성/);
+});
+test("corrupted source hash is never treated as a skippable missing MP3",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.settings.mode="continuous";
+  c.manifest.entries["T0001:topic:"+voice].sha256="0".repeat(64);
+  await c.googleLogin();
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.currentTopicId(),"T0001");
+  assert.match(c.element("ttsStatus").textContent,/재생성이 필요/);
+});
+test("continuous with 4100 ungenerated entries plays only the two approved topics",async()=>{
+  const c=makeEnvironment({privateCloud:true,extraMissingTopics:4100});
+  await c.googleLogin();
+  await c.player.start();
+  await waitFor(()=>!c.player.playing,3000);
+  assert.equal(c.played(),4);
+  assert.equal(c.currentTopicId(),"T0002");
+  assert.match(c.element("ttsStatus").textContent,/재생 2개/);
+  assert.match(c.element("ttsStatus").textContent,/미생성 4100개 건너뜀/);
+  assert.equal(c.manifestCount(),1);
+  assert.equal(c.signedCount(),4);
+});
+test("Stop cancels a pending signed URL request and prevents any MP3 download",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,holdSignedRequest:true});
+  await c.googleLogin();
+  const pending=c.player.start();
+  await waitFor(()=>c.signedCount()===1);
+  c.player.stop("사용자 중지");
+  await pending;
+  assert.equal(c.signedAbortCount(),1);
+  assert.equal(c.audioAbortCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+  assert.equal(c.played(),0);
+  assert.equal(c.player.playing,false);
+  assert.match(c.element("ttsStatus").textContent,/사용자 중지/);
+});
+test("Stop aborts in-flight GCS MP3 download and avoids late playback",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,holdAudioDownload:true});
+  await c.googleLogin();
+  const pending=c.player.start();
+  await waitFor(()=>c.apiFetchCount()===1);
+  c.player.stop("다운로드 중지");
+  await pending;
+  assert.equal(c.audioAbortCount(),1);
+  assert.equal(c.played(),0);
+  assert.equal(c.player.playing,false);
+  assert.match(c.element("ttsStatus").textContent,/다운로드 중지/);
 });
