@@ -18,7 +18,12 @@
   const VOICES = [
     { id: 'ko-KR-Chirp3-HD-Aoede', label: '여성 · Aoede' }
   ];
-  const SETTINGS_KEY = 'peStudyNote.aiTts.options.v1';
+  // Isolated 12-MP3 staging shell shares github.io origin with production.
+  // Require BOTH an opt-in marker and a pinned pathname for isolation.
+  const STAGE5_TRIAL = window.PE_TTS_STAGE5_TRIAL === true &&
+    location.pathname === '/Pe-Exam-Search/study-note/tts/stage5_pwa_trial.html';
+  const SETTINGS_KEY = STAGE5_TRIAL ? 'peStudyNote.aiTts.stage5Trial.options.v1'
+    : 'peStudyNote.aiTts.options.v1';
   const CACHE_NAME = 'pe-study-note-ai-tts-mp3-v1';
   const PRIVATE_AUDIO_BUCKET = 'study-note-tts-audio-558407087449';
   const PRIVATE_AUDIO_PREFIX = 'study-note/tts/audio/';
@@ -30,9 +35,11 @@
   const $ = id => document.getElementById(id);
   const clamp = (n, low, high) => Math.min(Math.max(n, low), high);
   const defaultSettings = () => ({
-    voice: VOICES[0].id, rate: 1, mode: 'continuous', repeat: 1, gap: 3,
-    fields: { concept: true, background: true, necessity: true,
-      features: true, components: true, keywords: true }
+    voice: VOICES[0].id, rate: 1, mode: STAGE5_TRIAL ? 'one' : 'continuous',
+    repeat: 1, gap: 3,
+    fields: { concept: !STAGE5_TRIAL, background: !STAGE5_TRIAL,
+      necessity: !STAGE5_TRIAL, features: !STAGE5_TRIAL,
+      components: !STAGE5_TRIAL, keywords: !STAGE5_TRIAL }
   });
   const textOf = value => String(value == null ? '' : value).trim();
   const isStop = error => error && error.name === 'AbortError';
@@ -614,7 +621,9 @@
         : urlOrPath;
       let response = null;
       let cache = null;
-      if ('caches' in window) {
+      // Never persist private voice MP3s in a staging CacheStorage namespace;
+      // keep downloads in memory until their one-off playback finishes.
+      if (!STAGE5_TRIAL && 'caches' in window) {
         try {
           cache = await caches.open(CACHE_NAME);
           response = await cache.match(cacheKey);
