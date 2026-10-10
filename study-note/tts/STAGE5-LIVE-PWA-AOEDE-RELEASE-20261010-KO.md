@@ -71,3 +71,24 @@
 - `feature/ai-natural-tts-main-integration-20261010` 운영 기준 최소 세 파일을
   검토한 RC. 운영 main과 동일하다고 가정하지 말고 필요 시 재비교.
 - `feature/ai-natural-tts-20261009` 연구/실험/검증 코드 및 현재 체크포인트.
+
+## 추가 배포 후 검증 — 2026-10-10
+
+- 운영 GitHub Pages 페이지, TTS JS, cloud-config.json을 Windows 원격 PC에서
+  `curl.exe`로 각각 내려받아 **HTTP 200 + GIT blob hash 3개 모두 정확히 일치**
+  (GitHub main `f3b0cd635a3757eebfb21ba75912f5ea76a8a863`).
+  단순 URL 응답만 본 것이 아니라 실제 배포 바이너리 바이트까지 확인.
+- `test_stage5_live_pwa_inline.cjs`: 운영 PWA 전체 HTML의 인라인 JavaScript
+  **2개 컴파일 가능**, TTS 브리지 하나, Google 로그인 스크립트,
+  학습/PDF/필기/문제검색 훅 보존 5개 체크 통과.
+- `test_stage5_five_title_gcs_upload.py`: 랜덤 Windows 임시 폴더명에
+  `rm` 문자 조합이 우연히 포함되는 것을 삭제 명령으로 오인하던 플래키
+  assertion 1개를 **승인된 5개 입력 MP3 경로 + index.json 입력 경로 +
+  허용된 gcloud cp/cat 하위 명령 전체의 정확한 allowlist** 검사로 수정.
+  모의 업로더만 테스트했으며 실제 Cloud 쓰기 실행 없음.
+- 개발 브랜치 회귀 테스트: **Node 107/107 PASS** (9개 JS 테스트 파일),
+  **Python 59/59 PASS** (모의 GCS 및 5개 토픽명 합성 안전 테스트).
+- 기인증 토큰 없이 Cloud Run `/v1/manifest` 읽기 요청 시
+  **HTTP 401** 반환 확인. 비공개 오디오 목록 노출 없음.
+- **현재 운영 PWA 실기기 음성 종단 간 확인은 사용자 회신 대기**.
+  독립 시험 페이지 3기기 검증이 성공한 사실과 혼동 금지.
