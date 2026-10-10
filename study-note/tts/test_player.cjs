@@ -219,7 +219,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   vm.runInNewContext(source,sandbox,{filename:"natural-tts.js"});
   const player=sandbox.window.peStudyNoteTTS;
   player.settings.gap=0;
-  player.settings.fields={
+  if (!stageTrial) player.settings.fields={
     concept:true,background:false,necessity:false,features:false,components:false,keywords:false
   };
   return {
