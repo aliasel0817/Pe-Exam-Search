@@ -19,7 +19,7 @@ const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex
 
 function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false,
   multipartCount=2, privateCloud=false, badSignedHost=false, badSignedPath=false,
-  badSignedExpiry=false, cloudDisabled=false}={}) {
+  badSignedExpiry=false, cloudDisabled=false, stageTrial=false}={}) {
   let currentId = "T0001";
   let played = 0;
   let paused = 0;
@@ -140,10 +140,13 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     createElement:id=>element("created-"+id),
     body:{appendChild(){}}
   };
+  let cacheOpens=0;
   const sandbox={
     document:doc,
     window:{
       innerWidth:1024,innerHeight:768,
+      PE_TTS_STAGE5_TRIAL:stageTrial,
+      caches:{open(){cacheOpens++;throw Error("staging should never touch CacheStorage");}},
       PE_TTS_LOCAL_PREVIEW:!privateCloud,
       google:{accounts:{id:{
         initialize:settings=>{googleCallback=settings.callback;},
@@ -159,7 +162,14 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         }
       }
     },
-    location:{href:privateCloud?"https://example.com/study-note/study-note.html":"https://example.com/study-note/tts/preview.html"},
+    location:{
+      href:stageTrial
+        ? "https://aliasel0817.github.io/Pe-Exam-Search/study-note/tts/stage5_pwa_trial.html"
+        : privateCloud?"https://example.com/study-note/study-note.html":"https://example.com/study-note/tts/preview.html",
+      pathname:stageTrial
+        ? "/Pe-Exam-Search/study-note/tts/stage5_pwa_trial.html"
+        : privateCloud?"/study-note/study-note.html":"/study-note/tts/preview.html"
+    },
     crypto:crypto.webcrypto,TextEncoder, Audio:MockAudio,
     URL:FakeURL, Blob,console,
     setTimeout,clearTimeout,setImmediate,
@@ -214,6 +224,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   };
   return {
     player,manifest,element,topics,doc,storage,
+    cacheOpens:()=>cacheOpens,
     currentTopicId:()=>currentId,
     played:()=>played,
     paused:()=>paused,
@@ -618,4 +629,29 @@ test("option panel stays within viewport bounds and closes with no TTS cloud req
   assert.equal(ctx.signedCount(),0);
   ctx.player.closeOptions();
   assert.equal(panel.classList.contains("hidden"),true);
+});
+
+test("fixed-path staging defaults to one topic, title only, and isolated settings key",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,stageTrial:true});
+  assert.equal(ctx.player.settings.mode,"one");
+  assert.ok(Object.values(ctx.player.settings.fields).every(value=>value===false));
+  assert.equal(ctx.cacheOpens(),0);
+  ctx.element("ttsRepeatBtn").dispatch("click",{});
+  assert.ok(ctx.storage.has("peStudyNote.aiTts.stage5Trial.options.v1"));
+  assert.equal(ctx.storage.has("peStudyNote.aiTts.options.v1"),false);
+  await ctx.googleLogin();
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),2); // title twice with 2x repeat
+  assert.equal(ctx.apiFetchCount(),2);
+  assert.equal(ctx.cacheOpens(),0);
+  assert.equal(ctx.manifestCount(),1);
+});
+test("stage isolation activates only with exact approved Pages pathname",()=>{
+  const ctx=makeEnvironment({privateCloud:true,stageTrial:false});
+  assert.equal(ctx.player.settings.mode,"continuous");
+  assert.equal(ctx.player.settings.fields.concept,true);
+  ctx.element("ttsRepeatBtn").dispatch("click",{});
+  assert.equal(ctx.storage.has("peStudyNote.aiTts.stage5Trial.options.v1"),false);
+  assert.ok(ctx.storage.has("peStudyNote.aiTts.options.v1"));
 });
