@@ -54,9 +54,11 @@ test('PWA topic/filters still notify TTS without altering viewer, notes or searc
   }
 });
 
-test('existing PWA configuration and cloud approval locks remain disabled', () => {
-  assert.equal(config.mode,'disabled');
-  assert.equal(config.gatewayUrl,'');
+test('development PWA uses verified private GCS and all three cloud write locks stay false', () => {
+  assert.equal(config.mode,'gcs-private');
+  assert.equal(config.projectId,'study-note-tts');
+  assert.equal(config.bucketName,'study-note-tts-audio-558407087449');
+  assert.equal(config.gatewayUrl,'https://study-tts-audio-gateway-hgli3gua6q-uc.a.run.app');
   assert.equal(locks.ttsGenerationApproved,false);
   assert.equal(locks.gcsUploadApproved,false);
   assert.equal(locks.cloudRunRevisionUpdateUserApproved,false);
@@ -71,4 +73,21 @@ test('stage5 readiness compares source hash but does not write study data', () =
   assert.match(method, /await sha256\(textOf\(topic\[field\.prop\]\)\)/);
   assert.match(method, /토픽명 MP3가 없어/);
   assert.doesNotMatch(method, /localStorage\.setItem|bridge\.selectTopic|\.post\(|method:\s*'POST'/);
+});
+
+test('development PWA shows stage5 incomplete-audio warning and title-only option', () => {
+  assert.match(html,/본문 전체 해제 시 토픽명만 재생/);
+  assert.match(html,/현재 토픽 MP3 준비 확인/);
+  assert.match(html,/전체 항목은 아직 생성되지 않았습니다/);
+  assert.match(player,/async resolveTopicSegments\(topic, selected\)/);
+  const start=player.indexOf('async resolveTopicSegments(topic, selected)');
+  const next=player.indexOf('async start()',start);
+  assert.ok(start>=0 && next>start);
+  assert.doesNotMatch(player.slice(start,next),/fetchAudio\(|playSegment\(|synthesize/);
+});
+test('PWA signed GCS URLs are restricted to approved private bucket and exact MP3 objects',()=>{
+  assert.match(player,/const PRIVATE_AUDIO_BUCKET = 'study-note-tts-audio-558407087449'/);
+  assert.match(player,/const PRIVATE_AUDIO_PREFIX = 'study-note\/tts\/audio\/'/);
+  assert.match(player,/function validateSignedPrivateAudioUrl\(raw, relativePath\)/);
+  assert.match(player,/Number\(expiry\) > 300/);
 });
