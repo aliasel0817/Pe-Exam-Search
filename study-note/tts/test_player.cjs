@@ -841,3 +841,54 @@ test("isolated pilot never enables returning Google consent or One Tap",async()=
   assert.equal(c.storage.has("peStudyNote.aiTts.googleVoiceOneTapOptIn.v1"),false);
   assert.equal(c.googlePromptCount(),0);
 });
+
+test("after first manifest load topic navigation displays audio readiness without GCS request",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.cacheIndex=c.manifest;
+  c.player.getBridge().selectTopic("T0002");
+  await waitFor(()=>/토픽명 MP3 준비됨/.test(c.element("ttsStatus").textContent));
+  assert.equal(c.manifestCount(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+});
+test("cached manifest immediately identifies unsynthesized topic without cloud traffic",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.cacheIndex=c.manifest;
+  delete c.manifest.entries["T0002:topic:"+voice];
+  c.player.getBridge().selectTopic("T0002");
+  await waitFor(()=>/토픽명 MP3 미생성/.test(c.element("ttsStatus").textContent));
+  assert.equal(c.manifestCount(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+});
+test("cached status reports changed topic-name SHA and does not fetch audio",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.cacheIndex=c.manifest;
+  c.topics[1].topicName="원본과 다른 트리 탐색";
+  c.player.getBridge().selectTopic("T0002");
+  await waitFor(()=>/토픽명 원문 변경/.test(c.element("ttsStatus").textContent));
+  assert.equal(c.manifestCount(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+});
+test("rapid topic changes never overwrite the latest topic's cached status",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  c.player.cacheIndex=c.manifest;
+  delete c.manifest.entries["T0002:topic:"+voice];
+  c.player.getBridge().selectTopic("T0002");
+  c.player.getBridge().selectTopic("T0001");
+  await waitFor(()=>/토픽명 MP3 준비됨/.test(c.element("ttsStatus").textContent));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.doesNotMatch(c.element("ttsStatus").textContent,/미생성/);
+  assert.equal(c.manifestCount(),0);
+});
+test("manual topic switch while playing prioritizes stop reason over cached status",async()=>{
+  const c=makeEnvironment({privateCloud:true,stopAtSegment:true,preserveDefaults:true});
+  await c.googleLogin();
+  const playing=c.player.start();
+  await waitFor(()=>c.played()===1);
+  c.player.getBridge().selectTopic("T0002");
+  await playing;
+  assert.match(c.element("ttsStatus").textContent,/다른 토픽을 선택하여 재생을 중지/);
+  assert.equal(c.player.playing,false);
+});
