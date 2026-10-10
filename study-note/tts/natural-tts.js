@@ -142,6 +142,7 @@
       this.activeAudio.setAttribute('playsinline', '');
       this.cancelSegment = null;
       this.cancelGap = null;
+      this.activeDownloadController = null;
       this.currentObjectUrl = null;
       this.highlighted = null;
       this.initUi();
@@ -675,12 +676,13 @@
         if (status) status.textContent = error.message || '음성 인증 설정 오류';
       }
     }
-    async authenticatedGatewayFetch(path) {
+    async authenticatedGatewayFetch(path, signal = null) {
       const config = await this.loadStorageConfig();
       if (config.mode !== 'gcs-private') throw new Error('비공개 GCS 연결이 아닙니다.');
       if (!this.idToken) throw new Error('음성 설정에서 Google 계정으로 로그인해 주세요.');
       const response = await fetch(config.gatewayUrl + path, {
         method:'GET', mode:'cors', cache:'no-store', credentials:'omit',
+        signal:signal || undefined,
         headers:{Authorization:'Bearer ' + this.idToken}
       });
       if (response.status === 401 || response.status === 403) {
@@ -762,52 +764,66 @@
       });
     }
     async fetchAudio(urlOrPath, seq) {
-      const config = await this.loadStorageConfig();
-      const privateMode = config.mode === 'gcs-private';
-      const cacheKey = privateMode
-        ? new URL('./cached-mp3/' + urlOrPath, SCRIPT_DIR).href
-        : urlOrPath;
-      let response = null;
-      let cache = null;
-      // Never persist private voice MP3s in a staging CacheStorage namespace;
-      // keep downloads in memory until their one-off playback finishes.
-      if (!STAGE5_TRIAL && 'caches' in window) {
-        try {
-          cache = await caches.open(CACHE_NAME);
-          response = await cache.match(cacheKey);
-        } catch (_) {}
-      }
-      if (!response) {
-        let downloadUrl = urlOrPath;
-        if (privateMode) {
-          const signedResponse = await this.authenticatedGatewayFetch(
-            '/v1/audio-url?file=' + encodeURIComponent(urlOrPath));
-          const ticket = await signedResponse.json();
-          downloadUrl = validateSignedPrivateAudioUrl(ticket.url, urlOrPath);
-        }
-        response = await fetch(downloadUrl, {
-          mode:privateMode ? 'cors' : 'same-origin',
-          cache:privateMode ? 'no-store' : 'force-cache',
-          credentials:'omit'
-        });
-        if (!response.ok) {
-          throw new Error('AI MP3 다운로드에 실패했습니다: HTTP ' + response.status);
-        }
-        if (cache) {
+      const controller = new AbortController();
+      this.activeDownloadController = controller;
+      const assertActive = () => {
+        if (seq !== this.seq || controller.signal.aborted) throw stopped();
+      };
+      try {
+        const config = await this.loadStorageConfig();
+        assertActive();
+        const privateMode = config.mode === 'gcs-private';
+        const cacheKey = privateMode
+          ? new URL('./cached-mp3/' + urlOrPath, SCRIPT_DIR).href
+          : urlOrPath;
+        let response = null;
+        let cache = null;
+        if (!STAGE5_TRIAL && 'caches' in window) {
           try {
-            const keys = await cache.keys();
-            const audioKeys = keys.filter(x => x.url.endsWith('.mp3'));
-            if (audioKeys.length >= MAX_CACHE_ITEMS) await cache.delete(audioKeys[0]);
-            await cache.put(cacheKey, response.clone());
+            cache = await caches.open(CACHE_NAME);
+            response = await cache.match(cacheKey);
           } catch (_) {}
+          assertActive();
         }
+        if (!response) {
+          let downloadUrl = urlOrPath;
+          if (privateMode) {
+            const signedResponse = await this.authenticatedGatewayFetch(
+              '/v1/audio-url?file=' + encodeURIComponent(urlOrPath), controller.signal);
+            assertActive();
+            const ticket = await signedResponse.json();
+            assertActive();
+            downloadUrl = validateSignedPrivateAudioUrl(ticket.url, urlOrPath);
+          }
+          assertActive();
+          response = await fetch(downloadUrl, {
+            mode:privateMode ? 'cors' : 'same-origin',
+            cache:privateMode ? 'no-store' : 'force-cache',
+            credentials:'omit', signal:controller.signal
+          });
+          assertActive();
+          if (!response.ok) {
+            throw new Error('AI MP3 다운로드에 실패했습니다: HTTP ' + response.status);
+          }
+          if (cache) {
+            try {
+              const keys = await cache.keys();
+              const audioKeys = keys.filter(x => x.url.endsWith('.mp3'));
+              if (audioKeys.length >= MAX_CACHE_ITEMS) await cache.delete(audioKeys[0]);
+              await cache.put(cacheKey, response.clone());
+            } catch (_) {}
+            assertActive();
+          }
+        }
+        const blob = await response.blob();
+        assertActive();
+        if (blob.size < 100 || !(/audio|octet-stream/i.test(blob.type) || blob.type === '')) {
+          throw new Error('저장된 AI MP3 파일이 유효하지 않습니다.');
+        }
+        return URL.createObjectURL(blob);
+      } finally {
+        if (this.activeDownloadController === controller) this.activeDownloadController = null;
       }
-      const blob = await response.blob();
-      if (seq !== this.seq) throw stopped();
-      if (blob.size < 100 || !(/audio|octet-stream/i.test(blob.type) || blob.type === '')) {
-        throw new Error('저장된 AI MP3 파일이 유효하지 않습니다.');
-      }
-      return URL.createObjectURL(blob);
     }
     playSegment(objectUrl, seq) {
       return new Promise((resolve, reject) => {
@@ -862,6 +878,8 @@
       this.topicId = '';
       this.cancelSegment?.();
       this.cancelGap?.();
+      this.activeDownloadController?.abort();
+      this.activeDownloadController = null;
       this.activeAudio.pause();
       this.clearMark();
       this.updateUI(message || 'AI 음성 재생 중지');
@@ -877,6 +895,26 @@
         resolved.push({field, urls: await this.segmentUrls(topic, field)});
       }
       return resolved;
+    }
+    planContinuousPlaylist(ids, selected, bridge, index) {
+      const playable = [];
+      let skippedMissing = 0;
+      const examples = [];
+      for (const id of ids) {
+        const topic = bridge.getTopicById(id);
+        if (!this.isEligibleTopic(topic)) continue;
+        // Missing entries only. Changed text, invalid hashes/paths and
+        // network/auth errors remain hard stops, never silently skipped.
+        const missing = selected.filter(field =>
+          textOf(topic[field.prop]) && !index.entries[this.segmentKey(id, field.key)]);
+        if (!textOf(topic.topicName) || missing.length) {
+          skippedMissing++;
+          if (examples.length < 3) examples.push(id);
+          continue;
+        }
+        playable.push(id);
+      }
+      return {playable, skippedMissing, examples};
     }
     async start() {
       if (this.playing || this.authPromptPending) return;
@@ -919,10 +957,24 @@
       this.topicId = current.topicId;
       this.updateUI('AI 음성 목록 확인 중...');
       try {
-        await this.manifest();
-        for (let i = 0; i < playlist.length; i++) {
+        const index = await this.manifest();
+        if (seq !== this.seq) throw stopped();
+        const continuous = this.settings.mode === 'continuous';
+        const plan = continuous
+          ? this.planContinuousPlaylist(playlist, selected, bridge, index)
+          : {playable:playlist, skippedMissing:0, examples:[]};
+        const playable = plan.playable;
+        if (!playable.length) {
+          throw new Error('연속 읽기: 선택한 목록의 ' + plan.skippedMissing +
+            '개 토픽 모두 MP3가 미생성입니다. 음성 합성 없이 중지했습니다.');
+        }
+        for (let i = 0; i < playable.length; i++) {
           if (seq !== this.seq) throw stopped();
-          const topic = bridge.getTopicById(playlist[i]);
+          if (i > 0 && i % 64 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (seq !== this.seq) throw stopped();
+          }
+          const topic = bridge.getTopicById(playable[i]);
           if (!topic) continue;
           const resolved = await this.resolveTopicSegments(topic, selected);
           if (seq !== this.seq) throw stopped();
@@ -950,12 +1002,16 @@
             }
           }
           this.clearMark();
-          if (i < playlist.length - 1) {
-            this.updateUI('다음 토픽으로 이동합니다...');
+          if (i < playable.length - 1) {
+            this.updateUI('다음 MP3 준비 토픽으로 이동합니다...');
             await this.gap(this.settings.gap * 1000, seq);
           }
         }
-        if (seq === this.seq) this.stop('마지막 토픽까지 읽었습니다.');
+        if (seq === this.seq) {
+          const summary = plan.skippedMissing
+            ? ' · MP3 미생성 ' + plan.skippedMissing + '개 건너뜀' : '';
+          this.stop('마지막 토픽까지 읽었습니다. 재생 ' + playable.length + '개' + summary + '.');
+        }
       } catch (error) {
         if (seq === this.seq && !isStop(error)) this.stop(error.message || 'AI 음성 재생 오류');
       }
