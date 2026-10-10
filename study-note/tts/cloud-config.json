@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "mode": "disabled",
+  "mode": "gcs-private",
   "projectId": "study-note-tts",
   "projectNumber": "558407087449",
-  "gatewayUrl": "",
+  "gatewayUrl": "https://study-tts-audio-gateway-hgli3gua6q-uc.a.run.app",
   "oauthClientId": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
-  "note": "Reuse the existing PWA's public OAuth Web Client ID for Google ID token login; project is study-note-tts but token audience identifies the existing app OAuth client. Mode DISABLED until Cloud Run backend and account allowlist are tested and owner authorizes deployment."
+  "note": "DEVELOPMENT BRANCH ONLY. User-approved isolated gateway and Aoede 12-MP3 private GCS pilot verified. No automatic playback or TTS generation. Production main remains unchanged; separate approval required for PWA deployment.",
+  "bucketName": "study-note-tts-audio-558407087449"
 }
