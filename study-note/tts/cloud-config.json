@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "mode": "gcs-private",
+  "projectId": "study-note-tts",
+  "projectNumber": "558407087449",
+  "gatewayUrl": "https://study-tts-audio-gateway-hgli3gua6q-uc.a.run.app",
+  "oauthClientId": "1054197140509-60r8da165v63qghfn6558o5d48crl02g.apps.googleusercontent.com",
+  "note": "Private Aoede MP3 integration. All playback is user-initiated. Only previously synthesized audio is available. No cloud speech synthesis, uploads or Cloud Run revisions occur from this PWA.",
+  "bucketName": "study-note-tts-audio-558407087449"
+}
