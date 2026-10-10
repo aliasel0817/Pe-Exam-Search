@@ -78,10 +78,11 @@
       return {
         voice: VOICES.some(x => x.id === v.voice) ? v.voice : defaults.voice,
         rate: [0.85, 1, 1.15, 1.25].includes(Number(v.rate)) ? Number(v.rate) : 1,
-        mode: v.mode === 'one' ? 'one' : 'continuous',
+        mode: v.mode === 'one' || v.mode === 'continuous' ? v.mode : defaults.mode,
         repeat: v.repeat === 2 ? 2 : 1,
         gap: [0, 3, 5].includes(Number(v.gap)) ? Number(v.gap) : 3,
-        fields: Object.fromEntries(FIELDS.slice(1).map(f => [f.key, v.fields?.[f.key] !== false]))
+        fields: Object.fromEntries(FIELDS.slice(1).map(f =>
+          [f.key, v.fields?.[f.key] == null ? defaults.fields[f.key] : v.fields[f.key] !== false]))
       };
     } catch (_) { return defaults; }
   }
