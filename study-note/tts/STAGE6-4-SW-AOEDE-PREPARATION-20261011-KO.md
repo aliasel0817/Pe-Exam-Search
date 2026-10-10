@@ -84,3 +84,16 @@
 - Windows 원격 PC에는 현재 Cloud SDK와 유료 TTS 호출용 인증이 없으므로 **실제 합성 MP3는 아직 생성하지 않음**.
 
 **다음 실행 관문:** 사용자가 Google Cloud Console에서 이번 달 실제 사용량과 청구액을 확인하고, 별도 인증된 합성 실행 환경을 준비할 때까지 1차 10개 토픽의 **유료 가능 API POST는 실행하지 않는다**.
+
+## 7. 최종 GitHub·로컬 전달 패키지 검증
+
+- 별도 공개 GitHub 개발 브랜치 전체 변경은 **통계 문서 1개 + 생성/검증 Python 코드 4개 = 정확히 5개 파일 추가**. LIVE `main` 0개 수정.
+- 새로 clone한 GitHub 원본 그대로 새 SW 계획/합성기 Python 전체 시험 **49/49 PASS**, 기존 PWA JavaScript 회귀 **126/126 PASS**, 실제 698개 입력으로 1차 시험 합성기 DRY RUN **93회·12,973자·20,791바이트** 정확히 일치.
+- 최종 로컬 ZIP: `D:\itpe_pwa_test\stage64_sw_private\SW_AOEDE_BATCH001_LOCAL_ONLY_20261011.zip`
+- ZIP 크기 **929,235바이트**, SHA-256 `52cd0a2d99801bf3018a35013a75255ab166e261e77f1264337b5fdf2f6193a7`.
+- ZIP에 코드/발음 사전/비공개 SW 원문·계획만 11개 파일, MP3·계정 인증 토큰·비밀번호 0개. 무결성(압축 CRC) 통과.
+- **매우 중요:** ZIP은 원본 학습 문장을 포함하므로 공개 GitHub, GitHub Pages 또는 공개 Drive에 업로드하지 않는다. Cloud Shell에 사용자 본인이 업로드하는 경우 해당 Google 계정의 비공개 홈 디렉터리에서만 사용.
+- 임시 6개 범위 추출 JSON을 정리했고, 원본 통합 SW JSON과 사전 검증·배치 자료는 PC 비공개 작업 폴더에 그대로 보존.
+- 실제 음성 합성에 필요한 인증된 Google Cloud SDK/Cloud Shell 계정은 현재 연결된 Windows Remote Desktop Commander 환경에 **없음**. 정상 인증을 확보하기 전에는 우회하지 않는다.
+
+**현재 상황: SW 음성 합성 원문/계획과 1차 시험 실행 패키지 준비 완료; 실제 MP3 생성 0개, 실제 TTS API 호출 0건, GCS 추가 업로드 0개, 운영 데이터 변경 0건.**
