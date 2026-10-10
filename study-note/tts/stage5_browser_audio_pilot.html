@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>학습노트 Aoede — 12개 비공개 MP3 읽기 확인</title>
+<style>
+:root{font:16px/1.65 system-ui,-apple-system,"Noto Sans KR",sans-serif;color-scheme:light dark}
+body{margin:0;padding:18px;background:Canvas;color:CanvasText}
+main{max-width:720px;margin:auto}
+h1{font-size:1.4rem}
+button{border:1px solid #8888;border-radius:10px;padding:10px 14px;margin:5px 5px 5px 0;background:ButtonFace;color:ButtonText;font:inherit;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+#pilotLogin{margin:16px 0;min-height:44px}
+#pilotStatus{border:1px solid #8886;border-radius:12px;padding:14px;min-height:50px}
+audio{display:block;width:100%;margin:16px 0}
+.notice{font-size:.9rem;opacity:.83}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/gh/aliasel0817/Pe-Exam-Search@0411ca2814cc90009434800fbfc4d4010f31efa1/study-note/tts/stage5_browser_audio_pilot.js" integrity="sha384-g4CcyGE4IKd62h2bDWenJGppbUiiUSwTR0gKzQPlcs7fBFwCXFyBzf8m8wlJv8Pf" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+</head>
+<body>
+<main>
+<h1>Aoede MP3 12개 · 비공개 GCS 재생 확인</h1>
+<p class="notice">5개의 새 '토픽명에 대한 설명'과 기존 본문 7개 MP3를 분리 검증하는 독립 시험 페이지입니다. Cloud Run 인증 읽기만 수행합니다. 생성·GCS 업로드·Cloud Run 배포·학습노트 원문 수정은 하지 않습니다. 인증 조회·다운로드에는 소액의 클라우드 비용이 발생할 수 있습니다.</p>
+<div id="pilotLogin" aria-label="Google 계정 로그인"></div>
+<p id="pilotStatus" role="status" aria-live="polite">로그인을 준비하고 있습니다.</p>
+<div aria-label="신규 토픽명 안내 MP3">
+<p><strong>토픽명 안내</strong> — 신규 5개</p>
+<button type="button" data-pilot="T0001:topic:ko-KR-Chirp3-HD-Aoede" disabled>T0001 · 토픽명</button>
+<button type="button" data-pilot="T1961:topic:ko-KR-Chirp3-HD-Aoede" disabled>T1961 · 토픽명</button>
+<button type="button" data-pilot="T2238:topic:ko-KR-Chirp3-HD-Aoede" disabled>T2238 · 토픽명</button>
+<button type="button" data-pilot="T2176:topic:ko-KR-Chirp3-HD-Aoede" disabled>T2176 · 토픽명</button>
+<button type="button" data-pilot="T2354:topic:ko-KR-Chirp3-HD-Aoede" disabled>T2354 · 토픽명</button>
+</div>
+<div aria-label="기존 본문 MP3">
+<p>기존 본문 — MP3 7개</p>
+<button type="button" data-pilot="T0001:concept:ko-KR-Chirp3-HD-Aoede" disabled>T0001 · 개념 (1개)</button>
+<button type="button" data-pilot="T2176:components:ko-KR-Chirp3-HD-Aoede" disabled>T2176 · 기술요소 (2개)</button>
+<button type="button" data-pilot="T2354:components:ko-KR-Chirp3-HD-Aoede" disabled>T2354 · 기술요소 (4개)</button>
+</div>
+<audio id="pilotAudio" controls preload="none" playsinline></audio>
+<button type="button" id="pilotStop" disabled>■ 재생 중지</button>
+<p class="notice">아직 모든 토픽의 7개 읽기 항목이 있는 것은 아닙니다. 선택한 파일만 읽으며, 토픽 전체 읽기나 순서 변경을 자동 수행하지 않습니다. 토큰과 MP3 서명 URL은 로컬 저장소에 기록하지 않습니다. 새 매니페스트의 8개 항목·12개 MP3를 인증 조회하고, 선택한 MP3만 재생합니다. 목록 검증 오류가 발생하면 로그인 상태와 GCS 등록 내용을 확인합니다. 이 독립 시험 HTML만 승인받아 게시했으며 운영 학습노트 PWA 및 클라우드 구성은 변경하지 않습니다.</p>
+</main>
+</body>
+</html>
