@@ -55,3 +55,13 @@ test('trial settings cannot overwrite original PWA settings',()=>{
   for(const lock of ['ttsGenerationApproved','gcsUploadApproved','cloudRunRevisionUpdateUserApproved'])
     assert.equal(locks[lock],false);
 });
+
+test('title bytes match the immutable five-title synthesis pilot, not later sheet edits',()=>{
+  assert.ok(page.includes("['T0001', '3C 분석 종류']"));
+  assert.ok(page.includes("['T1961', '몬테카를로 트리검색(MCTS)']"));
+  assert.ok(page.includes("['T2238', '퀵 정렬']"));
+  assert.ok(page.includes("['T2176', 'B+Tree']"));
+  assert.ok(page.includes("['T2354', 'SQL']"));
+  assert.equal(page.includes('몬테카를로 트리검색 (MCTS)'),false);
+  assert.equal(page.includes('SQL (Structured Query Language)'),false);
+});
