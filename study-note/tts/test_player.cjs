@@ -20,7 +20,8 @@ const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex
 function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false,
   multipartCount=2, privateCloud=false, badSignedHost=false, badSignedPath=false,
   badSignedExpiry=false, cloudDisabled=false, stageTrial=false,
-  preserveDefaults=false, aliasTopic=null}={}) {
+  preserveDefaults=false, aliasTopic=null, returningConsent=false,
+  googleOneTapBlocked=false, unauthorizedManifest=false}={}) {
   let currentId = aliasTopic?.topicId || "T0001";
   let played = 0;
   let paused = 0;
@@ -104,6 +105,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   let manifestRequests=0;
   let signedRequests=0;
   let googleCallback=null;
+  let googleInitializeCount=0, googleButtonCount=0, googlePromptCount=0;
+  let googleInitOptions=null;
   class MockAudio {
     constructor() {this.listeners=new Map(); this.src="";this.preload="";this.playbackRate=1;}
     setAttribute(){}
@@ -132,6 +135,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   };
   FakeURL.revokeObjectURL=()=>{};
   const storage=new Map();
+  if (returningConsent) storage.set('peStudyNote.aiTts.googleVoiceOneTapOptIn.v1','1');
   const documentListeners=new Map();
   const doc={
     currentScript:{src:"https://example.com/study-note/tts/natural-tts.js"},
@@ -155,8 +159,9 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
       caches:{open(){cacheOpens++;throw Error("staging should never touch CacheStorage");}},
       PE_TTS_LOCAL_PREVIEW:!privateCloud,
       google:{accounts:{id:{
-        initialize:settings=>{googleCallback=settings.callback;},
-        renderButton:()=>{}
+        initialize:settings=>{googleCallback=settings.callback;googleInitOptions=settings;googleInitializeCount++;},
+        renderButton:()=>{googleButtonCount++;},
+        prompt:googleOneTapBlocked?undefined:()=>{googlePromptCount++;}
       }}},
       peStudyNoteTtsBridge:{
         currentTopic:()=>data.get(currentId),
@@ -181,7 +186,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     setTimeout,clearTimeout,setImmediate,
     localStorage:{
       getItem:key=>storage.get(key)||null,
-      setItem:(key,val)=>storage.set(key,String(val))
+      setItem:(key,val)=>storage.set(key,String(val)),
+      removeItem:key=>storage.delete(key)
     },
     fetch:async (url,options={})=>{
       const name = String(url);
@@ -198,6 +204,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
           assert.equal(options.headers.Authorization,"Bearer mock-google-id-token");
         }
         manifestRequests++;
+        if (unauthorizedManifest && name.endsWith("/v1/manifest"))
+          return {ok:false,status:401,json:async()=>({error:"unauthorized"})};
         return {ok:true,status:200,json:async()=>manifest,clone(){return this}};
       }
       if (name.includes("/v1/audio-url?file=")) {
@@ -234,6 +242,11 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   return {
     player,manifest,element,topics,doc,storage,
     cacheOpens:()=>cacheOpens,
+    googleInitializeCount:()=>googleInitializeCount,
+    googleButtonCount:()=>googleButtonCount,
+    googlePromptCount:()=>googlePromptCount,
+    googleInitOptions:()=>googleInitOptions,
+    googleCredential:(source="auto")=>googleCallback?.({credential:"mock-google-id-token",select_by:source}),
     currentTopicId:()=>currentId,
     played:()=>played,
     paused:()=>paused,
@@ -741,4 +754,90 @@ test("studyTarget N safely disables audio controls without cloud requests",async
   assert.equal(ctx.manifestCount(),0);
   assert.equal(ctx.signedCount(),0);
   assert.equal(ctx.played(),0);
+});
+
+test("first successful voice login is memory-only; Google button hides; no auto prompt on first use",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  assert.equal(c.googlePromptCount(),0);
+  await c.googleLogin();
+  assert.equal(c.storage.get("peStudyNote.aiTts.googleVoiceOneTapOptIn.v1"),"1");
+  assert.equal(c.element("ttsCloudLogin").classList.contains("hidden"),true);
+  assert.match(c.element("ttsCloudStatus").textContent,/토픽 이동마다 로그인할 필요/);
+  assert.equal(c.googleButtonCount(),1);
+  assert.equal(c.manifestCount(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal([...c.storage.values()].includes("mock-google-id-token"),false);
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),1);
+  assert.equal(c.googleInitializeCount(),1);
+});
+test("returning user offers One Tap once on page load, with zero automatic cloud audio reads",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,returningConsent:true});
+  await waitFor(()=>c.googlePromptCount()===1);
+  assert.equal(c.googleInitializeCount(),1);
+  assert.equal(c.googleInitOptions().auto_select,true);
+  assert.equal(c.googleButtonCount(),0);
+  assert.equal(c.manifestCount(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+  await c.player.offerReturningGoogleSignIn();
+  assert.equal(c.googlePromptCount(),1);
+  c.googleCredential();
+  assert.equal(c.element("ttsCloudLogin").classList.contains("hidden"),true);
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),1);
+});
+test("Safari/ITP One Tap unavailable falls back to the ordinary Google button",async()=>{
+  const c=makeEnvironment({privateCloud:true,returningConsent:true,
+    googleOneTapBlocked:true,preserveDefaults:true});
+  await waitFor(()=>c.googleInitializeCount()===1);
+  assert.equal(c.googlePromptCount(),0);
+  c.player.openOptions();
+  await c.player.renderCloudLogin();
+  assert.equal(c.googleButtonCount(),1);
+  c.googleCredential("btn");
+  assert.equal(c.element("ttsCloudLogin").classList.contains("hidden"),true);
+});
+test("first Listen click without voice token opens login options without contacting GCS",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  await c.player.start();
+  assert.equal(c.player.playing,false);
+  assert.equal(c.element("ttsSettingsPanel").classList.contains("hidden"),false);
+  assert.match(c.element("ttsStatus").textContent,/처음 한 번/);
+  assert.equal(c.manifestCount(),0);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+  await c.player.renderCloudLogin();
+  assert.equal(c.googleButtonCount(),1);
+  c.googleCredential("btn");
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.played(),1);
+});
+test("rejected token resets automatic consent and shows manual login without looping",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,
+    returningConsent:true,unauthorizedManifest:true});
+  await waitFor(()=>c.googlePromptCount()===1);
+  c.googleCredential();
+  await c.player.start();
+  await waitFor(()=>!c.player.playing);
+  assert.equal(c.player.idToken,null);
+  assert.equal(c.storage.has("peStudyNote.aiTts.googleVoiceOneTapOptIn.v1"),false);
+  assert.equal(c.element("ttsCloudLogin").classList.contains("hidden"),false);
+  assert.match(c.element("ttsCloudStatus").textContent,/인증이 만료/);
+  assert.equal(c.googlePromptCount(),1);
+  assert.equal(c.signedCount(),0);
+  assert.equal(c.apiFetchCount(),0);
+});
+test("isolated pilot never enables returning Google consent or One Tap",async()=>{
+  const c=makeEnvironment({privateCloud:true,stageTrial:true,returningConsent:true});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(c.googlePromptCount(),0);
+  await c.googleLogin();
+  c.storage.delete("peStudyNote.aiTts.googleVoiceOneTapOptIn.v1");
+  await c.player.offerReturningGoogleSignIn();
+  assert.equal(c.storage.has("peStudyNote.aiTts.googleVoiceOneTapOptIn.v1"),false);
+  assert.equal(c.googlePromptCount(),0);
 });
