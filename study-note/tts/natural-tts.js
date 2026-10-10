@@ -217,12 +217,39 @@
       // Study-target N rows are likewise excluded; no remote reads needed.
       return Boolean(topic && topic.studyTarget === 'Y' && topic.topicId !== 'T0000');
     }
-    syncTopicControls(topic) {
+    syncTopicControls(topic, suppressHint = false) {
       const visible = this.isEligibleTopic(topic);
       for (const control of [this.toggleBtn, this.repeatBtn, this.statusNode]) {
         if (control) control.classList[visible ? 'remove' : 'add']('hidden');
       }
       if (!visible) this.closeOptions();
+      // Read-only, local SHA-256 check against an ALREADY loaded private
+      // manifest. Never contact Cloud Run/GCS just because a topic changed.
+      if (visible && !suppressHint && !this.playing && this.cacheIndex) {
+        void this.showCachedAudioHint(topic);
+      }
+    }
+    async showCachedAudioHint(topic) {
+      if (!topic || !this.cacheIndex || this.playing) return;
+      const id = topic.topicId;
+      let message = '';
+      if (!this.cacheIndex.entries?.[this.segmentKey(id, 'topic')]) {
+        message = '토픽명 MP3 미생성 · 다른 토픽을 선택하거나 음성 제작 후 이용해 주세요.';
+      } else {
+        try {
+          await this.segmentUrls(topic, FIELDS[0]); // cacheIndex; no HTTP
+          message = '토픽명 MP3 준비됨 · 🔊 듣기를 누르면 재생합니다.';
+        } catch (error) {
+          message = /재생성이 필요/.test(error?.message || '')
+            ? '토픽명 원문 변경 · 기존 MP3와 일치하지 않습니다.'
+            : '토픽명 MP3 경로 검증 실패 · 음성 진단에서 확인해 주세요.';
+        }
+      }
+      // showTopicById notifies us just BEFORE its currentTopicId changes.
+      // Await the microtask so a rapid topic switch cannot show stale status.
+      await Promise.resolve();
+      if (this.playing || this.getBridge()?.currentTopic?.()?.topicId !== id) return;
+      this.updateUI(message);
     }
     bindListenGesture() {
       // Match the annotation pen: 550ms long press, 12px move tolerance.
@@ -385,10 +412,11 @@
     onTopicChanged(id) {
       const auto = this.expectedTopic === id;
       this.expectedTopic = '';
+      const wasPlaying = this.playing;
       if (this.playing && !auto && this.topicId && id !== this.topicId) {
         this.stop('다른 토픽을 선택하여 재생을 중지했습니다.');
       }
-      this.syncTopicControls(this.getBridge()?.getTopicById?.(id));
+      this.syncTopicControls(this.getBridge()?.getTopicById?.(id), wasPlaying);
     }
     onFilterChanged() {
       if (this.playing) this.stop('검색 또는 필터가 변경되어 재생을 중지했습니다.');
