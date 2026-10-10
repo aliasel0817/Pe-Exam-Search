@@ -32,9 +32,13 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   function element(id) {
     if (!elements.has(id)) {
       const listeners = new Map();
-      const classes = new Set();
+      const classes = new Set(id==="ttsSettingsPanel" ? ["hidden"] : []);
       const e = {
         id, value:"", textContent:"", checked:true, attrs:{}, dataset:{},
+        style:{}, scrollHeight:450,
+        getBoundingClientRect(){return {left:600,right:730,top:90,bottom:132}},
+        contains(target){return target===this || this.children.includes(target)},
+        focus(){this.focused=true},
         listeners, children:[], href:"", download:"",
         classList:{
           contains:key=>classes.has(key), add:key=>classes.add(key),
@@ -62,12 +66,12 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     return elements.get(id);
   }
   const required = [
-    "ttsToggleBtn","ttsSettingsBtn","ttsSettingsPanel","ttsStatus","ttsSelectAll",
+    "ttsToggleBtn","ttsRepeatBtn","ttsSettingsPanel","ttsSettingsCloseBtn","ttsStatus","ttsSelectAll",
     "ttsSelectNone","ttsExportBtn","ttsCloudLogin","ttsCloudStatus","ttsCloudCheckBtn",
     "ttsAvailabilityBtn","ttsAvailabilityStatus","detailTitle","detailConcept",
     "detailBackground","detailNecessity","detailFeatures",
     "detailTechnicalComponents","detailKeywords",
-    ...["voice","rate","mode","repeat","gap"].map(x=>"ttsOption-"+x),
+    ...["voice","rate","mode","gap"].map(x=>"ttsOption-"+x),
     ...["concept","background","necessity","features","components","keywords"].map(x=>"ttsField-"+x)
   ];
   required.forEach(element);
@@ -122,8 +126,14 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   };
   FakeURL.revokeObjectURL=()=>{};
   const storage=new Map();
+  const documentListeners=new Map();
   const doc={
     currentScript:{src:"https://example.com/study-note/tts/natural-tts.js"},
+    addEventListener(name,fn){
+      if(!documentListeners.has(name))documentListeners.set(name,[]);
+      documentListeners.get(name).push(fn);
+    },
+    dispatch(name,event){for(const fn of documentListeners.get(name)||[])fn(event)},
     readyState:"complete",
     visibilityState:"visible",
     getElementById:id=>elements.get(id)||null,
@@ -133,6 +143,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   const sandbox={
     document:doc,
     window:{
+      innerWidth:1024,innerHeight:768,
       PE_TTS_LOCAL_PREVIEW:!privateCloud,
       google:{accounts:{id:{
         initialize:settings=>{googleCallback=settings.callback;},
@@ -202,7 +213,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
     concept:true,background:false,necessity:false,features:false,components:false,keywords:false
   };
   return {
-    player,manifest,element,topics,
+    player,manifest,element,topics,doc,storage,
     currentTopicId:()=>currentId,
     played:()=>played,
     paused:()=>paused,
@@ -483,4 +494,128 @@ test("development PWA boot alone never sends billable GCS or Cloud Run requests"
   assert.equal(ctx.manifestCount(),0);
   assert.equal(ctx.signedCount(),0);
   assert.equal(ctx.apiFetchCount(),0);
+});
+
+function fakePointer({pointerId=7,clientX=100,clientY=100,pointerType="touch",button=0}={}) {
+  return {pointerId,clientX,clientY,pointerType,button,
+    prevented:false,stopped:false,
+    preventDefault(){this.prevented=true},
+    stopImmediatePropagation(){this.stopped=true}};
+}
+test("short tap toggles play and stop on the single Listen button",async()=>{
+  const ctx=makeEnvironment({stopAtSegment:true});
+  ctx.player.settings.mode="one";
+  const listen=ctx.element("ttsToggleBtn");
+  const down=fakePointer();
+  listen.dispatch("pointerdown",down);
+  listen.dispatch("pointerup",down);
+  listen.dispatch("click",fakePointer());
+  await waitFor(()=>ctx.played()===1);
+  assert.equal(ctx.player.playing,true);
+  assert.equal(listen.attrs["aria-pressed"],"true");
+  const second=fakePointer();
+  listen.dispatch("pointerdown",second);
+  listen.dispatch("pointerup",second);
+  listen.dispatch("click",fakePointer());
+  await waitFor(()=>!ctx.player.playing);
+  assert.match(ctx.element("ttsStatus").textContent,/중지/);
+  assert.equal(listen.attrs["aria-pressed"],"false");
+});
+test("long press 550ms opens options without initiating or stopping playback",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,cloudDisabled:true});
+  const listen=ctx.element("ttsToggleBtn");
+  const panel=ctx.element("ttsSettingsPanel");
+  assert.equal(panel.classList.contains("hidden"),true);
+  const down=fakePointer();
+  listen.dispatch("pointerdown",down);
+  await new Promise(resolve=>setTimeout(resolve,575));
+  assert.equal(panel.classList.contains("hidden"),false);
+  assert.equal(listen.attrs["aria-expanded"],"true");
+  listen.dispatch("pointerup",down);
+  const click=fakePointer();
+  listen.dispatch("click",click);
+  assert.equal(click.prevented,true);
+  assert.equal(ctx.player.playing,false);
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+});
+test("moving finger over 12px cancels hold, never starts unintended audio",async()=>{
+  const ctx=makeEnvironment();
+  const listen=ctx.element("ttsToggleBtn");
+  listen.dispatch("pointerdown",fakePointer({clientX:30,clientY:30}));
+  listen.dispatch("pointermove",fakePointer({clientX:45,clientY:46}));
+  await new Promise(resolve=>setTimeout(resolve,565));
+  const click=fakePointer();
+  listen.dispatch("pointerup",fakePointer());
+  listen.dispatch("click",click);
+  assert.equal(ctx.element("ttsSettingsPanel").classList.contains("hidden"),true);
+  assert.equal(click.prevented,true);
+  assert.equal(ctx.played(),0);
+});
+test("keyboard Alt+ArrowDown opens options and Escape returns to Listen",()=>{
+  const ctx=makeEnvironment();
+  const listen=ctx.element("ttsToggleBtn");
+  const key={key:"ArrowDown",altKey:true,preventDefault(){this.prevented=true}};
+  listen.dispatch("keydown",key);
+  assert.equal(key.prevented,true);
+  assert.equal(ctx.element("ttsSettingsPanel").classList.contains("hidden"),false);
+  assert.equal(ctx.element("ttsSettingsCloseBtn").focused,true);
+  const escape={key:"Escape",preventDefault(){this.prevented=true}};
+  ctx.doc.dispatch("keydown",escape);
+  assert.equal(escape.prevented,true);
+  assert.equal(ctx.element("ttsSettingsPanel").classList.contains("hidden"),true);
+  assert.equal(listen.focused,true);
+});
+test("right click opens options; close and outside-click work",()=>{
+  const ctx=makeEnvironment();
+  const listen=ctx.element("ttsToggleBtn");
+  const menu={preventDefault(){this.prevented=true}};
+  listen.dispatch("contextmenu",menu);
+  assert.equal(menu.prevented,true);
+  assert.equal(ctx.element("ttsSettingsPanel").classList.contains("hidden"),false);
+  ctx.element("ttsSettingsCloseBtn").dispatch("click",{});
+  assert.equal(ctx.element("ttsSettingsPanel").classList.contains("hidden"),true);
+  listen.dispatch("contextmenu",menu);
+  ctx.doc.dispatch("pointerdown",{target:ctx.element("ttsRepeatBtn")});
+  assert.equal(ctx.element("ttsSettingsPanel").classList.contains("hidden"),true);
+});
+test("repeat button cycles one/two, updates aria, and preserves repeat setting",async()=>{
+  const ctx=makeEnvironment();
+  const repeat=ctx.element("ttsRepeatBtn");
+  assert.equal(repeat.textContent,"↻ 1회");
+  repeat.dispatch("click",{});
+  assert.equal(ctx.player.settings.repeat,2);
+  assert.equal(repeat.attrs["aria-pressed"],"true");
+  assert.equal(repeat.textContent,"↻ 2회");
+  assert.match(ctx.storage.get("peStudyNote.aiTts.options.v1"),/"repeat":2/);
+  ctx.player.settings.mode="one";
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),4);
+  repeat.dispatch("click",{});
+  assert.equal(ctx.player.settings.repeat,1);
+  assert.equal(repeat.attrs["aria-pressed"],"false");
+});
+test("changing repeat during playback stops safely",async()=>{
+  const ctx=makeEnvironment({stopAtSegment:true});
+  ctx.player.settings.mode="one";
+  const current=ctx.player.start();
+  await waitFor(()=>ctx.played()===1);
+  ctx.element("ttsRepeatBtn").dispatch("click",{});
+  await current;
+  assert.equal(ctx.player.playing,false);
+  assert.equal(ctx.player.settings.repeat,2);
+  assert.match(ctx.element("ttsStatus").textContent,/2회/);
+});
+test("option panel stays within viewport bounds and closes with no TTS cloud requests",()=>{
+  const ctx=makeEnvironment({privateCloud:true,cloudDisabled:true});
+  ctx.player.openOptions();
+  const panel=ctx.element("ttsSettingsPanel");
+  assert.match(panel.style.width,/px$/);
+  assert.match(panel.style.top,/px$/);
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  ctx.player.closeOptions();
+  assert.equal(panel.classList.contains("hidden"),true);
 });
