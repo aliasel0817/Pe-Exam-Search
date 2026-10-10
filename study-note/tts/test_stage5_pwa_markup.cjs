@@ -147,3 +147,12 @@ test('first-run actual PWA begins in single-topic title-only mode',()=>{
   assert.match(player,/displayText !== alias\.current/);
   assert.match(player,/entry\.sha256 !== await sha256\(alias\.recorded\)/);
 });
+
+test('the PWA homepage T0000 and N rows never expose unsynthesized audio controls',()=>{
+  assert.match(player,/topic\.topicId !== 'T0000'/);
+  assert.match(player,/topic\.studyTarget === 'Y'/);
+  assert.match(player,/syncTopicControls\(this\.getBridge\(\)\?\.currentTopic\?\.\(\)\)/);
+  assert.match(player,/this\.syncTopicControls\(this\.getBridge\(\)\?\.getTopicById\?\.\(id\)\)/);
+  assert.match(player,/control\.classList\[visible \? 'remove' : 'add'\]\('hidden'\)/);
+  assert.match(player,/홈 화면 및 학습제외 토픽은 AI 음성 재생 대상이 아닙니다/);
+});
