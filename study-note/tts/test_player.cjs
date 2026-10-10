@@ -19,12 +19,17 @@ const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex
 
 function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false,
   multipartCount=2, privateCloud=false, badSignedHost=false, badSignedPath=false,
-  badSignedExpiry=false, cloudDisabled=false, stageTrial=false}={}) {
-  let currentId = "T0001";
+  badSignedExpiry=false, cloudDisabled=false, stageTrial=false,
+  preserveDefaults=false, aliasTopic=null}={}) {
+  let currentId = aliasTopic?.topicId || "T0001";
   let played = 0;
   let paused = 0;
-  const selected = ["T0001", "T0002"];
+  const selected = [currentId, "T0002"];
   const topics = structuredClone(originalTopics);
+  if (aliasTopic) {
+    topics[0].topicId=aliasTopic.topicId;
+    topics[0].topicName=aliasTopic.recorded;
+  }
   const data = new Map(topics.map(x=>[x.topicId,x]));
   const elements = new Map();
   const generatedDownloads = [];
@@ -94,6 +99,7 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
       manifest.entries[topic.topicId+":"+key+":"+voice]=entry;
     }
   }
+  if (aliasTopic) topics[0].topicName=aliasTopic.current;
   let bytesRequested=0;
   let manifestRequests=0;
   let signedRequests=0;
@@ -219,9 +225,12 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   vm.runInNewContext(source,sandbox,{filename:"natural-tts.js"});
   const player=sandbox.window.peStudyNoteTTS;
   player.settings.gap=0;
-  if (!stageTrial) player.settings.fields={
-    concept:true,background:false,necessity:false,features:false,components:false,keywords:false
-  };
+  if (!stageTrial && !preserveDefaults) {
+    player.settings.mode="continuous";
+    player.settings.fields={
+      concept:true,background:false,necessity:false,features:false,components:false,keywords:false
+    };
+  }
   return {
     player,manifest,element,topics,doc,storage,
     cacheOpens:()=>cacheOpens,
@@ -647,11 +656,58 @@ test("fixed-path staging defaults to one topic, title only, and isolated setting
   assert.equal(ctx.cacheOpens(),0);
   assert.equal(ctx.manifestCount(),1);
 });
-test("stage isolation activates only with exact approved Pages pathname",()=>{
-  const ctx=makeEnvironment({privateCloud:true,stageTrial:false});
-  assert.equal(ctx.player.settings.mode,"continuous");
-  assert.equal(ctx.player.settings.fields.concept,true);
+test("first-run production and isolated trial both default to one topic title-only",()=>{
+  const ctx=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  assert.equal(ctx.player.settings.mode,"one");
+  assert.ok(Object.values(ctx.player.settings.fields).every(value=>value===false));
   ctx.element("ttsRepeatBtn").dispatch("click",{});
   assert.equal(ctx.storage.has("peStudyNote.aiTts.stage5Trial.options.v1"),false);
   assert.ok(ctx.storage.has("peStudyNote.aiTts.options.v1"));
+});
+
+test("only the two exact approved pilot title source variants may use original MP3",async()=>{
+  const exceptions=[
+    {topicId:"T1961",recorded:"몬테카를로 트리검색(MCTS)",
+      current:"몬테카를로 트리검색 (MCTS)"},
+    {topicId:"T2354",recorded:"SQL",current:"SQL (Structured Query Language)"}
+  ];
+  for(const aliasTopic of exceptions){
+    const ctx=makeEnvironment({privateCloud:true,preserveDefaults:true,aliasTopic});
+    await ctx.googleLogin();
+    const status=await ctx.player.checkCurrentTopicAvailability();
+    assert.match(status,/1\/1항목/);
+    assert.match(status,/기존 MP3 명칭 차이/);
+    assert.equal(ctx.signedCount(),0);
+    await ctx.player.start();
+    await waitFor(()=>!ctx.player.playing);
+    assert.equal(ctx.played(),1);
+    assert.equal(ctx.signedCount(),1);
+  }
+});
+test("unknown title edits or changed body never bypass manifest SHA checks",async()=>{
+  for(const aliasTopic of [
+    {topicId:"T1961",recorded:"몬테카를로 트리검색(MCTS)",current:"완전히 다른 이름"},
+    {topicId:"T2354",recorded:"SQL",current:"SQL injection 사례"},
+    {topicId:"T2238",recorded:"퀵 정렬",current:"Quick Sort"}
+  ]){
+    const ctx=makeEnvironment({privateCloud:true,preserveDefaults:true,aliasTopic});
+    await ctx.googleLogin();
+    const status=await ctx.player.checkCurrentTopicAvailability();
+    assert.match(status,/원문 변경: 토픽명/);
+    await ctx.player.start();
+    await waitFor(()=>!ctx.player.playing);
+    assert.equal(ctx.played(),0);
+    assert.equal(ctx.signedCount(),0);
+  }
+  const ctx=makeEnvironment({privateCloud:true,preserveDefaults:true,aliasTopic:{
+    topicId:"T2354",recorded:"SQL",current:"SQL (Structured Query Language)"
+  }});
+  ctx.player.settings.fields.concept=true;
+  ctx.topics[0].concept="원문과 다른 개념";
+  await ctx.googleLogin();
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.match(ctx.element("ttsStatus").textContent,/재생성이 필요/);
 });
