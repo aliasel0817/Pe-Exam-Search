@@ -67,7 +67,7 @@ test('development PWA uses verified private GCS and all three cloud write locks 
 
 test('stage5 readiness compares source hash but does not write study data', () => {
   const start=player.indexOf('async checkCurrentTopicAvailability()');
-  const end=player.indexOf('async renderCloudLogin()',start);
+  const end=player.indexOf('hasReturningGoogleConsent()',start);
   const method=player.slice(start,end);
   assert.ok(start>=0 && end>start);
   assert.match(method, /const source = await verifyAudioSource\(topic, field, entry\)/);
@@ -81,7 +81,7 @@ test('stage5 readiness compares source hash but does not write study data', () =
 test('development PWA shows stage5 incomplete-audio warning and title-only option', () => {
   assert.match(html,/본문 전체 해제 시 토픽명만 재생/);
   assert.match(html,/현재 토픽 MP3 준비 확인/);
-  assert.match(html,/전체 항목은 아직 생성되지 않았습니다/);
+  assert.match(html,/다른 항목은 아직 미생성/);
   assert.match(player,/async resolveTopicSegments\(topic, selected\)/);
   const start=player.indexOf('async resolveTopicSegments(topic, selected)');
   const next=player.indexOf('async start()',start);
@@ -155,4 +155,18 @@ test('the PWA homepage T0000 and N rows never expose unsynthesized audio control
   assert.match(player,/this\.syncTopicControls\(this\.getBridge\(\)\?\.getTopicById\?\.\(id\)\)/);
   assert.match(player,/control\.classList\[visible \? 'remove' : 'add'\]\('hidden'\)/);
   assert.match(player,/홈 화면 및 학습제외 토픽은 AI 음성 재생 대상이 아닙니다/);
+});
+
+test("optional audio diagnostics are collapsed and unnecessary for normal Listen",()=>{
+  assert.match(html,/<details id="ttsDiagnostics" class="tts-diagnostics">/);
+  assert.match(html,/<summary>연결·MP3 준비 진단 \(필요할 때만\)<\/summary>/);
+  assert.match(html,/듣기를 누를 때 MP3 목록과 원문 일치를 자동 검사/);
+  assert.match(html,/id="ttsCloudStatus"[^>]*role="status"/);
+  assert.match(player,/const AUTO_SIGNIN_KEY = 'peStudyNote\.aiTts\.googleVoiceOneTapOptIn\.v1'/);
+  assert.match(player,/async offerReturningGoogleSignIn\(\)/);
+  assert.match(player,/auto_select: !STAGE5_TRIAL && this\.hasReturningGoogleConsent\(\)/);
+  assert.match(player,/try \{ localStorage\.setItem\(AUTO_SIGNIN_KEY, '1'\); \}/);
+  assert.match(player,/try \{ localStorage\.removeItem\(AUTO_SIGNIN_KEY\); \}/);
+  assert.match(player,/this\.syncGoogleAuthUi\(\)/);
+  assert.doesNotMatch(player,/sessionStorage\.setItem/);
 });
