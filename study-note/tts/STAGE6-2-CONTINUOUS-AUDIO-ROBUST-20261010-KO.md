@@ -62,3 +62,17 @@
 - Apps Script 저장/함수 실행/재배포 불필요.
 - 기존 12 MP3를 삭제·덮어쓰거나, 유료 합성·GCS 업로드를 실행하지 않는다.
   3,800 토픽 전체 구축은 별도 정확한 문자 수·요금·범위 검토가 필요.
+
+## 실제 배포 완료 및 원본 바이트 검증
+
+- GitHub Pages `main` 워크플로 배포 결과 **completed / success**.
+- Windows PC에서 실제 Pages 파일 3개 GET 및 Git 원본 blob 비교:
+  `study-note.html` **HTTP 200 / 일치**,
+  `tts/natural-tts.js` **HTTP 200 / 일치**,
+  `tts/cloud-config.json` **HTTP 200 / 일치**.
+- JavaScript 파일에 `planContinuousPlaylist`,
+  `activeDownloadController?.abort()`가 포함돼 있으며,
+  Google One Tap 및 접힌 진단 옵션도 유지됐음을 실제 게시 파일에서 확인.
+- 검증 완료 운영 최종 커밋: `2a44bc58ecc4285d2348146fbc1c7dbc447d89b3`.
+- **사용자 실기기 검증은 아직 미실시**. 기존 3기기 합격은
+  새로운 연속읽기/다운로드 중단 변경 이전에 실시된 시험임.
