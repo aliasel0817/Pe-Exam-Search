@@ -13,8 +13,10 @@ const count=value=>(page.split(value).length-1);
 test('separate preview path and pinned original controller',()=>{
   assert.ok(page.includes('stage5_pwa_trial.html')===false);
   assert.ok(page.includes('Pe-Exam-Search@8926fe736a776cf30a9a982d1f886dd09a6f4ae6/study-note/tts/natural-tts.js'));
-  const hash='sha384-'+crypto.createHash('sha384').update(player).digest('base64');
-  assert.ok(page.includes('integrity="'+hash+'"'));
+  // The published trial is intentionally pinned to the earlier validated
+  // controller revision; evolving development JS must never change its SRI.
+  const pinnedHash='sha384-ZriP8++h5KqUGKMHdsu2HWs5tDKEFNbnIbqOc6YK+uT2acIyKIRpdy363K5ptdne';
+  assert.ok(page.includes('integrity="'+pinnedHash+'"'));
   assert.equal(config.mode,'gcs-private');
   assert.equal(config.projectId,'study-note-tts');
 });
