@@ -13,10 +13,10 @@
     { key: 'components', prop: 'technicalComponents', label: '기술요소/구성요소' },
     { key: 'keywords', prop: 'keywords', label: '키워드' }
   ];
+  // Only Aoede audio exists in the approved GCS pilot; unsupported selections
+  // must not persist from older local settings or imply available audio.
   const VOICES = [
-    { id: 'ko-KR-Chirp3-HD-Aoede', label: '여성 · Aoede' },
-    { id: 'ko-KR-Chirp3-HD-Kore', label: '여성 · Kore' },
-    { id: 'ko-KR-Chirp3-HD-Charon', label: '남성 · Charon' }
+    { id: 'ko-KR-Chirp3-HD-Aoede', label: '여성 · Aoede' }
   ];
   const SETTINGS_KEY = 'peStudyNote.aiTts.options.v1';
   const CACHE_NAME = 'pe-study-note-ai-tts-mp3-v1';
