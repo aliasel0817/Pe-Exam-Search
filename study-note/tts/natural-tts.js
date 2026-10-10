@@ -20,6 +20,8 @@
   ];
   const SETTINGS_KEY = 'peStudyNote.aiTts.options.v1';
   const CACHE_NAME = 'pe-study-note-ai-tts-mp3-v1';
+  const PRIVATE_AUDIO_BUCKET = 'study-note-tts-audio-558407087449';
+  const PRIVATE_AUDIO_PREFIX = 'study-note/tts/audio/';
   const MAX_CACHE_ITEMS = 120;
   const SCRIPT_DIR = new URL('./', document.currentScript?.src || new URL('./tts/', location.href)).href;
   const MANIFEST_URL = new URL('./audio/index.json', SCRIPT_DIR).href;
@@ -43,6 +45,23 @@
     const bytes = new TextEncoder().encode(text);
     const digest = await crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function validateSignedPrivateAudioUrl(raw, relativePath) {
+    let signed;
+    try { signed = new URL(raw); }
+    catch (_) { throw new Error('검증되지 않은 Google Cloud MP3 주소입니다.'); }
+    const pathStyle = signed.hostname === 'storage.googleapis.com' &&
+      signed.pathname === '/' + PRIVATE_AUDIO_BUCKET + '/' + PRIVATE_AUDIO_PREFIX + relativePath;
+    const virtualStyle = signed.hostname === PRIVATE_AUDIO_BUCKET + '.storage.googleapis.com' &&
+      signed.pathname === '/' + PRIVATE_AUDIO_PREFIX + relativePath;
+    const expiry = signed.searchParams.get('X-Goog-Expires') || '';
+    if (signed.protocol !== 'https:' || signed.port || signed.username ||
+        signed.password || signed.hash || !(pathStyle || virtualStyle) ||
+        !/^[a-f0-9]+$/i.test(signed.searchParams.get('X-Goog-Signature') || '') ||
+        !/^[0-9]{1,3}$/.test(expiry) || Number(expiry) < 1 || Number(expiry) > 300) {
+      throw new Error('검증되지 않은 Google Cloud MP3 주소는 사용하지 않습니다.');
+    }
+    return signed.href;
   }
   function loadSettings() {
     const defaults = defaultSettings();
@@ -277,7 +296,7 @@
       if (!topic) return show('현재 토픽을 선택한 후 확인해 주세요.');
       if (topic.studyTarget !== 'Y') return show('학습대상 Y 토픽만 AI 음성 준비 상태를 확인할 수 있습니다.');
       const fields = FIELDS.filter(f => f.fixed || this.settings.fields[f.key]);
-      if (fields.length < 2) return show('개념 등 읽기 항목을 하나 이상 선택해 주세요.');
+      // The topic name remains playable even with all six optional fields off.
       try {
         const config = await this.loadStorageConfig();
         if (config.mode === 'disabled') {
@@ -438,11 +457,16 @@
         throw new Error('학습 내용이 수정되어 MP3 재생성이 필요합니다: ' + topic.topicId + ' / ' + field.label);
       }
       const paths = Array.isArray(entry.files) ? entry.files : [entry.file];
-      if (!paths.length || paths.length > 100) throw new Error('음성 파일 목록이 올바르지 않습니다.');
-      return paths.map(path => {
+      if (!paths.length || paths.length > 100 || new Set(paths).size !== paths.length) {
+        throw new Error('음성 파일 목록이 올바르지 않습니다.');
+      }
+      return paths.map((path, part) => {
+        const prefix = this.settings.voice + '/' + topic.topicId + '/' + field.key + '-';
         if (typeof path !== 'string' ||
-          !/^[A-Za-z0-9_-]+\/T[0-9]+\/[a-z]+-[a-f0-9]{12}(?:-p[0-9]{2})?\.mp3$/.test(path)) {
-          throw new Error('음성 파일 경로가 올바르지 않습니다.');
+            !/^[A-Za-z0-9_-]+\/T[0-9]+\/[a-z]+-[a-f0-9]{12}(?:-p[0-9]{2})?\.mp3$/.test(path) ||
+            !path.startsWith(prefix) ||
+            (paths.length > 1 && !path.endsWith('-p' + String(part+1).padStart(2, '0') + '.mp3'))) {
+          throw new Error('음성 파일 경로 또는 분할 순서가 올바르지 않습니다.');
         }
         return this.storageConfig?.mode === 'gcs-private' ? path : new URL(path, AUDIO_BASE_URL).href;
       });
@@ -467,16 +491,7 @@
           const signedResponse = await this.authenticatedGatewayFetch(
             '/v1/audio-url?file=' + encodeURIComponent(urlOrPath));
           const ticket = await signedResponse.json();
-          let signedUrl;
-          try { signedUrl = new URL(ticket.url); }
-          catch (_) { throw new Error('Google Cloud MP3 다운로드 주소가 올바르지 않습니다.'); }
-          if (signedUrl.protocol !== 'https:' ||
-            (signedUrl.hostname !== 'storage.googleapis.com' &&
-             !signedUrl.hostname.endsWith('.storage.googleapis.com')) ||
-            !signedUrl.searchParams.has('X-Goog-Signature')) {
-            throw new Error('검증되지 않은 Google Cloud MP3 주소는 사용하지 않습니다.');
-          }
-          downloadUrl = signedUrl.href;
+          downloadUrl = validateSignedPrivateAudioUrl(ticket.url, urlOrPath);downloadUrl = signedUrl.href;
         }
         response = await fetch(downloadUrl, {
           mode:privateMode ? 'cors' : 'same-origin',
@@ -559,15 +574,24 @@
       this.clearMark();
       this.updateUI(message || 'AI 음성 재생 중지');
     }
+    async resolveTopicSegments(topic, selected) {
+      // Verify all selected nonempty fields before playback or topic navigation.
+      const resolved = [];
+      for (const field of selected) {
+        if (!textOf(topic[field.prop])) {
+          if (field.fixed) throw new Error('토픽명이 비어 있어 음성을 재생할 수 없습니다.');
+          continue;
+        }
+        resolved.push({field, urls: await this.segmentUrls(topic, field)});
+      }
+      return resolved;
+    }
     async start() {
       const bridge = this.getBridge();
       const current = bridge?.currentTopic?.();
       if (!current) { this.updateUI('읽을 토픽을 선택해 주세요.'); return; }
       const selected = FIELDS.filter(f => f.fixed || this.settings.fields[f.key]);
-      if (selected.length < 2) {
-        this.updateUI('읽을 항목을 하나 이상 선택해 주세요.');
-        return;
-      }
+      // Fixed topic-name MP3 can play even when no optional body field is selected.
       const ids = bridge.filteredTopicIds?.() || [];
       const start = ids.indexOf(current.topicId);
       if (start < 0) { this.updateUI('현재 토픽이 목록에 없습니다.'); return; }
@@ -584,6 +608,8 @@
           if (seq !== this.seq) throw stopped();
           const topic = bridge.getTopicById(playlist[i]);
           if (!topic) continue;
+          const resolved = await this.resolveTopicSegments(topic, selected);
+          if (seq !== this.seq) throw stopped();
           this.topicId = topic.topicId;
           if (bridge.currentTopic()?.topicId !== topic.topicId) {
             if (!this.canNavigateSafely()) {
@@ -594,13 +620,11 @@
             if (this.expectedTopic === topic.topicId) this.expectedTopic = '';
           }
           for (let pass = 0; pass < this.settings.repeat; pass++) {
-            for (const field of selected) {
+            for (const {field, urls} of resolved) {
               if (seq !== this.seq) throw stopped();
-              if (!textOf(topic[field.prop])) continue;
               this.markField(field.key);
               this.updateUI(topic.topicName + ' · ' + field.label +
                 (this.settings.repeat === 2 ? ' (' + (pass+1) + '/2)' : '') + ' 읽는 중');
-              const urls = await this.segmentUrls(topic, field);
               for (const audioUrl of urls) {
                 if (seq !== this.seq) throw stopped();
                 const objectUrl = await this.fetchAudio(audioUrl, seq);
