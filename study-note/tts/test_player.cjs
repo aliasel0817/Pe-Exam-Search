@@ -711,3 +711,34 @@ test("unknown title edits or changed body never bypass manifest SHA checks",asyn
   assert.equal(ctx.signedCount(),0);
   assert.match(ctx.element("ttsStatus").textContent,/재생성이 필요/);
 });
+
+test("the T0000 homepage never offers TTS or touches the private cloud",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,preserveDefaults:true,aliasTopic:{
+    topicId:"T0000",recorded:"정보관리 기술사",current:"정보관리 기술사"
+  }});
+  const toggle=ctx.element("ttsToggleBtn"),repeat=ctx.element("ttsRepeatBtn");
+  assert.equal(toggle.classList.contains("hidden"),true);
+  assert.equal(repeat.classList.contains("hidden"),true);
+  assert.equal(ctx.element("ttsStatus").classList.contains("hidden"),true);
+  const report=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(report,/홈 화면.*제외/);
+  await ctx.player.start();
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
+  assert.equal(ctx.played(),0);
+  ctx.player.getBridge().selectTopic("T0002");
+  assert.equal(toggle.classList.contains("hidden"),false);
+  assert.equal(repeat.classList.contains("hidden"),false);
+});
+test("studyTarget N safely disables audio controls without cloud requests",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,preserveDefaults:true});
+  ctx.topics[0].studyTarget="N";
+  ctx.player.onTopicChanged("T0001");
+  assert.equal(ctx.element("ttsToggleBtn").classList.contains("hidden"),true);
+  assert.equal(ctx.element("ttsRepeatBtn").classList.contains("hidden"),true);
+  await ctx.player.start();
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.played(),0);
+});
