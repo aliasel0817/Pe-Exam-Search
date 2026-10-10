@@ -17,7 +17,9 @@ const originalTopics = [
 ];
 const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex");
 
-function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false, privateCloud=false, badSignedHost=false, cloudDisabled=false}={}) {
+function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false,
+  privateCloud=false, badSignedHost=false, badSignedPath=false,
+  badSignedExpiry=false, cloudDisabled=false}={}) {
   let currentId = "T0001";
   let played = 0;
   let paused = 0;
@@ -177,8 +179,14 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         assert.equal(options.headers.Authorization,"Bearer mock-google-id-token");
         signedRequests++;
         const file = decodeURIComponent(name.split("?file=")[1]);
-        const url = badSignedHost ? "https://not-gcs.example/audio?X-Goog-Signature=unsafe" :
-          "https://storage.googleapis.com/test-private-bucket/study-note/tts/audio/"+file+"?X-Goog-Signature=abc";
+        const bucket="study-note-tts-audio-558407087449";
+        const fixedObject=badSignedPath ? file.replace("/T0001/", "/T9999/") : file;
+        const expiry=badSignedExpiry ? 999 : 300;
+        const url = badSignedHost
+          ? "https://not-gcs.example/audio?X-Goog-Signature=abcdef&X-Goog-Expires=300"
+          : "https://storage.googleapis.com/"+bucket+
+            "/study-note/tts/audio/"+fixedObject+
+            "?X-Goog-Signature=abcdef123456&X-Goog-Expires="+expiry;
         return {ok:true,status:200,json:async()=>({url})};
       }
       bytesRequested++;
@@ -238,11 +246,12 @@ test("stop during playback prevents next topic",async()=>{
   assert.equal(ctx.player.playing,false);
   assert.match(ctx.element("ttsStatus").textContent,/수동 중지/);
 });
-test("missing cloud MP3 stops rather than using system TTS",async()=>{
+test("missing cloud MP3 stops before navigating to incomplete next topic",async()=>{
   const ctx=makeEnvironment({includeSecond:false});
   await ctx.player.start();
   await waitFor(()=>!ctx.player.playing);
   assert.equal(ctx.played(),2);
+  assert.equal(ctx.currentTopicId(),"T0001");
   assert.match(ctx.element("ttsStatus").textContent,/미생성 AI MP3/);
 });
 test("multipart field reads every MP3 chunk",async()=>{
@@ -381,4 +390,80 @@ test("stage5 readiness respects selected text fields and reports missing compone
   assert.match(report,/미생성: 기술요소\/구성요소/);
   assert.equal(ctx.signedCount(),0);
   assert.equal(ctx.apiFetchCount(),0);
+});
+
+test("title-only playback is allowed when all six body checkboxes are off",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  ctx.player.settings.mode="one";
+  ctx.player.selectFields(false);
+  const available=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(available,/1\/1항목/);
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),1);
+  assert.equal(ctx.signedCount(),1);
+  assert.equal(ctx.currentTopicId(),"T0001");
+});
+test("PWA preflight refuses missing selected body before playing title",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  const key="T0001:concept:"+voice;
+  delete ctx.manifest.entries[key];
+  ctx.player.settings.mode="one";
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.match(ctx.element("ttsStatus").textContent,/미생성 AI MP3/);
+});
+test("PWA preflight rejects manifest field path swapped to another topic",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  ctx.player.settings.mode="one";
+  const key="T0001:topic:"+voice;
+  ctx.manifest.entries[key].file=ctx.manifest.entries[key].file.replace("/T0001/","/T0002/");
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.match(ctx.element("ttsStatus").textContent,/경로 또는 분할 순서/);
+});
+test("PWA preflight rejects duplicate or out-of-order multipart MP3s",async()=>{
+  for(const tamper of ["duplicate","reverse"]){
+    const ctx=makeEnvironment({privateCloud:true,multipart:true});
+    await ctx.googleLogin();
+    ctx.player.settings.mode="one";
+    const key="T0001:concept:"+voice;
+    const paths=ctx.manifest.entries[key].files;
+    if(tamper==="duplicate")paths[1]=paths[0];
+    else paths.reverse();
+    await ctx.player.start();
+    await waitFor(()=>!ctx.player.playing);
+    assert.equal(ctx.played(),0);
+    assert.equal(ctx.signedCount(),0);
+    assert.match(ctx.element("ttsStatus").textContent,/목록|분할 순서/);
+  }
+});
+test("PWA download refuses other GCS objects and signed URL expiry over 300",async()=>{
+  for(const invalid of [{badSignedPath:true},{badSignedExpiry:true}]){
+    const ctx=makeEnvironment({privateCloud:true,...invalid});
+    await ctx.googleLogin();
+    ctx.player.settings.mode="one";
+    await ctx.player.start();
+    await waitFor(()=>!ctx.player.playing);
+    assert.equal(ctx.played(),0);
+    assert.equal(ctx.apiFetchCount(),0);
+    assert.match(ctx.element("ttsStatus").textContent,/검증되지 않은 Google Cloud/);
+  }
+});
+test("readiness check is read-only and new title-only selection does not call signing API",async()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  await ctx.googleLogin();
+  ctx.player.selectFields(false);
+  const s=await ctx.player.checkCurrentTopicAvailability();
+  assert.match(s,/1\/1항목/);
+  assert.equal(ctx.manifestCount(),1);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.played(),0);
 });
