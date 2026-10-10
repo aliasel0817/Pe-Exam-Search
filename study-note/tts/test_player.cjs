@@ -92,7 +92,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
   required.forEach(element);
 
   const manifest={schemaVersion:1,entries:{}};
-  for(const topic of topics){
+  // Added scalability fixtures represent topics that have no synthesized MP3s.
+  for(const topic of topics.slice(0,originalTopics.length)){
     for(const [key,prop] of [["topic","topicName"],["concept","concept"]]){
       if(!includeSecond && topic.topicId==="T0002")continue;
       const original=topic[prop];
