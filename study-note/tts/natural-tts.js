@@ -102,17 +102,33 @@
     }
     initUi() {
       this.toggleBtn = $('ttsToggleBtn');
-      this.settingsBtn = $('ttsSettingsBtn');
+      this.repeatBtn = $('ttsRepeatBtn');
       this.settingsPanel = $('ttsSettingsPanel');
+      this.settingsCloseBtn = $('ttsSettingsCloseBtn');
       this.statusNode = $('ttsStatus');
-      if (!this.toggleBtn || !this.settingsBtn || !this.settingsPanel) return;
-      this.toggleBtn.addEventListener('click', () => this.playing ? this.stop('음성 재생을 중지했습니다.') : this.start());
-      this.settingsBtn.addEventListener('click', () => {
-        const hidden = this.settingsPanel.classList.toggle('hidden');
-        this.settingsBtn.setAttribute('aria-expanded', String(!hidden));
-        if (!hidden) this.renderCloudLogin();
+      if (!this.toggleBtn || !this.repeatBtn || !this.settingsPanel) return;
+      // Fixed-position popup belongs to document.body: no clipped cards or
+      // PWA viewer stacking contexts, including iOS visualViewport changes.
+      document.body.appendChild(this.settingsPanel);
+      this.bindListenGesture();
+      this.repeatBtn.addEventListener('click', () => this.toggleTopicRepeat());
+      this.settingsCloseBtn?.addEventListener('click', () => this.closeOptions(true));
+      document.addEventListener?.('pointerdown', event => {
+        if (this.settingsPanel.classList.contains('hidden')) return;
+        if (!this.settingsPanel.contains(event.target) && !this.toggleBtn.contains(event.target)) {
+          this.closeOptions();
+        }
+      }, true);
+      document.addEventListener?.('keydown', event => {
+        if (event.key === 'Escape' && !this.settingsPanel.classList.contains('hidden')) {
+          event.preventDefault();
+          this.closeOptions(true);
+        }
       });
-      for (const name of ['voice','rate','mode','repeat','gap']) {
+      window.addEventListener?.('resize', () => this.positionOptions());
+      window.visualViewport?.addEventListener?.('resize', () => this.positionOptions());
+      window.visualViewport?.addEventListener?.('scroll', () => this.positionOptions());
+      for (const name of ['voice','rate','mode','gap']) {
         const input = $('ttsOption-' + name);
         if (!input) continue;
         input.value = String(this.settings[name]);
@@ -138,7 +154,116 @@
       $('ttsExportBtn')?.addEventListener('click', () => this.exportSampleTopics());
       $('ttsCloudCheckBtn')?.addEventListener('click', () => this.checkCloudReady());
       $('ttsAvailabilityBtn')?.addEventListener('click', () => this.checkCurrentTopicAvailability());
-      this.updateUI('AI MP3 음성 대기 중');
+      this.updateUI('AI MP3 대기 중 · 듣기 버튼을 길게 누르면 옵션');
+    }
+    bindListenGesture() {
+      // Match the annotation pen: 550ms long press, 12px move tolerance.
+      // A real click still handles keyboard Enter/Space for accessibility.
+      let timer = 0;
+      let pointerId = null;
+      let startX = 0;
+      let startY = 0;
+      let suppressClick = false;
+      const cancelTimer = () => {
+        if (timer) clearTimeout(timer);
+        timer = 0;
+      };
+      this.toggleBtn.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        cancelTimer();
+        suppressClick = false;
+        pointerId = event.pointerId;
+        startX = event.clientX;
+        startY = event.clientY;
+        timer = setTimeout(() => {
+          timer = 0;
+          if (pointerId !== event.pointerId) return;
+          suppressClick = true;
+          this.openOptions();
+        }, 550);
+      });
+      this.toggleBtn.addEventListener('pointermove', event => {
+        if (pointerId !== event.pointerId) return;
+        if (Math.hypot(event.clientX - startX, event.clientY - startY) > 12) {
+          suppressClick = true;
+          cancelTimer();
+        }
+      });
+      for (const name of ['pointerup','pointercancel','pointerleave']) {
+        this.toggleBtn.addEventListener(name, () => {
+          cancelTimer();
+          pointerId = null;
+        });
+      }
+      this.toggleBtn.addEventListener('click', event => {
+        if (suppressClick) {
+          suppressClick = false;
+          event.preventDefault();
+          event.stopImmediatePropagation?.();
+          return;
+        }
+        this.closeOptions();
+        if (this.playing) this.stop('음성 재생을 중지했습니다.');
+        else void this.start();
+      });
+      this.toggleBtn.addEventListener('contextmenu', event => {
+        event.preventDefault();
+        this.openOptions();
+      });
+      this.toggleBtn.addEventListener('keydown', event => {
+        if (event.altKey && event.key === 'ArrowDown') {
+          event.preventDefault();
+          this.openOptions(true);
+        }
+      });
+    }
+    toggleTopicRepeat() {
+      this.settings.repeat = this.settings.repeat === 1 ? 2 : 1;
+      this.saveSettings();
+      if (this.playing) this.stop('반복 횟수가 변경되어 재생을 중지했습니다.');
+      this.updateUI('토픽당 ' + this.settings.repeat + '회 읽기로 설정했습니다.');
+    }
+    openOptions(focusClose = false) {
+      if (this.settingsPanel.classList.contains('hidden')) {
+        this.settingsPanel.classList.remove('hidden');
+        this.toggleBtn.setAttribute('aria-expanded', 'true');
+        void this.renderCloudLogin();
+      }
+      this.positionOptions();
+      if (focusClose) this.settingsCloseBtn?.focus?.();
+    }
+    closeOptions(focusToggle = false) {
+      if (this.settingsPanel.classList.contains('hidden')) return;
+      this.settingsPanel.classList.add('hidden');
+      this.toggleBtn.setAttribute('aria-expanded', 'false');
+      if (focusToggle) this.toggleBtn.focus?.();
+    }
+    positionOptions() {
+      if (this.settingsPanel.classList.contains('hidden')) return;
+      const vp = window.visualViewport;
+      const visibleLeft = vp?.offsetLeft ?? 0;
+      const visibleTop = vp?.offsetTop ?? 0;
+      const visibleWidth = vp?.width ?? window.innerWidth;
+      const visibleHeight = vp?.height ?? window.innerHeight;
+      if (!(visibleWidth > 0 && visibleHeight > 0)) return;
+      const margin = 8;
+      const width = Math.min(430, Math.max(120, visibleWidth - margin * 2));
+      const height = Math.max(48, visibleHeight - margin * 2);
+      this.settingsPanel.style.width = width + 'px';
+      this.settingsPanel.style.maxHeight = height + 'px';
+      const rect = this.toggleBtn.getBoundingClientRect();
+      const left = Math.max(visibleLeft + margin,
+        Math.min(visibleLeft + visibleWidth - width - margin, rect.right - width));
+      const popupHeight = Math.min(this.settingsPanel.scrollHeight, height);
+      const below = rect.bottom + margin;
+      const above = rect.top - popupHeight - margin;
+      const top = below + popupHeight <= visibleTop + visibleHeight - margin
+        ? below
+        : above >= visibleTop + margin
+          ? above
+          : Math.max(visibleTop + margin, visibleTop + visibleHeight - popupHeight - margin);
+      this.settingsPanel.style.left = left + 'px';
+      this.settingsPanel.style.top = top + 'px';
     }
     selectFields(checked) {
       for (const field of FIELDS.slice(1)) {
@@ -157,7 +282,15 @@
         this.toggleBtn.textContent = this.playing ? '■ 중지' : '🔊 듣기';
         this.toggleBtn.classList.toggle('tts-playing', this.playing);
         this.toggleBtn.setAttribute('aria-pressed', String(this.playing));
-        this.toggleBtn.setAttribute('aria-label', this.playing ? 'AI 음성 중지' : 'AI 음성 듣기');
+        this.toggleBtn.setAttribute('aria-label',
+          (this.playing ? 'AI 음성 중지' : 'AI 음성 듣기') + ', 길게 누르면 옵션');
+      }
+      if (this.repeatBtn) {
+        const repeated = this.settings.repeat === 2;
+        this.repeatBtn.textContent = repeated ? '↻ 2회' : '↻ 1회';
+        this.repeatBtn.setAttribute('aria-pressed', String(repeated));
+        this.repeatBtn.setAttribute('aria-label', '토픽당 ' + this.settings.repeat +
+          '회 읽기, 누르면 ' + (repeated ? '1회' : '2회') + ' 반복');
       }
       if (this.statusNode && message) this.statusNode.textContent = message;
     }
