@@ -91,3 +91,12 @@ test('PWA signed GCS URLs are restricted to approved private bucket and exact MP
   assert.match(player,/function validateSignedPrivateAudioUrl\(raw, relativePath\)/);
   assert.match(player,/Number\(expiry\) > 300/);
 });
+
+test('Aoede is the only selectable voice in the approved twelve-MP3 PWA pilot',()=>{
+  assert.match(html,/<option value="ko-KR-Chirp3-HD-Aoede">여성 · Aoede \(선정\)<\/option>/);
+  assert.match(html,/<option value="ko-KR-Chirp3-HD-Kore" disabled>/);
+  assert.match(html,/<option value="ko-KR-Chirp3-HD-Charon" disabled>/);
+  const choices=player.slice(player.indexOf('const VOICES = ['),player.indexOf('const SETTINGS_KEY'));
+  assert.match(choices,/ko-KR-Chirp3-HD-Aoede/);
+  assert.doesNotMatch(choices,/ko-KR-Chirp3-HD-Kore|ko-KR-Chirp3-HD-Charon/);
+});
