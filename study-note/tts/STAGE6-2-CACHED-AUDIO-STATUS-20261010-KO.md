@@ -50,3 +50,17 @@
   접힌 '연결·MP3 준비 진단' 선택.
 - 대규모 3,800개 토픽 전체 생성은 미착수. 비용/범위 분석 후
   유료 TTS 합성·GCS 업로드 별도 승인 필요.
+
+## 최종 실제 배포 검증 완료
+
+- GitHub Pages `main` 워크플로 `1956e0805c4b6b1ae10e5fde58ec5e395ed44166`
+  **completed/success**.
+- Windows 허가 원격 PC에서 운영 Pages 3개 파일을 실제 GET하여
+  **HTTP 200 x3, Git blob 원본 바이트 3/3 정확히 일치**.
+- 운영 HTML의 JS URL `natural-tts.js?v=267bef93` 포함,
+  옵션 진단 `ttsDiagnostics` 포함,
+  JS는 `offerReturningGoogleSignIn`과 `showCachedAudioHint` 포함 확인.
+- dev Node 회귀 **119/119 PASS**, 운영/main 기반 RC **70/70 PASS**.
+- Python 오프라인 GCS/합성 보호 테스트 **59/59 PASS**.
+- 최신 운영 PWA의 실제 음성·재방문 Google One Tap 동작은
+  사용자 Windows/Galaxy Tab/iPhone에서 여전히 확인 필요.
