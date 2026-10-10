@@ -181,8 +181,17 @@ class NewTitleAppendOnlyTests(unittest.TestCase):
         self.assertTrue(all(cmd[3].endswith(".mp3") for cmd in puts[:5]))
         self.assertTrue(all(cmd[3].endswith("index.json") for cmd in puts[5:]))
         self.assertIn("--if-generation-match="+self.generation,puts[5])
-        self.assertFalse(any(any(s in item for s in ("old-", "rm","delete"))
-                             for cmd in puts for item in cmd[3:4]))
+        # Do not scan arbitrary temp-directory names for short fragments like
+        # "rm": Windows temp paths may randomly contain those characters.
+        # Instead, require exact approved local MP3 sources and one index.json.
+        self.assertEqual({cmd[3] for cmd in puts[:5]},
+                         {str(file) for _, file in self.objects_new})
+        self.assertEqual(len({cmd[3] for cmd in puts[:5]}), 5)
+        self.assertEqual(Path(puts[5][3]).name, "index.json")
+        self.assertTrue(all(cmd[:3] in (
+            ["gcloud", "storage", "cp"],
+            ["gcloud", "storage", "cat"],
+        ) for cmd in calls))
         logs=[json.loads(s) for s in self.journal.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(logs[0]["event"],"started")
         self.assertEqual(logs[-1]["event"],"all_12_remote_sha256_and_index_verified")
