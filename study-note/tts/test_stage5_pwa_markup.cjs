@@ -18,7 +18,7 @@ test('stage5 PWA retains single speaker/settings/status controls', () => {
     const re = new RegExp('id="' + id + '"', 'g');
     assert.equal((html.match(re) || []).length, 1, 'expected exactly one ' + id);
   }
-  assert.match(html, /<script src="\.\/tts\/natural-tts\.js"><\/script>/);
+  assert.match(html, /<script src="\.\/tts\/natural-tts\.js\?v=3672248e"><\/script>/);
   assert.match(html, /<script src="https:\/\/accounts\.google\.com\/gsi\/client" async defer><\/script>/);
 });
 
