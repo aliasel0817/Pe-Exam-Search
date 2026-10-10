@@ -18,7 +18,7 @@ const originalTopics = [
 const sha = text => crypto.createHash("sha256").update(text, "utf8").digest("hex");
 
 function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=false,
-  privateCloud=false, badSignedHost=false, badSignedPath=false,
+  multipartCount=2, privateCloud=false, badSignedHost=false, badSignedPath=false,
   badSignedExpiry=false, cloudDisabled=false}={}) {
   let currentId = "T0001";
   let played = 0;
@@ -83,10 +83,8 @@ function makeEnvironment({stopAtSegment=false, includeSecond=true, multipart=fal
         file:filename
       };
       if(multipart && topic.topicId==="T0001" && key==="concept"){
-        entry.files=[
-          filename.replace(".mp3","-p01.mp3"),
-          filename.replace(".mp3","-p02.mp3")
-        ];
+        entry.files=Array.from({length:multipartCount},(_,i)=>
+          filename.replace(".mp3","-p"+String(i+1).padStart(2,"0")+".mp3"));
         delete entry.file;
       }
       manifest.entries[topic.topicId+":"+key+":"+voice]=entry;
@@ -466,4 +464,23 @@ test("readiness check is read-only and new title-only selection does not call si
   assert.equal(ctx.manifestCount(),1);
   assert.equal(ctx.signedCount(),0);
   assert.equal(ctx.played(),0);
+});
+
+test("PWA correctly plays four consecutive MP3 parts after topic intro",async()=>{
+  const ctx=makeEnvironment({privateCloud:true,multipart:true,multipartCount:4});
+  await ctx.googleLogin();
+  ctx.player.settings.mode="one";
+  await ctx.player.start();
+  await waitFor(()=>!ctx.player.playing);
+  assert.equal(ctx.played(),5);
+  assert.equal(ctx.signedCount(),5);
+  assert.equal(ctx.apiFetchCount(),5);
+  assert.equal(ctx.currentTopicId(),"T0001");
+});
+test("development PWA boot alone never sends billable GCS or Cloud Run requests",()=>{
+  const ctx=makeEnvironment({privateCloud:true});
+  assert.equal(ctx.player.playing,false);
+  assert.equal(ctx.manifestCount(),0);
+  assert.equal(ctx.signedCount(),0);
+  assert.equal(ctx.apiFetchCount(),0);
 });
