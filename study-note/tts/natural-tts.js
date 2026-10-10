@@ -218,10 +218,12 @@
       });
     }
     toggleTopicRepeat() {
+      const wasPlaying = this.playing;
       this.settings.repeat = this.settings.repeat === 1 ? 2 : 1;
       this.saveSettings();
-      if (this.playing) this.stop('반복 횟수가 변경되어 재생을 중지했습니다.');
-      this.updateUI('토픽당 ' + this.settings.repeat + '회 읽기로 설정했습니다.');
+      if (wasPlaying) this.stop('반복 횟수가 변경되어 재생을 중지했습니다.');
+      this.updateUI('토픽당 ' + this.settings.repeat + '회로 설정했습니다.' +
+        (wasPlaying ? ' 재생은 안전하게 중지했습니다.' : ''));
     }
     openOptions(focusClose = false) {
       if (this.settingsPanel.classList.contains('hidden')) {
