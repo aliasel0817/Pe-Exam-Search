@@ -25,6 +25,10 @@
   const SETTINGS_KEY = STAGE5_TRIAL ? 'peStudyNote.aiTts.stage5Trial.options.v1'
     : 'peStudyNote.aiTts.options.v1';
   const CACHE_NAME = 'pe-study-note-ai-tts-mp3-v1';
+  // Non-secret preference only. Never store Google ID tokens or device sessions.
+  // A returning voice user can ask Google One Tap for a fresh ID token; the
+  // Cloud Run gateway STILL validates every authenticated audio request.
+  const AUTO_SIGNIN_KEY = 'peStudyNote.aiTts.googleVoiceOneTapOptIn.v1';
   const PRIVATE_AUDIO_BUCKET = 'study-note-tts-audio-558407087449';
   const PRIVATE_AUDIO_PREFIX = 'study-note/tts/audio/';
   const MAX_CACHE_ITEMS = 120;
@@ -130,6 +134,9 @@
       this.storageConfigPromise = null;
       this.idToken = null;
       this.loginButtonRendered = false;
+      this.googleIdentityInitialized = false;
+      this.returningSignInAttempted = false;
+      this.authPromptPending = false;
       this.activeAudio = new Audio();
       this.activeAudio.preload = 'auto';
       this.activeAudio.setAttribute('playsinline', '');
@@ -195,6 +202,15 @@
       $('ttsAvailabilityBtn')?.addEventListener('click', () => this.checkCurrentTopicAvailability());
       this.updateUI('AI MP3 대기 중 · 듣기 버튼을 길게 누르면 옵션');
       this.syncTopicControls(this.getBridge()?.currentTopic?.());
+      // One Tap is offered only on a returning visit after the user already
+      // authorized voice Google login here. Never show unsolicited first-use
+      // prompts or ask the speech gateway to read audio during page load.
+      if (document.readyState === 'complete') {
+        void Promise.resolve().then(() => this.offerReturningGoogleSignIn());
+      } else {
+        window.addEventListener?.('load',
+          () => void this.offerReturningGoogleSignIn(), {once:true});
+      }
     }
     isEligibleTopic(topic) {
       // T0000 is the PWA home page even though the sheet marks it Y.
@@ -545,6 +561,61 @@
         return show('MP3 준비 상태 확인 실패: ' + (error?.message || '알 수 없는 오류'));
       }
     }
+    hasReturningGoogleConsent() {
+      if (STAGE5_TRIAL) return false;
+      try { return localStorage.getItem(AUTO_SIGNIN_KEY) === '1'; }
+      catch (_) { return false; }
+    }
+    syncGoogleAuthUi(statusMessage = '') {
+      const host = $('ttsCloudLogin');
+      const status = $('ttsCloudStatus');
+      if (host) host.classList[this.idToken ? 'add' : 'remove']('hidden');
+      if (status) {
+        status.textContent = statusMessage || (this.idToken
+          ? 'Google 음성 인증 완료 · 이 탭에서는 토픽 이동마다 로그인할 필요가 없습니다.'
+          : '음성 로그인은 처음 한 번만 필요합니다. 인증 후 듣기 버튼이 MP3를 자동 검사합니다.');
+      }
+    }
+    onGoogleCredential(response) {
+      if (!response || typeof response.credential !== 'string' || !response.credential) return;
+      // Temporary Google ID token is kept ONLY in JS memory, never storage.
+      this.idToken = response.credential;
+      this.cacheIndex = null;
+      if (!STAGE5_TRIAL) {
+        try { localStorage.setItem(AUTO_SIGNIN_KEY, '1'); } catch (_) {}
+      }
+      this.syncGoogleAuthUi();
+      this.updateUI('음성 인증 완료. 이제 토픽을 바꿔도 듣기만 누르면 됩니다.');
+    }
+    async initializeGoogleIdentity() {
+      const config = await this.loadStorageConfig();
+      if (config.mode !== 'gcs-private') return null;
+      const gis = window.google?.accounts?.id;
+      if (!gis || typeof gis.initialize !== 'function') return null;
+      if (!this.googleIdentityInitialized) {
+        gis.initialize({
+          client_id: config.oauthClientId,
+          // Browser/Google may still require a confirmation, especially on iOS.
+          auto_select: !STAGE5_TRIAL && this.hasReturningGoogleConsent(),
+          itp_support: true,
+          callback: response => this.onGoogleCredential(response)
+        });
+        this.googleIdentityInitialized = true;
+      }
+      return gis;
+    }
+    async offerReturningGoogleSignIn() {
+      if (!this.hasReturningGoogleConsent() || this.idToken ||
+          this.returningSignInAttempted) return;
+      this.returningSignInAttempted = true; // at most once per page load
+      try {
+        const gis = await this.initializeGoogleIdentity();
+        if (!this.idToken) gis?.prompt?.();
+      } catch (_) {
+        // Google One Tap can be suppressed by browser privacy controls; the
+        // visible Google button remains a normal, reliable fallback.
+      }
+    }
     async renderCloudLogin() {
       const status = $('ttsCloudStatus');
       const host = $('ttsCloudLogin');
@@ -560,30 +631,18 @@
           return;
         }
         if (this.idToken) {
-          if (status) status.textContent = 'Google 음성 계정 인증 완료 (이 탭에서만 유지)';
+          this.syncGoogleAuthUi();
           return;
         }
-        const gis = window.google?.accounts?.id;
-        if (!gis) {
+        this.syncGoogleAuthUi();
+        const gis = await this.initializeGoogleIdentity();
+        if (!gis || typeof gis.renderButton !== 'function') {
           if (status) status.textContent = 'Google 로그인 화면을 불러올 수 없습니다. 네트워크를 확인해 주세요.';
           return;
         }
         if (this.loginButtonRendered) return;
-        gis.initialize({
-          client_id:config.oauthClientId,
-          callback: response => {
-            if (!response || typeof response.credential !== 'string' || !response.credential) return;
-            // A Google ID token is temporary and exists only in memory.
-            this.idToken = response.credential;
-            this.cacheIndex = null;
-            this.loginButtonRendered = true;
-            if (status) status.textContent = 'Google 음성 계정 인증 완료 (서버에서 계정 권한 재확인)';
-            this.updateUI('Google 인증 완료. 스피커를 눌러 MP3를 재생해 주세요.');
-          }
-        });
         gis.renderButton(host, {type:'standard',size:'medium',theme:'outline',text:'signin_with'});
         this.loginButtonRendered = true;
-        if (status) status.textContent = '비공개 MP3를 이용하려면 Google 계정으로 로그인해 주세요.';
       } catch (error) {
         if (status) status.textContent = error.message || '음성 인증 설정 오류';
       }
@@ -598,9 +657,13 @@
       });
       if (response.status === 401 || response.status === 403) {
         this.idToken = null;
+        this.cacheIndex = null;
         this.loginButtonRendered = false;
+        // A rejected account should never get an automatic credential loop.
+        try { localStorage.removeItem(AUTO_SIGNIN_KEY); } catch (_) {}
         const host = $('ttsCloudLogin');
         if (host) host.textContent = '';
+        this.syncGoogleAuthUi('음성 인증이 만료되었거나 계정 권한이 없습니다. Google 계정으로 다시 로그인해 주세요.');
         throw new Error('Google 음성 계정 인증이 만료되었거나 접근 권한이 없습니다. 다시 로그인해 주세요.');
       }
       if (!response.ok) throw new Error('비공개 음성 서버 오류: HTTP ' + response.status);
@@ -788,12 +851,32 @@
       return resolved;
     }
     async start() {
+      if (this.playing || this.authPromptPending) return;
       const bridge = this.getBridge();
       const current = bridge?.currentTopic?.();
       if (!current) { this.updateUI('읽을 토픽을 선택해 주세요.'); return; }
       if (!this.isEligibleTopic(current)) {
         this.updateUI('홈 화면 및 학습제외 토픽은 AI 음성 재생 대상이 아닙니다.');
         return;
+      }
+      // The first short tap opens the Google sign-in fallback when needed.
+      // Checking the static JSON is not an audio/GCS request; no signed MP3
+      // requests are sent until a valid Google ID token exists in memory.
+      if (!this.idToken) {
+        this.authPromptPending = true;
+        try {
+          const config = await this.loadStorageConfig();
+          if (config.mode === 'gcs-private' && !this.idToken) {
+            this.openOptions();
+            this.updateUI('음성 로그인은 처음 한 번만 필요합니다. 옵션에서 Google 계정으로 로그인해 주세요.');
+            return;
+          }
+        } catch (error) {
+          this.updateUI('음성 연결 설정 확인 실패: ' + (error?.message || '알 수 없는 오류'));
+          return;
+        } finally {
+          this.authPromptPending = false;
+        }
       }
       const selected = FIELDS.filter(f => f.fixed || this.settings.fields[f.key]);
       // Fixed topic-name MP3 can play even when no optional body field is selected.
