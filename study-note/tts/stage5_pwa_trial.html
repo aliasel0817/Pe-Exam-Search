@@ -68,10 +68,10 @@ legend{font-weight:700;font-size:.83rem;margin-bottom:8px}
 <legend>시험할 토픽 선택 (토픽명 MP3 5개 검증)</legend>
 <select id="trialTopicPicker" aria-label="시험 토픽 선택">
 <option value="T0001">T0001 · 3C 분석 종류</option>
-<option value="T1961">T1961 · 몬테카를로 트리검색 (MCTS)</option>
+<option value="T1961">T1961 · 몬테카를로 트리검색(MCTS)</option>
 <option value="T2238">T2238 · 퀵 정렬</option>
 <option value="T2176">T2176 · B+Tree</option>
-<option value="T2354">T2354 · SQL (Structured Query Language)</option>
+<option value="T2354">T2354 · SQL</option>
 </select>
 </fieldset>
 <div class="tts-title-row">
@@ -135,10 +135,10 @@ window.PE_TTS_STAGE5_TRIAL = true;
   'use strict';
   const source = [
     ['T0001', '3C 분석 종류'],
-    ['T1961', '몬테카를로 트리검색 (MCTS)'],
+    ['T1961', '몬테카를로 트리검색(MCTS)'],
     ['T2238', '퀵 정렬'],
     ['T2176', 'B+Tree'],
-    ['T2354', 'SQL (Structured Query Language)']
+    ['T2354', 'SQL']
   ];
   const topics = source.map(([topicId,topicName])=>({
     topicId,topicName,studyTarget:'Y',concept:'',background:'',
