@@ -70,7 +70,10 @@ test('stage5 readiness compares source hash but does not write study data', () =
   const end=player.indexOf('async renderCloudLogin()',start);
   const method=player.slice(start,end);
   assert.ok(start>=0 && end>start);
-  assert.match(method, /await sha256\(textOf\(topic\[field\.prop\]\)\)/);
+  assert.match(method, /const source = await verifyAudioSource\(topic, field, entry\)/);
+  assert.match(player, /async function verifyAudioSource\(topic, field, entry\)/);
+  assert.match(player, /entry\.sha256 === await sha256\(displayText\)/);
+  assert.match(player, /field\.key !== 'topic'/);
   assert.match(method, /토픽명 MP3가 없어/);
   assert.doesNotMatch(method, /localStorage\.setItem|bridge\.selectTopic|\.post\(|method:\s*'POST'/);
 });
@@ -132,4 +135,15 @@ test('repeat button is persisted without duplicating the option in the popup',()
   assert.match(player,/this\.saveSettings\(\);/);
   assert.match(player,/for \(let pass = 0; pass < this\.settings\.repeat; pass\+\+\)/);
   assert.doesNotMatch(html,/label>토픽 반복<select/);
+});
+
+test('first-run actual PWA begins in single-topic title-only mode',()=>{
+  assert.match(player,/mode: 'one',/);
+  assert.match(player,/fields: \{ concept: false, background: false, necessity: false,/);
+  assert.match(player,/features: false, components: false, keywords: false/);
+  assert.match(player,/APPROVED_TITLE_VARIANTS = Object.freeze\(\{/);
+  assert.match(player,/T1961: Object.freeze\(\{/);
+  assert.match(player,/T2354: Object.freeze\(\{/);
+  assert.match(player,/displayText !== alias\.current/);
+  assert.match(player,/entry\.sha256 !== await sha256\(alias\.recorded\)/);
 });
