@@ -34,14 +34,45 @@
   const CLOUD_CONFIG_URL = new URL('./cloud-config.json', SCRIPT_DIR).href;
   const $ = id => document.getElementById(id);
   const clamp = (n, low, high) => Math.min(Math.max(n, low), high);
+  // Pilot contains only five topic-intro MP3s and three partial body fields.
+  // Begin safely with title-only, current topic. User may explicitly opt into
+  // more fields and a continuous playlist after checking availability.
   const defaultSettings = () => ({
-    voice: VOICES[0].id, rate: 1, mode: STAGE5_TRIAL ? 'one' : 'continuous',
+    voice: VOICES[0].id, rate: 1, mode: 'one',
     repeat: 1, gap: 3,
-    fields: { concept: !STAGE5_TRIAL, background: !STAGE5_TRIAL,
-      necessity: !STAGE5_TRIAL, features: !STAGE5_TRIAL,
-      components: !STAGE5_TRIAL, keywords: !STAGE5_TRIAL }
+    fields: { concept: false, background: false, necessity: false,
+      features: false, components: false, keywords: false }
   });
   const textOf = value => String(value == null ? '' : value).trim();
+  // Deliberately narrow source-name compatibility list. Never normalize
+  // arbitrary learning text or silently bypass changed concept/body hashes.
+  // Each approved old title must also match the manifest's SHA-256 exactly.
+  const APPROVED_TITLE_VARIANTS = Object.freeze({
+    T1961: Object.freeze({
+      current: '몬테카를로 트리검색 (MCTS)',
+      recorded: '몬테카를로 트리검색(MCTS)',
+      note: '합성 당시 괄호 앞 공백이 없는 토픽명'
+    }),
+    T2354: Object.freeze({
+      current: 'SQL (Structured Query Language)',
+      recorded: 'SQL',
+      note: '합성 당시 SQL 약칭 토픽명'
+    })
+  });
+  async function verifyAudioSource(topic, field, entry) {
+    if (!entry || !/^[a-f0-9]{64}$/.test(String(entry.sha256 || ''))) {
+      return {valid:false, note:''};
+    }
+    const displayText = textOf(topic[field.prop]);
+    if (entry.sha256 === await sha256(displayText)) return {valid:true, note:''};
+    if (field.key !== 'topic') return {valid:false, note:''};
+    const alias = APPROVED_TITLE_VARIANTS[topic.topicId];
+    if (!alias || displayText !== alias.current ||
+        entry.sha256 !== await sha256(alias.recorded)) {
+      return {valid:false, note:''};
+    }
+    return {valid:true, note:alias.note};
+  }
   const isStop = error => error && error.name === 'AbortError';
   function stopped() {
     const error = new Error('중지');
@@ -454,18 +485,23 @@
         const missing = [];
         const changed = [];
         const invalid = [];
+        const approvedNameDifferences = [];
         let parts = 0;
         for (const field of requested) {
           const entry = index.entries[this.segmentKey(topic.topicId, field.key)];
           if (!entry) {
             missing.push(field.label);
-          } else if (entry.sha256 !== await sha256(textOf(topic[field.prop]))) {
-            changed.push(field.label);
           } else {
+            const source = await verifyAudioSource(topic, field, entry);
+            if (!source.valid) {
+              changed.push(field.label);
+              continue;
+            }
             try {
               const files = await this.segmentUrls(topic, field);
               parts += files.length;
               ready.push(field.label);
+              if (source.note) approvedNameDifferences.push(source.note);
             } catch (_) {
               invalid.push(field.label);
             }
@@ -478,6 +514,10 @@
         if (changed.length) message += ' 원문 변경: ' + changed.join(', ') + '.';
         if (invalid.length) message += ' 경로 검증 실패: ' + invalid.join(', ') + '.';
         if (skipped) message += ' 원문 없는 항목 ' + skipped + '개 제외.';
+        if (approvedNameDifferences.length) {
+          message += ' 기존 MP3 명칭 차이(정확한 원본 해시 검증): ' +
+            approvedNameDifferences.join(', ') + '.';
+        }
         if (requested.some(f => f.key === 'topic') && !ready.includes('토픽명')) {
           message += ' 토픽명 MP3가 없어 토픽명 선행 읽기는 아직 불가합니다.';
         } else if (!missing.length && !changed.length && !invalid.length) {
@@ -594,9 +634,8 @@
         throw new Error('미생성 AI MP3: ' + topic.topicId + ' / ' + field.label +
           '. 음성 생성 전에는 무료 API도 자동 호출하지 않습니다.');
       }
-      const original = textOf(topic[field.prop]);
-      const hash = await sha256(original);
-      if (entry.sha256 !== hash) {
+      const source = await verifyAudioSource(topic, field, entry);
+      if (!source.valid) {
         throw new Error('학습 내용이 수정되어 MP3 재생성이 필요합니다: ' + topic.topicId + ' / ' + field.label);
       }
       const paths = Array.isArray(entry.files) ? entry.files : [entry.file];
