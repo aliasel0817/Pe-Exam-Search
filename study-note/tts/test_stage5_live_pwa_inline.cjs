@@ -46,6 +46,6 @@ test('TTS bridge has exactly one definition and playback can follow topic change
 test('T0000 and study target N never become speech targets',()=>{
   assert.ok(player.includes("topic.topicId !== 'T0000'"));
   assert.ok(player.includes("topic.studyTarget === 'Y'"));
-  assert.ok(player.includes("this.syncTopicControls(this.getBridge()?.getTopicById?.(id))"));
+  assert.ok(player.includes("this.syncTopicControls(this.getBridge()?.getTopicById?.(id), wasPlaying)"));
   assert.ok(!player.includes('window.speechSynthesis'));
 });
