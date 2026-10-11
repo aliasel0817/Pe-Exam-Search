@@ -245,6 +245,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .study-text { font-size: 1.02rem; line-height: 1.75; overflow-wrap: anywhere; }
 .study-readable-list { margin: 0; padding-left: 1.75rem; display: grid; gap: .52rem; }
 .study-readable-list > li { padding-left: .12rem; white-space: pre-wrap; }
+.study-technical-item-label { font-weight: 750; }
 .study-readable-heading { margin-bottom: .5rem; font-weight: 750; color: #344054; }
 .meta-grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .meta-grid > div { padding: 10px 0; border-bottom: 1px solid #eef2f6; }
@@ -4151,7 +4152,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.5-reference-sequence-layout';
+const APP_VERSION = '4.6.6-fulltext-technical-labels-rc1';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -5697,37 +5698,126 @@ function splitStudyItemsForDisplay(value) {
   return items;
 }
 
-function formatStudyTechnicalItem(value) {
+// Only curated, unambiguous translations are added on screen. Original Sheets
+// strings, management inputs, original content hashes and existing TTS MP3s
+// remain untouched. Unknown terms retain their exact English spelling.
+const STUDY_TECHNICAL_GLOSSARY = Object.freeze({
+  'Training/Requirements': '교육·요구사항 정의',
+  'Threat Modeling': '위협 모델링',
+  'Secure Design/Coding': '보안 설계·안전 코딩',
+  'Security Review': '보안 검토',
+  'Incident Response': '사고 대응',
+  'Fuzzing': '퍼징',
+  'Customer': '고객',
+  'Competitor': '경쟁사',
+  'Company': '자사',
+  'Customer Value': '고객가치',
+  'Cost': '비용',
+  'Convenience': '편의성',
+  'Communication': '의사소통',
+  'Product': '제품',
+  'Price': '가격',
+  'Place': '유통',
+  'Promotion': '촉진',
+  'Client': '클라이언트',
+  'Maintenance': '유지보수',
+  'Repository': '저장소',
+  'Interface': '인터페이스',
+  'Construction': '구축',
+  'Implementation': '구현',
+  'Governance': '거버넌스',
+  'View': '뷰',
+  'Test Data': '테스트 데이터',
+  'Impact Analysis': '영향 분석',
+  'Constraint': '제약조건',
+  'Operation': '운영',
+  'Follow-up': '후속조치',
+  'Change Request': '변경 요청',
+  'Adjustment': '조정',
+  'Feedback Loop': '피드백 루프',
+  'Feedback': '피드백',
+  'Traceability': '추적성',
+  'Encapsulation': '캡슐화',
+  'Component': '컴포넌트',
+  'Requirements': '요구사항',
+  'Specification': '명세',
+  'Architecture': '아키텍처',
+  'Deployment': '배포',
+  'Testing': '시험',
+  'Design': '설계',
+  'Coding': '코딩',
+  'Database': '데이터베이스',
+  'Data Flow': '데이터 흐름',
+  'Trust Boundary': '신뢰경계',
+  'Risk Assessment': '위험 평가'
+});
+
+function addStudyTechnicalKoreanLabel(label) {
+  const key = label.trim();
+  if (Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, key)) {
+    return key + '(' + STUDY_TECHNICAL_GLOSSARY[key] + ')';
+  }
+  // SAST(...)/SCA(...)/Fuzzing(description) is a compound element.
+  // Keep the original SAST/SCA bilingual names and append ONLY the known
+  // Fuzzing translation; do not split slash-separated groups blindly.
+  const compound = key.match(/^(.*\)\/)([A-Za-z][A-Za-z0-9 +._-]*)$/);
+  if (compound && Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, compound[2])) {
+    return compound[1] + compound[2] + '(' + STUDY_TECHNICAL_GLOSSARY[compound[2]] + ')';
+  }
+  return label;
+}
+
+function describeStudyTechnicalItem(value) {
   const source = String(value || '').trim();
-  if (!source.endsWith(')')) return source;
-  const opens = [], groups = [];
+  if (!source.endsWith(')')) return null;
+  const matching = { '(': ')', '[': ']', '{': '}' };
+  const closing = new Set([')', ']', '}']);
+  const stack = [];
+  const groups = [];
+  let opened = -1;
   for (let i = 0; i < source.length; i++) {
-    if (source[i] === '(') opens.push(i);
-    else if (source[i] === ')') {
-      if (!opens.length) return source;
-      const begin = opens.pop();
-      if (!opens.length) groups.push({ begin, end: i });
+    const ch = source[i];
+    if (matching[ch]) {
+      if (!stack.length && ch === '(') opened = i;
+      stack.push(matching[ch]);
+    } else if (closing.has(ch)) {
+      if (!stack.length || stack.pop() !== ch) return null;
+      if (!stack.length && opened >= 0) {
+        groups.push({ start: opened, end: i });
+        opened = -1;
+      }
     }
   }
-  if (opens.length || !groups.length) return source;
+  if (stack.length || !groups.length) return null;
   const last = groups[groups.length - 1];
-  if (last.end !== source.length - 1 || last.begin === 0) return source;
-  const description = source.slice(last.begin + 1, last.end);
-  const label = source.slice(0, last.begin).trimEnd();
-  if (!label || /[:：]$/.test(label) || !/[가-힣]/.test(description)) return source;
-  // Keep translation and full acronym expansion within their parentheses.
-  if (/^[A-Za-z0-9 /.,+\-]+,\s*[가-힣0-9· /,\-]+$/.test(description)) return source;
-  const roleVerbs = /(?:제공|관리|분석|정의|검증|생성|유지|제어|실행|보호|수집|확보|지원|점검|측정|추적|예측|적용|도출|구현|수행|평가|산정|통제|연계|처리|식별|저장|전송|결정|배치|계산|개선|설정|활용|구성|설계|변환|확인|기술설명)/;
-  const isExplanation = groups.length >= 2
-    ? description.length >= 4
-    : description.length >= 14 && (/[\s·]/.test(description) || roleVerbs.test(description));
-  return isExplanation ? label + ': ' + description : source;
+  if (last.end !== source.length - 1 || last.start < 1) return null;
+  const label = source.slice(0, last.start).trim();
+  const description = source.slice(last.start + 1, -1);
+  if (!label || !description.trim()) return null;
+  // English acronym expansions and short English(Korean) glosses are NOT
+  // descriptions: SQL(Structured Query Language, 구조화질의언어) stays intact.
+  const onlyKoreanGloss = /^[가-힣][가-힣 ]{0,9}$/.test(description.trim());
+  const onlyAcronymGloss = /^[A-Za-z0-9+._ /-]+,\s*[가-힣0-9· /,\-]+$/.test(description.trim());
+  if (groups.length === 1 && (onlyKoreanGloss || onlyAcronymGloss)) return null;
+  const hasDescription = groups.length > 1 || (description.trim().length >= 10 &&
+    (/[\s·,]/.test(description) ||
+      /(?:제공|관리|분석|정의|검증|생성|유지|제어|실행|보호|수집|확보|지원|점검|측정|추적|예측|적용|도출|구현|수행|평가|산정|통제|연계|처리|식별|저장|전송|결정|배치|계산|개선|설정|활용|구성|설계|변환|확인|형성|확대|강화|운영|파악|수립|정렬|진단|연구|효과)/.test(description)));
+  if (!hasDescription) return null;
+  // The entire original body, including nested English expansions, is kept.
+  return { label: addStudyTechnicalKoreanLabel(label), description };
 }
 
 function setReadableStudyField(id, value, kind, eligible) {
   const element = els[id];
   const source = value == null || value === '' ? '-' : String(value);
-  const items = eligible ? splitStudyItemsForDisplay(source) : null;
+  let items = eligible ? splitStudyItemsForDisplay(source) : null;
+  // A single valid technical element also receives a numbered list; existing
+  // authored numbering and malformed original strings are preserved exactly.
+  if (!items && eligible && kind === 'technicalComponents' &&
+      !/^\s*(?:\d{1,3}[\).]|[가-하][\).]|[①-㊿])\s*/m.test(source)) {
+    const match = source.match(/^([^:：(){}\[\]\n]{2,28}[:：])\s*(.+)$/);
+    if (describeStudyTechnicalItem(match ? match[2] : source)) items = [source];
+  }
   if (!items) {
     element.textContent = source;
     return;
@@ -5744,7 +5834,21 @@ function setReadableStudyField(id, value, kind, eligible) {
   list.className = 'study-readable-list';
   for (const item of items) {
     const li = document.createElement('li');
-    li.textContent = kind === 'technicalComponents' ? formatStudyTechnicalItem(item) : item;
+    if (kind === 'technicalComponents') {
+      const parsed = describeStudyTechnicalItem(item);
+      if (parsed) {
+        const heading = document.createElement('strong');
+        heading.className = 'study-technical-item-label';
+        heading.textContent = parsed.label;
+        li.appendChild(heading);
+        li.appendChild(document.createTextNode(': ' + parsed.description));
+      } else {
+        // Ambiguous or malformed data is displayed literally and completely.
+        li.textContent = item;
+      }
+    } else {
+      li.textContent = item;
+    }
     list.appendChild(li);
   }
   element.replaceChildren();
