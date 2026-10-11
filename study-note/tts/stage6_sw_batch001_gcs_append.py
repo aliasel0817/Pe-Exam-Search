@@ -318,6 +318,8 @@ def main(argv:list[str]|None=None)->int:
     ap.add_argument("--audio-dir",required=True,type=Path)
     ap.add_argument("--dictionary",type=Path,default=Path(__file__).with_name(
                     "pronunciations.ko-candidates.json"))
+    ap.add_argument("--check-remote",action="store_true",
+                    help="Authenticated read-only GCS object and index checks; small read costs possible.")
     ap.add_argument("--execute",action="store_true")
     ap.add_argument("--accept-possible-cloud-charges",action="store_true")
     ap.add_argument("--approve-exact-files",type=int)
@@ -331,6 +333,8 @@ def main(argv:list[str]|None=None)->int:
             args.approve_exact_bytes is not None or
             args.expect_existing_generation is not None or args.journal is not None
         )
+        if args.check_remote and args.execute:
+            raise ValueError("Choose either read-only --check-remote or --execute; never both.")
         if args.execute:
             if (not args.accept_possible_cloud_charges or args.approve_exact_files != MAX_NEW_FILES
                 or args.approve_exact_bytes is None or args.journal is None
@@ -344,16 +348,22 @@ def main(argv:list[str]|None=None)->int:
         print("SW AOEDE BATCH001 GCS LOCAL PREFLIGHT PASSED")
         print(f"New objects: {MAX_NEW_FILES} | bytes: {local['audioBytes']}")
         print(f"New entries: {MAX_NEW_FIELDS} | original MP3s retained: {EXISTING_OBJECTS}")
-        if not args.execute:
+        if not args.execute and not args.check_remote:
             print("LOCAL DRY RUN: NO GCS TRAFFIC, NO MP3 UPLOAD, NO FILE WRITES")
             return 0
-        if local["audioBytes"]!=args.approve_exact_bytes:
+        if args.execute and local["audioBytes"]!=args.approve_exact_bytes:
             raise ValueError("Cloud upload byte approval does not equal audited files.")
         active=subprocess.run(["gcloud","config","get-value","project"],
                               capture_output=True,text=True,check=True,timeout=20)
         if active.stdout.strip()!=PROJECT:
             raise ValueError("Active Cloud CLI project is not pinned TTS project.")
         remote=_remote_read_preflight(local)
+        if args.check_remote:
+            print("SW BATCH001 REMOTE READ-ONLY PRECHECK PASSED")
+            print("Existing protected GCS index generation: "+remote["oldGeneration"])
+            print("Existing MP3: 12 unchanged | Proposed NEW MP3: 93 confirmed absent")
+            print("NO CLOUD WRITES, NO MP3 UPLOAD, NO TTS SYNTHESIS")
+            return 0
         if remote["oldGeneration"]!=args.expect_existing_generation:
             raise ValueError("Remote original GCS index generation differs from approval.")
         _execute(local,remote,args.journal)
