@@ -97,3 +97,24 @@
 - 실제 음성 합성에 필요한 인증된 Google Cloud SDK/Cloud Shell 계정은 현재 연결된 Windows Remote Desktop Commander 환경에 **없음**. 정상 인증을 확보하기 전에는 우회하지 않는다.
 
 **현재 상황: SW 음성 합성 원문/계획과 1차 시험 실행 패키지 준비 완료; 실제 MP3 생성 0개, 실제 TTS API 호출 0건, GCS 추가 업로드 0개, 운영 데이터 변경 0건.**
+
+## 8. SW 1차 93개 MP3 전용 GCS 추가 업로더·Cloud Shell 패키지 준비
+
+- 새 `stage6_sw_batch001_gcs_append.py` 및 `test_stage6_sw_batch001_gcs_append.py` 개발.
+- **기본 DRY RUN**: 로컬 MP3를 검증할 뿐, GCS/Cloud Run/TTS API 호출 없음.
+- `--check-remote`: **GCS 읽기 전용**으로 기존 비공개 버킷 설정, 기존 8개 매니페스트 항목/12개 MP3의 세대번호·크기·CRC32C, 신규 93개 MP3 객체의 미등록 여부 확인. **소액 GCS 읽기 작업 요금 가능**.
+- 실제 파일 등록 `--execute`는 별도의 원격 인덱스 Generation, 정확한 **93개 MP3 실제 바이트**, 특정 감사 파일, 비용 승인 플래그가 모두 일치할 때만 시도. 시작 전에 GCS 기존 인덱스 및 12개 MP3 정보 재확인.
+- 신규 MP3 각각 `--if-generation-match=0` 조건부 PUT, 즉시 원격 SHA-256 읽기 비교. **기존 객체 덮어쓰기·삭제 없음**.
+- 모든 93개가 확인된 뒤 기존 GCS `index.json` Generation 조건부 CAS로 **기존 8항목을 그대로 유지하면서 SW 70항목만 추가**. 예상 합산 **78항목 / 105 MP3**.
+- 업로드 중 장애: 불변 1회 실행 이력 남기고 안전 중단, 자동 재시도·재생성·오래된 인덱스 강제 반영 없음.
+- 실제 GCS 쓰기를 수행하지 않은 **모의 업로드 24개 테스트 PASS**. SW Python 관련 총 **73/73 PASS**, 기존 Node JavaScript **126/126 PASS**.
+- 별도 원격 PC `D:\itpe_pwa_test\stage64_sw_private\SW_AOEDE_BATCH001_CLOUD_SHELL_READY_20261011.zip` 생성 및 압축 CRC 확인 완료.
+- ZIP 크기 **957,486바이트**, SHA-256 **`6e94c2a8ff093fd223c91b2bd9c1bb3e37ba8ddd8e45d693165d36ad881fbda8`**, 비공개 ZIP 엔트리 18개.
+- 기존 배포 ZIP과 달리 `study-note/tts/` 원래 위치 구조를 유지하여 Cloud Shell에서 Python 출력 경로·개인 데이터 보호 판단이 올바르게 작동하도록 개선.
+- 비공개 ZIP **압축 해제 후 재검증**: 첫 10토픽, 70필드, 93 합성 API 계획, 12,973자 / 20,791바이트, TTS 호출·GCS 호출 0.
+- ZIP은 **698개 SW 토픽 원문을 포함**하므로 공개 GitHub에 절대 등록하지 않는다. Google Cloud Shell 사용자 개인 홈으로만 업로드.
+- **Cloud Cloud Shell/유료 호출 현실 상태:** 연결된 원격 PC에는 `gcloud` 인증 환경이 없음. 당월 실제 청구·무료 잔여 문자도 직접 조회하지 못했으므로 **실제 MP3 신규 생성 0, GCS 신규 업로드 0**.
+- 사용자 월 1만원 미만 허용 기준: 1차 10토픽 합성 **잔여 무료 문자 0 기준 보수 예상 약 856원(가정 환율 2000원/USD+VAT 10%)**. 코드 상한도 1,000원. 단 이는 모델 요금 추정·사전 제한이지 Cloud Billing의 하드 결제 상한 기능은 아님.
+- 단계별 사용자 실행 안내와 안전 원칙은 ZIP의 `README_PRIVATE.txt` 참조. 가장 먼저 **DRY RUN**과 프로젝트/월별 Cloud Billing 확인. 신규 MP3 없이는 GCS 업로드 검증기 --execute 불가.
+
+**이관 체크포인트:** 6-4 SW 698개 전체 오프라인 계획 완료, 1차 10토픽 음성 생성기 및 93개 파일 GCS 안전 추가 업로더 구현·자동 검증 완료. 실클라우드 사용량 확인/인증 및 10개 Aoede MP3 생성부터 재개. `main`, Google Sheets, Apps Script, Cloud Run, 기존 MP3 12개는 변경하지 않음.
