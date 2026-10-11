@@ -243,6 +243,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .study-card.emphasis-card { border-color: #bfdbfe; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); }
 .study-card h3 { margin: 0 0 10px; color: #475467; font-size: .8rem; letter-spacing: .02em; }
 .study-text { font-size: 1.02rem; line-height: 1.75; overflow-wrap: anywhere; }
+.study-readable-list { margin: 0; padding-left: 1.75rem; display: grid; gap: .52rem; }
+.study-readable-list > li { padding-left: .12rem; white-space: pre-wrap; }
+.study-readable-heading { margin-bottom: .5rem; font-weight: 750; color: #344054; }
 .meta-grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .meta-grid > div { padding: 10px 0; border-bottom: 1px solid #eef2f6; }
 .meta-grid > div:nth-child(odd) { padding-right: 16px; }
@@ -1522,6 +1525,35 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 
+/* Page arrows appear ONLY when the PDF top bar is folded; expanded controls are untouched. */
+.viewer-compact-page-nav { display: none; flex: 0 0 auto; align-items: center; gap: 4px; }
+.viewer-top-collapsed .viewer-compact-page-nav { display: flex; }
+.viewer-compact-page-nav .btn {
+  min-width: 34px; min-height: 34px; padding: 3px 8px;
+  font-size: 1.06rem; font-weight: 800; line-height: 1;
+  white-space: nowrap; touch-action: manipulation;
+}
+.attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-modal-head {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 6px;
+}
+@media (max-width: 760px) {
+  .attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-modal-head > .viewer-compact-page-nav {
+    grid-column: 2; grid-row: 1;
+  }
+  .attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-modal-head > [data-viewer-top-toggle] {
+    grid-column: 3; grid-row: 1;
+  }
+  .attachment-pdf-viewer-card.viewer-top-collapsed .attachment-pdf-modal-head > .icon-btn {
+    grid-column: 4; grid-row: 1;
+  }
+}
+@media (max-width: 420px) {
+  .viewer-compact-page-nav { gap: 3px; }
+  .viewer-compact-page-nav .btn { min-width: 32px; min-height: 32px; padding: 3px 6px; }
+  .attachment-pdf-viewer-card.viewer-top-collapsed #mediaViewerTitle { display: none; }
+}
+
 /* Fold only optional controls. Zoom, close and reopen remain available. */
 .viewer-bottom-toggle { flex: 0 0 auto; align-self: center; white-space: nowrap; margin-right: 2px; }
 .image-viewer-card > .annotation-toolbar { order: 3; }
@@ -2553,6 +2585,10 @@ button { -webkit-tap-highlight-color: transparent; }
           <strong id="pdfViewerCounter" class="attachment-pdf-file-meta"></strong>
           <strong id="pdfPageCounter" class="attachment-pdf-page-meta"></strong>
         </div>
+        <div class="viewer-compact-page-nav" role="group" aria-label="접힌 상단바에서 PDF 페이지 이동">
+          <button id="attachmentPdfCompactPrevBtn" class="btn" type="button" aria-label="이전 PDF 페이지" title="이전 페이지">←</button>
+          <button id="attachmentPdfCompactNextBtn" class="btn" type="button" aria-label="다음 PDF 페이지" title="다음 페이지">→</button>
+        </div>
         <button class="btn viewer-toggle-btn" type="button" data-viewer-top-toggle aria-expanded="true">상단 접기 ▲</button>
         <button id="closeMediaViewerBtn" class="icon-btn" type="button" aria-label="PDF 첨부자료 닫기">✕</button>
       </div>
@@ -2636,6 +2672,10 @@ button { -webkit-tap-highlight-color: transparent; }
         <div class="reference-pdf-topbar">
           <div class="viewer-top-toggle-row">
             <span id="referencePdfCompactSummary" class="viewer-compact-summary" aria-live="polite">현재 원본 PDF</span>
+            <div class="viewer-compact-page-nav" role="group" aria-label="접힌 상단바에서 원본 PDF 페이지 이동">
+              <button id="referencePdfCompactPrevBtn" class="btn" type="button" aria-label="원본 앞 1페이지" title="원본 앞 1페이지">←</button>
+              <button id="referencePdfCompactNextBtn" class="btn" type="button" aria-label="원본 뒤 1페이지" title="원본 뒤 1페이지">→</button>
+            </div>
             <button class="btn viewer-toggle-btn" type="button" data-viewer-top-toggle aria-expanded="true" aria-controls="referencePdfTopDetails">상단 접기 ▲</button>
           </div>
           <div class="viewer-top-details" id="referencePdfTopDetails">
@@ -4110,7 +4150,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.3-rgb-keyboard-popup-fix';
+const APP_VERSION = '4.6.4-compact-pdf-readable-rc1';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4390,7 +4430,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -4593,6 +4633,8 @@ function bindEvents() {
   els.imageViewerModal.addEventListener('keydown', event => event.stopPropagation());
   els.closeMediaViewerBtn.addEventListener('click', closeMediaViewer);
   els.closeMediaViewerBottomBtn.addEventListener('click', closeMediaViewer);
+  els.attachmentPdfCompactPrevBtn.addEventListener('click', () => loadAttachmentPdfPage(activeAttachmentPdfPageNumber - 1));
+  els.attachmentPdfCompactNextBtn.addEventListener('click', () => loadAttachmentPdfPage(activeAttachmentPdfPageNumber + 1));
   els.mediaViewerModal.addEventListener('keydown', event => event.stopPropagation());
   els.openSubnotePdfBtn.addEventListener('click', () => openReferencePdfViewer('서브노트'));
   els.openTextbookPdfBtn.addEventListener('click', () => openReferencePdfViewer('교재'));
@@ -4606,6 +4648,8 @@ function bindEvents() {
   });
   els.referencePdfSequentialPrevBtn.addEventListener('click', () => moveReferencePdfSequential(-1));
   els.referencePdfSequentialNextBtn.addEventListener('click', () => moveReferencePdfSequential(1));
+  els.referencePdfCompactPrevBtn.addEventListener('click', () => moveReferencePdfSequential(-1));
+  els.referencePdfCompactNextBtn.addEventListener('click', () => moveReferencePdfSequential(1));
   els.referencePdfZoomOutBtn.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor - REFERENCE_PDF_ZOOM_STEP));
   els.referencePdfZoomInBtn.addEventListener('click', () => setReferencePdfZoomFactor(activeReferencePdfZoomFactor + REFERENCE_PDF_ZOOM_STEP));
   els.referencePdfZoomFitBtn.addEventListener('click', () => {
@@ -5618,6 +5662,100 @@ function renderTopicList() {
   els.topicPageRange.textContent = `${rangeStart.toLocaleString()}-${rangeEnd.toLocaleString()} / ${totalRows.toLocaleString()}건`;
 }
 
+function splitStudyItemsForDisplay(value) {
+  const source = String(value == null ? '' : value).trim();
+  if (!source || source === '-') return null;
+  // Existing numbered paragraphs stay unchanged; do not mistake 1) for an unmatched bracket.
+  if (/^\s*(?:\d{1,3}[\).]|[가-하][\).]|[①-㊿])\s*/m.test(source)) return null;
+  const matching = { '(': ')', '[': ']', '{': '}' };
+  const closers = new Set([')', ']', '}']);
+  const stack = [];
+  const items = [];
+  let part = '';
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (matching[ch]) stack.push(matching[ch]);
+    else if (closers.has(ch) && stack.pop() !== ch) return null;
+    if (ch === '·' && !stack.length && /\s/.test(source[i - 1] || '') && /\s/.test(source[i + 1] || '')) {
+      items.push(part.trim());
+      part = '';
+      continue;
+    }
+    if (ch === '\n' && !stack.length) {
+      items.push(part.trim());
+      part = '';
+      continue;
+    }
+    part += ch;
+  }
+  if (stack.length) return null;
+  items.push(part.trim());
+  if (items.length < 2 || items.some(item => item.length < 3)) return null;
+  // Preserve short dot-product/multiplication expressions.
+  if (!/[가-힣]/.test(source) && /^(?:[A-Za-z]+\([^)]*\)|[A-Za-z0-9]+)\s+·\s+(?:[A-Za-z]+\([^)]*\)|[A-Za-z0-9]+)$/.test(source)) return null;
+  return items;
+}
+
+function formatStudyTechnicalItem(value) {
+  const source = String(value || '').trim();
+  if (!source.endsWith(')')) return source;
+  const opens = [], groups = [];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] === '(') opens.push(i);
+    else if (source[i] === ')') {
+      if (!opens.length) return source;
+      const begin = opens.pop();
+      if (!opens.length) groups.push({ begin, end: i });
+    }
+  }
+  if (opens.length || !groups.length) return source;
+  const last = groups[groups.length - 1];
+  if (last.end !== source.length - 1 || last.begin === 0) return source;
+  const description = source.slice(last.begin + 1, last.end);
+  const label = source.slice(0, last.begin).trimEnd();
+  if (!label || /[:：]$/.test(label) || !/[가-힣]/.test(description)) return source;
+  // Keep translation and full acronym expansion within their parentheses.
+  if (/^[A-Za-z0-9 /.,+\-]+,\s*[가-힣0-9· /,\-]+$/.test(description)) return source;
+  const roleVerbs = /(?:제공|관리|분석|정의|검증|생성|유지|제어|실행|보호|수집|확보|지원|점검|측정|추적|예측|적용|도출|구현|수행|평가|산정|통제|연계|처리|식별|저장|전송|결정|배치|계산|개선|설정|활용|구성|설계|변환|확인|기술설명)/;
+  const isExplanation = groups.length >= 2
+    ? description.length >= 4
+    : description.length >= 14 && (/[\s·]/.test(description) || roleVerbs.test(description));
+  return isExplanation ? label + ': ' + description : source;
+}
+
+function setReadableStudyField(id, value, kind, eligible) {
+  const element = els[id];
+  const source = value == null || value === '' ? '-' : String(value);
+  const items = eligible ? splitStudyItemsForDisplay(source) : null;
+  if (!items) {
+    element.textContent = source;
+    return;
+  }
+  let heading = '';
+  if (kind === 'technicalComponents') {
+    const match = items[0].match(/^([^:：(){}\[\]\n]{2,28}[:：])\s*(.+)$/);
+    if (match) {
+      heading = match[1];
+      items[0] = match[2];
+    }
+  }
+  const list = document.createElement('ol');
+  list.className = 'study-readable-list';
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.textContent = kind === 'technicalComponents' ? formatStudyTechnicalItem(item) : item;
+    list.appendChild(li);
+  }
+  element.replaceChildren();
+  if (heading) {
+    const label = document.createElement('div');
+    label.className = 'study-readable-heading';
+    label.textContent = heading;
+    element.appendChild(label);
+  }
+  element.appendChild(list);
+}
+
 function showTopicById(topicId, { scrollList = true } = {}) {
   window.peStudyNoteTTS?.onTopicChanged(topicId);
   const topic = filteredTopics.find(t => t.topicId === topicId);
@@ -5647,10 +5785,12 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setText('detailTitle', topic.topicName || '(토픽명 없음)');
   setText('detailDomainName', `${topic.domain} (${topic.domainName})`);
   setText('detailConcept', topic.concept || '-');
-  setText('detailBackground', topic.background || '-');
-  setText('detailNecessity', topic.necessity || '-');
-  setText('detailFeatures', topic.features || '-');
-  setText('detailTechnicalComponents', topic.technicalComponents || '-');
+  // Format main-view display only; MASTER, management form and TTS hashes remain raw.
+  const readable = topic.studyTarget === 'Y';
+  setReadableStudyField('detailBackground', topic.background || '-', 'background', readable);
+  setReadableStudyField('detailNecessity', topic.necessity || '-', 'necessity', readable);
+  setReadableStudyField('detailFeatures', topic.features || '-', 'features', readable);
+  setReadableStudyField('detailTechnicalComponents', topic.technicalComponents || '-', 'technicalComponents', readable);
   setText('detailKeywords', topic.keywords || '-');
   setText('detailMnemonic', topic.mnemonic || '-');
   setText('detailRelated', topic.relatedTopics || '-');
@@ -11197,6 +11337,8 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   const nextSequential = findReferencePdfSequentialPage(page, 1);
   els.referencePdfSequentialPrevBtn.disabled = !prevSequential;
   els.referencePdfSequentialNextBtn.disabled = !nextSequential;
+  els.referencePdfCompactPrevBtn.disabled = !prevSequential;
+  els.referencePdfCompactNextBtn.disabled = !nextSequential;
   const flowLabel = page.materialType === '보강' ? `보강 · 기준 ${page.anchorPageToken || '-'}` : page.materialType === '개정' ? `개정 ${page.versionTag || ''} · ${page.replacementTarget || '-'} 대체` : '원본';
   els.referencePdfSequentialLabel.textContent = `${page.pageToken} · ${flowLabel} · ${page.fileName || page.driveFileId}`;
 
@@ -11719,6 +11861,8 @@ function updateAttachmentPdfViewerUi() {
   }
   if (pagePrev) pagePrev.disabled = activeAttachmentPdfPageNumber <= 1;
   if (pageNext) pageNext.disabled = !activeAttachmentPdfPageCount || activeAttachmentPdfPageNumber >= activeAttachmentPdfPageCount;
+  els.attachmentPdfCompactPrevBtn.disabled = !activeAttachmentPdfPageCount || activeAttachmentPdfPageNumber <= 1;
+  els.attachmentPdfCompactNextBtn.disabled = !activeAttachmentPdfPageCount || activeAttachmentPdfPageNumber >= activeAttachmentPdfPageCount;
   if (zoomLabel) zoomLabel.textContent = `${Math.round(activeAttachmentPdfZoomFactor * 100)}%`;
   if (zoomOut) zoomOut.disabled = activeAttachmentPdfZoomFactor <= ATTACHMENT_PDF_ZOOM_MIN;
   if (zoomIn) zoomIn.disabled = activeAttachmentPdfZoomFactor >= ATTACHMENT_PDF_ZOOM_MAX;
