@@ -142,3 +142,26 @@ test("Display entrypoint passes same-topic features and does not mutate original
   assert.match(html,/setReadableStudyField\('detailTechnicalComponents', topic\.technicalComponents \|\| '-', 'technicalComponents', readable, topic\.keywords \|\| '', topic\.features \|\| ''\)/);
   assert.match(html,/const featureMeaning = studyFeatureTechnicalGloss\(featureSource, key\)/);
 });
+
+test("LISS linear algebra example: all six elements keep descriptions",()=>{
+  for(const [term,translated] of [
+    ["Linear Independence","선형독립"],["Span","생성"],["Minimality","최소성"],
+    ["Basis","기저"],["Dimension","차원"],["Rank Test","행렬 랭크 검사"]
+  ]){
+    const features="벡터공간을 Span(생성) · 해당 공간의 Basis(기저) 역할 · Dimension(차원)을 측정";
+    const v=item(term+"(원문에 적힌 수학적 조건과 계산 절차를 설명)","",features);
+    assert.equal(v.label,term+"("+translated+")");
+    assert.equal(v.description,"원문에 적힌 수학적 조건과 계산 절차를 설명");
+  }
+});
+test("Porter five forces keeps each original competition explanation",()=>{
+  for(const [en,ko] of [
+    ["Rivalry","기존 경쟁"],["Threat of New Entrants","신규진입자 위협"],
+    ["Threat of Substitutes","대체재 위협"],
+    ["Buyer Power","구매자 교섭력"],["Supplier Power","공급자 교섭력"]
+  ]){
+    const v=item(en+"(가격·품질·진입장벽에 영향을 주는 경쟁요인을 분석)");
+    assert.equal(v.label,en+"("+ko+")");
+    assert.equal(v.description,"가격·품질·진입장벽에 영향을 주는 경쟁요인을 분석");
+  }
+});
