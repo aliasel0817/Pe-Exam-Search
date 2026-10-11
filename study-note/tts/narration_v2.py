@@ -250,9 +250,20 @@ def planned_parts(original: str, field: str, label: str,
     This is a DRAFT plan only. No existing production MP3 is reused or changed.
     """
     items = speech_items(label, field, original, dictionary)
-    chunks = [
-        chunk for item in items for chunk in legacy.split_speech(item)
-    ]
+    chunks: list[str] = []
+    pause_after_parts: list[int] = []
+    for index, item in enumerate(items):
+        item_chunks = legacy.split_speech(item)
+        if not item_chunks:
+            raise ValueError("A narration item has no audio parts.")
+        chunks.extend(item_chunks)
+        # Between whole list items only, NEVER between arbitrary 220-char splits.
+        # Zero-based part positions are validated by the v2 player when published.
+        if index < len(items) - 1:
+            pause_after_parts.append(len(chunks) - 1)
+    if len(set(pause_after_parts)) != len(pause_after_parts) or (
+            pause_after_parts and pause_after_parts[-1] >= len(chunks) - 1):
+        raise ValueError("Invalid inter-item pause positions.")
     if any(len(c) > legacy.MAX_SPEECH_CHARS
            or legacy.utf8_len(c) > legacy.MAX_REQUEST_BYTES for c in chunks):
         raise ValueError("Voice V2 split exceeds legacy budget.")
@@ -269,6 +280,8 @@ def planned_parts(original: str, field: str, label: str,
         "chunks": chunks,
         "segments": len(chunks),
         "sourceChars": len(original.strip()),
+        "pauseAfterParts": pause_after_parts,
+        "interItemGapMs": 400,  # proposal; client handles delay after marked MP3 parts
         "inputChars": sum(len(c) for c in chunks),
         "inputBytes": sum(legacy.utf8_len(c) for c in chunks),
         # Do not persist any v2 manifest until a dedicated audited publisher
