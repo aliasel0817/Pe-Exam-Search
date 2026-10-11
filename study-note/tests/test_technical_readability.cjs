@@ -14,7 +14,7 @@ const block = html.slice(start, end);
 const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,STUDY_TECHNICAL_GLOSSARY})");
 const {splitStudyItemsForDisplay: split,topicKeywordTechnicalGlossary: fromKeywords,
   describeStudyTechnicalItem: describe,addStudyTechnicalKoreanLabel: gloss} = formatter;
-const item=(original,keyword="")=>describe(original,fromKeywords(keyword));
+const item=(original,keyword="",feature="")=>describe(original,fromKeywords(keyword),feature);
 
 test("A spacing and PDF control remain untouched",()=>{
   assert.match(html,/\.study-readable-list \{[^}]*gap: \.52rem;/);
@@ -95,4 +95,50 @@ test("Only technical fields gain context; other source data remains raw",()=>{
   assert.match(html,/setText\('detailKeywords', topic\.keywords \|\| '-'\)/);
   assert.match(html,/setText\('detailMnemonic', topic\.mnemonic \|\| '-'\)/);
   assert.match(html,/setReadableStudyField\('detailTechnicalComponents', topic\.technicalComponents \|\| '-', 'technicalComponents', readable, topic\.keywords \|\| ''\)/);
+});
+
+test("Feature-only bilingual pair supplies exact term meaning without touching description",()=>{
+  const raw="Span(여러 벡터의 선형결합으로 생성되는 공간을 정의)";
+  const features="서로 선형독립이고 전체 벡터공간을 Span(생성) · 해당 공간의 Basis(기저)";
+  const parsed=item(raw,"",features);
+  assert.equal(parsed.label,"Span(생성)");
+  assert.equal(parsed.description,"여러 벡터의 선형결합으로 생성되는 공간을 정의");
+});
+test("Exact keyword pair takes precedence over differing feature gloss",()=>{
+  const features="Strategy(전략)·Structure(구조)·Systems(시스템) 함께 진단";
+  const keywords="전략(Strategy), 조직구조(Structure), 시스템(Systems)";
+  const parsed=item("Structure(권한·책임·보고관계의 조직구조)",keywords,features);
+  assert.equal(parsed.label,"Structure(조직구조)");
+});
+test("Feature translations conflict: keep English instead of imposing fallback",()=>{
+  const parsed=item("Communication(통신 신호와 상태를 지속 확인하고 기록)","",
+   "Communication(통신) 및 Communication(의사소통) 표현 혼재");
+  assert.equal(parsed.label,"Communication");
+});
+test("Explanatory feature parentheses are not misread as translations",()=>{
+  const raw="Testing(단위 테스트를 자동화하여 결함을 조기에 검출하고 개선)";
+  const parsed=item(raw,"","Testing(테스트를 자동화하는 활동)을 수행");
+  assert.equal(parsed.label,"Testing(시험)");
+  assert.equal(parsed.description,"단위 테스트를 자동화하여 결함을 조기에 검출하고 개선");
+});
+test("Nested technical detail retains complete source and Korean meaning",()=>{
+  const original="Threat Modeling(자산(Asset)·데이터 흐름(Flow)·신뢰경계를 분석하고 위험을 평가)";
+  const parsed=item(original,"","Threat Modeling(위협 모델링)을 활용");
+  assert.equal(parsed.label,"Threat Modeling(위협 모델링)");
+  assert.equal(parsed.description,"자산(Asset)·데이터 흐름(Flow)·신뢰경계를 분석하고 위험을 평가");
+});
+test("Different term's translated feature cannot hijack the intended element",()=>{
+  const parsed=item("Monitoring(환경 변화에 따라 운영상태를 지속 점검)","",
+    "Data Monitoring(데이터 감시) 모듈을 사용");
+  assert.equal(parsed.label,"Monitoring(모니터링)");
+});
+test("Known Phase 4 technical terms gain Korean gloss without dropping details",()=>{
+  const original="Error Correction(Reed-Solomon으로 데이터 오류를 검출하고 복원)";
+  const result=item(original);
+  assert.equal(result.label,"Error Correction(오류 정정)");
+  assert.equal(result.description,"Reed-Solomon으로 데이터 오류를 검출하고 복원");
+});
+test("Display entrypoint passes same-topic features and does not mutate original",()=>{
+  assert.match(html,/setReadableStudyField\('detailTechnicalComponents', topic\.technicalComponents \|\| '-', 'technicalComponents', readable, topic\.keywords \|\| '', topic\.features \|\| ''\)/);
+  assert.match(html,/const featureMeaning = studyFeatureTechnicalGloss\(featureSource, key\)/);
 });
