@@ -94,7 +94,7 @@ test("Only technical fields gain context; other source data remains raw",()=>{
   assert.match(html,/setText\('detailConcept', topic\.concept \|\| '-'\)/);
   assert.match(html,/setText\('detailKeywords', topic\.keywords \|\| '-'\)/);
   assert.match(html,/setText\('detailMnemonic', topic\.mnemonic \|\| '-'\)/);
-  assert.match(html,/setReadableStudyField\('detailTechnicalComponents', topic\.technicalComponents \|\| '-', 'technicalComponents', readable, topic\.keywords \|\| ''\)/);
+  assert.match(html,/setReadableStudyField\('detailTechnicalComponents', topic\.technicalComponents \|\| '-', 'technicalComponents', readable, topic\.keywords \|\| '', topic\.features \|\| ''\)/);
 });
 
 test("Feature-only bilingual pair supplies exact term meaning without touching description",()=>{
