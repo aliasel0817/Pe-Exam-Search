@@ -32,6 +32,9 @@
   const PRIVATE_AUDIO_BUCKET = 'study-note-tts-audio-558407087449';
   const PRIVATE_AUDIO_PREFIX = 'study-note/tts/audio/';
   const MAX_CACHE_ITEMS = 120;
+  // Applies ONLY to optional V2 entries whose manifest lists whole-item
+  // audio boundaries. Existing v1 MP3s have no metadata and remain unchanged.
+  const V2_INTER_ITEM_GAP_MS = 400;
   const SCRIPT_DIR = new URL('./', document.currentScript?.src || new URL('./tts/', location.href)).href;
   const MANIFEST_URL = new URL('./audio/index.json', SCRIPT_DIR).href;
   const AUDIO_BASE_URL = new URL('./audio/', SCRIPT_DIR).href;
@@ -76,6 +79,23 @@
       return {valid:false, note:''};
     }
     return {valid:true, note:alias.note};
+  }
+  function validatedV2ItemBreaks(entry, partCount) {
+    const breaks = entry?.pauseAfterParts;
+    if (breaks == null) return [];
+    if (!Array.isArray(breaks) || breaks.length > 99 ||
+        (breaks.length && entry.interItemGapMs !== V2_INTER_ITEM_GAP_MS)) {
+      throw new Error('음성 항목 간 쉼표 데이터가 올바르지 않습니다.');
+    }
+    let last = -1;
+    for (const value of breaks) {
+      if (!Number.isInteger(value) || value < 0 || value <= last ||
+          value >= partCount - 1) {
+        throw new Error('음성 항목 경계가 MP3 분할 순서와 일치하지 않습니다.');
+      }
+      last = value;
+    }
+    return breaks;
   }
   const isStop = error => error && error.name === 'AbortError';
   function stopped() {
@@ -752,6 +772,7 @@
       if (!paths.length || paths.length > 100 || new Set(paths).size !== paths.length) {
         throw new Error('음성 파일 목록이 올바르지 않습니다.');
       }
+      validatedV2ItemBreaks(entry, paths.length);
       return paths.map((path, part) => {
         const prefix = this.settings.voice + '/' + topic.topicId + '/' + field.key + '-';
         if (typeof path !== 'string' ||
@@ -892,7 +913,11 @@
           if (field.fixed) throw new Error('토픽명이 비어 있어 음성을 재생할 수 없습니다.');
           continue;
         }
-        resolved.push({field, urls: await this.segmentUrls(topic, field)});
+        const urls = await this.segmentUrls(topic, field);
+        const index = await this.manifest();
+        const entry = index.entries[this.segmentKey(topic.topicId, field.key)];
+        const pauseAfterParts = validatedV2ItemBreaks(entry, urls.length);
+        resolved.push({field, urls, pauseAfterParts});
       }
       return resolved;
     }
@@ -988,16 +1013,21 @@
             if (this.expectedTopic === topic.topicId) this.expectedTopic = '';
           }
           for (let pass = 0; pass < this.settings.repeat; pass++) {
-            for (const {field, urls} of resolved) {
+            for (const {field, urls, pauseAfterParts} of resolved) {
               if (seq !== this.seq) throw stopped();
               this.markField(field.key);
               this.updateUI(topic.topicName + ' · ' + field.label +
                 (this.settings.repeat === 2 ? ' (' + (pass+1) + '/2)' : '') + ' 읽는 중');
-              for (const audioUrl of urls) {
+              for (let part = 0; part < urls.length; part++) {
                 if (seq !== this.seq) throw stopped();
-                const objectUrl = await this.fetchAudio(audioUrl, seq);
+                const objectUrl = await this.fetchAudio(urls[part], seq);
                 if (seq !== this.seq) { URL.revokeObjectURL(objectUrl); throw stopped(); }
                 await this.playSegment(objectUrl, seq);
+                // Guaranteed short silence after WHOLE list items in new V2 audio.
+                // Does NOT modify existing v1 playback or topic-to-topic gap.
+                if (pauseAfterParts.includes(part)) {
+                  await this.gap(V2_INTER_ITEM_GAP_MS, seq);
+                }
               }
             }
           }
