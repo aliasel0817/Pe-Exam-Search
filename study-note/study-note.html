@@ -4152,7 +4152,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.7-context-technical-labels-rc1';
+const APP_VERSION = '4.6.8-context-from-features-rc1';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -5941,12 +5941,39 @@ function topicKeywordTechnicalGlossary(value) {
   return exact;
 }
 
-function addStudyTechnicalKoreanLabel(label, keywordGlossary) {
+// Reuse an exact English(한글) pair from the current topic's FEATURES field.
+// Do not infer a meaning from explanation sentences or neighboring topics.
+// Conflicting glosses return null: the English label then stays unchanged.
+function studyFeatureTechnicalGloss(featureSource, englishName) {
+  const source = String(featureSource || '');
+  const name = String(englishName || '').trim();
+  if (!source || !/^[A-Za-z][A-Za-z0-9 +._/-]{0,80}$/.test(name)) return '';
+  const needle = name + '(';
+  let found = '';
+  let from = -1;
+  while ((from = source.indexOf(needle, from + 1)) !== -1) {
+    if (from > 0 && /[A-Za-z0-9._+/-]/.test(source[from - 1])) continue;
+    const suffix = source.slice(from + name.length);
+    const match = suffix.match(/^\(([가-힣][가-힣0-9· /-]{0,19})\)/);
+    if (!match) continue;
+    const korean = match[1].trim();
+    if (!korean || korean.length > 18 ||
+        /(?:하기|하는|하여|위하여|위해|한다|수행하고|제공하고|분석하고|처리하고)/.test(korean)) continue;
+    if (found && found !== korean) return null;
+    found = korean;
+  }
+  return found;
+}
+
+function addStudyTechnicalKoreanLabel(label, keywordGlossary, featureSource) {
   const key = label.trim();
   if (keywordGlossary instanceof Map && keywordGlossary.has(key)) {
     const local = keywordGlossary.get(key);
     return local ? key + '(' + local + ')' : label;
   }
+  const featureMeaning = studyFeatureTechnicalGloss(featureSource, key);
+  if (featureMeaning === null) return label;
+  if (featureMeaning) return key + '(' + featureMeaning + ')';
   if (Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, key)) {
     return key + '(' + STUDY_TECHNICAL_GLOSSARY[key] + ')';
   }
@@ -5958,16 +5985,17 @@ function addStudyTechnicalKoreanLabel(label, keywordGlossary) {
     if (keywordGlossary instanceof Map && keywordGlossary.has(compound[2]) &&
         !keywordGlossary.get(compound[2])) return label;
     const localCompound = keywordGlossary instanceof Map ? keywordGlossary.get(compound[2]) : null;
+    const fromFeature = localCompound ? '' : studyFeatureTechnicalGloss(featureSource, compound[2]);
+    if (fromFeature === null && !localCompound) return label;
     const fallback = Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, compound[2])
       ? STUDY_TECHNICAL_GLOSSARY[compound[2]] : null;
-    if (localCompound || fallback) {
-      return compound[1] + compound[2] + '(' + (localCompound || fallback) + ')';
-    }
+    const translation = localCompound || fromFeature || fallback;
+    if (translation) return compound[1] + compound[2] + '(' + translation + ')';
   }
   return label;
 }
 
-function describeStudyTechnicalItem(value, keywordGlossary) {
+function describeStudyTechnicalItem(value, keywordGlossary, featureSource) {
   const source = String(value || '').trim();
   if (!source.endsWith(')')) return null;
   const matching = { '(': ')', '[': ']', '{': '}' };
@@ -6004,10 +6032,10 @@ function describeStudyTechnicalItem(value, keywordGlossary) {
       /(?:제공|관리|분석|정의|검증|생성|유지|제어|실행|보호|수집|확보|지원|점검|측정|추적|예측|적용|도출|구현|수행|평가|산정|통제|연계|처리|식별|저장|전송|결정|배치|계산|개선|설정|활용|구성|설계|변환|확인|형성|확대|강화|운영|파악|수립|정렬|진단|연구|효과)/.test(description)));
   if (!hasDescription) return null;
   // The entire original body, including nested English expansions, is kept.
-  return { label: addStudyTechnicalKoreanLabel(label, keywordGlossary), description };
+  return { label: addStudyTechnicalKoreanLabel(label, keywordGlossary, featureSource), description };
 }
 
-function setReadableStudyField(id, value, kind, eligible, keywordSource = '') {
+function setReadableStudyField(id, value, kind, eligible, keywordSource = '', featureSource = '') {
   const element = els[id];
   const source = value == null || value === '' ? '-' : String(value);
   let items = eligible ? splitStudyItemsForDisplay(source) : null;
@@ -6018,7 +6046,7 @@ function setReadableStudyField(id, value, kind, eligible, keywordSource = '') {
   if (!items && eligible && kind === 'technicalComponents' &&
       !/^\s*(?:\d{1,3}[\).]|[가-하][\).]|[①-㊿])\s*/m.test(source)) {
     const match = source.match(/^([^:：(){}\[\]\n]{2,28}[:：])\s*(.+)$/);
-    if (describeStudyTechnicalItem(match ? match[2] : source, keywordGlossary)) items = [source];
+    if (describeStudyTechnicalItem(match ? match[2] : source, keywordGlossary, featureSource)) items = [source];
   }
   if (!items) {
     element.textContent = source;
@@ -6037,7 +6065,7 @@ function setReadableStudyField(id, value, kind, eligible, keywordSource = '') {
   for (const item of items) {
     const li = document.createElement('li');
     if (kind === 'technicalComponents') {
-      const parsed = describeStudyTechnicalItem(item, keywordGlossary);
+      const parsed = describeStudyTechnicalItem(item, keywordGlossary, featureSource);
       if (parsed) {
         const heading = document.createElement('strong');
         heading.className = 'study-technical-item-label';
@@ -6097,7 +6125,7 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setReadableStudyField('detailBackground', topic.background || '-', 'background', readable);
   setReadableStudyField('detailNecessity', topic.necessity || '-', 'necessity', readable);
   setReadableStudyField('detailFeatures', topic.features || '-', 'features', readable);
-  setReadableStudyField('detailTechnicalComponents', topic.technicalComponents || '-', 'technicalComponents', readable, topic.keywords || '');
+  setReadableStudyField('detailTechnicalComponents', topic.technicalComponents || '-', 'technicalComponents', readable, topic.keywords || '', topic.features || '');
   setText('detailKeywords', topic.keywords || '-');
   setText('detailMnemonic', topic.mnemonic || '-');
   setText('detailRelated', topic.relatedTopics || '-');
