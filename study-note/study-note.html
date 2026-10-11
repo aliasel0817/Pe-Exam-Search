@@ -4152,7 +4152,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.6-fulltext-technical-labels-rc1';
+const APP_VERSION = '4.6.7-context-technical-labels-rc1';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -5749,11 +5749,196 @@ const STUDY_TECHNICAL_GLOSSARY = Object.freeze({
   'Database': '데이터베이스',
   'Data Flow': '데이터 흐름',
   'Trust Boundary': '신뢰경계',
-  'Risk Assessment': '위험 평가'
+  'Risk Assessment': '위험 평가',
+  // Phase 2: common IT terminology; context-specific keywords take precedence.
+  'Monitoring': '모니터링',
+  'Integration': '통합',
+  'Security': '보안',
+  'Validation': '검증',
+  'Network': '네트워크',
+  'Evidence': '증거·증적',
+  'Scope': '범위',
+  'Analytics': '분석',
+  'Metadata': '메타데이터',
+  'Observability': '관측가능성',
+  'Communication Network': '통신망',
+  'Measurement': '측정',
+  'Orchestration': '오케스트레이션',
+  'Gateway': '게이트웨이',
+  'Interaction': '상호작용',
+  'Smart Contract': '스마트 계약',
+  'Verification/Validation': '검증·타당성 확인',
+  'Orchestrator': '오케스트레이터',
+  'Tracking': '추적',
+  'Planning': '계획 수립',
+  'Transformation': '변환',
+  'Output': '출력',
+  'Collaboration': '협업',
+  'Service Provider': '서비스 제공자',
+  'Risk': '위험',
+  'Process': '프로세스',
+  'Relationship': '관계',
+  'Adapter': '어댑터',
+  'Activity': '활동',
+  'Synchronization': '동기화',
+  'Service Registry': '서비스 레지스트리',
+  'Middleware': '미들웨어',
+  'Data Source': '데이터 원천',
+  'Resource Management': '자원관리',
+  'Support': '지원',
+  'Continual Improvement': '지속적 개선',
+  'Cutover': '운영 전환',
+  'Dashboard': '대시보드',
+  'Reporting': '보고',
+  'Feature Extraction': '특징 추출',
+  'Baseline': '기준선',
+  'Deliverable': '산출물',
+  'Consensus': '합의',
+  'Security/Privacy': '보안·개인정보보호',
+  'Documentation': '문서화',
+  'Use Case': '유스케이스',
+  'Association': '연관관계',
+  'Scenario': '시나리오',
+  'Object': '객체',
+  'Abstraction': '추상화',
+  'Node': '노드',
+  'Preparation': '준비',
+  'Router': '라우터',
+  'Service Consumer': '서비스 소비자',
+  'Concern': '관심사',
+  'Viewpoint': '관점',
+  'Namespace': '네임스페이스',
+  'State': '상태',
+  'Storage': '저장공간',
+  'Receiver': '수신기',
+  'Variability': '가변성',
+  'Application Engineering': '응용공학',
+  'Author': '작성자',
+  'Automation': '자동화',
+  'Task': '작업',
+  'Product Backlog': '제품 백로그',
+  'Rollback': '롤백',
+  'Load Balancer': '부하분산기',
+  'Version Control': '버전관리',
+  'Feeding Buffer': '피딩 버퍼',
+  'Aggregation': '집계',
+  'Framework': '프레임워크',
+  'Productivity': '생산성',
+  'Direct Expense': '직접경비',
+  'Reengineering': '재공학',
+  'Safety Requirement': '안전요구사항',
+  'Authentication': '인증',
+  'Service Catalog': '서비스 카탈로그',
+  'Data Quality': '데이터 품질',
+  'Metadata/Lineage': '메타데이터·계보',
+  'Visualization': '시각화',
+  'Resource': '자원',
+  'Complexity': '복잡도',
+  'Message': '메시지',
+  'Architecture Description': '아키텍처 기술서',
+  'Controller': '컨트롤러',
+  'Container': '컨테이너',
+  'Automated Test': '자동화 테스트',
+  'Appraisal': '평가',
+  'Effort': '작업공수',
+  'Adjustment Factor': '보정계수',
+  'Reverse Engineering': '역공학',
+  'Registration': '등록',
+  'Sensor Fusion': '센서 융합',
+  'Event Source': '이벤트 원천',
+  'Distributed Storage': '분산 저장소',
+  'Data Architecture': '데이터 아키텍처',
+  'Message Queue': '메시지 큐',
+  'Service Discovery': '서비스 탐색',
+  'Management Plane': '관리 평면',
+  'Rendering Engine': '렌더링 엔진',
+  'Replication': '복제',
+  'Optimization': '최적화',
+  'Preprocessing': '전처리',
+  'Access Control': '접근통제',
+  'Capability Levels': '능력수준',
+  'Checkpoint': '체크포인트',
+  'Data Model': '데이터 모델',
+  'Business Architecture': '비즈니스 아키텍처',
+  'Application Architecture': '애플리케이션 아키텍처',
+  'Technology Architecture': '기술 아키텍처',
+  'Quality Attribute': '품질 속성',
+  'Behavioral Diagram': '행위 다이어그램',
+  'Structural Diagram': '구조 다이어그램',
+  'Tagged Value': '태그 값',
+  'Stereotype': '스테레오타입',
+  'Linkbase': '링크베이스',
+  'Envelope': '엔벨로프',
+  'Header': '헤더',
+  'Security Testing': '보안 테스트',
+  'Secure Coding': '안전 코딩',
+  'Secure Design': '보안 설계',
+  'Release/Response': '릴리스·대응',
+  'Change Control': '변경통제',
+  'Classification': '분류',
+  'Simulation': '시뮬레이션',
+  'Lifecycle': '생명주기',
+  'Data Processing': '데이터 처리',
+  'Service': '서비스',
+  'System': '시스템',
+  'Systems': '시스템',
+  'Strategy': '전략',
+  'Structure': '구조',
+  'Skills': '역량',
+  'Style': '스타일',
+  'Staff': '인력',
+  'Shared Values': '공유가치',
+  'Star': '스타',
+  'Cash Cow': '현금창출원',
+  'Question Mark': '물음표',
+  'Dog': '도그',
+  'Political': '정치적 요인',
+  'Economic': '경제적 요인',
+  'Social': '사회적 요인',
+  'Technological': '기술적 요인'
 });
 
-function addStudyTechnicalKoreanLabel(label) {
+
+// Parse explicit Korean(English) / English(Korean) pairs from this SAME topic's
+// keywords only. No machine translation or interpretation of descriptions.
+// Conflicting translations are ignored rather than choosing one arbitrarily.
+function topicKeywordTechnicalGlossary(value) {
+  const source = String(value || '');
+  const opens = { '(': ')', '[': ']', '{': '}' };
+  const closing = new Set([')', ']', '}']);
+  const stack = [];
+  const parts = [];
+  let start = 0;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (opens[ch]) stack.push(opens[ch]);
+    else if (closing.has(ch) && stack.pop() !== ch) return new Map();
+    if (!stack.length && (ch === ',' || ch === ';' || ch === '\n')) {
+      parts.push(source.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  if (stack.length) return new Map();
+  parts.push(source.slice(start).trim());
+  const exact = new Map();
+  const conflicting = new Set();
+  for (const part of parts) {
+    const koreanEnglish = part.match(/^([가-힣][가-힣0-9· /-]{0,22})\(([A-Za-z][A-Za-z0-9 +._/-]{0,60})\)$/);
+    const englishKorean = part.match(/^([A-Za-z][A-Za-z0-9 +._/-]{0,60})\(([가-힣][가-힣0-9· /-]{0,22})\)$/);
+    const en = koreanEnglish ? koreanEnglish[2].trim() : englishKorean ? englishKorean[1].trim() : '';
+    const ko = koreanEnglish ? koreanEnglish[1].trim() : englishKorean ? englishKorean[2].trim() : '';
+    if (!en || !ko || ko.length > 20) continue;
+    if (exact.has(en) && exact.get(en) !== ko) conflicting.add(en);
+    else exact.set(en, ko);
+  }
+  for (const name of conflicting) exact.delete(name);
+  return exact;
+}
+
+function addStudyTechnicalKoreanLabel(label, keywordGlossary) {
   const key = label.trim();
+  const local = keywordGlossary instanceof Map ? keywordGlossary.get(key) : null;
+  if (local) return key + '(' + local + ')';
   if (Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, key)) {
     return key + '(' + STUDY_TECHNICAL_GLOSSARY[key] + ')';
   }
@@ -5761,13 +5946,18 @@ function addStudyTechnicalKoreanLabel(label) {
   // Keep the original SAST/SCA bilingual names and append ONLY the known
   // Fuzzing translation; do not split slash-separated groups blindly.
   const compound = key.match(/^(.*\)\/)([A-Za-z][A-Za-z0-9 +._-]*)$/);
-  if (compound && Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, compound[2])) {
-    return compound[1] + compound[2] + '(' + STUDY_TECHNICAL_GLOSSARY[compound[2]] + ')';
+  if (compound) {
+    const localCompound = keywordGlossary instanceof Map ? keywordGlossary.get(compound[2]) : null;
+    const fallback = Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, compound[2])
+      ? STUDY_TECHNICAL_GLOSSARY[compound[2]] : null;
+    if (localCompound || fallback) {
+      return compound[1] + compound[2] + '(' + (localCompound || fallback) + ')';
+    }
   }
   return label;
 }
 
-function describeStudyTechnicalItem(value) {
+function describeStudyTechnicalItem(value, keywordGlossary) {
   const source = String(value || '').trim();
   if (!source.endsWith(')')) return null;
   const matching = { '(': ')', '[': ']', '{': '}' };
@@ -5804,19 +5994,21 @@ function describeStudyTechnicalItem(value) {
       /(?:제공|관리|분석|정의|검증|생성|유지|제어|실행|보호|수집|확보|지원|점검|측정|추적|예측|적용|도출|구현|수행|평가|산정|통제|연계|처리|식별|저장|전송|결정|배치|계산|개선|설정|활용|구성|설계|변환|확인|형성|확대|강화|운영|파악|수립|정렬|진단|연구|효과)/.test(description)));
   if (!hasDescription) return null;
   // The entire original body, including nested English expansions, is kept.
-  return { label: addStudyTechnicalKoreanLabel(label), description };
+  return { label: addStudyTechnicalKoreanLabel(label, keywordGlossary), description };
 }
 
-function setReadableStudyField(id, value, kind, eligible) {
+function setReadableStudyField(id, value, kind, eligible, keywordSource = '') {
   const element = els[id];
   const source = value == null || value === '' ? '-' : String(value);
   let items = eligible ? splitStudyItemsForDisplay(source) : null;
+  const keywordGlossary = kind === 'technicalComponents' && eligible
+    ? topicKeywordTechnicalGlossary(keywordSource) : null;
   // A single valid technical element also receives a numbered list; existing
   // authored numbering and malformed original strings are preserved exactly.
   if (!items && eligible && kind === 'technicalComponents' &&
       !/^\s*(?:\d{1,3}[\).]|[가-하][\).]|[①-㊿])\s*/m.test(source)) {
     const match = source.match(/^([^:：(){}\[\]\n]{2,28}[:：])\s*(.+)$/);
-    if (describeStudyTechnicalItem(match ? match[2] : source)) items = [source];
+    if (describeStudyTechnicalItem(match ? match[2] : source, keywordGlossary)) items = [source];
   }
   if (!items) {
     element.textContent = source;
@@ -5835,7 +6027,7 @@ function setReadableStudyField(id, value, kind, eligible) {
   for (const item of items) {
     const li = document.createElement('li');
     if (kind === 'technicalComponents') {
-      const parsed = describeStudyTechnicalItem(item);
+      const parsed = describeStudyTechnicalItem(item, keywordGlossary);
       if (parsed) {
         const heading = document.createElement('strong');
         heading.className = 'study-technical-item-label';
@@ -5895,7 +6087,7 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   setReadableStudyField('detailBackground', topic.background || '-', 'background', readable);
   setReadableStudyField('detailNecessity', topic.necessity || '-', 'necessity', readable);
   setReadableStudyField('detailFeatures', topic.features || '-', 'features', readable);
-  setReadableStudyField('detailTechnicalComponents', topic.technicalComponents || '-', 'technicalComponents', readable);
+  setReadableStudyField('detailTechnicalComponents', topic.technicalComponents || '-', 'technicalComponents', readable, topic.keywords || '');
   setText('detailKeywords', topic.keywords || '-');
   setText('detailMnemonic', topic.mnemonic || '-');
   setText('detailRelated', topic.relatedTopics || '-');
