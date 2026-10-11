@@ -215,6 +215,85 @@ class SwGcsBatch001Tests(unittest.TestCase):
         self.assertFalse(app._is_404(res(1,b"403 permission denied")))
         self.assertFalse(app._is_404(res(0,b"")))
 
+    def test_describe_accepts_gcloud_normalized_crc32c_hash(self):
+        """Real gcloud --format=json uses crc32c_hash, not crc32c."""
+        relative=f"{sw.VOICE}/T0001/concept-5aac6acdba8a.mp3"
+        reported={"generation":"1780000000000001","size":35200,
+                  "crc32c_hash":"pNKjPQ==","storage_class":"STANDARD"}
+        with patch.object(gcs,"run",return_value=subprocess.CompletedProcess(
+            [],0,json.dumps(reported).encode("utf8"),b"")) as run:
+            got=app._object_metadata(relative)
+        self.assertEqual(got,("1780000000000001","35200","pNKjPQ=="))
+        self.assertIn("--format=json",run.call_args[0][0])
+
+    def test_describe_accepts_raw_crc32c_key(self):
+        relative=f"{sw.VOICE}/T0001/concept-5aac6acdba8a.mp3"
+        reported={"generation":"1780000000000001","size":"35200",
+                  "crc32c":"pNKjPQ=="}
+        with patch.object(gcs,"run",return_value=subprocess.CompletedProcess(
+            [],0,json.dumps(reported).encode("utf8"),b"")):
+            self.assertEqual(app._object_metadata(relative),
+                             ("1780000000000001","35200","pNKjPQ=="))
+
+    def test_describe_rejects_disagreeing_crc32c_fields(self):
+        relative=f"{sw.VOICE}/T0001/concept-5aac6acdba8a.mp3"
+        reported={"generation":"1780000000000001","size":"35200",
+                  "crc32c_hash":"pNKjPQ==","crc32c":"AAAAAAAA"}
+        with patch.object(gcs,"run",return_value=subprocess.CompletedProcess(
+            [],0,json.dumps(reported).encode("utf8"),b"")):
+            with self.assertRaisesRegex(RuntimeError,"CRC32C representations disagree"):
+                app._object_metadata(relative)
+
+    def test_describe_fails_closed_for_missing_or_invalid_metadata(self):
+        relative=f"{sw.VOICE}/T0001/concept-5aac6acdba8a.mp3"
+        examples=[
+            {"generation":"1780000000000001","size":35200},
+            {"generation":"1780000000000001","size":35200,
+             "crc32c_hash":""},
+            {"generation":"1780000000000001","size":35200,
+             "crc32c_hash":"not-base64"},
+            {"generation":"0","size":35200,"crc32c_hash":"pNKjPQ=="},
+            {"generation":"1780000000000001","size":"NaN","crc32c_hash":"pNKjPQ=="},
+            ["invalid","metadata"]
+        ]
+        for sample in examples:
+            with self.subTest(sample=sample),patch.object(
+                gcs,"run",return_value=subprocess.CompletedProcess(
+                    [],0,json.dumps(sample).encode("utf8"),b"")):
+                with self.assertRaisesRegex(RuntimeError,"Remote object metadata"):
+                    app._object_metadata(relative)
+
+    def test_realistic_cli_normalized_metadata_for_all_old_files_readonly(self):
+        """Do not stub the parser in 12-object remote inventory regression."""
+        self.generate_mock_mp3()
+        local=self.validate_local()
+        known=set(app.validate_remote_old_index(self.old))
+        present=[]
+        missing=[]
+        def fake_run(args,check=True,**kw):
+            if args[:4]!=["gcloud","storage","objects","describe"]:
+                raise AssertionError("Only read-only object describe permitted")
+            uri=args[4]
+            if any(uri.endswith("/"+name) for name in known):
+                present.append(uri)
+                response={"generation":"1780000000000001","size":35200,
+                          "crc32c_hash":"pNKjPQ==","storage_class":"STANDARD"}
+                return subprocess.CompletedProcess(
+                    args,0,json.dumps(response).encode("utf8"),b"")
+            missing.append(uri)
+            return subprocess.CompletedProcess(args,1,b"",b"404 Not Found")
+        with (
+            patch.object(gcs,"project_binding",return_value=(app.PROJECT,app.NUMBER)),
+            patch.object(gcs,"check_bucket"),
+            patch.object(gcs,"remote_manifest",return_value=(self.old,"1234567")),
+            patch.object(gcs,"run",side_effect=fake_run)
+        ):
+            result=app._remote_read_preflight(local)
+        self.assertEqual(len(present),12)
+        self.assertEqual(len(missing),self.calls)
+        self.assertEqual(len(result["oldMeta"]),12)
+        self.assertEqual(result["oldGeneration"],"1234567")
+
     def test_remote_read_preflight_detects_93_absent_new(self):
         self.generate_mock_mp3()
         local=self.validate_local()
