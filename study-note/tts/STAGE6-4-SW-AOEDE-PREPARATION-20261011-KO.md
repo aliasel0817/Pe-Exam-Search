@@ -118,3 +118,26 @@
 - 단계별 사용자 실행 안내와 안전 원칙은 ZIP의 `README_PRIVATE.txt` 참조. 가장 먼저 **DRY RUN**과 프로젝트/월별 Cloud Billing 확인. 신규 MP3 없이는 GCS 업로드 검증기 --execute 불가.
 
 **이관 체크포인트:** 6-4 SW 698개 전체 오프라인 계획 완료, 1차 10토픽 음성 생성기 및 93개 파일 GCS 안전 추가 업로더 구현·자동 검증 완료. 실클라우드 사용량 확인/인증 및 10개 Aoede MP3 생성부터 재개. `main`, Google Sheets, Apps Script, Cloud Run, 기존 MP3 12개는 변경하지 않음.
+
+## 9. 2026-10-11 Cloud Shell 합성 93개 완료 및 GCS CRC32C 필드명 핫픽스
+
+### 사용자 실실행 결과(캡처 확인)
+
+- Cloud Shell에서 1차 SW 10토픽 `stage6_sw_pilot_v1.py --execute` **93/93 MP3 합성 완료**. 출력: `PILOT AUDIO COMPLETE; files on local PC only.` 여기서 실제 위치는 Windows PC가 아닌 **Cloud Shell 개인 홈**.
+- Cloud Shell 비공개 MP3 위치: `$HOME/sw-aoede-batch001-private`. **절대 합성 명령 재실행 금지**; 시도 원장·MP3 보존.
+- 로컬 GCS 업로드 사전검증 통과: **93개 / 4,571,520바이트 / 새 매니페스트 70항목**, 기존 원격 MP3 12개 유지.
+- `--check-remote`는 **기존 T0001 concept 메타데이터 파싱에서 안전 중단**. 실제 GCS 업로드 명령은 실행하지 않았음. 신규 원격 MP3 등록 0개.
+
+### 중단 원인 및 수정
+
+- `gcloud storage objects describe --format=json`은 기본 출력에서 CRC32C 키가 **`crc32c_hash`**. 기존 `stage6_sw_batch001_gcs_append.py`가 `crc32c`만 조회하는 실수였음.
+- 최신 수정 파일은 `crc32c_hash`와 원본 JSON API `crc32c`를 모두 지원하되 두 값 불일치·CRC32C 형식 오류면 중단. 인증·기존 SHA·generation 보호는 변경 없음.
+- 코드 핫픽스 GitHub 커밋 `113a0bd6132cf3b26a5694ad5b7b8abf8ec92719`, `stage6_sw_batch001_gcs_append.py` blob `77be9b843e908d3c00b08d16c18fdd9ed4141e06`.
+- Remote Desktop Commander 독립 파일 테스트: **SW Python 78/78, JavaScript 126/126 통과**. 공개 GitHub raw 파일 HTTP 200 및 `git hash-object` 해시 `77be9b...` 확인.
+- 원래 ZIP에 들어간 코드는 구버전이므로 Cloud Shell에서는 **해당 Python 프로그램 1개만 핀 고정 코드로 교체**하고 기존 비공개 원문, 기존 합성 MP3 93개, 작업 원장은 보존.
+- Cloud Shell에서 진단 재실행은 `--check-remote` 읽기 전용만. **실제 GCS --execute는 원격 검증 전체 통과 후 따로 진행**.
+- 운영 `main`, Apps Script, Google Sheets, Cloud Run, 기존 12 MP3 변경 없음.
+
+### 이관 체크포인트
+
+**SW 698개 전체 오프라인 계획 / 1차 10토픽 93개 MP3 실제 생성 완료 / 로컬 93개 4,571,520바이트 검증 PASS / GCS 원격 검증은 필드명 패치 적용 대기 / 실 GCS 업로드 미실행.**
