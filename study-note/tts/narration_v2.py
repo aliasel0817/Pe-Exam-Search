@@ -201,6 +201,18 @@ def speech_items(label: str, field: str, original: str,
     return output
 
 
+
+def synthesis_input_v2(text: str) -> dict[str, str]:
+    """Both Chirp3-HD pause tags MUST use input.markup, never input.text.
+
+    The pinned legacy generator only checks [pause short]; this independent
+    wrapper is mandatory for any future V2 publisher using [pause long].
+    """
+    if re.search(r"\[pause(?: short| long)?\]", text):
+        return {"markup": text}
+    return {"text": text}
+
+
 def planned_parts(original: str, field: str, label: str,
                   dictionary: dict[str, str] | None = None) -> dict:
     """V2 hashes use *same original* source hash but distinct speech hash/path.
