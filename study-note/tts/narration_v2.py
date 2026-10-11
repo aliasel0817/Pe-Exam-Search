@@ -210,7 +210,7 @@ def speech_items(label: str, field: str, original: str,
     if field == "components":
         head = re.match(r"^([^(){}\[\]\n:：]{2,24}[:：])\s*(.+)$", pieces[0], re.DOTALL)
         if head:
-            caption = head.group(1)
+            caption = head.group(1).rstrip(':：')
             pieces[0] = head.group(2)
     multi = len(pieces) > 1
     output: list[str] = []
