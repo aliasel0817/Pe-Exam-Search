@@ -6100,6 +6100,9 @@ function studyFeatureTechnicalGloss(featureSource, englishName) {
   let from = -1;
   while ((from = source.indexOf(needle, from + 1)) !== -1) {
     if (from > 0 && /[A-Za-z0-9._+/-]/.test(source[from - 1])) continue;
+    // Do not borrow the final word of a longer English term:
+    // "Data Monitoring(데이터 감시)" must never rename "Monitoring".
+    if (/[A-Za-z][A-Za-z0-9._+/-]*\s+$/.test(source.slice(0, from))) continue;
     const suffix = source.slice(from + name.length);
     const match = suffix.match(/^\(([가-힣][가-힣0-9· /-]{0,19})\)/);
     if (!match) continue;
