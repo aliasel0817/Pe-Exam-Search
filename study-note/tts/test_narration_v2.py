@@ -121,7 +121,10 @@ class NarrationV2Tests(unittest.TestCase):
 
     def test_v2_markup_input_for_all_pauses(self):
         parts=v2.planned_parts("설계 검토 · 다음 활동","features","특징")["chunks"]
-        self.assertTrue(all("markup" in legacy.synthesis_input(c) for c in parts))
+        self.assertTrue(all("markup" in v2.synthesis_input_v2(c) for c in parts))
+        self.assertEqual(v2.synthesis_input_v2("a. [pause long] b"),
+                         {"markup": "a. [pause long] b"})
+        self.assertEqual(v2.synthesis_input_v2("plain"), {"text": "plain"})
 
 
 if __name__=="__main__":
