@@ -125,6 +125,20 @@ class NarrationV2Tests(unittest.TestCase):
         v2.planned_parts(s,"components","기술요소 및 구성요소")
         self.assertEqual(s.encode("utf-8"),snapshot)
 
+    def test_segment_pause_boundaries_skip_arbitrary_long_text_splits(self):
+        long_body = ("문장 상세 설명 " * 26).strip()
+        text = long_body + " · 검증 절차와 후속 대응"
+        v = v2.planned_parts(text, "features", "특징")
+        self.assertGreater(len(v["chunks"]), 2)
+        self.assertEqual(v["pauseAfterParts"], [len(v["chunks"]) - 2])
+        self.assertEqual(v["interItemGapMs"], 400)
+        self.assertLess(v["pauseAfterParts"][0], len(v["chunks"]) - 1)
+
+    def test_one_item_and_undamaged_raw_have_no_forced_inter_item_gap(self):
+        s = "보안·검증·운영과 연계"
+        v = v2.planned_parts(s, "features", "특징")
+        self.assertEqual(v["pauseAfterParts"], [])
+
     def test_v2_markup_input_for_all_pauses(self):
         parts=v2.planned_parts("설계 검토 · 다음 활동","features","특징")["chunks"]
         self.assertTrue(any("[pause long]" in c for c in parts))
