@@ -116,15 +116,45 @@ def _is_gloss(body: str, known_gloss: str | None) -> bool:
     return False
 
 
+
+def split_compound_component_chain(text: str) -> list[str]:
+    """Split only A(...)/B(...), not Secure Design/Coding or URL/math slashes."""
+    stack: list[str] = []
+    splits: list[int] = []
+    for i, ch in enumerate(text):
+        if ch in PARENS:
+            stack.append(PARENS[ch])
+        elif ch in CLOSERS:
+            if not stack or stack.pop() != ch:
+                return [text]
+        elif ch == "/" and not stack and i and i < len(text) - 2:
+            if text[i - 1] == ")" and re.match(r"[A-Za-z][A-Za-z0-9_-]*\(", text[i + 1:]):
+                splits.append(i)
+    if stack or not splits:
+        return [text]
+    segments: list[str] = []
+    prev = 0
+    for pos in splits:
+        segments.append(text[prev:pos].strip())
+        prev = pos + 1
+    segments.append(text[prev:].strip())
+    if any(not outer_bracket_group(item) for item in segments):
+        return [text]
+    return segments
+
+
 def spoken_component_item(raw: str) -> str:
     """Preserve every descriptive word; add only an approved label gloss/pause."""
     text = raw.strip()
+    chain = split_compound_component_chain(text)
+    if len(chain) > 1:
+        return (", " + SHORT + " ").join(spoken_component_item(part) for part in chain)
     parsed = outer_bracket_group(text)
     if not parsed:
         return text
     name, explanation = parsed
-    # Complex slash chains with multiple acronym expansions are not rewritten:
-    # "SAST(...)/SCA(...)/Fuzzing(...)" must remain whole and in the same order.
+    # Embedded parentheticals in a complex name are not rewritten; separately
+    # split slash chains above, preserving every acronym and its original order.
     if "(" in name or ")" in name or "[" in name or "]" in name:
         return text
     term = name.strip().rstrip(":：").strip()
