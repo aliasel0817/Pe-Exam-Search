@@ -182,11 +182,20 @@ def _object_metadata(relative: str) -> tuple[str,str,str]:
     result=gcs.run(["gcloud","storage","objects","describe",_uri(relative),
                     "--format=json","--project="+PROJECT])
     obj=json.loads(result.stdout.decode("utf-8"))
+    if not isinstance(obj,dict):
+        raise RuntimeError("Remote object metadata must be JSON object: "+relative)
     gen=str(obj.get("generation",""))
     size=str(obj.get("size",""))
-    crc=str(obj.get("crc32c",""))
+    # gcloud's default normalized JSON is crc32c_hash; --raw/JSON API is crc32c.
+    standard_crc=obj.get("crc32c_hash")
+    raw_crc=obj.get("crc32c")
+    if standard_crc and raw_crc and standard_crc!=raw_crc:
+        raise RuntimeError("Remote GCS CRC32C representations disagree: "+relative)
+    crc=standard_crc or raw_crc
     if (not re.fullmatch(r"[1-9][0-9]{0,24}",gen) or
-            not re.fullmatch(r"[0-9]{1,20}",size) or not crc):
+            not re.fullmatch(r"[0-9]{1,20}",size) or
+            not isinstance(crc,str) or
+            not re.fullmatch(r"[A-Za-z0-9+/]{6}==",crc)):
         raise RuntimeError("Remote object metadata incomplete: "+relative)
     return gen,size,crc
 
