@@ -68,9 +68,15 @@ class NarrationV2Tests(unittest.TestCase):
         self.assertIn("[pause short]",result)
         self.assertTrue(result.endswith("보안 설계원칙 적용"))
 
-    def test_compound_slash_chain_remains_unmodified(self):
+    def test_compound_slash_chain_retains_original_names_and_adds_fuzzing_gloss(self):
         s="A(English Full Name, 한글명)/B(Software Component, 구성요소)/Fuzzing(오류 입력 검사)"
-        self.assertEqual(v2.spoken_component_item(s),s)
+        actual=v2.spoken_component_item(s)
+        for fragment in ("A(English Full Name, 한글명)","B(Software Component, 구성요소)",
+                         "Fuzzing(퍼징)","오류 입력 검사"):
+            self.assertIn(fragment,actual)
+        self.assertEqual(actual.count("[pause short]"),3)
+        self.assertEqual(v2.split_compound_component_chain("Secure Design/Coding(설명)"),
+                         ["Secure Design/Coding(설명)"])
 
     def test_not_arbitrarily_translate_other_names(self):
         s="Unreviewed Technical Label(보안 관련 세부 설명)"
