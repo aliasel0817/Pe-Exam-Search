@@ -331,6 +331,33 @@ class SwGcsBatch001Tests(unittest.TestCase):
         events=[json.loads(x)["event"] for x in journal.read_text(encoding="utf8").splitlines()]
         self.assertEqual(events[-1],"final_manifest_and_all_105_objects_verified")
 
+    def test_readonly_cloud_precheck_reports_existing_generation_without_upload(self):
+        self.generate_mock_mp3()
+        args=["--source",str(self.source),"--inventory",str(self.inventory),
+              "--dictionary",str(self.dictionary),"--audio-dir",str(self.audio),
+              "--check-remote"]
+        output=io.StringIO()
+        with (self.mock_constants(),
+              patch.object(subprocess,"run",return_value=subprocess.CompletedProcess([],0,"study-note-tts\n","")),
+              patch.object(app,"_remote_read_preflight",return_value={"oldGeneration":"1234"}) as read,
+              patch.object(app,"_execute",side_effect=AssertionError("UPLOAD BLOCKED")),
+              patch.object(gcs,"run",side_effect=AssertionError("GCS upload prohibited")),
+              redirect_stdout(output)):
+            self.assertEqual(app.main(args),0)
+        self.assertIn("READ-ONLY PRECHECK PASSED",output.getvalue())
+        self.assertIn("generation: 1234",output.getvalue())
+        read.assert_called_once()
+
+    def test_execute_and_readonly_precheck_are_mutually_exclusive(self):
+        self.generate_mock_mp3()
+        args=["--source",str(self.source),"--inventory",str(self.inventory),
+              "--dictionary",str(self.dictionary),"--audio-dir",str(self.audio),
+              "--check-remote","--execute"]
+        with (self.mock_constants(),
+              patch.object(gcs,"run",side_effect=AssertionError("NO CLOUD")),
+              redirect_stderr(io.StringIO())):
+            self.assertEqual(app.main(args),2)
+
     def test_manifest_cas_has_original_generation_precondition(self):
         self.generate_mock_mp3()
         local=self.validate_local()
