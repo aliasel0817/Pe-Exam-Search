@@ -1016,3 +1016,46 @@ test("Stop aborts in-flight GCS MP3 download and avoids late playback",async()=>
   assert.equal(c.player.playing,false);
   assert.match(c.element("ttsStatus").textContent,/다운로드 중지/);
 });
+
+
+test("V2 manifest pauses after whole item parts, never arbitrary segments",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,
+    multipart:true,multipartCount:3});
+  c.player.settings.mode="one";
+  c.player.settings.fields.concept=true;
+  const entry=c.manifest.entries["T0001:concept:"+voice];
+  entry.pauseAfterParts=[0,1];
+  entry.interItemGapMs=400;
+  const waits=[];
+  c.player.gap=async ms=>{waits.push(ms);};
+  await c.googleLogin();
+  await c.player.start();
+  assert.equal(c.played(),4); // 1 existing title plus 3 V2 concept MP3 parts
+  assert.deepEqual(waits,[400,400]);
+});
+test("Legacy multipart MP3 receives no V2 per-item silence",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,
+    multipart:true,multipartCount:3});
+  c.player.settings.mode="one";
+  c.player.settings.fields.concept=true;
+  const waits=[];
+  c.player.gap=async ms=>{waits.push(ms);};
+  await c.googleLogin();
+  await c.player.start();
+  assert.equal(c.played(),4);
+  assert.deepEqual(waits,[]);
+});
+test("Malformed V2 silence metadata fails before any MP3 download",async()=>{
+  const c=makeEnvironment({privateCloud:true,preserveDefaults:true,
+    multipart:true,multipartCount:3});
+  c.player.settings.mode="one";
+  c.player.settings.fields.concept=true;
+  const entry=c.manifest.entries["T0001:concept:"+voice];
+  entry.pauseAfterParts=[0,2]; // Last part has no following item; invalid
+  entry.interItemGapMs=400;
+  await c.googleLogin();
+  await c.player.start();
+  assert.equal(c.played(),0);
+  assert.equal(c.signedCount(),0);
+  assert.match(c.element("ttsStatus").textContent,/음성 항목 경계/);
+});
