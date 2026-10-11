@@ -1088,9 +1088,10 @@ button { -webkit-tap-highlight-color: transparent; }
 .reference-pdf-controls { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto auto; gap: 8px; align-items: center; }
 .reference-pdf-control-caption { display: none; }
 .reference-pdf-page-select { height: 38px; min-width: 0; }
-.reference-pdf-sequential-controls { display: grid; grid-template-columns: auto minmax(140px, 1fr) auto auto; gap: 8px; align-items: center; }
+.reference-pdf-sequential-controls { display: grid; grid-template-columns: auto minmax(140px, 1fr) auto; gap: 8px; align-items: center; }
 .reference-pdf-sequential-label { min-width: 0; text-align: center; color: #475467; font-size: .75rem; overflow-wrap: anywhere; }
-.reference-pdf-sequential-counter { min-width: 0; color: #475467; font-size: .76rem; font-weight: 800; white-space: nowrap; text-align: right; }
+/* Keep this node's live text for the folded-header summary, but never repeat it below the expanded page controls. */
+.reference-pdf-sequential-counter { display: none; min-width: 0; color: #475467; font-size: .76rem; font-weight: 800; white-space: nowrap; text-align: right; }
 .reference-pdf-open-drive-link { text-decoration: none; white-space: nowrap; }
 @media (min-width: 761px) {
   .reference-pdf-modal-card { padding: 13px 18px 12px; }
@@ -4150,7 +4151,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.4-compact-pdf-readable-rc1';
+const APP_VERSION = '4.6.5-reference-sequence-layout';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
