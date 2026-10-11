@@ -5925,20 +5925,28 @@ function topicKeywordTechnicalGlossary(value) {
   for (const part of parts) {
     const koreanEnglish = part.match(/^([가-힣][가-힣0-9· /-]{0,22})\(([A-Za-z][A-Za-z0-9 +._/-]{0,60})\)$/);
     const englishKorean = part.match(/^([A-Za-z][A-Za-z0-9 +._/-]{0,60})\(([가-힣][가-힣0-9· /-]{0,22})\)$/);
-    const en = koreanEnglish ? koreanEnglish[2].trim() : englishKorean ? englishKorean[1].trim() : '';
-    const ko = koreanEnglish ? koreanEnglish[1].trim() : englishKorean ? englishKorean[2].trim() : '';
+    // Explicit acronym expansion, e.g. SQL(Structured Query Language, 구조화질의언어).
+    const expanded = part.match(/^([A-Za-z][A-Za-z0-9.+/-]{1,14})\(([A-Za-z][A-Za-z0-9 +._/-]{2,85}),\s*([가-힣][가-힣0-9· /-]{0,25})\)$/);
+    const en = koreanEnglish ? koreanEnglish[2].trim() : englishKorean ? englishKorean[1].trim()
+      : expanded ? expanded[1].trim() : '';
+    const ko = koreanEnglish ? koreanEnglish[1].trim() : englishKorean ? englishKorean[2].trim()
+      : expanded ? expanded[3].trim() : '';
     if (!en || !ko || ko.length > 20) continue;
     if (exact.has(en) && exact.get(en) !== ko) conflicting.add(en);
     else exact.set(en, ko);
   }
-  for (const name of conflicting) exact.delete(name);
+  // Explicit ambiguity blocks a generic fallback: show the original English
+  // instead of silently imposing the wrong Korean meaning.
+  for (const name of conflicting) exact.set(name, null);
   return exact;
 }
 
 function addStudyTechnicalKoreanLabel(label, keywordGlossary) {
   const key = label.trim();
-  const local = keywordGlossary instanceof Map ? keywordGlossary.get(key) : null;
-  if (local) return key + '(' + local + ')';
+  if (keywordGlossary instanceof Map && keywordGlossary.has(key)) {
+    const local = keywordGlossary.get(key);
+    return local ? key + '(' + local + ')' : label;
+  }
   if (Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, key)) {
     return key + '(' + STUDY_TECHNICAL_GLOSSARY[key] + ')';
   }
@@ -5947,6 +5955,8 @@ function addStudyTechnicalKoreanLabel(label, keywordGlossary) {
   // Fuzzing translation; do not split slash-separated groups blindly.
   const compound = key.match(/^(.*\)\/)([A-Za-z][A-Za-z0-9 +._-]*)$/);
   if (compound) {
+    if (keywordGlossary instanceof Map && keywordGlossary.has(compound[2]) &&
+        !keywordGlossary.get(compound[2])) return label;
     const localCompound = keywordGlossary instanceof Map ? keywordGlossary.get(compound[2]) : null;
     const fallback = Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, compound[2])
       ? STUDY_TECHNICAL_GLOSSARY[compound[2]] : null;
