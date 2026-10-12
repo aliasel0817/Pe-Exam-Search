@@ -7860,7 +7860,7 @@ function collectPendingNewOriginalBatchPages(fields) {
     const sep = key.indexOf('\u0001');
     const sourceType = key.slice(0, sep);
     const pageToken = key.slice(sep + 1);
-    if (!linked.get(sourceType)?.has(entry.batchFirstToken)) continue;
+    if (!linked.get(sourceType)?.has(entry.batchLinkToken || entry.batchFirstToken)) continue;
     const parts = pageTokenParts(pageToken);
     if (!parts) throw new Error(sourceType + ' ' + pageToken + ' · 분할 페이지토큰 형식 오류');
     const registered = getReferencePdfPage(sourceType, pageToken);
@@ -7941,7 +7941,7 @@ async function uploadPendingManageReferencePages(fields) {
       else pendingReferencePdfFiles.delete(`${item.sourceType}\u0001${item.pageToken}`);
       uploadedCount++;
     } catch (error) {
-      if (/이미 등록된 페이지/.test(error?.message || '') && plan?.rawMaterialType !== 'new-original') {
+      if (/이미 등록된 페이지/.test(error?.message || '') && !pendingEntry?.batchFirstToken) {
         await refreshReferencePdfPagesFromServer();
         if (getReferencePdfPage(item.sourceType, item.pageToken)) {
           pendingReferencePdfFiles.delete(`${item.sourceType}\u0001${item.pageToken}`);
@@ -8017,8 +8017,8 @@ function updateManageReferencePdfHint() {
   if (unmapped) parts.push(`폴더 매핑 없음 ${unmapped}`);
   const batches = [...pendingReferencePdfFiles.entries()].filter(([, entry]) =>
     entry?.batchFirstToken && entry.batchIndex === 0);
-  if (batches.length) parts.push('새 원본 ' + batches.map(([, entry]) =>
-    entry.batchPageCount + '페이지 분할 · 첫 페이지 1장만 토픽 연결').join(' / '));
+  if (batches.length) parts.push('분할 대기 ' + batches.map(([, entry]) =>
+    entry.batchPageCount + '페이지(' + ({revision:'개정',supplement:'보강','missing-original':'누락 보충','new-original':'새 원본'}[entry.batchMode] || entry.batchMode) + ') · 첫 페이지만 연결').join(' / '));
   els.manageReferencePdfHint.textContent = parts.join(' · ');
 }
 
@@ -8355,13 +8355,37 @@ function buildReferencePdfLogicalSequence(page) {
   const basePages = allReferencePdfPages
     .filter(item => item.sourceType === page.sourceType && item.materialType === '원본' && item.active !== 'N' && keyOrder.has(item.pageKey))
     .sort((a, b) => keyOrder.get(a.pageKey) - keyOrder.get(b.pageKey) || a.pageNumber - b.pageNumber);
-  const supplements = allReferencePdfPages.filter(item => item.sourceType === page.sourceType && item.materialType === '보강' && item.active !== 'N');
+  const revisions = allReferencePdfPages.filter(item =>
+    item.sourceType === page.sourceType && item.materialType === '개정'
+  );
+  const revisionKeys = new Set(revisions.map(item => item.pageKey));
+  const supplements = allReferencePdfPages.filter(item =>
+    item.sourceType === page.sourceType && item.materialType === '보강' &&
+    item.active !== 'N' && !revisionKeys.has(item.pageKey)
+  );
+  // The additional pages of a multi-page revision are stored as supplemental
+  // relations within its unique -R# key. Show only the ACTIVE revision's own
+  // extras, directly after its replacement page. Older revision pages remain
+  // untouched on Drive but must not leak into the latest document sequence.
+  const revisionExtras = allReferencePdfPages.filter(item =>
+    item.sourceType === page.sourceType && item.materialType === '보강' &&
+    item.active !== 'N' && revisionKeys.has(item.pageKey)
+  );
   const result = [];
   for (const original of basePages) {
     const before = supplements.filter(item => item.anchorPageToken === original.pageToken && item.insertionPosition === '앞').sort(sortReferencePdfSupplements);
     const after = supplements.filter(item => item.anchorPageToken === original.pageToken && item.insertionPosition !== '앞').sort(sortReferencePdfSupplements);
+    const activeRevision = referencePdfActiveRevisionFor(original.sourceType, original.pageToken);
     result.push(...before);
-    result.push(referencePdfActiveRevisionFor(original.sourceType, original.pageToken) || original);
+    result.push(activeRevision || original);
+    if (activeRevision) {
+      const extraPages = revisionExtras.filter(item =>
+        item.pageKey === activeRevision.pageKey &&
+        item.anchorPageToken === original.pageToken &&
+        item.insertionPosition === '뒤'
+      ).sort((a, b) => a.pageNumber - b.pageNumber);
+      result.push(...extraPages);
+    }
     result.push(...after);
   }
   return result;
