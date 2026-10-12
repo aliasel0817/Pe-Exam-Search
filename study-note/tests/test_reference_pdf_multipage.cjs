@@ -138,6 +138,63 @@ function testBatchStagingAndResume() {
   assert.equal(h.collectPendingManageReferenceUploads({ subnotePages: '', textbookPages: '' }).length, 0);
 }
 
+
+async function testManagePrepareLinksOnlyFirstPage() {
+  for (const sourceType of ['서브노트', '교재']) {
+    const pending = new Map();
+    const field = { value: '' };
+    const input = { files: [{ name: 'new-two-page.pdf', type: 'application/pdf', size: 1500 }], value: 'dummy' };
+    const cfg = {
+      file: input, type: { value: 'new-original' }, baseKey: { value: 'SE' },
+      pageNumber: { value: '' }, position: { value: '뒤' },
+      keyOverride: { value: '' }, plan: { className: '', textContent: '' },
+    };
+    const button = { disabled: false };
+    const h = createHarness(['prepareManageReferenceMaterial'], {
+      navigator: { onLine: true },
+      manageReferenceMaterialConfig: () => cfg,
+      els: { manageSubnoteMaterialPrepareBtn: button, manageTextbookMaterialPrepareBtn: button },
+      referencePdfPreparationCount: 0,
+      referencePdfPreparationGeneration: 0,
+      pendingReferencePdfFiles: pending,
+      clean,
+      validatePendingReferencePdfFile: (_file, options) => assert.equal(options.allowMultiPage, true),
+      splitNewOriginalReferencePdf: async () => [
+        new File(['%PDF-page-1'], 'part1.pdf', { type: 'application/pdf' }),
+        new File(['%PDF-page-2'], 'part2.pdf', { type: 'application/pdf' }),
+      ],
+      detectPdfPageCount: async () => { throw new Error('should use PDF-Lib splitter instead'); },
+      fetchReferencePdfRegistrationPlan: async (_url, data) => {
+        assert.equal(data.materialType, 'new-original');
+        assert.equal(data.sourceType, sourceType);
+        return { pageKey: 'SE-42', pageNumber: 1, pageToken: 'SE-42:1',
+          storedFileName: 'SE-42_0001.pdf', materialType: '원본',
+          rawMaterialType: 'new-original', basePageKey: 'SE',
+          allowCreatePageKey: true, exists: false };
+      },
+      getApiUrl: () => 'https://example.invalid',
+      getManageDomainPrefix: () => 'SE',
+      getReferencePdfPage: () => null,
+      manageReferenceEditorConfig: () => ({ hidden: field }),
+      splitPageTokens: s => clean(s).split(',').filter(Boolean),
+      setManageReferenceTokens: (_type, tokens) => { field.value = tokens.join(','); },
+      expectedReferencePdfFileName: (k, n) => k + '_' + String(n).padStart(4, '0') + '.pdf',
+      renderManageReferencePageEditor: () => {},
+      updateManageReferencePdfHint: () => {},
+      showToast: message => { throw new Error('Unexpected error toast: ' + message); },
+    });
+    await h.prepareManageReferenceMaterial(sourceType);
+    assert.equal(field.value, 'SE-42:1');
+    assert.equal(pending.size, 2);
+    assert.deepEqual(Array.from(pending.keys()), [key(sourceType, 'SE-42:1'), key(sourceType, 'SE-42:2')]);
+    assert.equal(pending.get(key(sourceType, 'SE-42:1')).plan.allowCreatePageKey, true);
+    assert.equal(pending.get(key(sourceType, 'SE-42:2')).plan.allowCreatePageKey, false);
+    assert.equal(pending.get(key(sourceType, 'SE-42:2')).plan.storedFileName, 'SE-42_0002.pdf');
+    assert.match(cfg.plan.textContent, /첫 페이지/);
+    assert.equal(button.disabled, false);
+  }
+}
+
 async function testSequentialUploadRequestsAndResume() {
   const pending = new Map();
   const first = 'SE-42:1';
@@ -248,6 +305,7 @@ function testSequentialOriginalNavigation() {
   await testRealPdfSplit();
   testLegacyFileLimit();
   testBatchStagingAndResume();
+  await testManagePrepareLinksOnlyFirstPage();
   await testSequentialUploadRequestsAndResume();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
