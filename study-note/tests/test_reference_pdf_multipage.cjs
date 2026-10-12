@@ -740,6 +740,95 @@ function testIncompleteRevisionRemainsInvisibleAndUploadOrderSafe() {
 }
 
 
+
+async function testRevisionContinuationFailureAndRetry() {
+  const first='SW-2-R4:613', sourceType='교재';
+  const pending=new Map();
+  for(let i=0;i<3;i++){
+    const number=613+i, token='SW-2-R4:'+number;
+    pending.set(key(sourceType,token),{
+      batchFirstToken:first,batchLinkToken:first,
+      batchMode:'revision',batchPageCount:3,batchIndex:i,
+      originalName:'revision-three.pdf',uploadedDriveFileId:'',
+      file:{name:'rev-part-'+i+'.pdf',type:'application/pdf',size:1024},
+      pageCount:1,plan:{
+        pageKey:'SW-2-R4',pageNumber:number,pageToken:token,
+        rawMaterialType:i?'supplement':'revision',
+        basePageKey:'SW-2',anchorPageToken:i?'SW-2:613':'',
+        replacementTarget:i?'':'SW-2:613',insertionPosition:i?'뒤':'',
+        versionTag:'R4',allowCreatePageKey:i===1,
+      },
+    });
+  }
+  const base={sourceType,pageKey:'SW-2',pageNumber:613,pageToken:'SW-2:613',
+    driveFileId:'ORIGINAL_STAYS',materialType:'원본',basePageKey:'SW-2',active:'Y'};
+  const requests=[];
+  let h, failThird=true;
+  const env={
+    clean, pendingReferencePdfFiles:pending,
+    allReferencePdfPages:[base],
+    referencePdfPageCatalogLoadedAt:0,
+    db:{},
+    REFERENCE_PDF_PAGE_KEY_SEQUENCES:[['SW-1','SW-2','SW-3']],
+    splitPageTokens:value=>clean(value).split(',').filter(Boolean),
+    pageTokenParts:token=>{const m=clean(token).match(/^(.+):(\d+)$/);return m?{pageKey:m[1],pageNumber:Number(m[2])}:null;},
+    referencePdfPageId:key,
+    getReferencePdfPage:(src,token)=>h.allReferencePdfPages.find(p=>p.sourceType===src&&p.pageToken===token)||null,
+    collectMissingManageReferencePages:fields=>
+      h.getReferencePdfPage('교재',first)?[]:
+      [{sourceType:'교재',pageKey:'SW-2-R4',pageNumber:613,pageToken:first}],
+    pendingReferencePdfEntry:(src,token)=>pending.get(key(src,token))||null,
+    referencePdfCatalogHasPage:()=>false,
+    referencePdfCatalogItem:()=>null,
+    validatePendingReferencePdfFile:()=>{},
+    detectPdfPageCount:async()=>1,
+    readFileAsDataUrl:async()=> 'data:application/pdf;base64,REVISION',
+    getApiUrl:()=> 'https://example.invalid',
+    sendMutation:async(_url,payload)=>{
+      requests.push(payload);
+      if(failThird&&payload.pageNumber===615)throw new Error('simulated revision continuation failure');
+      return {...payload,driveFileId:'REV_FILE_'+payload.pageNumber,
+        storedFileName:payload.pageKey+'_'+String(payload.pageNumber).padStart(4,'0')+'.pdf',
+        materialType:payload.materialType==='revision'?'개정':'보강',
+        active:'Y'};
+    },
+    putReferencePdfPage:async()=>{},
+    renderManageReferencePageEditor:()=>{},
+    updateManageReferencePdfHint:()=>{},
+    ensureManageReferencePdfCatalog:async()=>{},
+    renderManageReferencePageEditors:()=>{},
+    refreshReferencePdfPagesFromServer:async()=>{throw Error('unexpected server refresh');},
+  };
+  h=createHarness([
+    'collectPendingNewOriginalBatchPages','collectPendingManageReferenceUploads',
+    'referencePdfPageFromUploadStatus','uploadPendingManageReferencePages',
+    'referencePdfActiveRevisionFor','referencePdfVersionRank',
+    'resolveReferencePdfEffectivePage','referencePdfRootPageKey',
+    'referencePdfBaseSequenceKeys','sortReferencePdfSupplements',
+    'buildReferencePdfLogicalSequence','findReferencePdfSequentialPage',
+  ],env);
+  const fields={subnotePages:'',textbookPages:first};
+  await assert.rejects(()=>h.uploadPendingManageReferencePages(fields),/simulated revision continuation failure/);
+  assert.deepEqual(requests.map(x=>x.pageNumber),[614,615]);
+  assert.deepEqual(requests.map(x=>x.allowCreatePageKey),[true,false]);
+  assert.deepEqual(Array.from(h.buildReferencePdfLogicalSequence(base),p=>p.pageToken),[
+    base.pageToken,
+  ],'revision should remain invisible after only first continuation is stored');
+  assert.equal(h.getReferencePdfPage('교재','SW-2-R4:613'),null);
+  assert.equal(h.getReferencePdfPage('교재','SW-2:613').driveFileId,'ORIGINAL_STAYS');
+  failThird=false;
+  const recovered=await h.uploadPendingManageReferencePages(fields);
+  assert.equal(recovered.uploadedCount,2);
+  assert.deepEqual(requests.map(x=>x.pageNumber),[614,615,615,613]);
+  assert.equal(requests[3].materialType,'revision','cover must be last');
+  assert.equal(requests[3].allowCreatePageKey,false);
+  assert.deepEqual(Array.from(h.buildReferencePdfLogicalSequence(base),p=>p.pageToken),[
+    'SW-2-R4:613','SW-2-R4:614','SW-2-R4:615'
+  ],'full revision must appear after cover registration');
+  assert.equal(h.getReferencePdfPage('교재','SW-2:613').driveFileId,'ORIGINAL_STAYS');
+  assert.equal(h.findReferencePdfSequentialPage(h.getReferencePdfPage('교재','SW-2-R4:614'),1).pageToken,'SW-2-R4:615');
+}
+
 function testServerPayloadReloadForSubnoteAndRevision() {
   // Mirrors the real Apps Script buildPdfPageFilesPayload_ response: six
   // physical columns plus eight optional relation columns. Crucially, a new
@@ -875,6 +964,7 @@ function testSequentialOriginalNavigation() {
   await testChangedFormInputsAbortPendingPDFBatch();
   await testNoSupplementAsBaseKey();
   await testSavePreflightAllowsRevisionBatchCover();
+  await testRevisionContinuationFailureAndRetry();
   testServerPayloadReloadForSubnoteAndRevision();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
