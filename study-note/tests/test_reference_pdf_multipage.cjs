@@ -118,6 +118,7 @@ function testBatchStagingAndResume() {
       return m && { pageKey: m[1], pageNumber: Number(m[2]) };
     },
     getReferencePdfPage: (sourceType, token) => uploaded.get(key(sourceType, token)),
+    pendingReferencePdfEntry: (src, token) => pending.get(key(src, token)) || null,
     collectMissingManageReferencePages: fields =>
       clean(fields.textbookPages).split(',').filter(Boolean).filter(t => !uploaded.has(key('교재', t)))
       .map(t => ({ sourceType: '교재', pageToken: t, pageKey: t.split(':')[0], pageNumber: Number(t.split(':')[1]) })),
@@ -587,6 +588,7 @@ function testIncompleteRevisionRemainsInvisibleAndUploadOrderSafe() {
     splitPageTokens:s=>clean(s).split(',').filter(Boolean),
     pageTokenParts:s=>{const m=s.match(/^(.+):(\d+)$/);return m?{pageKey:m[1],pageNumber:Number(m[2])}:null;},
     getReferencePdfPage:(source,token)=>uploaded.find(p=>p.sourceType===source&&p.pageToken===token),
+    pendingReferencePdfEntry:(src,token)=>pending.get(key(src,token)) || null,
     collectMissingManageReferencePages:f=> f.textbookPages && !uploaded.some(p=>p.pageToken===f.textbookPages)
       ? [{sourceType:type,pageToken:f.textbookPages,pageKey:'SW-2-R7',pageNumber:613}]
       : [],
