@@ -40,13 +40,9 @@
 - 기존 브라우저 26/26·34/34·20/20 결과는 Phase 5 결과로만 인정. 이번 문서 단계에서 새 브라우저 회귀실험을 수행했다고 주장하지 않음.
 - Galaxy Tab/iPhone 실제 기기 QA는 별도 미완료.
 
-## 공개 표준 근거 및 계속할 작업
-- COBIT 2019 구성요소: https://www.isaca.org/store2/product/CB19FGM
-- ISO/IEC 25023:2016 품질 측정: https://www.iso.org/standard/35747.html
-- ISTQB 시험 수준: https://astqb.org/2-2-test-levels-and-test-types/
-- SOAP/REST 성능의 조건별 비교: https://www.mdpi.com/1999-5903/18/9/454
-- ETSI C-ITS 신뢰·프라이버시: https://www.etsi.org/deliver/etsi_ts/102900_102999/102941/01.03.01_60/ts_102941v010301p.pdf
-- W3C 모바일 접근성 가이드: https://www.w3.org/TR/wcag2mobile-22/
+## 참고 표준 및 계속할 작업
+- COBIT 2019 (ISACA) 구성요소의 정책·절차 구분, ISO/IEC 25023 제품품질 측정, ISTQB V모델 시험 수준을 대조함.
+- REST 경량성과 실제 성능의 조건 의존성, C-ITS 익명성/가명성 차이, 모바일 접근성의 적합성 표현은 추가 공식 근거 점검 대상으로 유지함.
 
 1. 기존 62건 비공개 개별기록과 새 판단의 정합성 유지, 실제 원문 변경은 별도 승인 전까지 금지.
 2. 1,779건의 10~15자 설명을 도메인·토픽 특성별로 의미검수 확대. 구조적 짧음만으로 보강 문장을 자동 작성하지 않음.
