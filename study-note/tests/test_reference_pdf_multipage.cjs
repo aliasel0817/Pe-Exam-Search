@@ -9,7 +9,7 @@ const manual = fs.readFileSync(path.resolve(__dirname, '../STUDY-NOTE-USER-MANUA
 assert.match(html, /id="openStudyManualLink"[^>]+STUDY-NOTE-USER-MANUAL-KO\.md/);
 assert.match(html, /\.settings-card \.modal-actions \{ flex-wrap: wrap; \}/);
 assert.match(manual, /T4036/);
-assert.match(manual, /배포 후/);
+assert.match(manual, /운영 반영/);
 assert.match(manual, /신뢰기기/);
 const inlineScripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
   .map(match => match[1]).filter(code => code.trim());
