@@ -2426,7 +2426,7 @@ button { -webkit-tap-highlight-color: transparent; }
             </details>
           </div>
           <div class="full">
-            <p id="manageReferencePdfHint" class="manage-hint">등록된 페이지는 그대로 연결하고, 아직 없는 페이지는 해당 행에서 1페이지 PDF를 선택하면 저장 전에 자동 등록합니다.</p>
+            <p id="manageReferencePdfHint" class="manage-hint">기존 페이지는 그대로 연결합니다. 새 원본/새 문서는 다중 페이지 PDF도 자동 분할하며 첫 페이지 하나만 토픽에 연결합니다.</p>
           </div>
           <div>
             <label class="field-label" for="manageStatus">상태</label>
@@ -4152,7 +4152,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.9-technical-glossary-phase5-rc1';
+const APP_VERSION = '4.6.10-multipage-original-pdf-rc1';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4226,6 +4226,10 @@ let referencePdfPageCatalogLoadedAt = 0;
 let pendingReferencePdfFiles = new Map();
 let pendingReferencePdfReplacements = new Map();
 const MAX_REFERENCE_PAGE_BYTES = 8 * 1024 * 1024;
+const MAX_NEW_REFERENCE_DOCUMENT_BYTES = 64 * 1024 * 1024;
+const MAX_NEW_REFERENCE_DOCUMENT_PAGES = 200;
+let referencePdfPreparationCount = 0;
+let referencePdfPreparationGeneration = 0;
 let mediaViewerObjectUrls = [];
 let mediaImageObserver = null;
 let activeImageZoomController = null;
@@ -7091,6 +7095,7 @@ function updateManageCategoryHint() {
 
 
 function resetPendingReferencePdfState() {
+  referencePdfPreparationGeneration++;
   pendingReferencePdfFiles = new Map();
   pendingReferencePdfReplacements = new Map();
   if (els.manageSubnotePageNumbers) els.manageSubnotePageNumbers.value = '';
@@ -7301,6 +7306,8 @@ function updateManageReferenceMaterialUi(sourceType) {
   cfg.pageWrap.classList.toggle('hidden', type === 'new-original');
   cfg.pageLabel.textContent = type === 'missing-original' ? '실제 페이지번호' : type === 'supplement' ? '보강 기준 원본 페이지번호' : type === 'revision' ? '개정 대상 원본 페이지번호' : '페이지번호';
   cfg.pageNumber.placeholder = type === 'missing-original' ? '예: 613' : '예: 103';
+  const fileLabel = cfg.file.closest('label')?.querySelector('span');
+  if (fileLabel) fileLabel.textContent = type === 'new-original' ? 'PDF 파일 (여러 페이지 자동 분할)' : '1페이지 PDF 파일';
   cfg.plan.className = 'reference-material-plan';
   cfg.plan.textContent = type === 'missing-original'
     ? '기존 교재/서브노트의 실제 누락 페이지번호를 그대로 사용합니다.'
@@ -7308,7 +7315,7 @@ function updateManageReferenceMaterialUi(sourceType) {
       ? '기준 원본 페이지 앞/뒤에 보강페이지를 논리적으로 삽입합니다. 기존 페이지번호는 변경하지 않습니다.'
       : type === 'revision'
         ? '기준 원본 페이지를 대체하는 최신 개정페이지를 등록합니다. 기존 원본 파일은 보존됩니다.'
-        : '현재 분류의 도메인을 기준으로 새 페이지키와 첫 페이지번호 1을 자동 추천합니다.';
+        : '새 원본은 1페이지씩 분할 저장하고 첫 페이지키만 토픽에 연결합니다. 다음 페이지는 뷰어의 원본 다음 페이지로 이동합니다.';
 }
 
 function resetManageReferenceMaterialForm(sourceType) {
@@ -7341,15 +7348,58 @@ function pendingReferencePdfEntry(sourceType, pageToken) {
   return value;
 }
 
+async function splitNewOriginalReferencePdf(file, onProgress) {
+  // 신규 문서만 PDF-Lib으로 재직렬화한다. 기존 등록된 원본 PDF는 변경하지 않는다.
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  if (String.fromCharCode(...header) !== '%PDF-') throw new Error(file.name + ' · PDF 헤더를 확인할 수 없습니다.');
+  const PDFLib = await ensurePdfLibLoaded();
+  let input;
+  try { input = await PDFLib.PDFDocument.load(await file.arrayBuffer()); }
+  catch (error) { throw new Error(file.name + ' · PDF를 열거나 분할할 수 없습니다. 암호화·손상 여부를 확인해 주세요.'); }
+  const count = input.getPageCount();
+  if (!Number.isInteger(count) || count < 1) throw new Error(file.name + ' · PDF 페이지가 없습니다.');
+  if (count > MAX_NEW_REFERENCE_DOCUMENT_PAGES) throw new Error('신규 원본은 한 번에 최대 ' + MAX_NEW_REFERENCE_DOCUMENT_PAGES + '페이지까지 등록할 수 있습니다.');
+  const pages = [];
+  const base = file.name.replace(/\.pdf$/i, '');
+  for (let i = 0; i < count; i++) {
+    if (onProgress) onProgress(i + 1, count);
+    const pdf = await PDFLib.PDFDocument.create();
+    const copied = await pdf.copyPages(input, [i]);
+    pdf.addPage(copied[0]);
+    const bytes = await pdf.save({ useObjectStreams: false });
+    if (bytes.length > MAX_REFERENCE_PAGE_BYTES) {
+      throw new Error('PDF ' + (i + 1) + '/' + count + '페이지가 분할 후 8MB를 초과합니다. 등록 없이 중단합니다.');
+    }
+    pages.push(new File([bytes], base + '-page-' + String(i + 1).padStart(4, '0') + '.pdf', { type: 'application/pdf' }));
+  }
+  return pages;
+}
 async function prepareManageReferenceMaterial(sourceType) {
   if (!navigator.onLine) return showToast('새 PDF 자료 등록 준비는 온라인 상태에서만 가능합니다.');
   const cfg = manageReferenceMaterialConfig(sourceType);
   const file = cfg.file.files?.[0];
+  const prepareButton = sourceType === '서브노트' ? els.manageSubnoteMaterialPrepareBtn : els.manageTextbookMaterialPrepareBtn;
+  if (prepareButton.disabled) return;
+  const generation = referencePdfPreparationGeneration;
+  referencePdfPreparationCount++;
+  prepareButton.disabled = true;
   try {
-    validatePendingReferencePdfFile(file);
-    const pageCount = await detectPdfPageCount(file);
-    if (pageCount !== 1) throw new Error(`${file.name} · ${pageCount || '확인 불가'}페이지입니다. 1페이지 PDF만 등록할 수 있습니다.`);
     const materialType = clean(cfg.type.value) || 'missing-original';
+    const isNewOriginal = materialType === 'new-original';
+    if (isNewOriginal && [...pendingReferencePdfFiles.entries()].some(([key, entry]) =>
+      key.startsWith(sourceType + '\u0001') && entry?.batchFirstToken)) {
+      throw new Error(sourceType + ' 새 원본이 이미 준비되어 있습니다. 기존 연결을 해제한 뒤 새 PDF를 선택해 주세요.');
+    }
+    validatePendingReferencePdfFile(file, { allowMultiPage: isNewOriginal });
+    const splitPages = isNewOriginal
+      ? await splitNewOriginalReferencePdf(file, (current, total) => {
+          cfg.plan.className = 'reference-material-plan';
+          cfg.plan.textContent = 'PDF 자동 분할 중 · ' + current + '/' + total + '페이지';
+        })
+      : null;
+    const pageCount = isNewOriginal ? splitPages.length : await detectPdfPageCount(file);
+    if (generation !== referencePdfPreparationGeneration) return;
+    if (!isNewOriginal && pageCount !== 1) throw new Error(`${file.name} · ${pageCount || '확인 불가'}페이지입니다. 1페이지 PDF만 등록할 수 있습니다.`);
     const basePageKey = clean(cfg.baseKey.value).toUpperCase();
     if (!basePageKey) throw new Error(`${sourceType} 기준 페이지키를 선택해 주세요.`);
     const pageNumber = Number(cfg.pageNumber.value) || 0;
@@ -7364,6 +7414,7 @@ async function prepareManageReferenceMaterial(sourceType) {
       requestedPageKey: clean(cfg.keyOverride.value).toUpperCase(),
       domainPrefix: getManageDomainPrefix(),
     });
+    if (plan.exists && isNewOriginal) throw new Error('새 원본 페이지키가 이미 등록되었습니다. 다시 등록 준비를 진행해 주세요.');
     if (plan.exists) {
       const current = splitPageTokens(manageReferenceEditorConfig(sourceType).hidden.value);
       if (!current.includes(plan.pageToken)) current.push(plan.pageToken);
@@ -7375,7 +7426,7 @@ async function prepareManageReferenceMaterial(sourceType) {
       cfg.file.value = '';
       return;
     }
-    if (['supplement','new-original'].includes(materialType)) {
+    if (materialType === 'supplement') {
       while (pendingReferencePdfFiles.has(`${sourceType}\u0001${plan.pageToken}`) || getReferencePdfPage(sourceType, plan.pageToken)) {
         plan.pageNumber = Number(plan.pageNumber || 0) + 1;
         plan.pageToken = `${plan.pageKey}:${plan.pageNumber}`;
@@ -7383,7 +7434,41 @@ async function prepareManageReferenceMaterial(sourceType) {
         if (materialType === 'supplement') plan.logicalOrder = Number(plan.logicalOrder || 0) + 1;
       }
     }
-    pendingReferencePdfFiles.set(`${sourceType}\u0001${plan.pageToken}`, { file, plan, pageCount });
+    if (isNewOriginal) {
+      if (Number(plan.pageNumber) !== 1 || !plan.allowCreatePageKey) {
+        throw new Error('새 원본 페이지키가 기존 문서와 충돌합니다. 다시 등록 준비를 진행해 주세요.');
+      }
+      for (let index = 0; index < splitPages.length; index++) {
+        const number = index + 1;
+        const token = plan.pageKey + ':' + number;
+        if (getReferencePdfPage(sourceType, token) || pendingReferencePdfFiles.has(sourceType + '\u0001' + token)) {
+          throw new Error(sourceType + ' ' + token + ' · 기존 페이지와 충돌합니다. 등록하지 않았습니다.');
+        }
+      }
+      splitPages.forEach((pageFile, index) => {
+        const number = index + 1;
+        const pageToken = plan.pageKey + ':' + number;
+        const perPagePlan = {
+          ...plan,
+          pageNumber: number,
+          pageToken,
+          storedFileName: expectedReferencePdfFileName(plan.pageKey, number),
+          allowCreatePageKey: index === 0,
+        };
+        pendingReferencePdfFiles.set(sourceType + '\u0001' + pageToken, {
+          file: pageFile,
+          plan: perPagePlan,
+          pageCount: 1,
+          batchFirstToken: plan.pageToken,
+          batchPageCount: splitPages.length,
+          batchIndex: index,
+          originalName: file.name,
+          uploadedDriveFileId: '',
+        });
+      });
+    } else {
+      pendingReferencePdfFiles.set(`${sourceType}\u0001${plan.pageToken}`, { file, plan, pageCount });
+    }
     const current = splitPageTokens(manageReferenceEditorConfig(sourceType).hidden.value);
     if (!current.includes(plan.pageToken)) current.push(plan.pageToken);
     setManageReferenceTokens(sourceType, current);
@@ -7393,7 +7478,9 @@ async function prepareManageReferenceMaterial(sourceType) {
       : plan.materialType === '개정'
         ? ` · ${plan.replacementTarget} 대체 · ${plan.versionTag || '개정'}`
         : '';
-    cfg.plan.textContent = `${plan.pageToken} → ${plan.storedFileName}${relationText}${plan.allowCreatePageKey ? ' · 새 페이지키/Drive 폴더 자동 생성' : ''}`;
+    cfg.plan.textContent = isNewOriginal
+      ? file.name + ' · ' + pageCount + '페이지 자동 분할 준비 완료 · ' + plan.pageKey + ':1~' + pageCount + ' · 첫 페이지 ' + plan.pageToken + '만 토픽에 연결'
+      : `${plan.pageToken} → ${plan.storedFileName}${relationText}${plan.allowCreatePageKey ? ' · 새 페이지키/Drive 폴더 자동 생성' : ''}`;
     renderManageReferencePageEditor(sourceType, { preserveSelection: true });
     updateManageReferencePdfHint();
     cfg.file.value = '';
@@ -7401,6 +7488,9 @@ async function prepareManageReferenceMaterial(sourceType) {
     cfg.plan.className = 'reference-material-plan warn';
     cfg.plan.textContent = error.message || 'PDF 등록 준비에 실패했습니다.';
     showToast(error.message || 'PDF 등록 준비에 실패했습니다.');
+  } finally {
+    referencePdfPreparationCount--;
+    prepareButton.disabled = false;
   }
 }
 
@@ -7461,9 +7551,17 @@ function addManageReferencePages(sourceType) {
 
 function removeManageReferencePage(sourceType, pageToken) {
   const cfg = manageReferenceEditorConfig(sourceType);
+  const entry = pendingReferencePdfEntry(sourceType, pageToken);
+  if (entry?.batchFirstToken === pageToken) {
+    const batch = [...pendingReferencePdfFiles.entries()].filter(([key, item]) =>
+      key.startsWith(sourceType + '\u0001') && item?.batchFirstToken === pageToken);
+    if (batch.some(([, item]) => item.uploadedDriveFileId) &&
+        !window.confirm('일부 분할 PDF가 이미 서버에 등록됐습니다. 연결을 해제해도 업로드된 파일은 남습니다. 계속하시겠습니까?')) return;
+    for (const [key] of batch) pendingReferencePdfFiles.delete(key);
+  }
   setManageReferenceTokens(sourceType, splitPageTokens(cfg.hidden.value).filter(token => token !== pageToken));
-  pendingReferencePdfFiles.delete(`${sourceType}\u0001${pageToken}`);
-  pendingReferencePdfReplacements.delete(`${sourceType}\u0001${pageToken}`);
+  pendingReferencePdfFiles.delete(sourceType + '\u0001' + pageToken);
+  pendingReferencePdfReplacements.delete(sourceType + '\u0001' + pageToken);
   renderManageReferencePageEditor(sourceType, { preserveSelection: true });
   updateManageReferencePdfHint();
 }
@@ -7473,13 +7571,14 @@ function expectedReferencePdfFileName(pageKey, pageNumber) {
   return `${clean(pageKey).toUpperCase()}_${number.padStart(4, '0')}.pdf`;
 }
 
-function validatePendingReferencePdfFile(file) {
+function validatePendingReferencePdfFile(file, { allowMultiPage = false } = {}) {
   if (!file) throw new Error('PDF 파일을 선택해 주세요.');
   const mime = clean(file.type).toLowerCase();
   if (mime && mime !== 'application/pdf' && !/\.pdf$/i.test(file.name)) throw new Error('PDF 파일만 등록할 수 있습니다.');
   if (!/\.pdf$/i.test(file.name) && mime !== 'application/pdf') throw new Error('PDF 파일만 등록할 수 있습니다.');
   if (file.size < 1) throw new Error('빈 파일은 등록할 수 없습니다.');
-  if (file.size > MAX_REFERENCE_PAGE_BYTES) throw new Error('원본 1페이지 PDF는 파일당 8MB 이하만 등록할 수 있습니다.');
+  if (allowMultiPage && file.size > MAX_NEW_REFERENCE_DOCUMENT_BYTES) throw new Error('새 원본 PDF는 64MB 이하만 등록할 수 있습니다.');
+  if (!allowMultiPage && file.size > MAX_REFERENCE_PAGE_BYTES) throw new Error('원본 1페이지 PDF는 파일당 8MB 이하만 등록할 수 있습니다.');
 }
 
 function handleManageReferenceFileSelection(sourceType, pageToken, input) {
@@ -7583,7 +7682,10 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
       : (mapped || canCreateKey)
         ? `저장될 파일명: ${pendingPlan?.storedFileName || expectedName}${planMeta}${canCreateKey ? ' · 새 페이지키/폴더 생성' : ''}`
         : '이 페이지키는 현재 Drive 폴더와 연결되어 있지 않습니다.';
-    const uploadRow = !page && (mapped || canCreateKey) ? `<div class="reference-page-upload-row">
+    const batchReadyNote = pendingEntry?.batchFirstToken
+      ? '<div class="reference-page-upload-row"><div class="reference-page-upload-note">다중 PDF ' + Number(pendingEntry.batchPageCount) + '페이지 분할 준비 · 원본 ' + escapeHtml(pendingEntry.originalName || '') + ' · 이 첫 페이지만 토픽에 연결됩니다.</div></div>'
+      : '';
+    const uploadRow = !page && pendingEntry?.batchFirstToken ? batchReadyNote : !page && (mapped || canCreateKey) ? `<div class="reference-page-upload-row">
         <input type="file" accept="application/pdf,.pdf" data-reference-page-file="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}">
         <button class="btn compact" type="button" data-reference-clear-file="${escapeHtml(pageToken)}" data-reference-source="${escapeHtml(sourceType)}"${pendingFile ? '' : ' disabled'}>선택 취소</button>
         <div class="reference-page-upload-note">${pendingFile
@@ -7679,7 +7781,8 @@ function referencePdfPageFromUploadStatus(status) {
     driveFileId,
     fileName: clean(status?.storedFileName),
     materialType: clean(status?.materialType) || '원본',
-    basePageKey: clean(status?.basePageKey) || pageKey,
+    // 신규 원본은 기존 기준 폴더를 재사용해 생성하더라도 논리 탐색은 자신의 새 페이지키로 묶는다.
+    basePageKey: clean(status?.materialType) === '원본' ? pageKey : (clean(status?.basePageKey) || pageKey),
     anchorPageToken: clean(status?.anchorPageToken),
     insertionPosition: clean(status?.insertionPosition),
     replacementTarget: clean(status?.replacementTarget),
@@ -7714,14 +7817,49 @@ function collectMissingManageReferencePages(fields) {
   return missing;
 }
 
+function collectPendingNewOriginalBatchPages(fields) {
+  const linked = new Map([
+    ['서브노트', new Set(splitPageTokens(fields.subnotePages))],
+    ['교재', new Set(splitPageTokens(fields.textbookPages))],
+  ]);
+  const results = [];
+  for (const [key, entry] of pendingReferencePdfFiles.entries()) {
+    if (!entry?.batchFirstToken) continue;
+    const sep = key.indexOf('\u0001');
+    const sourceType = key.slice(0, sep);
+    const pageToken = key.slice(sep + 1);
+    if (!linked.get(sourceType)?.has(entry.batchFirstToken)) continue;
+    const parts = pageTokenParts(pageToken);
+    if (!parts) throw new Error(sourceType + ' ' + pageToken + ' · 분할 페이지토큰 형식 오류');
+    const registered = getReferencePdfPage(sourceType, pageToken);
+    if (registered && registered.driveFileId !== entry.uploadedDriveFileId) {
+      throw new Error(sourceType + ' ' + pageToken + ' · 신규 원본 페이지키 충돌이 발생했습니다. 업로드를 중단합니다.');
+    }
+    results.push({ sourceType, pageToken, ...parts });
+  }
+  return results;
+}
+
+function collectPendingManageReferenceUploads(fields) {
+  const missing = collectMissingManageReferencePages(fields);
+  const seen = new Set(missing.map(item => item.sourceType + '\u0001' + item.pageToken));
+  for (const item of collectPendingNewOriginalBatchPages(fields)) {
+    const key = item.sourceType + '\u0001' + item.pageToken;
+    if (!getReferencePdfPage(item.sourceType, item.pageToken) && !seen.has(key)) {
+      missing.push(item);
+      seen.add(key);
+    }
+  }
+  return missing;
+}
 async function uploadPendingManageReferencePages(fields) {
-  let missing = collectMissingManageReferencePages(fields);
+  let missing = collectPendingManageReferenceUploads(fields);
   if (!missing.length) return { uploadedCount: 0, reusedCount: 0 };
 
   const catalogSaysExisting = missing.some(item => item?.pageKey && referencePdfCatalogHasPage(item.sourceType, item.pageKey, item.pageNumber));
   if (catalogSaysExisting) {
     await refreshReferencePdfPagesFromServer();
-    missing = collectMissingManageReferencePages(fields);
+    missing = collectPendingManageReferenceUploads(fields);
   }
 
   let uploadedCount = 0;
@@ -7729,7 +7867,8 @@ async function uploadPendingManageReferencePages(fields) {
   for (const item of missing) {
     if (!item.pageKey || !item.pageNumber) throw new Error(`${item.sourceType} ${item.pageToken} · 페이지토큰 형식이 올바르지 않습니다.`);
     const pendingForItem = pendingReferencePdfEntry(item.sourceType, item.pageToken);
-    if (!referencePdfCatalogItem(item.sourceType, item.pageKey) && !pendingForItem?.plan?.allowCreatePageKey) {
+    if (!referencePdfCatalogItem(item.sourceType, item.pageKey) && !pendingForItem?.plan?.allowCreatePageKey &&
+        !allReferencePdfPages.some(page => page.sourceType === item.sourceType && page.pageKey === item.pageKey)) {
       throw new Error(`${item.sourceType} ${item.pageKey} · Drive 폴더 매핑이 없습니다.`);
     }
     const pendingEntry = pendingReferencePdfEntry(item.sourceType, item.pageToken);
@@ -7766,10 +7905,11 @@ async function uploadPendingManageReferencePages(fields) {
       allReferencePdfPages = allReferencePdfPages.filter(existing => existing.pageId !== page.pageId);
       allReferencePdfPages.push(page);
       await putReferencePdfPage(db, page);
-      pendingReferencePdfFiles.delete(`${item.sourceType}\u0001${item.pageToken}`);
+      if (pendingEntry?.batchFirstToken) pendingEntry.uploadedDriveFileId = page.driveFileId;
+      else pendingReferencePdfFiles.delete(`${item.sourceType}\u0001${item.pageToken}`);
       uploadedCount++;
     } catch (error) {
-      if (/이미 등록된 페이지/.test(error?.message || '')) {
+      if (/이미 등록된 페이지/.test(error?.message || '') && plan?.rawMaterialType !== 'new-original') {
         await refreshReferencePdfPagesFromServer();
         if (getReferencePdfPage(item.sourceType, item.pageToken)) {
           pendingReferencePdfFiles.delete(`${item.sourceType}\u0001${item.pageToken}`);
@@ -7802,6 +7942,12 @@ function validateManageReferencePages(fields) {
   for (const [sourceType, tokens] of checks) {
     for (const token of tokens) {
       if (!getReferencePdfPage(sourceType, token)) missing.push(`${sourceType} ${token}`);
+    }
+  }
+  for (const item of collectPendingNewOriginalBatchPages(fields)) {
+    if (!getReferencePdfPage(item.sourceType, item.pageToken)) {
+      const label = item.sourceType + ' ' + item.pageToken;
+      if (!missing.includes(label)) missing.push(label);
     }
   }
   return { ok: missing.length === 0, missing };
@@ -7837,6 +7983,10 @@ function updateManageReferencePdfHint() {
   if (uploadReady) parts.push(`신규 업로드 ${uploadReady}`);
   if (missingFile) parts.push(`PDF 선택 필요 ${missingFile}`);
   if (unmapped) parts.push(`폴더 매핑 없음 ${unmapped}`);
+  const batches = [...pendingReferencePdfFiles.entries()].filter(([, entry]) =>
+    entry?.batchFirstToken && entry.batchIndex === 0);
+  if (batches.length) parts.push('새 원본 ' + batches.map(([, entry]) =>
+    entry.batchPageCount + '페이지 분할 · 첫 페이지 1장만 토픽 연결').join(' / '));
   els.manageReferencePdfHint.textContent = parts.join(' · ');
 }
 
@@ -7864,6 +8014,7 @@ function collectManageFields() {
 async function saveManagedTopic(event) {
   event.preventDefault();
   if (!navigator.onLine) return showToast('오프라인 상태에서는 Spreadsheet와 첨부자료를 수정할 수 없습니다.');
+  if (referencePdfPreparationCount) return showToast('PDF 자동 분할 준비가 완료된 다음 저장해 주세요.');
   if (!await ensureActiveSecuritySession()) return showToast('신뢰기기 인증이 필요합니다.');
   const fields = collectManageFields();
   if (!fields.topicName) return showToast('토픽명을 입력해 주세요.');
@@ -7893,7 +8044,7 @@ async function saveManagedTopic(event) {
 
   setLoading(true, wasAdd ? '새 토픽을 추가하는 중...' : '토픽을 저장하는 중...');
   try {
-    const uploadPlan = collectMissingManageReferencePages(fields);
+    const uploadPlan = collectPendingManageReferenceUploads(fields);
     let referenceUploadResult = { uploadedCount: 0, reusedCount: 0 };
     if (uploadPlan.length) {
       setLoading(true, `원본 PDF 페이지 등록 중 · ${uploadPlan.length}개`);
