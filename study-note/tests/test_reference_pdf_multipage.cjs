@@ -275,6 +275,106 @@ async function testSequentialUploadRequestsAndResume() {
   assert.equal(fields.textbookPages, first, 'topic must only link the first page');
 }
 
+
+function testMultiPageMaterialPlans() {
+  const pending = new Map();
+  const existing = new Map();
+  const h = createHarness(['buildReferencePdfBatchEntries', 'stageReferencePdfBatch'], {
+    pendingReferencePdfFiles: pending,
+    expectedReferencePdfFileName: (k, n) => k + '_' + String(n).padStart(4, '0') + '.pdf',
+    getReferencePdfPage: (type, token) => existing.get(key(type, token)) || null,
+    referencePdfCatalogHasPage: () => false,
+  });
+  const files = [1, 2, 3].map(n => new File(['%PDF-'+n], 'page-'+n+'.pdf',{type:'application/pdf'}));
+  const missing = { pageKey:'SW-2', pageNumber:613, pageToken:'SW-2:613', pageKeyMapped:true,
+    allowCreatePageKey:false, rawMaterialType:'missing-original', materialType:'원본',basePageKey:'SW-2' };
+  const saved = h.stageReferencePdfBatch('교재','missing-original',missing,files.slice(0,2),'missing.pdf');
+  assert.deepEqual(Array.from(saved,e=>e.pageToken),['SW-2:613','SW-2:614']);
+  assert.equal(saved[1].plan.rawMaterialType,'missing-original');
+  assert.equal(saved[1].plan.allowCreatePageKey,false);
+  assert.equal(saved[1].plan.storedFileName,'SW-2_0614.pdf');
+  pending.clear();
+
+  const supplement = { pageKey:'SW-2-ADD4', pageNumber:1, pageToken:'SW-2-ADD4:1',
+    allowCreatePageKey:true, rawMaterialType:'supplement', materialType:'보강',
+    basePageKey:'SW-2', anchorPageToken:'SW-2:613',insertionPosition:'앞',logicalOrder:5 };
+  const supp = h.stageReferencePdfBatch('교재','supplement',supplement,files,'supplement.pdf');
+  assert.deepEqual(Array.from(supp,e=>e.pageToken),
+    ['SW-2-ADD4:1','SW-2-ADD4:2','SW-2-ADD4:3']);
+  assert.deepEqual(Array.from(supp,e=>e.plan.logicalOrder),[5,6,7]);
+  assert(supp.every(e=>e.plan.anchorPageToken==='SW-2:613'&&e.plan.insertionPosition==='앞'));
+  assert.deepEqual(Array.from(supp,e=>e.plan.allowCreatePageKey),[true,false,false]);
+  assert.throws(()=>h.stageReferencePdfBatch('교재','supplement',supplement,files,'dup.pdf'),/페이지키가 겹칩니다/);
+  pending.clear();
+
+  const revision = {pageKey:'SW-2-R4',pageNumber:613,pageToken:'SW-2-R4:613',
+    allowCreatePageKey:true,rawMaterialType:'revision',materialType:'개정',
+    basePageKey:'SW-2',replacementTarget:'SW-2:613',versionTag:'R4',logicalOrder:4 };
+  const rev=h.stageReferencePdfBatch('교재','revision',revision,files,'revision.pdf');
+  assert.deepEqual(Array.from(rev,e=>e.pageToken),
+    ['SW-2-R4:613','SW-2-R4:614','SW-2-R4:615']);
+  assert.equal(rev[0].plan.rawMaterialType,'revision');
+  assert.equal(rev[0].plan.replacementTarget,'SW-2:613');
+  assert.deepEqual(Array.from(rev.slice(1),e=>e.plan.rawMaterialType),['supplement','supplement']);
+  assert(rev.slice(1).every(e=>e.plan.anchorPageToken==='SW-2:613'&&
+    e.plan.insertionPosition==='뒤' && e.plan.materialType==='보강'));
+  assert.equal(rev[2].plan.pageKey,'SW-2-R4');
+  assert.equal(rev[2].plan.basePageKey,'SW-2');
+  assert(rev.every(e=>e.batchLinkToken==='SW-2-R4:613'));
+  pending.clear();
+
+  // New-original still receives a separate key with first link only.
+  const original={pageKey:'SE-44',pageNumber:1,pageToken:'SE-44:1',
+    allowCreatePageKey:true, rawMaterialType:'new-original',materialType:'원본',basePageKey:'SE'};
+  const newOrig=h.stageReferencePdfBatch('서브노트','new-original',original,files,'original.pdf');
+  assert.deepEqual(Array.from(newOrig,e=>e.pageToken),['SE-44:1','SE-44:2','SE-44:3']);
+  pending.clear();
+
+  existing.set(key('교재','SW-2-R4:614'), {driveFileId:'existing'});
+  assert.throws(()=>h.stageReferencePdfBatch('교재','revision',revision,files,'conflict.pdf'),/충돌/);
+}
+
+function testMultiPageNavigationWithOlderRevisions() {
+  const data=[];
+  const make=(pageKey,number,materialType,extra={})=>{
+    const page={sourceType:'교재',pageKey,pageNumber:number,pageToken:pageKey+':'+number,
+      basePageKey:extra.basePageKey || 'SW-2',materialType,active:'Y',...extra};
+    data.push(page);return page;
+  };
+  const original=make('SW-2',613,'원본');
+  const next=make('SW-2',614,'원본');
+  make('SW-2',615,'원본');
+  const older=make('SW-2-R2',613,'개정',{replacementTarget:'SW-2:613',versionTag:'R2'});
+  make('SW-2-R2',614,'보강',{anchorPageToken:'SW-2:613',insertionPosition:'뒤'});
+  const active=make('SW-2-R3',613,'개정',{replacementTarget:'SW-2:613',versionTag:'R3'});
+  const revSecond=make('SW-2-R3',614,'보강',{anchorPageToken:'SW-2:613',insertionPosition:'뒤'});
+  const revThird=make('SW-2-R3',615,'보강',{anchorPageToken:'SW-2:613',insertionPosition:'뒤'});
+  const suppFirst=make('SW-2-ADD1',1,'보강',{anchorPageToken:'SW-2:613',insertionPosition:'뒤',logicalOrder:2});
+  const before=make('SW-2-ADD2',1,'보강',{anchorPageToken:'SW-2:614',insertionPosition:'앞',logicalOrder:3});
+  const beforeNext=make('SW-2-ADD2',2,'보강',{anchorPageToken:'SW-2:614',insertionPosition:'앞',logicalOrder:4});
+  const h=createHarness([
+    'referencePdfVersionRank','referencePdfActiveRevisionFor','resolveReferencePdfEffectivePage',
+    'referencePdfRootPageKey','referencePdfBaseSequenceKeys','sortReferencePdfSupplements',
+    'buildReferencePdfLogicalSequence','findReferencePdfSequentialPage',
+  ],{
+    clean,allReferencePdfPages:data,REFERENCE_PDF_PAGE_KEY_SEQUENCES:[['SW-1','SW-2','SW-3']],
+  });
+  assert.equal(h.resolveReferencePdfEffectivePage(original).pageToken,active.pageToken);
+  const tokens=Array.from(h.buildReferencePdfLogicalSequence(original),p=>p.pageToken);
+  assert.deepEqual(tokens,[
+    active.pageToken,revSecond.pageToken,revThird.pageToken,suppFirst.pageToken,
+    before.pageToken,beforeNext.pageToken,next.pageToken,'SW-2:615',
+  ]);
+  assert(!tokens.includes(older.pageToken));
+  assert(!tokens.includes('SW-2-R2:614'),'superseded revision extra pages must remain hidden');
+  assert.equal(h.findReferencePdfSequentialPage(original,1).pageToken,revSecond.pageToken);
+  assert.equal(h.findReferencePdfSequentialPage(revSecond,1).pageToken,revThird.pageToken);
+  assert.equal(h.findReferencePdfSequentialPage(revThird,-1).pageToken,revSecond.pageToken);
+  assert.equal(h.findReferencePdfSequentialPage(revThird,1).pageToken,suppFirst.pageToken);
+  assert.equal(h.findReferencePdfSequentialPage(before,1).pageToken,beforeNext.pageToken);
+  assert.equal(h.findReferencePdfSequentialPage(next,-1).pageToken,beforeNext.pageToken);
+}
+
 function testSequentialOriginalNavigation() {
   const h = createHarness([
     'referencePdfPageFromUploadStatus',
@@ -308,6 +408,8 @@ function testSequentialOriginalNavigation() {
   testBatchStagingAndResume();
   await testManagePrepareLinksOnlyFirstPage();
   await testSequentialUploadRequestsAndResume();
+  testMultiPageMaterialPlans();
+  testMultiPageNavigationWithOlderRevisions();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
