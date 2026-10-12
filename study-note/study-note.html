@@ -7414,6 +7414,10 @@ async function prepareManageReferenceMaterial(sourceType) {
       requestedPageKey: clean(cfg.keyOverride.value).toUpperCase(),
       domainPrefix: getManageDomainPrefix(),
     });
+    if (generation !== referencePdfPreparationGeneration) return;
+    if (clean(cfg.type.value) !== materialType || cfg.file.files?.[0] !== file) {
+      throw new Error('PDF 등록 준비 중 자료유형 또는 선택 파일이 변경됐습니다. 다시 준비해 주세요.');
+    }
     if (plan.exists && isNewOriginal) throw new Error('새 원본 페이지키가 이미 등록되었습니다. 다시 등록 준비를 진행해 주세요.');
     if (plan.exists) {
       const current = splitPageTokens(manageReferenceEditorConfig(sourceType).hidden.value);
