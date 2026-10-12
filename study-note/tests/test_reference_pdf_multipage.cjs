@@ -539,6 +539,41 @@ async function testMaterialPreparationForBothSources() {
   }
 }
 
+
+async function testChangedFormInputsAbortPendingPDFBatch() {
+  for (const changedField of ['baseKey','pageNumber','position','keyOverride']) {
+    const oldFile={name:'two.pdf',size:100,type:'application/pdf'};
+    const cfg={
+      type:{value:'supplement'},baseKey:{value:'SW-2'},
+      pageNumber:{value:'613'},position:{value:'뒤'},
+      keyOverride:{value:''},file:{files:[oldFile],value:'chosen'},
+      plan:{className:'',textContent:''},
+    };
+    const button={disabled:false},pending=new Map(),messages=[];
+    let release;
+    const splitPromise=new Promise(resolve=>{release=resolve;});
+    const h=createHarness(['prepareManageReferenceMaterial'],{
+      clean, navigator:{onLine:true},pendingReferencePdfFiles:pending,
+      referencePdfPreparationGeneration:0,referencePdfPreparationCount:0,
+      manageReferenceMaterialConfig:()=>cfg,
+      els:{manageSubnoteMaterialPrepareBtn:button,manageTextbookMaterialPrepareBtn:button},
+      validatePendingReferencePdfFile:()=>{},
+      splitNewOriginalReferencePdf:async()=>splitPromise,
+      showToast:m=>messages.push(m),
+      fetchReferencePdfRegistrationPlan:async()=>{throw Error('must abort before server plan');},
+    });
+    const work=h.prepareManageReferenceMaterial('교재');
+    cfg[changedField].value='CHANGED';
+    release([new File(['%PDF-X'],'x.pdf',{type:'application/pdf'})]);
+    await work;
+    assert.equal(pending.size,0,'must not stage a stale plan');
+    assert.equal(button.disabled,false);
+    assert.equal(h.referencePdfPreparationCount,0);
+    assert(messages.some(m=>m.includes('변경')),'should clearly request fresh preparation');
+  }
+}
+
+
 async function testManualMultiPageUploadRow() {
   const sourceType='교재',pageToken='SW-2:613';
   const pending=new Map();
@@ -661,6 +696,7 @@ function testSequentialOriginalNavigation() {
   await testVersionedRowReplacementAndRevisionCodeFallback();
   await testMaterialPreparationForBothSources();
   await testManualMultiPageUploadRow();
+  await testChangedFormInputsAbortPendingPDFBatch();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
