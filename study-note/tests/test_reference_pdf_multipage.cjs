@@ -375,6 +375,96 @@ function testMultiPageNavigationWithOlderRevisions() {
   assert.equal(h.findReferencePdfSequentialPage(next,-1).pageToken,beforeNext.pageToken);
 }
 
+
+async function testVersionedRowReplacementAndRevisionCodeFallback() {
+  const pending = new Map();
+  const pendingReplacements = new Map();
+  const original = {sourceType:'교재',pageKey:'SW-2',pageNumber:613,pageToken:'SW-2:613',
+    materialType:'원본',driveFileId:'ORIGINAL_FILE'};
+  const uploaded = new Map([[key('교재',original.pageToken),original]]);
+  let harness;
+  const requests = [];
+  const toasts = [];
+  const file = new File(['%PDF-fake'], 'replacement-two-pages.pdf', {type:'application/pdf'});
+  const h = createHarness([
+    'buildReferencePdfBatchEntries','stageReferencePdfBatch',
+    'nextUnusedReferenceRevisionKey',
+    'handleManageReferenceReplacementSelection',
+    'applyPendingReferencePdfReplacements',
+  ], {
+    clean, File,
+    referencePdfPreparationCount:0,
+    referencePdfPreparationGeneration:0,
+    pendingReferencePdfFiles:pending,
+    pendingReferencePdfReplacements:pendingReplacements,
+    referencePdfPageCatalog:[{sourceType:'교재',pageKey:'SW-2-R2',pageCount:1}],
+    allReferencePdfPages:[original],
+    navigator:{onLine:true},
+    getReferencePdfPage:(type,token)=>uploaded.get(key(type,token))||null,
+    referencePdfCatalogHasPage:()=>false,
+    expectedReferencePdfFileName:(k,n)=>k+'_'+String(n).padStart(4,'0')+'.pdf',
+    validatePendingReferencePdfFile:()=>{},
+    splitNewOriginalReferencePdf:async ()=>[
+      new File(['%PDF-1'],'one.pdf',{type:'application/pdf'}),
+      new File(['%PDF-2'],'two.pdf',{type:'application/pdf'}),
+    ],
+    getApiUrl:()=> 'https://example.invalid',
+    getManageDomainPrefix:()=> 'SW',
+    fetchReferencePdfRegistrationPlan:async (_url,req)=>{
+      requests.push(req);
+      const pageKey=req.requestedPageKey||'SW-2-R2';
+      return {pageKey,pageNumber:613,pageToken:pageKey+':613',basePageKey:'SW-2',
+        materialType:'개정',rawMaterialType:'revision',replacementTarget:'SW-2:613',
+        allowCreatePageKey:!!req.requestedPageKey,pageKeyMapped:!req.requestedPageKey,
+        versionTag:'R'+pageKey.split('-R')[1],logicalOrder:3};
+    },
+    renderManageReferencePageEditor:()=>{},
+    updateManageReferencePdfHint:()=>{},
+    showToast:m=>toasts.push(m),
+    readFileAsDataUrl:async()=> 'data:application/pdf;base64,MOCK',
+    sendMutation:()=>{throw new Error('Must not call destructive replaceReferencePdfPage');},
+    refreshReferencePdfPagesFromServer:async()=>{throw Error('Must not change original')},
+  });
+  harness=h;
+  const input={files:[file],value:'new'};
+  await h.handleManageReferenceReplacementSelection('교재','SW-2:613',input);
+  assert.deepEqual(toasts,[]);
+  assert.equal(requests.length,2,'existing -R2 key must be skipped');
+  assert.equal(requests[1].requestedPageKey,'SW-2-R3');
+  assert.equal(pendingReplacements.get(key('교재','SW-2:613')).mode,'versioned-batch');
+  assert.equal(pending.size,2);
+  const extras=Array.from(pending.values());
+  assert.deepEqual(extras.map(x=>x.pageToken),['SW-2-R3:613','SW-2-R3:614']);
+  assert(extras.every(x=>x.batchLinkToken==='SW-2:613'));
+  assert.equal(extras[0].plan.rawMaterialType,'revision');
+  assert.equal(extras[1].plan.rawMaterialType,'supplement');
+  assert.equal(uploaded.get(key('교재','SW-2:613')).driveFileId,'ORIGINAL_FILE');
+  extras.forEach((p,i)=>{p.uploadedDriveFileId='REV'+i;uploaded.set(key('교재',p.pageToken),{driveFileId:'REV'+i})});
+  const result=await h.applyPendingReferencePdfReplacements();
+  assert.equal(result.replacedCount,0);
+  assert.equal(result.versionedCount,1);
+  assert.equal(pendingReplacements.size,0);
+  assert.equal(uploaded.get(key('교재','SW-2:613')).driveFileId,'ORIGINAL_FILE');
+
+  // A one-page replacement still follows the existing direct replacement path.
+  pending.clear();
+  uploaded.clear();
+  uploaded.set(key('교재',original.pageToken),original);
+  let directCalls=0;
+  const single = createHarness(['handleManageReferenceReplacementSelection'],{
+    File, referencePdfPreparationCount:0, referencePdfPreparationGeneration:0,
+    pendingReferencePdfReplacements:pendingReplacements,
+    clean, validatePendingReferencePdfFile:()=>{},
+    getReferencePdfPage:()=>original,
+    splitNewOriginalReferencePdf:async()=>[new File(['%PDF'], 'one.pdf', {type:'application/pdf'})],
+    renderManageReferencePageEditor:()=>{},updateManageReferencePdfHint:()=>{},
+    showToast:m=>{throw Error('unexpected: '+m)},
+  });
+  await single.handleManageReferenceReplacementSelection('교재','SW-2:613',{files:[file],value:'x'});
+  assert.equal(pendingReplacements.get(key('교재','SW-2:613')).pageCount,1);
+}
+
+
 function testSequentialOriginalNavigation() {
   const h = createHarness([
     'referencePdfPageFromUploadStatus',
@@ -410,6 +500,7 @@ function testSequentialOriginalNavigation() {
   await testSequentialUploadRequestsAndResume();
   testMultiPageMaterialPlans();
   testMultiPageNavigationWithOlderRevisions();
+  await testVersionedRowReplacementAndRevisionCodeFallback();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
