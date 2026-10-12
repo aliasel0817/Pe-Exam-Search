@@ -1,0 +1,28 @@
+name: Study Note PDF upload regression
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/tests/test_reference_pdf_multipage.cjs'
+      - '.github/workflows/study-note-pdf-upload.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pdf-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test-only PDF library
+        run: npm install --prefix /tmp/study-pdf-test --no-save --ignore-scripts --no-audit --no-fund pdf-lib@1.17.1
+      - name: Parse PWA and run 2-page PDF split regression
+        env:
+          NODE_PATH: /tmp/study-pdf-test/node_modules
+        run: node study-note/tests/test_reference_pdf_multipage.cjs
