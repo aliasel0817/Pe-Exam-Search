@@ -739,6 +739,100 @@ function testIncompleteRevisionRemainsInvisibleAndUploadOrderSafe() {
   ],'the complete revision becomes visible after the final cover upload');
 }
 
+
+function testServerPayloadReloadForSubnoteAndRevision() {
+  // Mirrors the real Apps Script buildPdfPageFilesPayload_ response: six
+  // physical columns plus eight optional relation columns. Crucially, a new
+  // original with no relation gets basePageKey = its own pageKey even if its
+  // Drive folder was created from a different existing base folder.
+  const headers = ['출처유형','페이지키','페이지번호','페이지토큰',
+    '페이지Drive파일ID','페이지파일명','자료유형','기준페이지키',
+    '기준페이지토큰','삽입위치','대체대상페이지토큰','논리순서','판본','활성여부'];
+  const rows = [];
+  const push = (sourceType, pageKey, pageNumber, flow = {}) => {
+    const token = pageKey + ':' + pageNumber;
+    rows.push([sourceType,pageKey,pageNumber,token,
+      'PDF_FILE_ID_' + rows.length, pageKey + '_' + String(pageNumber).padStart(4,'0') + '.pdf',
+      flow.materialType || '원본',
+      flow.basePageKey || pageKey,
+      flow.anchorPageToken || '',
+      flow.insertionPosition || '',
+      flow.replacementTarget || '',
+      flow.logicalOrder || 0,
+      flow.versionTag || '',
+      flow.active || 'Y',
+    ]);
+  };
+  // Existing subnote original remains independent from newly uploaded MG-6.
+  [1,2,3].forEach(n => push('서브노트','MG',n));
+  [1,2].forEach(n => push('서브노트','MG-6',n));
+  [613,614,615].forEach(n => push('교재','SW-2',n));
+  push('교재','SW-2-R2',613,{materialType:'개정',basePageKey:'SW-2',
+    replacementTarget:'SW-2:613',versionTag:'R2'});
+  push('교재','SW-2-R2',614,{materialType:'보강',basePageKey:'SW-2',
+    anchorPageToken:'SW-2:613',insertionPosition:'뒤'});
+  // Revision continuation pages are uploaded before the cover by the app,
+  // so they arrive as supplements with the *same -R3 key*.
+  [614,615].forEach(n => push('교재','SW-2-R3',n,{materialType:'보강',
+    basePageKey:'SW-2',anchorPageToken:'SW-2:613',insertionPosition:'뒤'}));
+  push('교재','SW-2-R3',613,{materialType:'개정',basePageKey:'SW-2',
+    replacementTarget:'SW-2:613',versionTag:'R3'});
+  [1,2].forEach(n => push('교재','SW-2-ADD1',n,{materialType:'보강',
+    basePageKey:'SW-2',anchorPageToken:'SW-2:613',insertionPosition:'뒤',
+    logicalOrder:n+10}));
+
+  const h = createHarness([
+    'normalizeReferencePdfPages',
+    'referencePdfActiveRevisionFor','referencePdfVersionRank',
+    'resolveReferencePdfEffectivePage','referencePdfRootPageKey',
+    'referencePdfBaseSequenceKeys','sortReferencePdfSupplements',
+    'buildReferencePdfLogicalSequence','findReferencePdfSequentialPage',
+  ],{
+    clean,referencePdfPageId:key,
+    REFERENCE_PDF_PAGE_HEADERS:headers.slice(0,6),
+    toNumber:(value,defaultValue)=>Number(value) || defaultValue,
+    allReferencePdfPages:[],
+    REFERENCE_PDF_PAGE_KEY_SEQUENCES:[['SW-1','SW-2','SW-3']],
+  });
+  const parsed=h.normalizeReferencePdfPages({headers,rows});
+  h.allReferencePdfPages=parsed;
+  assert.equal(parsed.length,rows.length);
+  const find=(type,token)=>{
+    const page=parsed.find(p=>p.sourceType===type&&p.pageToken===token);
+    assert(page,'missing parsed page '+type+' '+token);
+    return page;
+  };
+  const subFirst=find('서브노트','MG-6:1');
+  assert.equal(subFirst.basePageKey,'MG-6');
+  assert.deepEqual(Array.from(h.buildReferencePdfLogicalSequence(subFirst),x=>x.pageToken),[
+    'MG-6:1','MG-6:2'
+  ],'new subnote original must be isolated from legacy MG after full reload');
+  assert.equal(h.findReferencePdfSequentialPage(subFirst,1).pageToken,'MG-6:2');
+  assert.equal(h.findReferencePdfSequentialPage(find('서브노트','MG-6:2'),-1).pageToken,'MG-6:1');
+  assert.equal(h.findReferencePdfSequentialPage(find('서브노트','MG-6:2'),1),null);
+
+  const base=find('교재','SW-2:613');
+  const sequence=Array.from(h.buildReferencePdfLogicalSequence(base),p=>p.pageToken);
+  assert.deepEqual(sequence,[
+    'SW-2-R3:613','SW-2-R3:614','SW-2-R3:615',
+    'SW-2-ADD1:1','SW-2-ADD1:2','SW-2:614','SW-2:615',
+  ]);
+  assert.equal(h.resolveReferencePdfEffectivePage(base).pageToken,'SW-2-R3:613');
+  assert(!sequence.includes('SW-2-R2:613'));
+  assert(!sequence.includes('SW-2-R2:614'));
+  assert.equal(h.findReferencePdfSequentialPage(find('교재','SW-2-R3:615'),1).pageToken,'SW-2-ADD1:1');
+  assert.equal(h.findReferencePdfSequentialPage(find('교재','SW-2-ADD1:2'),1).pageToken,'SW-2:614');
+  // No cross-source contamination even when a pageKey is shared.
+  assert.equal(h.findReferencePdfSequentialPage(find('서브노트','MG:2'),1).pageToken,'MG:3');
+
+  assert.throws(()=>h.normalizeReferencePdfPages({headers,rows:[rows[0],rows[0]]}),
+    /중복/,'duplicate page tokens must be rejected during server reload');
+  const broken=rows[0].slice();
+  broken[4]='';
+  assert.throws(()=>h.normalizeReferencePdfPages({headers,rows:[broken]}),
+    /필수값/,'Drive file id is mandatory in a server page row');
+}
+
 function testSequentialOriginalNavigation() {
   const h = createHarness([
     'referencePdfPageFromUploadStatus',
@@ -781,6 +875,7 @@ function testSequentialOriginalNavigation() {
   await testChangedFormInputsAbortPendingPDFBatch();
   await testNoSupplementAsBaseKey();
   await testSavePreflightAllowsRevisionBatchCover();
+  testServerPayloadReloadForSubnoteAndRevision();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
