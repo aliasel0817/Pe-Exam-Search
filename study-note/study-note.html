@@ -7826,14 +7826,15 @@ function renderManageReferencePageEditor(sourceType, { preserveSelection = true 
     const pendingPlan = pendingEntry?.plan || null;
     const expectedName = parts ? expectedReferencePdfFileName(parts.pageKey, parts.pageNumber) : '';
     const canCreateKey = Boolean(pendingPlan?.allowCreatePageKey);
-    const statusClass = page ? (page.materialType === '보강' ? 'supplement' : page.materialType === '개정' ? 'revision' : 'registered') : (mapped || canCreateKey) ? 'pending' : 'unmapped';
-    const statusText = page ? (page.materialType === '보강' ? '보강 PDF' : page.materialType === '개정' ? '개정 PDF' : 'PDF 등록됨') : (mapped || canCreateKey) ? (pendingFile ? '업로드 준비' : 'PDF 필요') : '페이지키 매핑 없음';
+    const batchReady = Boolean(pendingEntry?.batchFirstToken);
+    const statusClass = page ? (page.materialType === '보강' ? 'supplement' : page.materialType === '개정' ? 'revision' : 'registered') : (mapped || canCreateKey || batchReady) ? 'pending' : 'unmapped';
+    const statusText = page ? (page.materialType === '보강' ? '보강 PDF' : page.materialType === '개정' ? '개정 PDF' : 'PDF 등록됨') : (mapped || canCreateKey || batchReady) ? (pendingFile ? '업로드 준비' : 'PDF 필요') : '페이지키 매핑 없음';
     const relationMeta = page?.materialType === '보강' ? ` · 기준 ${page.anchorPageToken || '-'} ${page.insertionPosition || ''} · 순서 ${page.logicalOrder || 0}` : page?.materialType === '개정' ? ` · ${page.replacementTarget || '-'} 대체 · ${page.versionTag || '개정'}` : '';
     const planMeta = pendingPlan?.materialType === '보강' ? ` · 보강 ${pendingPlan.anchorPageToken} ${pendingPlan.insertionPosition} · 순서 ${pendingPlan.logicalOrder || 0}` : pendingPlan?.materialType === '개정' ? ` · 개정 ${pendingPlan.replacementTarget} 대체 · ${pendingPlan.versionTag || ''}` : '';
     const metaText = page
       ? `${page.fileName || expectedName}${relationMeta}`
-      : (mapped || canCreateKey)
-        ? `저장될 파일명: ${pendingPlan?.storedFileName || expectedName}${planMeta}${canCreateKey ? ' · 새 페이지키/폴더 생성' : ''}`
+      : (mapped || canCreateKey || batchReady)
+        ? `저장될 파일명: ${pendingPlan?.storedFileName || expectedName}${planMeta}${canCreateKey ? ' · 새 페이지키/폴더 생성' : ''}${batchReady && !mapped && !canCreateKey ? ' · 같은 분할 PDF의 앞선 업로드에서 폴더 생성' : ''}`
         : '이 페이지키는 현재 Drive 폴더와 연결되어 있지 않습니다.';
     const batchReadyNote = pendingEntry?.batchFirstToken
       ? '<div class="reference-page-upload-row"><div class="reference-page-upload-note">다중 PDF ' + Number(pendingEntry.batchPageCount) + '페이지 분할 준비 · 원본 ' + escapeHtml(pendingEntry.originalName || '') + ' · 이 첫 페이지만 토픽에 연결됩니다.</div></div>'
@@ -8147,7 +8148,8 @@ function updateManageReferencePdfHint() {
     if (getReferencePdfPage(sourceType, pageToken)) { registered++; continue; }
     const parts = pageTokenParts(pageToken);
     const pendingEntry = pendingReferencePdfEntry(sourceType, pageToken);
-    if (!parts || (!referencePdfCatalogItem(sourceType, parts.pageKey) && !pendingEntry?.plan?.allowCreatePageKey)) { unmapped++; continue; }
+    if (!parts || (!referencePdfCatalogItem(sourceType, parts.pageKey) &&
+        !pendingEntry?.plan?.allowCreatePageKey && !pendingEntry?.batchFirstToken)) { unmapped++; continue; }
     if (pendingEntry?.file) uploadReady++;
     else missingFile++;
   }
@@ -8194,7 +8196,9 @@ async function saveManagedTopic(event) {
 
   const unresolved = collectMissingManageReferencePages(fields).filter(item =>
     !item?.pageKey ||
-    (!referencePdfCatalogItem(item.sourceType, item.pageKey) && !pendingReferencePdfEntry(item.sourceType, item.pageToken)?.plan?.allowCreatePageKey) ||
+    (!referencePdfCatalogItem(item.sourceType, item.pageKey) &&
+      !pendingReferencePdfEntry(item.sourceType, item.pageToken)?.plan?.allowCreatePageKey &&
+      !pendingReferencePdfEntry(item.sourceType, item.pageToken)?.batchFirstToken) ||
     (!referencePdfCatalogHasPage(item.sourceType, item.pageKey, item.pageNumber) &&
       !pendingReferencePdfFiles.has(`${item.sourceType}\u0001${item.pageToken}`))
   );
