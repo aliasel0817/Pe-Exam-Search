@@ -543,6 +543,64 @@ async function testMaterialPreparationForBothSources() {
 
 
 
+
+async function testSavePreflightAllowsRevisionBatchCover() {
+  const link='SW-2-R7:613';
+  const pkey=key('교재',link);
+  const pending=new Map([[pkey,{
+    file:{name:'revision.pdf',type:'application/pdf',size:120},
+    batchFirstToken:link, batchPageCount:2,batchIndex:0,
+    plan:{allowCreatePageKey:false},
+  }]]);
+  const fields={
+    topicName:'SAFE TEST',status:'기존서브노트',subnotePages:'',
+    textbookPages:link,
+  };
+  let uploads=0, writes=0;
+  const errors=[];
+  const h=createHarness(['saveManagedTopic'],{
+    navigator:{onLine:true},
+    referencePdfPreparationCount:0,
+    ensureActiveSecuritySession:async()=>true,
+    collectManageFields:()=>fields,
+    collectMissingManageReferencePages:()=>[
+      {sourceType:'교재',pageKey:'SW-2-R7',pageNumber:613,pageToken:link}
+    ],
+    referencePdfCatalogItem:()=>null,
+    pendingReferencePdfEntry:(_source,token)=>pending.get(key('교재',token)),
+    referencePdfCatalogHasPage:()=>false,
+    pendingReferencePdfFiles:pending,
+    manageMode:'edit',
+    currentTopicId:'T4036',
+    pendingNewCategory:null,
+    els:{manageCategory:{value:'MG'}},
+    collectPendingManageReferenceUploads:()=>[{
+      sourceType:'교재',pageKey:'SW-2-R7',pageNumber:613,pageToken:link,
+    }],
+    uploadPendingManageReferencePages:async()=>{uploads++;return {uploadedCount:2,reusedCount:0}},
+    validateManageReferencePages:()=>({ok:true,missing:[]}),
+    pendingReferencePdfReplacements:new Map(),
+    setLoading:()=>{},
+    getApiUrl:()=> 'https://example.invalid',
+    sendMutation:async()=>{writes++;return {headers:[],row:[],referencePdfLinkCount:1}},
+    normalizeSingleRow:()=>({topicId:'T4036'}),
+    applyServerTopicLocally:async()=>{},
+    refreshTopicReferencePdfLinks:async()=>{},
+    closeManage:()=>{},
+    renderReferencePdfSummary:()=>{},
+    renderAttachmentSummary:()=>{},
+    renderManageAttachments:()=>{},
+    pendingAttachmentDeletes:new Set(),
+    pendingAttachmentFiles:{I:[],P:[]},
+    showToast:msg=>errors.push(msg),
+  });
+  await h.saveManagedTopic({preventDefault(){}});
+  assert.equal(uploads,1,'revision batch must reach the upload stage');
+  assert.equal(writes,1,'revision batch must not be rejected as missing folder');
+  assert(errors.some(msg=>msg.includes('수정 완료')));
+  assert(!errors.some(msg=>msg.includes('등록 준비가 필요')));
+}
+
 async function testNoSupplementAsBaseKey() {
   const file=new File(['%PDF-X'],'bad.pdf',{type:'application/pdf'});
   const cfg={type:{value:'supplement'},baseKey:{value:'SW-2-R4'},
@@ -722,6 +780,7 @@ function testSequentialOriginalNavigation() {
   await testManualMultiPageUploadRow();
   await testChangedFormInputsAbortPendingPDFBatch();
   await testNoSupplementAsBaseKey();
+  await testSavePreflightAllowsRevisionBatchCover();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
