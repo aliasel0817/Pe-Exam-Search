@@ -1,9 +1,18 @@
 name: Study Note PDF upload regression
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/STUDY-NOTE-USER-MANUAL-KO.md'
+      - 'study-note/tests/test_reference_pdf_multipage.cjs'
+      - '.github/workflows/study-note-pdf-upload.yml'
   pull_request:
     paths:
       - 'study-note/study-note.html'
+      - 'study-note/STUDY-NOTE-USER-MANUAL-KO.md'
       - 'study-note/tests/test_reference_pdf_multipage.cjs'
       - '.github/workflows/study-note-pdf-upload.yml'
   workflow_dispatch:
