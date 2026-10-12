@@ -137,6 +137,86 @@ function testBatchStagingAndResume() {
   assert.throws(() => h.collectPendingManageReferenceUploads(fields), /페이지키 충돌/);
   assert.equal(h.collectPendingManageReferenceUploads({ subnotePages: '', textbookPages: '' }).length, 0);
 }
+
+async function testSequentialUploadRequestsAndResume() {
+  const pending = new Map();
+  const first = 'SE-42:1';
+  const fields = { subnotePages: '', textbookPages: first };
+  const makeEntry = (n) => ({
+    batchFirstToken: first, batchPageCount: 2, batchIndex: n - 1,
+    uploadedDriveFileId: '',
+    file: { name: 'two-page-' + n + '.pdf', size: 1200, type: 'application/pdf' },
+    pageCount: 1,
+    plan: { rawMaterialType: 'new-original', materialType: '원본',
+      basePageKey: 'SE', pageKey: 'SE-42', pageToken: 'SE-42:' + n,
+      allowCreatePageKey: n === 1 },
+  });
+  pending.set(key('교재', first), makeEntry(1));
+  pending.set(key('교재', 'SE-42:2'), makeEntry(2));
+  const calls = [];
+  let failSecond = true;
+  let harness;
+  const mocks = {
+    pendingReferencePdfFiles: pending,
+    allReferencePdfPages: [],
+    referencePdfPageCatalogLoadedAt: 17,
+    referencePdfPageId: key,
+    db: {},
+    clean,
+    splitPageTokens: x => clean(x).split(/[,;\n]+/).filter(Boolean),
+    pageTokenParts: x => {
+      const m = clean(x).match(/^([A-Z0-9_-]+):(\d+)$/);
+      return m ? { pageKey: m[1], pageNumber: Number(m[2]) } : null;
+    },
+    getReferencePdfPage: (src, token) => harness.allReferencePdfPages.find(x => x.sourceType === src && x.pageToken === token) || null,
+    collectMissingManageReferencePages: f => clean(f.textbookPages).split(',').filter(Boolean)
+      .filter(t => !mocks.getReferencePdfPage('교재', t))
+      .map(t => ({ sourceType: '교재', pageToken: t, pageKey: t.split(':')[0], pageNumber: Number(t.split(':')[1]) })),
+    pendingReferencePdfEntry: (src, token) => pending.get(key(src, token)),
+    referencePdfCatalogHasPage: () => false,
+    referencePdfCatalogItem: () => null,
+    validatePendingReferencePdfFile: file => assert.equal(file.type, 'application/pdf'),
+    detectPdfPageCount: async () => 1,
+    readFileAsDataUrl: async () => 'data:application/pdf;base64,MTEST',
+    getApiUrl: () => 'https://example.invalid',
+    sendMutation: async (_, payload) => {
+      calls.push(payload);
+      if (failSecond && payload.pageNumber === 2) throw new Error('simulated network failure');
+      return {
+        ...payload, materialType: '원본', driveFileId: 'drive-file-' + payload.pageNumber,
+        storedFileName: payload.pageKey + '_000' + payload.pageNumber + '.pdf',
+      };
+    },
+    putReferencePdfPage: async () => {},
+    renderManageReferencePageEditor: () => {},
+    updateManageReferencePdfHint: () => {},
+    ensureManageReferencePdfCatalog: async () => {},
+    renderManageReferencePageEditors: () => {},
+    refreshReferencePdfPagesFromServer: async () => {},
+  };
+  harness = createHarness([
+    'collectPendingNewOriginalBatchPages', 'collectPendingManageReferenceUploads',
+    'referencePdfPageFromUploadStatus', 'uploadPendingManageReferencePages',
+  ], mocks);
+  await assert.rejects(() => harness.uploadPendingManageReferencePages(fields), /simulated network failure/);
+  assert.equal(harness.allReferencePdfPages.length, 1);
+  assert.equal(harness.allReferencePdfPages[0].pageToken, first);
+  assert.equal(pending.get(key('교재', first)).uploadedDriveFileId, 'drive-file-1');
+  assert.equal(pending.get(key('교재', 'SE-42:2')).uploadedDriveFileId, '');
+  assert.deepEqual(calls.map(x => x.pageNumber), [1, 2]);
+  assert.deepEqual(calls.map(x => x.allowCreatePageKey), [true, false]);
+  assert(calls.every(x => x.materialType === 'new-original' && x.pageCount === 1));
+  failSecond = false;
+  const recovered = await harness.uploadPendingManageReferencePages(fields);
+  assert.equal(recovered.uploadedCount, 1);
+  assert.equal(recovered.reusedCount, 0);
+  assert.deepEqual(calls.map(x => x.pageNumber), [1, 2, 2], 'must not re-upload existing first page');
+  assert.equal(harness.allReferencePdfPages.length, 2);
+  assert.equal(harness.allReferencePdfPages[1].pageToken, 'SE-42:2');
+  assert.equal(harness.allReferencePdfPages[1].basePageKey, 'SE-42');
+  assert.equal(fields.textbookPages, first, 'topic must only link the first page');
+}
+
 function testSequentialOriginalNavigation() {
   const h = createHarness([
     'referencePdfPageFromUploadStatus',
@@ -168,6 +248,7 @@ function testSequentialOriginalNavigation() {
   await testRealPdfSplit();
   testLegacyFileLimit();
   testBatchStagingAndResume();
+  await testSequentialUploadRequestsAndResume();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
