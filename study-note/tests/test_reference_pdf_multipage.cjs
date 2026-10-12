@@ -38,7 +38,21 @@ async function testRealPdfSplit() {
     File, Uint8Array,
     MAX_REFERENCE_PAGE_BYTES: 8 * 1024 * 1024,
     MAX_NEW_REFERENCE_DOCUMENT_PAGES: 200,
-    ensurePdfLibLoaded: async () => ({ PDFDocument }),
+    // The application and pdf-lib share a JavaScript realm in browsers. In this
+    // Node VM harness, convert the VM index array to the Node library's realm.
+    ensurePdfLibLoaded: async () => ({
+      PDFDocument: {
+        load: (...args) => PDFDocument.load(...args),
+        create: async () => {
+          const result = await PDFDocument.create();
+          return {
+            copyPages: (source, indices) => result.copyPages(source, Array.from(indices)),
+            addPage: (...args) => result.addPage(...args),
+            save: (...args) => result.save(...args),
+          };
+        },
+      },
+    }),
   });
   const events = [];
   const pages = await h.splitNewOriginalReferencePdf(input, (i, n) => events.push([i, n]));
