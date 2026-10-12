@@ -7425,6 +7425,23 @@ function stageReferencePdfBatch(sourceType, materialType, plan, pages, name, lin
   return items;
 }
 
+function nextUnusedReferenceRevisionKey(sourceType, basePageKey) {
+  const prefix = clean(basePageKey).toUpperCase() + '-R';
+  const keys = new Set([
+    ...referencePdfPageCatalog.filter(x => x.sourceType === sourceType).map(x => clean(x.pageKey).toUpperCase()),
+    ...allReferencePdfPages.filter(x => x.sourceType === sourceType).map(x => clean(x.pageKey).toUpperCase()),
+    ...[...pendingReferencePdfFiles.entries()].filter(([key]) => key.startsWith(sourceType + '\u0001'))
+      .map(([, entry]) => clean(entry.plan?.pageKey).toUpperCase()),
+  ]);
+  let max = 1;
+  for (const key of keys) {
+    if (!key.startsWith(prefix)) continue;
+    const suffix = key.slice(prefix.length);
+    if (/^\d+$/.test(suffix)) max = Math.max(max, Number(suffix) || 1);
+  }
+  return prefix + Math.max(2, max + 1);
+}
+
 function discardPendingReferencePdfBatch(sourceType, firstToken) {
   const entries = [...pendingReferencePdfFiles.entries()].filter(([key, entry]) =>
     key.startsWith(sourceType + '\u0001') && entry?.batchFirstToken === firstToken
@@ -7462,14 +7479,22 @@ async function prepareManageReferenceMaterial(sourceType) {
     const pageNumber = Number(cfg.pageNumber.value) || 0;
     if (materialType !== 'new-original' && pageNumber < 1)
       throw new Error('기준/실제 시작 페이지번호를 입력해 주세요.');
-    const plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), {
+    const planRequest = {
       sourceType, materialType, basePageKey,
       requestedPageNumber: materialType === 'missing-original' ? pageNumber : '',
       anchorPageNumber: ['supplement','revision'].includes(materialType) ? pageNumber : '',
       insertionPosition: clean(cfg.position.value) || '뒤',
       requestedPageKey: clean(cfg.keyOverride.value).toUpperCase(),
       domainPrefix: getManageDomainPrefix(),
-    });
+    };
+    let plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), planRequest);
+    if (materialType === 'revision' && pages.length > 1 && !planRequest.requestedPageKey &&
+        (plan.pageKeyMapped || [...pendingReferencePdfFiles.values()].some(item =>
+          item?.plan?.pageKey === plan.pageKey && item.sourceType === sourceType))) {
+      plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), {
+        ...planRequest, requestedPageKey: nextUnusedReferenceRevisionKey(sourceType, basePageKey),
+      });
+    }
     if (generation !== referencePdfPreparationGeneration) return;
     if (clean(cfg.type.value) !== materialType || cfg.file.files?.[0] !== file)
       throw new Error('등록 준비 중 자료유형 또는 파일이 변경됐습니다. 다시 준비해 주세요.');
@@ -7656,11 +7681,18 @@ async function handleManageReferenceReplacementSelection(sourceType, pageToken, 
       // A multi-page replacement is a NEW revision, not an overwrite. Existing
       // topics keep linking the original page; the effective revision resolves
       // automatically when the viewer opens.
-      const plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), {
+      const planRequest = {
         sourceType, materialType: 'revision', basePageKey: page.pageKey,
         anchorPageNumber: page.pageNumber, insertionPosition: '뒤',
         requestedPageKey: '', domainPrefix: getManageDomainPrefix(),
-      });
+      };
+      let plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), planRequest);
+      if (plan.pageKeyMapped || [...pendingReferencePdfFiles.values()].some(item =>
+        item?.plan?.pageKey === plan.pageKey && item.sourceType === sourceType)) {
+        plan = await fetchReferencePdfRegistrationPlan(getApiUrl(), {
+          ...planRequest, requestedPageKey: nextUnusedReferenceRevisionKey(sourceType, page.pageKey),
+        });
+      }
       if (generation !== referencePdfPreparationGeneration) return;
       stageReferencePdfBatch(sourceType, 'revision', plan, splitPages, file.name, pageToken);
       pendingReferencePdfReplacements.set(key, {
