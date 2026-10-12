@@ -7385,7 +7385,10 @@ function buildReferencePdfBatchEntries(sourceType, materialType, plan, pageFiles
     const perPagePlan = {
       ...plan, pageNumber: number, pageToken,
       storedFileName: expectedReferencePdfFileName(plan.pageKey, number),
-      allowCreatePageKey: index === 0 && Boolean(plan.allowCreatePageKey),
+      // On a multi-page revision, the first *continuation* creates the key;
+      // the visible revision cover is uploaded LAST to avoid partial activation.
+      allowCreatePageKey: (materialType === 'revision' && pageFiles.length > 1
+        ? index === 1 : index === 0) && Boolean(plan.allowCreatePageKey),
     };
     if (materialType === 'supplement' && index > 0)
       perPagePlan.logicalOrder = Number(plan.logicalOrder || 0) + index;
@@ -7991,7 +7994,19 @@ function collectPendingManageReferenceUploads(fields) {
       seen.add(key);
     }
   }
-  return missing;
+  // A revision becomes the active replacement as soon as its first revision
+  // page reaches Apps Script. Upload its continuation pages BEFORE that cover,
+  // so network failure cannot expose an incomplete revision to other devices.
+  // Normal originals and supplements retain their existing upload order.
+  const revisionCovers = [];
+  const remaining = [];
+  for (const item of missing) {
+    const pending = pendingReferencePdfEntry(item.sourceType, item.pageToken);
+    if (pending?.batchMode === 'revision' && pending.batchIndex === 0 &&
+        pending.batchPageCount > 1) revisionCovers.push(item);
+    else remaining.push(item);
+  }
+  return remaining.concat(revisionCovers);
 }
 async function uploadPendingManageReferencePages(fields) {
   let missing = collectPendingManageReferenceUploads(fields);
@@ -8468,9 +8483,10 @@ function buildReferencePdfLogicalSequence(page) {
     item.sourceType === page.sourceType && item.materialType === '개정'
   );
   const revisionKeys = new Set(revisions.map(item => item.pageKey));
+  const isRevisionExtensionKey = key => revisionKeys.has(key) || /-R[0-9]+$/i.test(key);
   const supplements = allReferencePdfPages.filter(item =>
     item.sourceType === page.sourceType && item.materialType === '보강' &&
-    item.active !== 'N' && !revisionKeys.has(item.pageKey)
+    item.active !== 'N' && !isRevisionExtensionKey(item.pageKey)
   );
   // The additional pages of a multi-page revision are stored as supplemental
   // relations within its unique -R# key. Show only the ACTIVE revision's own
@@ -8478,7 +8494,7 @@ function buildReferencePdfLogicalSequence(page) {
   // untouched on Drive but must not leak into the latest document sequence.
   const revisionExtras = allReferencePdfPages.filter(item =>
     item.sourceType === page.sourceType && item.materialType === '보강' &&
-    item.active !== 'N' && revisionKeys.has(item.pageKey)
+    item.active !== 'N' && isRevisionExtensionKey(item.pageKey)
   );
   const result = [];
   for (const original of basePages) {
