@@ -7491,6 +7491,10 @@ async function prepareManageReferenceMaterial(sourceType) {
       throw new Error('PDF 분할 중 기준 페이지키/페이지번호/유형이 변경되었습니다. 다시 준비해 주세요.');
     const basePageKey = clean(cfg.baseKey.value).toUpperCase();
     if (!basePageKey) throw new Error(sourceType + ' 기준 페이지키를 선택해 주세요.');
+    const baseEntry = referencePdfCatalogItem(sourceType, basePageKey);
+    if (materialType !== 'new-original' && ['보강','개정'].includes(clean(baseEntry?.materialType))) {
+      throw new Error('보강·개정 페이지키는 기준 원본으로 사용할 수 없습니다. 원본 페이지키를 선택해 주세요.');
+    }
     const pageNumber = Number(cfg.pageNumber.value) || 0;
     if (materialType !== 'new-original' && pageNumber < 1)
       throw new Error('기준/실제 시작 페이지번호를 입력해 주세요.');
