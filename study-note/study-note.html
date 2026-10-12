@@ -7635,26 +7635,56 @@ function validatePendingReferencePdfFile(file, { allowMultiPage = false } = {}) 
   if (!allowMultiPage && file.size > MAX_REFERENCE_PAGE_BYTES) throw new Error('원본 1페이지 PDF는 파일당 8MB 이하만 등록할 수 있습니다.');
 }
 
-function handleManageReferenceFileSelection(sourceType, pageToken, input) {
+async function handleManageReferenceFileSelection(sourceType, pageToken, input) {
   const file = input.files?.[0];
   if (!file) return;
+  const generation = referencePdfPreparationGeneration;
+  referencePdfPreparationCount++;
   try {
-    validatePendingReferencePdfFile(file);
+    validatePendingReferencePdfFile(file, { allowMultiPage: true });
     const parts = pageTokenParts(pageToken);
-    const existingEntry = pendingReferencePdfEntry(sourceType, pageToken);
-    pendingReferencePdfFiles.set(`${sourceType}\u0001${pageToken}`, {
-      file,
-      pageCount: existingEntry?.pageCount || null,
-      plan: existingEntry?.plan || { materialType: '원본', rawMaterialType: 'missing-original', basePageKey: parts?.pageKey || '', pageKey: parts?.pageKey || '', pageNumber: parts?.pageNumber || 0, pageToken, allowCreatePageKey: false, anchorPageToken: '', insertionPosition: '', replacementTarget: '', logicalOrder: 0, versionTag: '' }
-    });
-    renderManageReferencePageEditor(sourceType, { preserveSelection: true });
+    if (!parts) throw new Error(sourceType + ' ' + pageToken + ' · 페이지토큰 형식 오류');
+    const original = pendingReferencePdfEntry(sourceType, pageToken);
+    const pages = await splitNewOriginalReferencePdf(file);
+    if (generation !== referencePdfPreparationGeneration) return;
+    if (!splitPageTokens(manageReferenceEditorConfig(sourceType).hidden.value).includes(pageToken))
+      throw new Error('PDF 분할 중 페이지 연결이 해제되었습니다. 다시 추가해 주세요.');
+    if (pages.length > 1) {
+      if (original?.plan && original.plan.rawMaterialType !== 'missing-original') {
+        throw new Error('보강·개정 다중 PDF는 새 PDF 자료 등록에서 선택해 주세요.');
+      }
+      if (original) throw new Error('기존 PDF 선택을 취소한 뒤 여러 페이지 파일을 등록해 주세요.');
+      const plan = {
+        materialType:'원본', rawMaterialType:'missing-original',
+        basePageKey:parts.pageKey, pageKey:parts.pageKey,
+        pageNumber:parts.pageNumber, pageToken, allowCreatePageKey:false,
+        anchorPageToken:'', insertionPosition:'', replacementTarget:'',
+        logicalOrder:0, versionTag:'',
+      };
+      stageReferencePdfBatch(sourceType,'missing-original',plan,pages,file.name);
+    } else {
+      validatePendingReferencePdfFile(file);
+      pendingReferencePdfFiles.set(sourceType + '\u0001' + pageToken, {
+        file, pageCount:1,
+        plan:original?.plan || {
+          materialType:'원본',rawMaterialType:'missing-original',
+          basePageKey:parts.pageKey,pageKey:parts.pageKey,
+          pageNumber:parts.pageNumber,pageToken,allowCreatePageKey:false,
+          anchorPageToken:'',insertionPosition:'',replacementTarget:'',
+          logicalOrder:0,versionTag:'',
+        },
+      });
+    }
+    renderManageReferencePageEditor(sourceType,{preserveSelection:true});
     updateManageReferencePdfHint();
   } catch (error) {
-    input.value = '';
-    showToast(error.message);
+    if (generation===referencePdfPreparationGeneration)
+      showToast(error.message || 'PDF 파일 등록 준비에 실패했습니다.');
+  } finally {
+    referencePdfPreparationCount--;
+    input.value='';
   }
 }
-
 
 async function handleManageReferenceReplacementSelection(sourceType, pageToken, input) {
   const file = input.files?.[0];
