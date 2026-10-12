@@ -26,3 +26,5 @@ jobs:
         env:
           NODE_PATH: /tmp/study-pdf-test/node_modules
         run: node study-note/tests/test_reference_pdf_multipage.cjs
+      - name: Guard existing technical glossary and display behavior
+        run: node --test study-note/tests/test_technical_readability.cjs
