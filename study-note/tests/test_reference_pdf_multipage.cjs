@@ -160,6 +160,7 @@ async function testManagePrepareLinksOnlyFirstPage() {
     const h = createHarness(['buildReferencePdfBatchEntries', 'stageReferencePdfBatch', 'prepareManageReferenceMaterial'], {
       navigator: { onLine: true },
       manageReferenceMaterialConfig: () => cfg,
+      referencePdfCatalogItem: () => ({ materialType:'원본' }),
       els: { manageSubnoteMaterialPrepareBtn: button, manageTextbookMaterialPrepareBtn: button },
       referencePdfPreparationCount: 0,
       referencePdfPreparationGeneration: 0,
@@ -502,6 +503,7 @@ async function testMaterialPreparationForBothSources() {
         referencePdfPageCatalog:[],allReferencePdfPages:[],
         pendingReferencePdfFiles:pending,
         manageReferenceMaterialConfig:()=>cfg,
+        referencePdfCatalogItem:()=>({materialType:'원본'}),
         validatePendingReferencePdfFile:()=>{},
         splitNewOriginalReferencePdf:async()=>[1,2,3].map(i=>
           new File(['%PDF-'+i],'split'+i+'.pdf',{type:'application/pdf'})),
@@ -539,6 +541,28 @@ async function testMaterialPreparationForBothSources() {
   }
 }
 
+
+
+async function testNoSupplementAsBaseKey() {
+  const file=new File(['%PDF-X'],'bad.pdf',{type:'application/pdf'});
+  const cfg={type:{value:'supplement'},baseKey:{value:'SW-2-R4'},
+    pageNumber:{value:'613'},position:{value:'뒤'},keyOverride:{value:''},
+    file:{files:[file],value:'x'},plan:{className:'',textContent:''}};
+  const b={disabled:false}, pending=new Map(),errors=[];
+  const h=createHarness(['prepareManageReferenceMaterial'],{
+    File,clean,navigator:{onLine:true},els:{manageTextbookMaterialPrepareBtn:b},
+    referencePdfPreparationCount:0,referencePdfPreparationGeneration:0,
+    pendingReferencePdfFiles:pending,manageReferenceMaterialConfig:()=>cfg,
+    referencePdfCatalogItem:()=>({materialType:'개정'}),
+    validatePendingReferencePdfFile:()=>{},
+    splitNewOriginalReferencePdf:async()=>[file,file],
+    showToast:m=>errors.push(m),
+    fetchReferencePdfRegistrationPlan:async()=>{throw Error('must not request plan for non-original base');},
+  });
+  await h.prepareManageReferenceMaterial('교재');
+  assert.equal(pending.size,0);
+  assert(errors.some(x=>x.includes('원본 페이지키')));
+}
 
 async function testChangedFormInputsAbortPendingPDFBatch() {
   for (const changedField of ['baseKey','pageNumber','position','keyOverride']) {
@@ -697,6 +721,7 @@ function testSequentialOriginalNavigation() {
   await testMaterialPreparationForBothSources();
   await testManualMultiPageUploadRow();
   await testChangedFormInputsAbortPendingPDFBatch();
+  await testNoSupplementAsBaseKey();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
 })().catch(error => { console.error(error); process.exitCode = 1; });
