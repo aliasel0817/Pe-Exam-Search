@@ -150,7 +150,7 @@ async function testManagePrepareLinksOnlyFirstPage() {
       keyOverride: { value: '' }, plan: { className: '', textContent: '' },
     };
     const button = { disabled: false };
-    const h = createHarness(['prepareManageReferenceMaterial'], {
+    const h = createHarness(['buildReferencePdfBatchEntries', 'stageReferencePdfBatch', 'prepareManageReferenceMaterial'], {
       navigator: { onLine: true },
       manageReferenceMaterialConfig: () => cfg,
       els: { manageSubnoteMaterialPrepareBtn: button, manageTextbookMaterialPrepareBtn: button },
@@ -175,6 +175,7 @@ async function testManagePrepareLinksOnlyFirstPage() {
       getApiUrl: () => 'https://example.invalid',
       getManageDomainPrefix: () => 'SE',
       getReferencePdfPage: () => null,
+      referencePdfCatalogHasPage: () => false,
       manageReferenceEditorConfig: () => ({ hidden: field }),
       splitPageTokens: s => clean(s).split(',').filter(Boolean),
       setManageReferenceTokens: (_type, tokens) => { field.value = tokens.join(','); },
