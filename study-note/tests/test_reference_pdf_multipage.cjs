@@ -315,6 +315,8 @@ function testMultiPageMaterialPlans() {
     ['SW-2-R4:613','SW-2-R4:614','SW-2-R4:615']);
   assert.equal(rev[0].plan.rawMaterialType,'revision');
   assert.equal(rev[0].plan.replacementTarget,'SW-2:613');
+  assert.deepEqual(Array.from(rev, r=>r.plan.allowCreatePageKey),[false,true,false],
+    'revision continuation creates the key; visible cover is published last');
   assert.deepEqual(Array.from(rev.slice(1),e=>e.plan.rawMaterialType),['supplement','supplement']);
   assert(rev.slice(1).every(e=>e.plan.anchorPageToken==='SW-2:613'&&
     e.plan.insertionPosition==='뒤' && e.plan.materialType==='보강'));
@@ -561,6 +563,57 @@ async function testManualMultiPageUploadRow() {
 }
 
 
+
+function testIncompleteRevisionRemainsInvisibleAndUploadOrderSafe() {
+  const type='교재', first='SW-2-R7:613', pending=new Map();
+  const make=(n)=>({
+    batchFirstToken:first,batchLinkToken:first,batchMode:'revision',batchPageCount:3,
+    batchIndex:n-613,pageToken:'SW-2-R7:'+n,
+    file:{name:'page-'+n+'.pdf',type:'application/pdf'},
+    plan:{pageKey:'SW-2-R7',pageNumber:n,
+      rawMaterialType:n===613?'revision':'supplement',
+      allowCreatePageKey:n===614,
+    },
+  });
+  [613,614,615].forEach(n=>pending.set(key(type,'SW-2-R7:'+n),make(n)));
+  const uploaded=[];
+  const h=createHarness([
+    'collectPendingNewOriginalBatchPages','collectPendingManageReferenceUploads',
+    'referencePdfVersionRank','referencePdfActiveRevisionFor','resolveReferencePdfEffectivePage',
+    'referencePdfRootPageKey','referencePdfBaseSequenceKeys','sortReferencePdfSupplements',
+    'buildReferencePdfLogicalSequence','findReferencePdfSequentialPage',
+  ],{
+    clean,pendingReferencePdfFiles:pending,
+    splitPageTokens:s=>clean(s).split(',').filter(Boolean),
+    pageTokenParts:s=>{const m=s.match(/^(.+):(\d+)$/);return m?{pageKey:m[1],pageNumber:Number(m[2])}:null;},
+    getReferencePdfPage:(source,token)=>uploaded.find(p=>p.sourceType===source&&p.pageToken===token),
+    collectMissingManageReferencePages:f=> f.textbookPages && !uploaded.some(p=>p.pageToken===f.textbookPages)
+      ? [{sourceType:type,pageToken:f.textbookPages,pageKey:'SW-2-R7',pageNumber:613}]
+      : [],
+    allReferencePdfPages:uploaded,
+    REFERENCE_PDF_PAGE_KEY_SEQUENCES:[['SW-1','SW-2','SW-3']],
+  });
+  const base={sourceType:type,pageKey:'SW-2',pageNumber:613,pageToken:'SW-2:613',
+    materialType:'원본',basePageKey:'SW-2',active:'Y'};
+  uploaded.push(base);
+  const fields={subnotePages:'',textbookPages:first};
+  assert.deepEqual(Array.from(h.collectPendingManageReferenceUploads(fields),x=>x.pageToken),[
+    'SW-2-R7:614','SW-2-R7:615','SW-2-R7:613'
+  ],'revision cover must be uploaded last');
+  uploaded.push({sourceType:type,pageKey:'SW-2-R7',pageNumber:614,pageToken:'SW-2-R7:614',
+    materialType:'보강',basePageKey:'SW-2',anchorPageToken:base.pageToken,insertionPosition:'뒤',active:'Y'});
+  uploaded.push({sourceType:type,pageKey:'SW-2-R7',pageNumber:615,pageToken:'SW-2-R7:615',
+    materialType:'보강',basePageKey:'SW-2',anchorPageToken:base.pageToken,insertionPosition:'뒤',active:'Y'});
+  assert.deepEqual(Array.from(h.buildReferencePdfLogicalSequence(base),x=>x.pageToken),[
+    base.pageToken
+  ],'pending revision extras must stay hidden until cover uploads');
+  uploaded.push({sourceType:type,pageKey:'SW-2-R7',pageNumber:613,pageToken:'SW-2-R7:613',
+    materialType:'개정',basePageKey:'SW-2',replacementTarget:base.pageToken,versionTag:'R7',active:'Y'});
+  assert.deepEqual(Array.from(h.buildReferencePdfLogicalSequence(base),x=>x.pageToken),[
+    'SW-2-R7:613','SW-2-R7:614','SW-2-R7:615'
+  ],'the complete revision becomes visible after the final cover upload');
+}
+
 function testSequentialOriginalNavigation() {
   const h = createHarness([
     'referencePdfPageFromUploadStatus',
@@ -596,6 +649,7 @@ function testSequentialOriginalNavigation() {
   await testSequentialUploadRequestsAndResume();
   testMultiPageMaterialPlans();
   testMultiPageNavigationWithOlderRevisions();
+  testIncompleteRevisionRemainsInvisibleAndUploadOrderSafe();
   await testVersionedRowReplacementAndRevisionCodeFallback();
   await testMaterialPreparationForBothSources();
   await testManualMultiPageUploadRow();
