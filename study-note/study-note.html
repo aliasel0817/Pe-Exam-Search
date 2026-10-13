@@ -4154,7 +4154,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.11-all-material-multipage-rc1';
+const APP_VERSION = '4.6.12-pdf-reference-base-key-guard';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -7288,15 +7288,30 @@ function populateManageReferencePageKeys(sourceType, { preserveSelection = true 
   }
 }
 
+function isReferencePdfOriginalBaseKey(item) {
+  // A newly added multi-page revision can have a registry row marked as
+  // "보강" because its continuation is uploaded before the active cover.
+  // Do not let supplement/revision keys become the base for another document,
+  // regardless of that registry-label inconsistency.
+  return Boolean(item && item.pageCount > 0 &&
+    clean(item.materialType) === '원본' &&
+    !/-(?:ADD|R)\d+$/i.test(clean(item.pageKey)));
+}
+
 function populateManageReferenceMaterialBaseKeys(sourceType, { preserveSelection = true, refreshUi = true } = {}) {
   const cfg = manageReferenceMaterialConfig(sourceType);
   const current = preserveSelection ? clean(cfg.baseKey.value).toUpperCase() : '';
-  const keys = referencePdfPageCatalog.filter(item => item.sourceType === sourceType && item.pageCount > 0);
-  cfg.baseKey.innerHTML = keys.map(item => `<option value="${escapeHtml(item.pageKey)}">${escapeHtml(item.pageKey)} · ${Number(item.pageCount || 0).toLocaleString()}페이지</option>`).join('');
-  if (current && keys.some(item => item.pageKey === current)) cfg.baseKey.value = current;
-  else {
+  const keys = referencePdfPageCatalog.filter(item =>
+    item.sourceType === sourceType && isReferencePdfOriginalBaseKey(item));
+  cfg.baseKey.innerHTML = keys.map(item =>
+    `<option value="${escapeHtml(item.pageKey)}">${escapeHtml(item.pageKey)} · ${Number(item.pageCount || 0).toLocaleString()}페이지</option>`
+  ).join('');
+  if (current && keys.some(item => item.pageKey === current)) {
+    cfg.baseKey.value = current;
+  } else {
     const preferred = pageKeyForCategory(sourceType);
-    if (preferred && keys.some(item => item.pageKey === preferred)) cfg.baseKey.value = preferred;
+    cfg.baseKey.value = keys.some(item => item.pageKey === preferred)
+      ? preferred : (keys[0]?.pageKey || '');
   }
   if (refreshUi) updateManageReferenceMaterialUi(sourceType);
 }
@@ -7492,7 +7507,8 @@ async function prepareManageReferenceMaterial(sourceType) {
     const basePageKey = clean(cfg.baseKey.value).toUpperCase();
     if (!basePageKey) throw new Error(sourceType + ' 기준 페이지키를 선택해 주세요.');
     const baseEntry = referencePdfCatalogItem(sourceType, basePageKey);
-    if (materialType !== 'new-original' && ['보강','개정'].includes(clean(baseEntry?.materialType))) {
+    if ((baseEntry && !isReferencePdfOriginalBaseKey(baseEntry)) ||
+        /-(?:ADD|R)\d+$/i.test(basePageKey)) {
       throw new Error('보강·개정 페이지키는 기준 원본으로 사용할 수 없습니다. 원본 페이지키를 선택해 주세요.');
     }
     const pageNumber = Number(cfg.pageNumber.value) || 0;
