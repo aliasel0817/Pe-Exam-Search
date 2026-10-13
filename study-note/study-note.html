@@ -4154,7 +4154,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.15-pdf-relation-readback-identity';
+const APP_VERSION = '4.6.16-pdf-all-batch-readback';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -8133,7 +8133,7 @@ function collectPendingReferencePdfRelationEntries(fields) {
     ['교재', new Set(splitPageTokens(fields.textbookPages))],
   ]);
   return [...pendingReferencePdfFiles.entries()].flatMap(([key, entry]) => {
-    if (!entry?.batchFirstToken || !['supplement','revision'].includes(entry.batchMode))
+    if (!entry?.batchFirstToken || !['new-original','missing-original','supplement','revision'].includes(entry.batchMode))
       return [];
     const split = key.indexOf('\u0001');
     const sourceType = key.slice(0, split);
@@ -8155,7 +8155,14 @@ function referencePdfPendingBatchErrors(entries, fields) {
   for (const group of groups.values()) {
     const { sourceType, entry: first } = group[0];
     const count = Number(first.batchPageCount);
-    if (!Number.isInteger(count) || count < 1) continue; // legacy test fixtures
+    if (!Number.isInteger(count) || count < 1) {
+      errors.push(sourceType + ' ' + first.batchFirstToken + ' · 분할 페이지 수 정보 오류');
+      continue;
+    }
+    if (group.some(({ entry }) => Number(entry.batchPageCount) !== count ||
+        entry.batchMode !== first.batchMode)) {
+      errors.push(sourceType + ' ' + first.batchFirstToken + ' · 분할 문서 정보 불일치');
+    }
     const indices = new Set(group.map(({ entry }) => Number(entry.batchIndex)));
     if (group.length !== count || indices.size !== count ||
         [...Array(count).keys()].some(index => !indices.has(index))) {
@@ -8189,20 +8196,27 @@ function referencePdfMaterialRelationErrors(entries, serverPages) {
     if (clean(plan.versionTag) &&
         clean(actual.versionTag).toUpperCase() !== clean(plan.versionTag).toUpperCase())
       errors.push(sourceType + ' ' + token + ' · 개정 판본 불일치');
-    const expectedType = plan.rawMaterialType === 'revision' ? '개정' : '보강';
+    const expectedType = plan.rawMaterialType === 'revision' ? '개정' :
+      plan.rawMaterialType === 'supplement' ? '보강' : '원본';
     if (clean(actual.materialType) !== expectedType)
       errors.push(sourceType + ' ' + token + ' · 관계 자료유형 불일치');
-    if (clean(actual.basePageKey).toUpperCase() !== clean(plan.basePageKey).toUpperCase())
+    // Newly split original documents use their own new key in the page-list
+    // payload. The selected parent folder key is not their logical root.
+    const expectedBaseKey = expectedType === '원본' ? plan.pageKey : plan.basePageKey;
+    if (clean(actual.basePageKey).toUpperCase() !== clean(expectedBaseKey).toUpperCase())
       errors.push(sourceType + ' ' + token + ' · 기준 페이지키 불일치');
     if (clean(actual.active) === 'N')
       errors.push(sourceType + ' ' + token + ' · 비활성 페이지');
     if (expectedType === '개정') {
       if (clean(actual.replacementTarget) !== clean(plan.replacementTarget))
         errors.push(sourceType + ' ' + token + ' · 대체 대상 불일치');
-    } else {
+    } else if (expectedType === '보강') {
       if (clean(actual.anchorPageToken) !== clean(plan.anchorPageToken) ||
           clean(actual.insertionPosition) !== clean(plan.insertionPosition))
         errors.push(sourceType + ' ' + token + ' · 보강 삽입 관계 불일치');
+    } else if (clean(actual.anchorPageToken) || clean(actual.insertionPosition) ||
+               clean(actual.replacementTarget)) {
+      errors.push(sourceType + ' ' + token + ' · 원본 페이지에 잘못된 보강/개정 관계 기록');
     }
   }
   return errors;
@@ -8213,7 +8227,7 @@ async function verifyPendingReferencePdfMaterialRelations(fields) {
   if (!entries.length) return { verifiedCount: 0 };
   const stagedErrors = referencePdfPendingBatchErrors(entries, fields);
   if (stagedErrors.length) {
-    throw new Error('보강·개정 PDF 분할 대기 정보 검증 실패: ' + stagedErrors.join(' / ') +
+    throw new Error('다중 PDF 분할 대기 정보 검증 실패: ' + stagedErrors.join(' / ') +
       ' · 기존 PDF는 변경하지 않았습니다. 관리창에서 등록 준비 상태를 확인해 주세요.');
   }
   let serverPages;
@@ -8222,12 +8236,12 @@ async function verifyPendingReferencePdfMaterialRelations(fields) {
     // sheet values. The upload success response alone cannot prove them.
     serverPages = await refreshReferencePdfPagesFromServer();
   } catch (error) {
-    throw new Error('보강·개정 PDF가 일부 저장됐을 수 있으나 서버 관계 재조회에 실패했습니다. 관리창을 유지하고 연결을 확인한 뒤 저장을 재시도해 주세요. ' +
+    throw new Error('다중 PDF가 일부 저장됐을 수 있으나 서버 페이지 재조회에 실패했습니다. 관리창을 유지하고 연결을 확인한 뒤 저장을 재시도해 주세요. ' +
       (error?.message || ''));
   }
   const errors = referencePdfMaterialRelationErrors(entries, serverPages);
   if (errors.length) {
-    throw new Error('보강·개정 PDF 서버 관계 검증 실패: ' + errors.slice(0, 5).join(' / ') +
+    throw new Error('다중 PDF 서버 페이지/관계 검증 실패: ' + errors.slice(0, 5).join(' / ') +
       (errors.length > 5 ? ' 외 ' + (errors.length - 5) + '건' : '') +
       ' · 기존 PDF는 삭제하지 않았습니다. 관리창을 유지하고 추가 업로드를 중지해 주세요.');
   }
@@ -8353,6 +8367,12 @@ async function saveManagedTopic(event) {
 
   setLoading(true, wasAdd ? '새 토픽을 추가하는 중...' : '토픽을 저장하는 중...');
   try {
+    // Check all staged pages BEFORE the first server write. A broken local
+    // split batch must not leave an avoidable partial document on Drive.
+    const pendingPdfBatches = collectPendingReferencePdfRelationEntries(fields);
+    const batchPreflightErrors = referencePdfPendingBatchErrors(pendingPdfBatches, fields);
+    if (batchPreflightErrors.length)
+      throw new Error('다중 PDF 등록 준비 불완전: ' + batchPreflightErrors.join(' / '));
     const uploadPlan = collectPendingManageReferenceUploads(fields);
     let referenceUploadResult = { uploadedCount: 0, reusedCount: 0 };
     if (uploadPlan.length) {
@@ -8360,8 +8380,8 @@ async function saveManagedTopic(event) {
       referenceUploadResult = await uploadPendingManageReferencePages(fields);
     }
 
-    if (collectPendingReferencePdfRelationEntries(fields).length) {
-      setLoading(true, '보강·개정 PDF 서버 관계를 다시 확인하는 중...');
+    if (pendingPdfBatches.length) {
+      setLoading(true, '분할 PDF 전체 페이지 및 서버 관계를 다시 확인하는 중...');
       await verifyPendingReferencePdfMaterialRelations(fields);
     }
 
