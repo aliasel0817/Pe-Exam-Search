@@ -602,6 +602,44 @@ async function testSavePreflightAllowsRevisionBatchCover() {
 }
 
 
+
+function testLocalCatalogRetainsMaterialTypesAndOriginalBaseChoices() {
+  const pages=[];
+  const add=(sourceType,pageKey,pageNumber,materialType,basePageKey)=>
+    pages.push({sourceType,pageKey,pageNumber,pageToken:pageKey+':'+pageNumber,
+      materialType,basePageKey:basePageKey||pageKey});
+  [1,2].forEach(n=>add('교재','SW',n,'원본'));
+  [1,2].forEach(n=>add('교재','SW-2-ADD1',n,'보강','SW'));
+  add('교재','SW-R3',613,'개정','SW');
+  add('교재','SW-R3',614,'보강','SW');
+  add('교재','SW-R4',614,'보강','SW');
+  add('서브노트','MG',1,undefined);
+  const select={value:'SW-R3',innerHTML:''};
+  const h=createHarness([
+    'referencePdfCatalogFromLocal','isReferencePdfOriginalBaseKey',
+    'populateManageReferenceMaterialBaseKeys',
+  ],{
+    clean,allReferencePdfPages:pages,referencePdfPageCatalog:[],
+    manageReferenceMaterialConfig:()=>({baseKey:select}),
+    escapeHtml:v=>String(v),pageKeyForCategory:()=> 'SW',
+    updateManageReferenceMaterialUi:()=>{},
+  });
+  const catalog=h.referencePdfCatalogFromLocal();
+  const find=(type,pageKey)=>catalog.find(e=>e.sourceType===type&&e.pageKey===pageKey);
+  assert.equal(find('교재','SW').materialType,'원본');
+  assert.equal(find('교재','SW-2-ADD1').materialType,'보강');
+  assert.equal(find('교재','SW-R3').materialType,'개정');
+  assert.equal(find('교재','SW-R4').materialType,'보강');
+  assert.equal(find('서브노트','MG').materialType,'원본',
+    'legacy offline cache without materialType should remain an original');
+  assert.deepEqual(Array.from(find('교재','SW').ranges,x=>Array.from(x)),[[1,2]]);
+  h.referencePdfPageCatalog=catalog;
+  h.populateManageReferenceMaterialBaseKeys('교재');
+  assert.match(select.innerHTML,/value="SW"/);
+  assert.doesNotMatch(select.innerHTML,/ADD1|SW-R3|SW-R4/);
+  assert.equal(select.value,'SW');
+}
+
 function testReferencePdfBaseKeyChoicesExcludeAddAndRevisionKeys() {
   const catalog=[
     {sourceType:'교재',pageKey:'SW',pageCount:100,materialType:'원본'},
@@ -1027,6 +1065,7 @@ function testSequentialOriginalNavigation() {
   await testManualMultiPageUploadRow();
   await testChangedFormInputsAbortPendingPDFBatch();
   testReferencePdfBaseKeyChoicesExcludeAddAndRevisionKeys();
+  testLocalCatalogRetainsMaterialTypesAndOriginalBaseChoices();
   await testRejectRevisionBaseEvenWhenCatalogMislabeledOriginal();
   await testNoSupplementAsBaseKey();
   await testSavePreflightAllowsRevisionBatchCover();
