@@ -4154,7 +4154,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.13-pdf-local-catalog-types';
+const APP_VERSION = '4.6.14-pdf-relation-readback';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -8127,6 +8127,75 @@ async function uploadPendingManageReferencePages(fields) {
   return { uploadedCount, reusedCount };
 }
 
+function collectPendingReferencePdfRelationEntries(fields) {
+  const linked = new Map([
+    ['서브노트', new Set(splitPageTokens(fields.subnotePages))],
+    ['교재', new Set(splitPageTokens(fields.textbookPages))],
+  ]);
+  return [...pendingReferencePdfFiles.entries()].flatMap(([key, entry]) => {
+    if (!entry?.batchFirstToken || !['supplement','revision'].includes(entry.batchMode))
+      return [];
+    const split = key.indexOf('\u0001');
+    const sourceType = key.slice(0, split);
+    if (!linked.get(sourceType)?.has(entry.batchLinkToken || entry.batchFirstToken)) return [];
+    return [{ sourceType, entry }];
+  });
+}
+
+function referencePdfMaterialRelationErrors(entries, serverPages) {
+  const pagesById = new Map(serverPages.map(page =>
+    [referencePdfPageId(page.sourceType, page.pageToken), page]));
+  const errors = [];
+  for (const { sourceType, entry } of entries) {
+    const plan = entry.plan || {};
+    const token = clean(entry.pageToken || plan.pageToken);
+    const actual = pagesById.get(referencePdfPageId(sourceType, token));
+    if (!actual || !clean(actual.driveFileId)) {
+      errors.push(sourceType + ' ' + token + ' · 서버 목록에서 파일 누락');
+      continue;
+    }
+    if (!entry.uploadedDriveFileId || actual.driveFileId !== entry.uploadedDriveFileId)
+      errors.push(sourceType + ' ' + token + ' · 저장된 파일ID 불일치');
+    const expectedType = plan.rawMaterialType === 'revision' ? '개정' : '보강';
+    if (clean(actual.materialType) !== expectedType)
+      errors.push(sourceType + ' ' + token + ' · 관계 자료유형 불일치');
+    if (clean(actual.basePageKey).toUpperCase() !== clean(plan.basePageKey).toUpperCase())
+      errors.push(sourceType + ' ' + token + ' · 기준 페이지키 불일치');
+    if (clean(actual.active) === 'N')
+      errors.push(sourceType + ' ' + token + ' · 비활성 페이지');
+    if (expectedType === '개정') {
+      if (clean(actual.replacementTarget) !== clean(plan.replacementTarget))
+        errors.push(sourceType + ' ' + token + ' · 대체 대상 불일치');
+    } else {
+      if (clean(actual.anchorPageToken) !== clean(plan.anchorPageToken) ||
+          clean(actual.insertionPosition) !== clean(plan.insertionPosition))
+        errors.push(sourceType + ' ' + token + ' · 보강 삽입 관계 불일치');
+    }
+  }
+  return errors;
+}
+
+async function verifyPendingReferencePdfMaterialRelations(fields) {
+  const entries = collectPendingReferencePdfRelationEntries(fields);
+  if (!entries.length) return { verifiedCount: 0 };
+  let serverPages;
+  try {
+    // A fresh Apps Script page-list response includes the actual relation
+    // sheet values. The upload success response alone cannot prove them.
+    serverPages = await refreshReferencePdfPagesFromServer();
+  } catch (error) {
+    throw new Error('보강·개정 PDF가 일부 저장됐을 수 있으나 서버 관계 재조회에 실패했습니다. 관리창을 유지하고 연결을 확인한 뒤 저장을 재시도해 주세요. ' +
+      (error?.message || ''));
+  }
+  const errors = referencePdfMaterialRelationErrors(entries, serverPages);
+  if (errors.length) {
+    throw new Error('보강·개정 PDF 서버 관계 검증 실패: ' + errors.slice(0, 5).join(' / ') +
+      (errors.length > 5 ? ' 외 ' + (errors.length - 5) + '건' : '') +
+      ' · 기존 PDF는 삭제하지 않았습니다. 관리창을 유지하고 추가 업로드를 중지해 주세요.');
+  }
+  return { verifiedCount: entries.length };
+}
+
 function getReferencePdfPage(sourceType, pageToken) {
   const pageId = referencePdfPageId(sourceType, pageToken);
   return allReferencePdfPages.find(page => page.pageId === pageId) || null;
@@ -8251,6 +8320,11 @@ async function saveManagedTopic(event) {
     if (uploadPlan.length) {
       setLoading(true, `원본 PDF 페이지 등록 중 · ${uploadPlan.length}개`);
       referenceUploadResult = await uploadPendingManageReferencePages(fields);
+    }
+
+    if (collectPendingReferencePdfRelationEntries(fields).length) {
+      setLoading(true, '보강·개정 PDF 서버 관계를 다시 확인하는 중...');
+      await verifyPendingReferencePdfMaterialRelations(fields);
     }
 
     const referencePageCheck = validateManageReferencePages(fields);
