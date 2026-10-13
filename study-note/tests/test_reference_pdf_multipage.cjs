@@ -872,9 +872,12 @@ async function testSupplementAndRevisionServerReadback() {
       replacementTarget:rawType==='revision'?'SW-2:613':'',
       insertionPosition:rawType==='supplement'?'뒤':'',
     };
+    plan.versionTag=batchMode==='revision'?'R6':'';
     const driveFileId='PDF-ID-'+pageKey+'-'+num;
     pending.set(key(type,token),{sourceType:type,pageToken:token,plan,
       batchMode,batchFirstToken:first,batchLinkToken:link,
+      batchPageCount:batchMode==='revision'?3:2,
+      batchIndex:batchMode==='revision'?num-613:num-1,
       uploadedDriveFileId:driveFileId,
     });
     servers.push({sourceType:type,pageKey,pageNumber:num,pageToken:token,
@@ -883,7 +886,7 @@ async function testSupplementAndRevisionServerReadback() {
       anchorPageToken:plan.anchorPageToken,
       replacementTarget:plan.replacementTarget,
       insertionPosition:plan.insertionPosition,
-      driveFileId,active:'Y',...props,
+      driveFileId,active:'Y',versionTag:plan.versionTag,...props,
     });
   }
   stage('교재','SW-2-R6',613,'revision','revision');
@@ -895,6 +898,7 @@ async function testSupplementAndRevisionServerReadback() {
   let fetchCount=0;
   const h=createHarness([
     'collectPendingReferencePdfRelationEntries',
+    'referencePdfPendingBatchErrors',
     'referencePdfMaterialRelationErrors',
     'verifyPendingReferencePdfMaterialRelations',
   ],{
@@ -933,19 +937,34 @@ async function testSupplementAndRevisionServerReadback() {
   await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
     /비활성 페이지/);
   serverReply=servers.map(p=>({...p}));
+  serverReply=servers.map(p=>({...p}));
+  serverReply[0].pageNumber=999;
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /서버 페이지키\/페이지번호 불일치/);
+  serverReply=servers.map(p=>({...p}));
+  serverReply[1].versionTag='R5';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /개정 판본 불일치/);
+  serverReply=servers.map(p=>({...p}));
+  const removed=pending.get(key('교재','SW-2-R6:615'));
+  pending.delete(key('교재','SW-2-R6:615'));
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /분할 페이지 누락/);
+  pending.set(key('교재','SW-2-R6:615'),removed);
   const recovered=await h.verifyPendingReferencePdfMaterialRelations(fields);
   assert.equal(recovered.verifiedCount,5,'matching server relations allow safe retry');
   assert.equal(pending.size,5);
   const empty=await h.verifyPendingReferencePdfMaterialRelations({textbookPages:'',subnotePages:''});
   assert.equal(empty.verifiedCount,0);
-  assert.equal(fetchCount,8,'no server fetch for non-linked pending batches');
+  assert.equal(fetchCount,10,'no fetch for non-linked or locally incomplete batches');
 }
 
 async function testRelationReadbackFailureDoesNotDiscardStagedFiles() {
   const pending=new Map([[key('교재','SW-2-ADD3:1'),{
     batchMode:'supplement',batchFirstToken:'SW-2-ADD3:1',
     batchLinkToken:'SW-2-ADD3:1',pageToken:'SW-2-ADD3:1',
-    plan:{pageKey:'SW-2-ADD3',pageToken:'SW-2-ADD3:1',
+    batchPageCount:1,batchIndex:0,
+    plan:{pageKey:'SW-2-ADD3',pageNumber:1,pageToken:'SW-2-ADD3:1',
       rawMaterialType:'supplement',basePageKey:'SW-2',
       anchorPageToken:'SW-2:613',insertionPosition:'뒤'},
     uploadedDriveFileId:'PDF-ONE',
@@ -953,6 +972,7 @@ async function testRelationReadbackFailureDoesNotDiscardStagedFiles() {
   let failNetwork=true;
   const h=createHarness([
     'collectPendingReferencePdfRelationEntries',
+    'referencePdfPendingBatchErrors',
     'referencePdfMaterialRelationErrors',
     'verifyPendingReferencePdfMaterialRelations',
   ],{
@@ -960,7 +980,7 @@ async function testRelationReadbackFailureDoesNotDiscardStagedFiles() {
     splitPageTokens:raw=>clean(raw).split(',').filter(Boolean),
     refreshReferencePdfPagesFromServer:async()=>{
       if(failNetwork)throw Error('simulated offline');
-      return [{sourceType:'교재',pageKey:'SW-2-ADD3',
+      return [{sourceType:'교재',pageKey:'SW-2-ADD3',pageNumber:1,
         pageToken:'SW-2-ADD3:1',driveFileId:'PDF-ONE',
         basePageKey:'SW-2',anchorPageToken:'SW-2:613',
         insertionPosition:'뒤',materialType:'보강',active:'Y'}];

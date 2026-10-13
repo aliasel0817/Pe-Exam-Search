@@ -4154,7 +4154,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.14-pdf-relation-readback';
+const APP_VERSION = '4.6.15-pdf-relation-readback-identity';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -8142,6 +8142,33 @@ function collectPendingReferencePdfRelationEntries(fields) {
   });
 }
 
+function referencePdfPendingBatchErrors(entries, fields) {
+  // A missing staged continuation cannot be detected by comparing only the
+  // entries that remain. Check every batch against its original split count.
+  const groups = new Map();
+  for (const { sourceType, entry } of entries) {
+    const groupId = referencePdfPageId(sourceType, entry.batchFirstToken);
+    if (!groups.has(groupId)) groups.set(groupId, []);
+    groups.get(groupId).push({ sourceType, entry });
+  }
+  const errors = [];
+  for (const group of groups.values()) {
+    const { sourceType, entry: first } = group[0];
+    const count = Number(first.batchPageCount);
+    if (!Number.isInteger(count) || count < 1) continue; // legacy test fixtures
+    const indices = new Set(group.map(({ entry }) => Number(entry.batchIndex)));
+    if (group.length !== count || indices.size !== count ||
+        [...Array(count).keys()].some(index => !indices.has(index))) {
+      errors.push(sourceType + ' ' + first.batchFirstToken + ' · 분할 페이지 누락/순서 불일치');
+    }
+    const links = new Set(splitPageTokens(sourceType === '서브노트' ? fields.subnotePages : fields.textbookPages));
+    if (group.some(({ entry }) => Number(entry.batchIndex) > 0 && links.has(entry.pageToken))) {
+      errors.push(sourceType + ' ' + first.batchFirstToken + ' · 분할 계속 페이지를 토픽에 직접 연결할 수 없음');
+    }
+  }
+  return errors;
+}
+
 function referencePdfMaterialRelationErrors(entries, serverPages) {
   const pagesById = new Map(serverPages.map(page =>
     [referencePdfPageId(page.sourceType, page.pageToken), page]));
@@ -8156,6 +8183,12 @@ function referencePdfMaterialRelationErrors(entries, serverPages) {
     }
     if (!entry.uploadedDriveFileId || actual.driveFileId !== entry.uploadedDriveFileId)
       errors.push(sourceType + ' ' + token + ' · 저장된 파일ID 불일치');
+    if (clean(actual.pageKey).toUpperCase() !== clean(plan.pageKey).toUpperCase() ||
+        Number(actual.pageNumber) !== Number(plan.pageNumber))
+      errors.push(sourceType + ' ' + token + ' · 서버 페이지키/페이지번호 불일치');
+    if (clean(plan.versionTag) &&
+        clean(actual.versionTag).toUpperCase() !== clean(plan.versionTag).toUpperCase())
+      errors.push(sourceType + ' ' + token + ' · 개정 판본 불일치');
     const expectedType = plan.rawMaterialType === 'revision' ? '개정' : '보강';
     if (clean(actual.materialType) !== expectedType)
       errors.push(sourceType + ' ' + token + ' · 관계 자료유형 불일치');
@@ -8178,6 +8211,11 @@ function referencePdfMaterialRelationErrors(entries, serverPages) {
 async function verifyPendingReferencePdfMaterialRelations(fields) {
   const entries = collectPendingReferencePdfRelationEntries(fields);
   if (!entries.length) return { verifiedCount: 0 };
+  const stagedErrors = referencePdfPendingBatchErrors(entries, fields);
+  if (stagedErrors.length) {
+    throw new Error('보강·개정 PDF 분할 대기 정보 검증 실패: ' + stagedErrors.join(' / ') +
+      ' · 기존 PDF는 변경하지 않았습니다. 관리창에서 등록 준비 상태를 확인해 주세요.');
+  }
   let serverPages;
   try {
     // A fresh Apps Script page-list response includes the actual relation
