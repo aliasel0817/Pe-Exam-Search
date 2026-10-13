@@ -556,7 +556,7 @@ async function testSavePreflightAllowsRevisionBatchCover() {
     topicName:'SAFE TEST',status:'기존서브노트',subnotePages:'',
     textbookPages:link,
   };
-  let uploads=0, writes=0, verifications=0;
+  let uploads=0, writes=0, verifications=0, failVerification=false;
   const order=[];
   const errors=[];
   const h=createHarness(['saveManagedTopic'],{
@@ -580,7 +580,7 @@ async function testSavePreflightAllowsRevisionBatchCover() {
     }],
     uploadPendingManageReferencePages:async()=>{uploads++;order.push('upload');return {uploadedCount:2,reusedCount:0}},
     collectPendingReferencePdfRelationEntries:()=>[{sourceType:'교재',entry:{}}],
-    verifyPendingReferencePdfMaterialRelations:async()=>{verifications++;order.push('verify');},
+    verifyPendingReferencePdfMaterialRelations:async()=>{verifications++;order.push('verify');if(failVerification)throw Error('RELATION_READBACK_FAIL');},
     validateManageReferencePages:()=>({ok:true,missing:[]}),
     pendingReferencePdfReplacements:new Map(),
     setLoading:()=>{},
@@ -604,6 +604,14 @@ async function testSavePreflightAllowsRevisionBatchCover() {
   assert.equal(writes,1,'revision batch must not be rejected as missing folder');
   assert(errors.some(msg=>msg.includes('수정 완료')));
   assert(!errors.some(msg=>msg.includes('등록 준비가 필요')));
+  failVerification=true;
+  await h.saveManagedTopic({preventDefault(){}});
+  assert.equal(writes,1,'failed server relation verification must block topic mutation');
+  assert(errors.some(msg=>msg.includes('RELATION_READBACK_FAIL')));
+  assert.equal(pending.size,1,'failed verification must leave staged batch intact');
+  failVerification=false;
+  await h.saveManagedTopic({preventDefault(){}});
+  assert.equal(writes,2,'later retry may proceed once relation check passes');
 }
 
 
