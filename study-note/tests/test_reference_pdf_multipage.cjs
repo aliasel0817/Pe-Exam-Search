@@ -556,7 +556,8 @@ async function testSavePreflightAllowsRevisionBatchCover() {
     topicName:'SAFE TEST',status:'기존서브노트',subnotePages:'',
     textbookPages:link,
   };
-  let uploads=0, writes=0;
+  let uploads=0, writes=0, verifications=0;
+  const order=[];
   const errors=[];
   const h=createHarness(['saveManagedTopic'],{
     navigator:{onLine:true},
@@ -577,12 +578,14 @@ async function testSavePreflightAllowsRevisionBatchCover() {
     collectPendingManageReferenceUploads:()=>[{
       sourceType:'교재',pageKey:'SW-2-R7',pageNumber:613,pageToken:link,
     }],
-    uploadPendingManageReferencePages:async()=>{uploads++;return {uploadedCount:2,reusedCount:0}},
+    uploadPendingManageReferencePages:async()=>{uploads++;order.push('upload');return {uploadedCount:2,reusedCount:0}},
+    collectPendingReferencePdfRelationEntries:()=>[{sourceType:'교재',entry:{}}],
+    verifyPendingReferencePdfMaterialRelations:async()=>{verifications++;order.push('verify');},
     validateManageReferencePages:()=>({ok:true,missing:[]}),
     pendingReferencePdfReplacements:new Map(),
     setLoading:()=>{},
     getApiUrl:()=> 'https://example.invalid',
-    sendMutation:async()=>{writes++;return {headers:[],row:[],referencePdfLinkCount:1}},
+    sendMutation:async()=>{writes++;order.push('topic');return {headers:[],row:[],referencePdfLinkCount:1}},
     normalizeSingleRow:()=>({topicId:'T4036'}),
     applyServerTopicLocally:async()=>{},
     refreshTopicReferencePdfLinks:async()=>{},
@@ -596,6 +599,8 @@ async function testSavePreflightAllowsRevisionBatchCover() {
   });
   await h.saveManagedTopic({preventDefault(){}});
   assert.equal(uploads,1,'revision batch must reach the upload stage');
+  assert.equal(verifications,1,'relation readback must happen before saving the topic');
+  assert.deepEqual(order,['upload','verify','topic']);
   assert.equal(writes,1,'revision batch must not be rejected as missing folder');
   assert(errors.some(msg=>msg.includes('수정 완료')));
   assert(!errors.some(msg=>msg.includes('등록 준비가 필요')));
@@ -843,6 +848,126 @@ function testIncompleteRevisionRemainsInvisibleAndUploadOrderSafe() {
 
 
 
+
+async function testSupplementAndRevisionServerReadback() {
+  const revisionFirst='SW-2-R6:613';
+  const supplementFirst='SW-2-ADD9:1';
+  const pending=new Map();
+  const servers=[];
+  function stage(type, pageKey, num, batchMode, rawType, props) {
+    const token=pageKey+':'+num;
+    const first=batchMode==='revision'?revisionFirst:supplementFirst;
+    const link=batchMode==='revision'?'SW-2:613':supplementFirst;
+    const plan={pageKey,pageNumber:num,pageToken:token,
+      rawMaterialType:rawType,basePageKey:'SW-2',
+      anchorPageToken:rawType==='supplement'?'SW-2:613':'',
+      replacementTarget:rawType==='revision'?'SW-2:613':'',
+      insertionPosition:rawType==='supplement'?'뒤':'',
+    };
+    const driveFileId='PDF-ID-'+pageKey+'-'+num;
+    pending.set(key(type,token),{sourceType:type,pageToken:token,plan,
+      batchMode,batchFirstToken:first,batchLinkToken:link,
+      uploadedDriveFileId:driveFileId,
+    });
+    servers.push({sourceType:type,pageKey,pageNumber:num,pageToken:token,
+      materialType:rawType==='revision'?'개정':'보강',
+      basePageKey:'SW-2',
+      anchorPageToken:plan.anchorPageToken,
+      replacementTarget:plan.replacementTarget,
+      insertionPosition:plan.insertionPosition,
+      driveFileId,active:'Y',...props,
+    });
+  }
+  stage('교재','SW-2-R6',613,'revision','revision');
+  stage('교재','SW-2-R6',614,'revision','supplement');
+  stage('교재','SW-2-R6',615,'revision','supplement');
+  stage('서브노트','SW-2-ADD9',1,'supplement','supplement');
+  stage('서브노트','SW-2-ADD9',2,'supplement','supplement');
+  let serverReply=servers.slice();
+  let fetchCount=0;
+  const h=createHarness([
+    'collectPendingReferencePdfRelationEntries',
+    'referencePdfMaterialRelationErrors',
+    'verifyPendingReferencePdfMaterialRelations',
+  ],{
+    clean,pendingReferencePdfFiles:pending,
+    splitPageTokens:raw=>clean(raw).split(',').filter(Boolean),
+    referencePdfPageId:key,
+    refreshReferencePdfPagesFromServer:async()=>{fetchCount++;return serverReply},
+  });
+  const fields={textbookPages:'SW-2:613',subnotePages:supplementFirst};
+  const result=await h.verifyPendingReferencePdfMaterialRelations(fields);
+  assert.equal(result.verifiedCount,5);
+  assert.equal(fetchCount,1);
+  assert.equal(pending.size,5,'readback must not mutate staged pages');
+  // Readback returns the wrong relation type even though the file exists.
+  serverReply=servers.map(p=>({...p}));
+  serverReply[0].materialType='보강';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /관계 자료유형 불일치/);
+  serverReply=servers.map(p=>({...p}));
+  serverReply[1].anchorPageToken='SW-2:999';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /보강 삽입 관계 불일치/);
+  serverReply=servers.map(p=>({...p}));
+  serverReply[2].driveFileId='ANOTHER-DRIVE-FILE';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /저장된 파일ID 불일치/);
+  serverReply=servers.slice(0,4).map(p=>({...p}));
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /서버 목록에서 파일 누락/);
+  serverReply=servers.map(p=>({...p}));
+  serverReply[3].basePageKey='SW-X';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /기준 페이지키 불일치/);
+  serverReply=servers.map(p=>({...p}));
+  serverReply[4].active='N';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /비활성 페이지/);
+  serverReply=servers.map(p=>({...p}));
+  const recovered=await h.verifyPendingReferencePdfMaterialRelations(fields);
+  assert.equal(recovered.verifiedCount,5,'matching server relations allow safe retry');
+  assert.equal(pending.size,5);
+  const empty=await h.verifyPendingReferencePdfMaterialRelations({textbookPages:'',subnotePages:''});
+  assert.equal(empty.verifiedCount,0);
+  assert.equal(fetchCount,8,'no server fetch for non-linked pending batches');
+}
+
+async function testRelationReadbackFailureDoesNotDiscardStagedFiles() {
+  const pending=new Map([[key('교재','SW-2-ADD3:1'),{
+    batchMode:'supplement',batchFirstToken:'SW-2-ADD3:1',
+    batchLinkToken:'SW-2-ADD3:1',pageToken:'SW-2-ADD3:1',
+    plan:{pageKey:'SW-2-ADD3',pageToken:'SW-2-ADD3:1',
+      rawMaterialType:'supplement',basePageKey:'SW-2',
+      anchorPageToken:'SW-2:613',insertionPosition:'뒤'},
+    uploadedDriveFileId:'PDF-ONE',
+  }]]);
+  let failNetwork=true;
+  const h=createHarness([
+    'collectPendingReferencePdfRelationEntries',
+    'referencePdfMaterialRelationErrors',
+    'verifyPendingReferencePdfMaterialRelations',
+  ],{
+    clean,referencePdfPageId:key,pendingReferencePdfFiles:pending,
+    splitPageTokens:raw=>clean(raw).split(',').filter(Boolean),
+    refreshReferencePdfPagesFromServer:async()=>{
+      if(failNetwork)throw Error('simulated offline');
+      return [{sourceType:'교재',pageKey:'SW-2-ADD3',
+        pageToken:'SW-2-ADD3:1',driveFileId:'PDF-ONE',
+        basePageKey:'SW-2',anchorPageToken:'SW-2:613',
+        insertionPosition:'뒤',materialType:'보강',active:'Y'}];
+    },
+  });
+  const fields={textbookPages:'SW-2-ADD3:1',subnotePages:''};
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /서버 관계 재조회에 실패/);
+  assert.equal(pending.size,1);
+  failNetwork=false;
+  const result=await h.verifyPendingReferencePdfMaterialRelations(fields);
+  assert.equal(result.verifiedCount,1);
+}
+
+
 async function testRevisionContinuationFailureAndRetry() {
   const first='SW-2-R4:613', sourceType='교재';
   const pending=new Map();
@@ -1070,6 +1195,8 @@ function testSequentialOriginalNavigation() {
   await testNoSupplementAsBaseKey();
   await testSavePreflightAllowsRevisionBatchCover();
   await testRevisionContinuationFailureAndRetry();
+  await testSupplementAndRevisionServerReadback();
+  await testRelationReadbackFailureDoesNotDiscardStagedFiles();
   testServerPayloadReloadForSubnoteAndRevision();
   testSequentialOriginalNavigation();
   console.log('PASS: HTML scripts parse, real 2-page split, legacy limits, staged retry, collision checks, and sequential navigation');
