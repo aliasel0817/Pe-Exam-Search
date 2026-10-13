@@ -157,10 +157,10 @@ async function testManagePrepareLinksOnlyFirstPage() {
       keyOverride: { value: '' }, plan: { className: '', textContent: '' },
     };
     const button = { disabled: false };
-    const h = createHarness(['buildReferencePdfBatchEntries', 'stageReferencePdfBatch', 'prepareManageReferenceMaterial'], {
+    const h = createHarness(['buildReferencePdfBatchEntries', 'stageReferencePdfBatch', 'isReferencePdfOriginalBaseKey', 'prepareManageReferenceMaterial'], {
       navigator: { onLine: true },
       manageReferenceMaterialConfig: () => cfg,
-      referencePdfCatalogItem: () => ({ materialType:'원본' }),
+      referencePdfCatalogItem: () => ({pageKey:'SE',pageCount:2,materialType:'원본'}),
       els: { manageSubnoteMaterialPrepareBtn: button, manageTextbookMaterialPrepareBtn: button },
       referencePdfPreparationCount: 0,
       referencePdfPreparationGeneration: 0,
@@ -496,14 +496,14 @@ async function testMaterialPreparationForBothSources() {
       const serverRequests=[];
       const h=createHarness([
         'buildReferencePdfBatchEntries','stageReferencePdfBatch',
-        'nextUnusedReferenceRevisionKey','prepareManageReferenceMaterial',
+        'nextUnusedReferenceRevisionKey','isReferencePdfOriginalBaseKey', 'prepareManageReferenceMaterial',
       ], {
         clean, File,navigator:{onLine:true},els:buttons,
         referencePdfPreparationGeneration:0,referencePdfPreparationCount:0,
         referencePdfPageCatalog:[],allReferencePdfPages:[],
         pendingReferencePdfFiles:pending,
         manageReferenceMaterialConfig:()=>cfg,
-        referencePdfCatalogItem:()=>({materialType:'원본'}),
+        referencePdfCatalogItem:()=>({pageKey:'SW-2',pageCount:30,materialType:'원본'}),
         validatePendingReferencePdfFile:()=>{},
         splitNewOriginalReferencePdf:async()=>[1,2,3].map(i=>
           new File(['%PDF-'+i],'split'+i+'.pdf',{type:'application/pdf'})),
@@ -601,13 +601,77 @@ async function testSavePreflightAllowsRevisionBatchCover() {
   assert(!errors.some(msg=>msg.includes('등록 준비가 필요')));
 }
 
+
+function testReferencePdfBaseKeyChoicesExcludeAddAndRevisionKeys() {
+  const catalog=[
+    {sourceType:'교재',pageKey:'SW',pageCount:100,materialType:'원본'},
+    {sourceType:'교재',pageKey:'SW-2',pageCount:80,materialType:'원본'},
+    {sourceType:'교재',pageKey:'SW-2-ADD1',pageCount:2,materialType:'보강'},
+    {sourceType:'교재',pageKey:'SW-2-R2',pageCount:3,materialType:'보강'},
+    {sourceType:'교재',pageKey:'SW-2-R3',pageCount:2,materialType:'원본'},
+    {sourceType:'서브노트',pageKey:'MG',pageCount:60,materialType:'원본'},
+  ];
+  const select={value:'SW-2-R2',innerHTML:''};
+  let uiUpdates=0;
+  const h=createHarness([
+    'isReferencePdfOriginalBaseKey',
+    'populateManageReferenceMaterialBaseKeys',
+  ],{
+    clean,referencePdfPageCatalog:catalog,
+    manageReferenceMaterialConfig:()=>({baseKey:select}),
+    escapeHtml:v=>String(v),
+    pageKeyForCategory:()=> 'SW',
+    updateManageReferenceMaterialUi:()=>uiUpdates++,
+  });
+  assert.equal(h.isReferencePdfOriginalBaseKey(catalog[0]),true);
+  assert.equal(h.isReferencePdfOriginalBaseKey(catalog[2]),false);
+  assert.equal(h.isReferencePdfOriginalBaseKey(catalog[3]),false);
+  assert.equal(h.isReferencePdfOriginalBaseKey(catalog[4]),false,
+    'even a mislabeled -R original must never become a source base');
+  h.populateManageReferenceMaterialBaseKeys('교재');
+  assert.match(select.innerHTML,/value="SW"/);
+  assert.match(select.innerHTML,/value="SW-2"/);
+  assert.doesNotMatch(select.innerHTML,/ADD1/);
+  assert.doesNotMatch(select.innerHTML,/R2/);
+  assert.doesNotMatch(select.innerHTML,/R3/);
+  assert.equal(select.value,'SW','invalid old selection must move to valid original');
+  assert.equal(uiUpdates,1);
+}
+
+async function testRejectRevisionBaseEvenWhenCatalogMislabeledOriginal() {
+  const file=new File(['%PDF-x'],'fake.pdf',{type:'application/pdf'});
+  const cfg={
+    type:{value:'new-original'},baseKey:{value:'SW-2-R3'},
+    pageNumber:{value:''},position:{value:'뒤'},keyOverride:{value:''},
+    file:{files:[file],value:'x'},plan:{className:'',textContent:''},
+  };
+  const button={disabled:false},errors=[];
+  const h=createHarness([
+    'isReferencePdfOriginalBaseKey','prepareManageReferenceMaterial',
+  ],{
+    clean,File,navigator:{onLine:true},
+    manageReferenceMaterialConfig:()=>cfg,
+    referencePdfCatalogItem:()=>({pageKey:'SW-2-R3',pageCount:3,materialType:'원본'}),
+    pendingReferencePdfFiles:new Map(),
+    referencePdfPreparationGeneration:0,referencePdfPreparationCount:0,
+    els:{manageTextbookMaterialPrepareBtn:button},
+    validatePendingReferencePdfFile:()=>{},
+    splitNewOriginalReferencePdf:async()=>[file,file],
+    fetchReferencePdfRegistrationPlan:async()=>{throw Error('must not request plan from revision source');},
+    showToast:m=>errors.push(m),
+  });
+  await h.prepareManageReferenceMaterial('교재');
+  assert.equal(h.pendingReferencePdfFiles.size,0);
+  assert(errors.some(m=>m.includes('원본 페이지키')));
+}
+
 async function testNoSupplementAsBaseKey() {
   const file=new File(['%PDF-X'],'bad.pdf',{type:'application/pdf'});
   const cfg={type:{value:'supplement'},baseKey:{value:'SW-2-R4'},
     pageNumber:{value:'613'},position:{value:'뒤'},keyOverride:{value:''},
     file:{files:[file],value:'x'},plan:{className:'',textContent:''}};
   const b={disabled:false}, pending=new Map(),errors=[];
-  const h=createHarness(['prepareManageReferenceMaterial'],{
+  const h=createHarness(['isReferencePdfOriginalBaseKey', 'prepareManageReferenceMaterial'],{
     File,clean,navigator:{onLine:true},els:{manageTextbookMaterialPrepareBtn:b},
     referencePdfPreparationCount:0,referencePdfPreparationGeneration:0,
     pendingReferencePdfFiles:pending,manageReferenceMaterialConfig:()=>cfg,
@@ -634,7 +698,7 @@ async function testChangedFormInputsAbortPendingPDFBatch() {
     const button={disabled:false},pending=new Map(),messages=[];
     let release;
     const splitPromise=new Promise(resolve=>{release=resolve;});
-    const h=createHarness(['prepareManageReferenceMaterial'],{
+    const h=createHarness(['isReferencePdfOriginalBaseKey', 'prepareManageReferenceMaterial'],{
       clean, navigator:{onLine:true},pendingReferencePdfFiles:pending,
       referencePdfPreparationGeneration:0,referencePdfPreparationCount:0,
       manageReferenceMaterialConfig:()=>cfg,
@@ -962,6 +1026,8 @@ function testSequentialOriginalNavigation() {
   await testMaterialPreparationForBothSources();
   await testManualMultiPageUploadRow();
   await testChangedFormInputsAbortPendingPDFBatch();
+  testReferencePdfBaseKeyChoicesExcludeAddAndRevisionKeys();
+  await testRejectRevisionBaseEvenWhenCatalogMislabeledOriginal();
   await testNoSupplementAsBaseKey();
   await testSavePreflightAllowsRevisionBatchCover();
   await testRevisionContinuationFailureAndRetry();
