@@ -556,7 +556,7 @@ async function testSavePreflightAllowsRevisionBatchCover() {
     topicName:'SAFE TEST',status:'기존서브노트',subnotePages:'',
     textbookPages:link,
   };
-  let uploads=0, writes=0, verifications=0, failVerification=false;
+  let uploads=0, writes=0, verifications=0, failVerification=false, failPreflight=false;
   const order=[];
   const errors=[];
   const h=createHarness(['saveManagedTopic'],{
@@ -580,6 +580,7 @@ async function testSavePreflightAllowsRevisionBatchCover() {
     }],
     uploadPendingManageReferencePages:async()=>{uploads++;order.push('upload');return {uploadedCount:2,reusedCount:0}},
     collectPendingReferencePdfRelationEntries:()=>[{sourceType:'교재',entry:{}}],
+    referencePdfPendingBatchErrors:()=>failPreflight?['STAGED_BATCH_INCOMPLETE']:[],
     verifyPendingReferencePdfMaterialRelations:async()=>{verifications++;order.push('verify');if(failVerification)throw Error('RELATION_READBACK_FAIL');},
     validateManageReferencePages:()=>({ok:true,missing:[]}),
     pendingReferencePdfReplacements:new Map(),
@@ -604,6 +605,12 @@ async function testSavePreflightAllowsRevisionBatchCover() {
   assert.equal(writes,1,'revision batch must not be rejected as missing folder');
   assert(errors.some(msg=>msg.includes('수정 완료')));
   assert(!errors.some(msg=>msg.includes('등록 준비가 필요')));
+  failPreflight=true;
+  await h.saveManagedTopic({preventDefault(){}});
+  assert.equal(uploads,1,'incomplete staged batch must be stopped BEFORE any upload');
+  assert.equal(writes,1,'incomplete staged batch must not mutate topic');
+  assert(errors.some(msg=>msg.includes('STAGED_BATCH_INCOMPLETE')));
+  failPreflight=false;
   failVerification=true;
   await h.saveManagedTopic({preventDefault(){}});
   assert.equal(writes,1,'failed server relation verification must block topic mutation');
@@ -959,6 +966,101 @@ async function testSupplementAndRevisionServerReadback() {
   assert.equal(fetchCount,10,'no fetch for non-linked or locally incomplete batches');
 }
 
+
+async function testOriginalAndMissingBatchServerReadback() {
+  // T4036-like new original: its registry base folder is SE, but the logical
+  // key returned by pdfPageFiles must be the newly created SE-17.
+  // A missing-page batch shares its existing MG logical key.
+  const pending=new Map();
+  const serverPages=[];
+  function stage(sourceType,pageKey,start,count,mode,parentKey) {
+    const firstToken=pageKey+':'+start;
+    for(let i=0;i<count;i++){
+      const pageNumber=start+i, token=pageKey+':'+pageNumber;
+      const driveFileId='PDF-'+pageKey+'-'+pageNumber;
+      pending.set(key(sourceType,token),{
+        sourceType,pageToken:token,batchMode:mode,batchFirstToken:firstToken,
+        batchLinkToken:firstToken,batchPageCount:count,batchIndex:i,
+        uploadedDriveFileId:driveFileId,
+        plan:{pageKey,pageNumber,pageToken:token,basePageKey:parentKey,
+          rawMaterialType:mode,storedFileName:pageKey+'_'+String(pageNumber).padStart(4,'0')+'.pdf'},
+      });
+      serverPages.push({sourceType,pageKey,pageNumber,pageToken:token,
+        driveFileId,materialType:'원본',basePageKey:pageKey,
+        anchorPageToken:'',insertionPosition:'',replacementTarget:'',active:'Y'});
+    }
+  }
+  stage('교재','SE-17',1,2,'new-original','SE');
+  stage('서브노트','MG',55,3,'missing-original','MG');
+  let response=serverPages.map(p=>({...p})),reads=0;
+  let networkFailure=false;
+  const h=createHarness([
+    'collectPendingReferencePdfRelationEntries',
+    'referencePdfPendingBatchErrors',
+    'referencePdfMaterialRelationErrors',
+    'verifyPendingReferencePdfMaterialRelations',
+  ],{
+    clean,pendingReferencePdfFiles:pending,referencePdfPageId:key,
+    splitPageTokens:v=>clean(v).split(',').filter(Boolean),
+    refreshReferencePdfPagesFromServer:async()=>{
+      reads++;
+      if(networkFailure)throw Error('offline in readback');
+      return response;
+    },
+  });
+  const fields={textbookPages:'SE-17:1',subnotePages:'MG:55'};
+  let result=await h.verifyPendingReferencePdfMaterialRelations(fields);
+  assert.equal(result.verifiedCount,5,'all original and missing pages must be read back');
+  assert.equal(reads,1);
+  assert.equal(pending.size,5);
+
+  response=serverPages.map(p=>({...p}));
+  response[0].materialType='보강';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /관계 자료유형 불일치/);
+
+  response=serverPages.map(p=>({...p}));
+  response[1].basePageKey='SE';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /기준 페이지키 불일치/);
+
+  response=serverPages.map(p=>({...p}));
+  response[2].anchorPageToken='MG:54';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /원본 페이지에 잘못된 보강\/개정 관계 기록/);
+
+  response=serverPages.slice(0,4).map(p=>({...p}));
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /서버 목록에서 파일 누락/);
+
+  response=serverPages.map(p=>({...p}));
+  const staged=pending.get(key('교재','SE-17:2'));
+  pending.delete(key('교재','SE-17:2'));
+  const readsBefore=reads;
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /분할 페이지 누락/);
+  assert.equal(reads,readsBefore,'incomplete staged batch must fail before readback');
+  pending.set(key('교재','SE-17:2'),staged);
+
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations({
+    ...fields,textbookPages:'SE-17:1,SE-17:2',
+  }),/계속 페이지를 토픽에 직접 연결/);
+
+  response=serverPages.map(p=>({...p}));
+  response[4].driveFileId='WRONG-FILE';
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /저장된 파일ID 불일치/);
+
+  response=serverPages.map(p=>({...p}));
+  networkFailure=true;
+  await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
+    /서버 페이지 재조회에 실패/);
+  networkFailure=false;
+  result=await h.verifyPendingReferencePdfMaterialRelations(fields);
+  assert.equal(result.verifiedCount,5,'safe retry succeeds after readback recovers');
+  assert.equal(pending.size,5,'all staged pages remain intact after readback failures');
+}
+
 async function testRelationReadbackFailureDoesNotDiscardStagedFiles() {
   const pending=new Map([[key('교재','SW-2-ADD3:1'),{
     batchMode:'supplement',batchFirstToken:'SW-2-ADD3:1',
@@ -988,7 +1090,7 @@ async function testRelationReadbackFailureDoesNotDiscardStagedFiles() {
   });
   const fields={textbookPages:'SW-2-ADD3:1',subnotePages:''};
   await assert.rejects(()=>h.verifyPendingReferencePdfMaterialRelations(fields),
-    /서버 관계 재조회에 실패/);
+    /서버 페이지 재조회에 실패/);
   assert.equal(pending.size,1);
   failNetwork=false;
   const result=await h.verifyPendingReferencePdfMaterialRelations(fields);
@@ -1224,6 +1326,7 @@ function testSequentialOriginalNavigation() {
   await testSavePreflightAllowsRevisionBatchCover();
   await testRevisionContinuationFailureAndRetry();
   await testSupplementAndRevisionServerReadback();
+  await testOriginalAndMissingBatchServerReadback();
   await testRelationReadbackFailureDoesNotDiscardStagedFiles();
   testServerPayloadReloadForSubnoteAndRevision();
   testSequentialOriginalNavigation();
