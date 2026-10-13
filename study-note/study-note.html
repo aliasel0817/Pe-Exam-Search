@@ -4154,7 +4154,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.12-pdf-reference-base-key-guard';
+const APP_VERSION = '4.6.13-pdf-local-catalog-types';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -7144,8 +7144,15 @@ function referencePdfCatalogFromLocal() {
     const pageNumber = Number(page.pageNumber);
     if (!sourceType || !pageKey || !Number.isInteger(pageNumber) || pageNumber < 1) continue;
     const id = `${sourceType}\u0001${pageKey}`;
-    if (!map.has(id)) map.set(id, { sourceType, pageKey, pageNumbers: [] });
-    map.get(id).pageNumbers.push(pageNumber);
+    if (!map.has(id)) map.set(id, {
+      sourceType, pageKey, pageNumbers: [], materialTypes: new Set(),
+      basePageKey: clean(page.basePageKey) || pageKey,
+    });
+    const entry = map.get(id);
+    entry.pageNumbers.push(pageNumber);
+    // Preserve page-specific types in the offline/fallback catalog. Without
+    // this, original-only selectors would incorrectly reject every local key.
+    entry.materialTypes.add(clean(page.materialType) || '원본');
   }
   return [...map.values()].map(item => {
     const numbers = [...new Set(item.pageNumbers)].sort((a, b) => a - b);
@@ -7165,6 +7172,9 @@ function referencePdfCatalogFromLocal() {
       maxPage: numbers[numbers.length - 1] || 0,
       pageCount: numbers.length,
       ranges,
+      basePageKey: item.basePageKey,
+      materialType: item.materialTypes.has('원본') ? '원본'
+        : item.materialTypes.has('개정') ? '개정' : '보강',
     };
   }).sort((a, b) => a.sourceType.localeCompare(b.sourceType, 'ko') || a.pageKey.localeCompare(b.pageKey, 'en', { numeric: true }));
 }
