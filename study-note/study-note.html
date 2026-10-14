@@ -248,6 +248,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .study-readable-list { margin: 0; padding-left: 1.75rem; display: grid; gap: .52rem; }
 .study-readable-list > li { padding-left: .12rem; white-space: pre-wrap; }
 .study-technical-item-label { font-weight: 750; }
+/* Keep verified Korean first, retaining the original English as a quieter study cue. */
+.study-technical-original-name { color: var(--muted); font-size: .82em; font-weight: 500; overflow-wrap: anywhere; }
 .study-readable-heading { margin-bottom: .5rem; font-weight: 750; color: #344054; }
 .meta-grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .meta-grid > div { padding: 10px 0; border-bottom: 1px solid #eef2f6; }
@@ -6279,7 +6281,25 @@ function describeStudyTechnicalItem(value, keywordGlossary, featureSource) {
       /(?:제공|관리|분석|정의|검증|생성|유지|제어|실행|보호|수집|확보|지원|점검|측정|추적|예측|적용|도출|구현|수행|평가|산정|통제|연계|처리|식별|저장|전송|결정|배치|계산|개선|설정|활용|구성|설계|변환|확인|형성|확대|강화|운영|파악|수립|정렬|진단|연구|효과)/.test(description)));
   if (!hasDescription) return null;
   // The entire original body, including nested English expansions, is kept.
-  return { label: addStudyTechnicalKoreanLabel(label, keywordGlossary, featureSource), description };
+  return { label: addStudyTechnicalKoreanLabel(label, keywordGlossary, featureSource), description, originalLabel: label };
+}
+
+// Prefer Korean on screen only when the English/Korean pair is explicit in
+// this item's original label or corroborated by the SAME topic's keywords/features.
+// The exact original English remains visible; generic glossary guesses stay as-is.
+function studyKoreanPrimaryTechnicalLabel(parsed, keywordGlossary, featureSource) {
+  if (!parsed) return null;
+  const pair = String(parsed.label || '').match(/^([A-Za-z][A-Za-z0-9 +._/-]{0,95})\(([가-힣][가-힣0-9· /-]{0,30})\)$/);
+  if (!pair) return null;
+  const english = pair[1].trim();
+  const korean = pair[2].trim();
+  // Keep protocol/standard names, versioned identifiers, and acronyms first.
+  if (/^[A-Z][A-Z0-9+._/-]{1,}$/.test(english) || /\b[A-Z]{2,}\b/.test(english) || /\d/.test(english)) return null;
+  const explicitSource = parsed.originalLabel === english + '(' + korean + ')';
+  const topicKeyword = keywordGlossary instanceof Map && keywordGlossary.get(english) === korean;
+  const topicFeature = studyFeatureTechnicalGloss(featureSource, english) === korean;
+  if (!explicitSource && !topicKeyword && !topicFeature) return null;
+  return { korean, english };
 }
 
 function setReadableStudyField(id, value, kind, eligible, keywordSource = '', featureSource = '') {
@@ -6313,12 +6333,23 @@ function setReadableStudyField(id, value, kind, eligible, keywordSource = '', fe
   list.className = 'study-readable-list';
   for (const item of items) {
     const li = document.createElement('li');
+    // Exact, unedited element for reversible DOM-level fidelity checks.
+    li.dataset.studyOriginalItem = item;
     if (kind === 'technicalComponents') {
       const parsed = describeStudyTechnicalItem(item, keywordGlossary, featureSource);
       if (parsed) {
         const heading = document.createElement('strong');
         heading.className = 'study-technical-item-label';
-        heading.textContent = parsed.label;
+        const primary = studyKoreanPrimaryTechnicalLabel(parsed, keywordGlossary, featureSource);
+        if (primary) {
+          heading.textContent = primary.korean;
+          const original = document.createElement('span');
+          original.className = 'study-technical-original-name';
+          original.textContent = ' (' + primary.english + ')';
+          heading.appendChild(original);
+        } else {
+          heading.textContent = parsed.label;
+        }
         li.appendChild(heading);
         li.appendChild(document.createTextNode(': ' + parsed.description));
       } else {
