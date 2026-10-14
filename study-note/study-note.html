@@ -243,6 +243,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .study-card.emphasis-card { border-color: #bfdbfe; background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); }
 .study-card h3 { margin: 0 0 10px; color: #475467; font-size: .8rem; letter-spacing: .02em; }
 .study-text { font-size: 1.02rem; line-height: 1.75; overflow-wrap: anywhere; }
+/* Retain explicit author line breaks for numbered or already-bulleted source. */
+.study-text.study-preserved-lines { white-space: pre-wrap; }
 .study-readable-list { margin: 0; padding-left: 1.75rem; display: grid; gap: .52rem; }
 .study-readable-list > li { padding-left: .12rem; white-space: pre-wrap; }
 .study-technical-item-label { font-weight: 750; }
@@ -5675,6 +5677,8 @@ function splitStudyItemsForDisplay(value) {
   if (!source || source === '-') return null;
   // Existing numbered paragraphs stay unchanged; do not mistake 1) for an unmatched bracket.
   if (/^\s*(?:\d{1,3}[\).]|[가-하][\).]|[①-㊿])\s*/m.test(source)) return null;
+  // Already-bulleted multi-line content has authored structure; do not number again.
+  if (/^\s*[-•]\s+/m.test(source) && source.includes('\n')) return null;
   const matching = { '(': ')', '[': ']', '{': '}' };
   const closers = new Set([')', ']', '}']);
   const stack = [];
@@ -6291,6 +6295,8 @@ function setReadableStudyField(id, value, kind, eligible, keywordSource = '', fe
     const match = source.match(/^([^:：(){}\[\]\n]{2,28}[:：])\s*(.+)$/);
     if (describeStudyTechnicalItem(match ? match[2] : source, keywordGlossary, featureSource)) items = [source];
   }
+  // Do not collapse authored numbered/indented hierarchies on small screens.
+  element.classList.toggle('study-preserved-lines', !items && /\r?\n/.test(source));
   if (!items) {
     element.textContent = source;
     return;
