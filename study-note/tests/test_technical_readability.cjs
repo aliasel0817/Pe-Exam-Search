@@ -11,7 +11,7 @@ const start = html.indexOf("function splitStudyItemsForDisplay(value)");
 const end = html.indexOf("function showTopicById(", start);
 assert(start !== -1 && end > start, "Production formatter must exist");
 const block = html.slice(start, end);
-const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,STUDY_TECHNICAL_GLOSSARY})");
+const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,studyKoreanPrimaryTechnicalLabel,STUDY_TECHNICAL_GLOSSARY})");
 const {splitStudyItemsForDisplay: split,topicKeywordTechnicalGlossary: fromKeywords,
   describeStudyTechnicalItem: describe,addStudyTechnicalKoreanLabel: gloss} = formatter;
 const item=(original,keyword="",feature="")=>describe(original,fromKeywords(keyword),feature);
@@ -176,4 +176,47 @@ test("Authored numbered Y hierarchy keeps raw text and line breaks",()=>{
 test("Authored multi-line hyphen features are not double-numbered",()=>{
   assert.equal(split("- 논리 큐비트 인코딩\n- 패리티 측정"),null);
   assert.deepEqual(Array.from(split("분리된 특징 하나 · 분리된 특징 둘")),["분리된 특징 하나","분리된 특징 둘"]);
+});
+
+
+test("Explicit source bilingual term becomes Korean-first without loss",()=>{
+  const raw="Selection(선택)(현재 UCT(Upper Confidence Bounds for Trees, 트리상한신뢰도)로 Node(노드)를 선택)";
+  const parsed=item(raw);
+  assert.equal(parsed.originalLabel,"Selection(선택)");
+  const p=formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(""),"");
+  assert.equal(p.korean,"선택");
+  assert.equal(p.english,"Selection");
+  assert.equal(parsed.description,"현재 UCT(Upper Confidence Bounds for Trees, 트리상한신뢰도)로 Node(노드)를 선택");
+});
+test("Same-topic keyword supports Korean-first display without altering body",()=>{
+  const parsed=item("Customer(고객의 니즈와 구매행동을 분석)","고객(Customer)");
+  assert.equal(parsed.originalLabel,"Customer");
+  const p=formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords("고객(Customer)"),"");
+  assert.equal(p.korean,"고객");
+  assert.equal(p.english,"Customer");
+  assert.equal(parsed.description,"고객의 니즈와 구매행동을 분석");
+});
+test("Same-topic feature may support Korean-first labels",()=>{
+  const feature="벡터 공간을 Span(생성)하는 집합의 성질";
+  const parsed=item("Span(서로 다른 벡터의 결합으로 공간을 구성)","",feature);
+  const p=formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(""),feature);
+  assert.equal(p.korean,"생성");
+  assert.equal(p.english,"Span");
+});
+test("Keep acronym as the primary technical name",()=>{
+  const keywords="서비스수준협약(SLA)";
+  const parsed=item("SLA(서비스수준을 정의하고 위반을 지속적으로 점검)",keywords);
+  assert.equal(parsed.label,"SLA(서비스수준협약)");
+  assert.equal(formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(keywords),""),null);
+});
+test("Global fallback without same-topic evidence is not promoted",()=>{
+  const parsed=item("Rivalry(경쟁자 간 가격과 품질을 비교하여 강도를 분석)");
+  assert.equal(parsed.label,"Rivalry(기존 경쟁)");
+  assert.equal(formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(""),""),null);
+});
+test("Korean-first UI retains the source English and exact raw element in DOM",()=>{
+  assert.match(html,/li\.dataset\.studyOriginalItem = item;/);
+  assert.match(html,/original\.textContent = ' \(' \+ primary\.english \+ '\)'/);
+  assert.match(html,/heading\.textContent = primary\.korean/);
+  assert.match(html,/\.study-technical-original-name \{[^}]*overflow-wrap: anywhere;/);
 });
