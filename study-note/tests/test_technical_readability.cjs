@@ -11,7 +11,7 @@ const start = html.indexOf("function splitStudyItemsForDisplay(value)");
 const end = html.indexOf("function showTopicById(", start);
 assert(start !== -1 && end > start, "Production formatter must exist");
 const block = html.slice(start, end);
-const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,studyKoreanPrimaryTechnicalLabel,STUDY_TECHNICAL_GLOSSARY})");
+const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,splitSimpleKoreanFeatureNamesForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,studyKoreanPrimaryTechnicalLabel,STUDY_TECHNICAL_GLOSSARY})");
 const {splitStudyItemsForDisplay: split,topicKeywordTechnicalGlossary: fromKeywords,
   describeStudyTechnicalItem: describe,addStudyTechnicalKoreanLabel: gloss} = formatter;
 const item=(original,keyword="",feature="")=>describe(original,fromKeywords(keyword),feature);
@@ -296,5 +296,42 @@ test("HTML-like labels remain literal text, and ineligible source is never split
   const x="서로 다른 특성 분석 · 단계별 평가";
   render("detailFeatures",x,"features",false);
   assert.equal(els.detailFeatures.textContent,x);
+  assert.equal(els.detailFeatures.children.length,0);
+});
+
+
+test("Comma-delimited Korean noun features are independent lines",()=>{
+  const source="비대화형 인증, 대량 동적 생성, 상시 접근성, 권한 집중성";
+  const parts=formatter.splitSimpleKoreanFeatureNamesForDisplay(source);
+  assert.deepEqual(Array.from(parts),[
+    "비대화형 인증","대량 동적 생성","상시 접근성","권한 집중성"
+  ]);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(c=>c.tagName==="ol");
+  assert.ok(list);
+  assert.equal(list.children.length,4);
+  assert.deepEqual(list.children.map(c=>c.dataset.studyOriginalItem),Array.from(parts));
+  assert.deepEqual(list.children.map(c=>c.textContent),Array.from(parts));
+});
+test("Ambiguous commas are not treated as feature separators",()=>{
+  const unsafe=[
+    "속도는 10, 20, 30 Mbps",
+    "계산식 f(x, y), n=10, m=20",
+    "사용자 입력, 알고리즘 처리하고 결과 도출, 성공",
+    "비대화형 인증, 암호화(TLS), 상시 접근성",
+    "1. 인증, 2. 검사, 3. 종료",
+    "연산 비용이 증가하므로, 병목이 생기고, 위험이 커짐",
+    "번호 가. 하나, 나. 둘, 다. 셋"
+  ];
+  for(const source of unsafe){
+    assert.equal(formatter.splitSimpleKoreanFeatureNamesForDisplay(source),null,source);
+  }
+});
+test("Non-Korean or ineligible comma text remains literal",()=>{
+  const source="비대화형 인증, 상시 접근성, 권한 집중성";
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",false);
+  assert.equal(els.detailFeatures.textContent,source);
   assert.equal(els.detailFeatures.children.length,0);
 });
