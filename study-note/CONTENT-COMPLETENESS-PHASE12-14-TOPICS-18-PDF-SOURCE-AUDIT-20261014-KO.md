@@ -119,3 +119,16 @@
 3. T1916 연결 교재 `AI-1:300` 뒤의 MoE 세부 페이지 원본 자료를 **읽기 전용으로 추가 확인**하여 주제 커버리지와 실제 결손을 구별.
 4. 이후 NW·SE·SW·AI·DB·AL의 세부 알고리즘·RFC 메시지 순서·수치·표준 명칭을 10~30토픽 단위로 확대.
 5. Apps Script **저장 불필요 / 함수 실행 불필요 / 재배포 불필요**.
+
+
+## 9. T1916 인접 원천 확장자료 3페이지 추가 추적 — 보류 사유 세분화
+
+> 이 추가 조회는 **PDF 기능 실사용 시험·등록·링크 수정이 아님**. 직접 연결된 기존 `AI-1:300` 외의 교재 인접 페이지를 **읽기 전용 조사**한 후속 증거이며, '직접연결 페이지의 시각 1차 대조 61토픽/18이번 페이지' 누적 지표는 그대로.
+
+- 직접 연결 원문: `T1916`의 Q열 `AI-1:300` 한 페이지. `PDF페이지연결_20260928`에서도 기존 직접 연결 **1건**으로 확인.
+- Google Drive 검색·파일원본 이미지 실제 확인: `AI-1_0301.pdf`(301페이지)은 Transformer 인코더/디코더·Positional Encoding·Masked Self-Attention·Softmax의 세부구성, `AI-1_0302.pdf`(302페이지)은 **MoE의 게이팅 네트워크·전문가 모델·희소 활성화·출력 조합 도식과 표**, `AI-1_0303.pdf`(303페이지)은 **Transformer와 MoE 비교표**. 이 세 페이지는 **현재 토픽에 직접 연결되어 있지 않은 인접 원본 참고자료**이므로 18개 연결 PDF 수에 합산하지 않음.
+- 추가 3페이지와 LIVE T1916/Y: **Self-Attention, Router/Gate, Expert Network, Sparse Activation, Load Balancing, Expert Aggregation의 6개 핵심구조가 상호 일관**. 원전 302/303에는 'Gating Network / Expert Model / Output Combination'의 대응이 명확. 300만 보았을 때의 'MoE 원본 내용 자체 미확인' 보류는 **해소**.
+- 새로운 **학습화면 자료접근성 개선 후보**: 해당 토픽 PDF 연결이 300 한 장뿐이면, 사용자가 보강하지 않는 한 `302~303`의 MoE 핵심 비교표/도식을 토픽 등록페이지 목록에서 **직접 선택할 수 없는 상태**. 별도 **PDF 페이지 링크 보강 제안만 작성 가능**. 사용자 별도 승인 전 PDF페이지키/연결/파일 등록/기능시험/원본 이동·변경은 금지. 본 프로젝트에서 PDF 기능 인터럽트가 종료됐다는 정책 유지.
+- **원전 자체의 영어 오기 발견:** `AI-1:302` 제목은 `MOE(Mixture of Exports)`로, 올바른 기술명은 **Mixture of Experts**. 같은 교재 303쪽에서는 `Mixture of Experts`로 정확히 기재되어 표기가 충돌. Google Research의 MoE 공식 연구설명 역시 Experts. LIVE T1916의 X열은 **`MoE(Mixture of Experts, 전문가 혼합)`로 이미 정확**하므로 LIVE 수정 후보가 아니라 **원전 자체 오기 주의 항목**으로만 등록.
+- 현 시점 T1916의 **Y 자동정정 0개**, PDF 매핑 변경 0개, 운영 배포 0개. 전체 3,799토픽 정확성 최종합격 수는 별도.
+- 기술 근거: https://www.research.google/blog/mixture-of-experts-with-expert-choice-routing/ 및 https://arxiv.org/abs/1701.06538
