@@ -165,3 +165,15 @@ test("Porter five forces keeps each original competition explanation",()=>{
     assert.equal(v.description,"가격·품질·진입장벽에 영향을 주는 경쟁요인을 분석");
   }
 });
+
+
+test("Authored numbered Y hierarchy keeps raw text and line breaks",()=>{
+  const sample="1. 코드: \\n  가. 표면 부호: 2차원 격자\\n  나. 양자 LDPC: 희소 행렬";
+  assert.equal(split(sample),null);
+  assert.match(html,/\\.study-text\\.study-preserved-lines \\{ white-space: pre-wrap; \\}/);
+  assert.match(html,/element\\.classList\\.toggle\\('study-preserved-lines', !items && \/\\r\\?\\n\/\\.test\\(source\\)\\)/);
+});
+test("Authored multi-line hyphen features are not double-numbered",()=>{
+  assert.equal(split("- 논리 큐비트 인코딩\\n- 패리티 측정"),null);
+  assert.deepEqual(Array.from(split("분리된 특징 하나 · 분리된 특징 둘")),["분리된 특징 하나","분리된 특징 둘"]);
+});
