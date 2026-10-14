@@ -220,3 +220,81 @@ test("Korean-first UI retains the source English and exact raw element in DOM",(
   assert.match(html,/heading\.textContent = primary\.korean/);
   assert.match(html,/\.study-technical-original-name \{[^}]*overflow-wrap: anywhere;/);
 });
+
+
+function makeStudyDOMTestHarness(){
+  function element(tag){
+    let ownText="";
+    const children=[],classes=new Set();
+    const el={
+      tagName:tag,children,dataset:{},className:"",
+      classList:{toggle(c,on){if(on)classes.add(c);else classes.delete(c)},contains(c){return classes.has(c)}},
+      appendChild(v){children.push(v)},
+      replaceChildren(...v){ownText="";children.splice(0,children.length,...v)}
+    };
+    Object.defineProperty(el,"textContent",{
+      get(){return ownText+children.map(v=>v.textContent).join("")},
+      set(v){ownText=String(v);children.splice(0,children.length)}
+    });
+    return el;
+  }
+  const els={detailFeatures:element("div"),detailTechnicalComponents:element("div")};
+  const document={createElement:element,createTextNode(t){const node=element("text");node.textContent=t;return node}};
+  const code=block+"\n({setReadableStudyField})";
+  const render=vm.runInNewContext(code,{document,els}).setReadableStudyField;
+  return {els,render};
+}
+
+test("Actual X/Y display entrypoint preserves every source element and explanation",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const features="원래 내용을 분석 · 결과를 비교 · 미탐색 자식 노드를 추가";
+  render("detailFeatures",features,"features",true);
+  const x=els.detailFeatures.children.find(c=>c.tagName==="ol");
+  assert.equal(x.children.length,3);
+  assert.deepEqual(x.children.map(c=>c.dataset.studyOriginalItem),[
+    "원래 내용을 분석","결과를 비교","미탐색 자식 노드를 추가"
+  ]);
+  const original="탐색요소: Selection(선택)(현재 Tree(트리)의 Node(노드)를 선택) · Expansion(확장)(미탐색 자식 노드를 추가) · Backpropagation(역전파)(N=100, UCT(탐색계수)를 유지하고 보상을 역전파)";
+  render("detailTechnicalComponents",original,"technicalComponents",true,"선택(Selection), 확장(Expansion), 역전파(Backpropagation)");
+  const host=els.detailTechnicalComponents;
+  assert.equal(host.children[0].textContent,"탐색요소:");
+  const list=host.children.find(c=>c.tagName==="ol");
+  assert.equal(list.children.length,3);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"Selection(선택)(현재 Tree(트리)의 Node(노드)를 선택)");
+  assert.match(list.children[0].textContent,/선택 \(Selection\): 현재 Tree\(트리\)/);
+  assert.match(list.children[2].textContent,/Backpropagation/);
+  assert.match(list.children[2].textContent,/N=100, UCT\(탐색계수\)/);
+  assert.match(list.children[2].textContent,/보상을 역전파/);
+});
+
+test("Switching between hierarchical raw and normal list clears stale linebreak styling",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const authored="1. 코드:\n  가. 표면 부호: 격자\n  나. 양자 LDPC: 희소 행렬";
+  render("detailTechnicalComponents",authored,"technicalComponents",true);
+  assert.equal(els.detailTechnicalComponents.textContent,authored);
+  assert.equal(els.detailTechnicalComponents.classList.contains("study-preserved-lines"),true);
+  assert.equal(els.detailTechnicalComponents.children.length,0);
+  const ordinary="구성요소: 저장(데이터를 안전하게 보관) · 검증(데이터를 비교하고 결과를 검사)";
+  render("detailTechnicalComponents",ordinary,"technicalComponents",true);
+  assert.equal(els.detailTechnicalComponents.classList.contains("study-preserved-lines"),false);
+  assert.equal(els.detailTechnicalComponents.children.filter(c=>c.tagName==="ol").length,1);
+  assert.equal(els.detailTechnicalComponents.children.find(c=>c.tagName==="ol").children.length,2);
+  render("detailTechnicalComponents",authored,"technicalComponents",true);
+  assert.equal(els.detailTechnicalComponents.textContent,authored);
+  assert.equal(els.detailTechnicalComponents.classList.contains("study-preserved-lines"),true);
+});
+
+test("HTML-like labels remain literal text, and ineligible source is never split",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const hostile="보안요소: <script>alert(1)</script>(출력을 검증하고 저장) · B(항목을 제어)";
+  render("detailTechnicalComponents",hostile,"technicalComponents",true);
+  const root=els.detailTechnicalComponents;
+  const list=root.children.find(c=>c.tagName==="ol");
+  assert.ok(list);
+  assert.equal(list.children.some(li=>li.children.some(c=>c.tagName==="script")),false);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"<script>alert(1)</script>(출력을 검증하고 저장)");
+  const x="서로 다른 특성 분석 · 단계별 평가";
+  render("detailFeatures",x,"features",false);
+  assert.equal(els.detailFeatures.textContent,x);
+  assert.equal(els.detailFeatures.children.length,0);
+});
