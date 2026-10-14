@@ -6312,6 +6312,11 @@ function splitSimpleKoreanFeatureNamesForDisplay(value) {
   if (items.length < 3 || items.length > 10) return null;
   if (items.some(item => item.length < 3 || item.length > 18 ||
       !/^[가-힣]+(?:[ -][가-힣]+){0,4}$/.test(item))) return null;
+  // Fail closed on predicates/sentence fragments: only clear noun-phrase
+  // labels with nominal endings qualify (never assume a comma means a list).
+  const predicate = /(?:하므로|하고|하여|해서|하며|한다|하는|하던|하도록|생기고|커짐|커지는|이므로|된다|되고|되어|이다|있다|없다|때문|더라도)/;
+  const nounEnding = /(?:성|도|율|력|인증|생성|관리|설계|분석|검증|처리|수립|구조|기능|지원|대응|통제|제어|평가|확장|구축|구현|분류|정렬|전략|목적|원리|절차|기준|효과|활용|연계|기술|영역|요소|체계|모델|모형|시스템|프로세스|정책|보안|환경|방식|조건|수준|역할|변환|배치|유형)$/;
+  if (items.some(item => predicate.test(item) || !nounEnding.test(item))) return null;
   return items;
 }
 
