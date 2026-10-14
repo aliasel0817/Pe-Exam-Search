@@ -59,3 +59,12 @@
 - NIST SP 800-88 Rev.2 FINAL: https://csrc.nist.gov/pubs/sp/800/88/r2/final
 - Eric Ries MVP definition: https://leanstartup.co/resources/articles/what-is-an-mvp/
 - OWASP Non-Human Identities Top 10: https://owasp.org/projects/non-human-identities-top-10
+
+
+## 5. 추가 공식규격 교차확인(2026-10-14)
+
+- **ETSI TS 102 941 V2.2.1 (2022-11), §5 Privacy in ITS**, 공식 원문 페이지 12(전자 PDF 페이지 11)를 화면에서 재확인. `anonymity alone is insufficient`라는 단정과, ITS safety message는 **pseudonymity(가명성)·unlinkability(비연결성)**로 신뢰와 개인보호를 균형 있게 다루며 사용 주체는 **accountability(책임 추적 가능성)**도 유지해야 한다는 구조를 확인. 이용 시 고정/특수 RSU 등 **가명 보호 요구가 다른 ITS-S 종류**를 전부 동일하게 가정하지 말 것. 이전 문서의 2021 버전만을 근거로 한 것이 아니라 **2022-11 버전에서도 같은 취지 재확인**됨. 공식 PDF: https://www.etsi.org/deliver/etsi_ts/102900_102999/102941/02.02.01_60/ts_102941v020201p.pdf
+- **NIST SP 800-88 Rev.2 FINAL (2025-09)** 웹 공식 초록에서 `media sanitization`을 선택한 노력 수준에 대해 대상 데이터 접근을 실행 불가능하게 하는 과정으로 명시. T0165의 기존 `복구 불가능` 무조건 단정의 수정을 지지. https://csrc.nist.gov/pubs/sp/800/88/r2/final
+- **Eric Ries 본인 MVP 정의**(Lean Startup Co.): `least effort`와 `maximum validated learning about customers`를 함께 강조. MVP를 단순한 무조건 최소 제작비로 단정하지 않도록 T0351 수정 방향을 재확인. https://leanstartup.co/resources/articles/what-is-an-mvp/
+- **NASA/ESA 위성 통신**: 상향 원격명령/하향 과학데이터·상태 텔레메트리. 따라서 T1721의 지상링크는 결과만 전송한다는 절대화 수정 근거 재확인. https://science.nasa.gov/learn/basics-of-space-flight/chapter10-1/ / https://www.esa.int/Enabling_Support/Space_Engineering_Technology/Onboard_Computers_and_Data_Handling/Telemetry_Telecommand
+- 위 추가 근거는 **기존 8통합ID·10조각 수를 늘리지 않으며**, 적용/승인/운영 재배포를 수반하지 않음. 표준 버전 및 서비스 범위 조건을 교차확인한 문서 보강에 한정.
