@@ -6302,10 +6302,25 @@ function studyKoreanPrimaryTechnicalLabel(parsed, keywordGlossary, featureSource
   return { korean, english };
 }
 
+// An exceptionally conservative display-only branch for already comma-listed,
+// short Korean feature names (e.g. T4036/X). Never split prose, mixed notation,
+// formulas, nested parentheses, or authored numbered/hierarchical sequences.
+function splitSimpleKoreanFeatureNamesForDisplay(value) {
+  const source = String(value == null ? '' : value).trim();
+  if (source.length > 160 || /[(){}\[\]<>:：\n\r\dA-Za-z;·|/]/.test(source)) return null;
+  const items = source.split(/\s*,\s*/);
+  if (items.length < 3 || items.length > 10) return null;
+  if (items.some(item => item.length < 3 || item.length > 18 ||
+      !/^[가-힣]+(?:[ -][가-힣]+){0,4}$/.test(item))) return null;
+  return items;
+}
+
 function setReadableStudyField(id, value, kind, eligible, keywordSource = '', featureSource = '') {
   const element = els[id];
   const source = value == null || value === '' ? '-' : String(value);
   let items = eligible ? splitStudyItemsForDisplay(source) : null;
+  // Only feature lists made of short Korean noun phrases qualify for comma splitting.
+  if (!items && eligible && kind === 'features') items = splitSimpleKoreanFeatureNamesForDisplay(source);
   const keywordGlossary = kind === 'technicalComponents' && eligible
     ? topicKeywordTechnicalGlossary(keywordSource) : null;
   // A single valid technical element also receives a numbered list; existing
