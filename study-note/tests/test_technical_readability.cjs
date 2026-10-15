@@ -386,3 +386,16 @@ test("X display is text-only and ineligible topics keep raw, unchanged text",()=
   assert.equal(els.detailFeatures.textContent,source);
   assert.equal(els.detailFeatures.children.length,0);
 });
+
+
+test("X promotion does not borrow the last English word of a longer title",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Initial Data(데이터) 보존 · Customer(고객) 대응";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,2);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"Initial Data(데이터) 보존");
+  assert.equal(list.children[0].textContent,"Initial Data(데이터) 보존");
+  assert.equal(list.children[1].dataset.studyOriginalItem,"Customer(고객) 대응");
+  assert.equal(list.children[1].textContent,"고객 (Customer) 대응");
+});
