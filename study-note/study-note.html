@@ -6325,6 +6325,9 @@ function appendVerifiedFeatureBilingualText(element, value) {
     const phraseStart = match.index + match[1].length;
     const phraseEnd = match.index + match[0].length;
     if (phraseStart < consumed) continue;
+    // Never lift the final English word out of a longer unverified name,
+    // e.g. "Initial Data(데이터)" must not become "Initial 데이터 (Data)".
+    if (/[A-Za-z][A-Za-z0-9._+/-]*\s+$/.test(source.slice(0, phraseStart))) continue;
     element.appendChild(document.createTextNode(source.slice(consumed, phraseStart)));
     const primary = document.createElement('strong');
     primary.className = 'study-feature-korean-name';
