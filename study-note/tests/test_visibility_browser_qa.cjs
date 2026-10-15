@@ -68,7 +68,10 @@ const fixtures = [
 ];
 const viewports=[
  {name:"windows-1280",width:1280,height:850,isMobile:false},
+ {name:"tablet-landscape-1180",width:1180,height:820,isMobile:false},
  {name:"tablet-820",width:820,height:1180,isMobile:false},
+ {name:"phone-landscape-844",width:844,height:390,isMobile:true},
+ {name:"phone-402",width:402,height:874,isMobile:true},
  {name:"iphone-390",width:390,height:844,isMobile:true},
  {name:"narrow-320",width:320,height:720,isMobile:true}
 ];
@@ -225,26 +228,33 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
       assert.equal(swap.listCount,6,"Technical list was not restored after topic switch");
       assert.equal(swap.stillHasPreserveClass,false,"Previous topic pre-wrap class leaked");
 
-      // Responsive enlarged reading text: no horizontal overflow in X/Y fields.
-      const enlarged=await page.evaluate(()=>{
-        document.documentElement.style.fontSize="150%";
-        showTopicById("TQA-LONG",{scrollList:false});
-        const result={
-          docOverflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),
-          fieldOverflow:["detailFeatures","detailTechnicalComponents"].map(id=>{
-            const el=document.getElementById(id);
-            return {id,extra:Math.max(0,el.scrollWidth-el.clientWidth)};
-          })
-        };
+      // Responsive enlarged reading text at 150%, 200%, 250%:
+      // test readability only; this is CSS root font scaling, NOT OS/browser zoom.
+      const enlargements=await page.evaluate(()=>{
+        const results=[];
+        for(const scale of [150,200,250]){
+          document.documentElement.style.fontSize=scale+"%";
+          showTopicById("TQA-LONG",{scrollList:false});
+          results.push({
+            scale,
+            docOverflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),
+            fieldOverflow:["detailFeatures","detailTechnicalComponents"].map(id=>{
+              const el=document.getElementById(id);
+              return {id,extra:Math.max(0,el.scrollWidth-el.clientWidth)};
+            })
+          });
+        }
         document.documentElement.style.fontSize="";
-        return result;
+        return results;
       });
-      assert.ok(enlarged.docOverflow<=2,
-        "150% root font size causes document horizontal overflow: "+JSON.stringify(enlarged));
-      assert.ok(enlarged.fieldOverflow.every(f=>f.extra<=2),
-        "150% root font size causes X/Y horizontal overflow: "+JSON.stringify(enlarged));
+      for(const enlarged of enlargements){
+        assert.ok(enlarged.docOverflow<=2,
+          "Enlarged reading font causes document horizontal overflow: "+JSON.stringify(enlarged));
+        assert.ok(enlarged.fieldOverflow.every(f=>f.extra<=2),
+          "Enlarged reading font causes X/Y overflow: "+JSON.stringify(enlarged));
+      }
       console.log("READABILITY PASS",vp.name,"bottom",JSON.stringify(bottomReachability),
-        "swap",JSON.stringify(swap),"largeFont",JSON.stringify(enlarged));
+        "swap",JSON.stringify(swap),"enlargedFonts",JSON.stringify(enlargements));
 
       const nav=await page.evaluate(()=>{
         showTopicById("T0001",{scrollList:false});
