@@ -172,6 +172,76 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
         }
         all.push({vp:vp.name,topic:topic.topicId,xItems:render.xCount,yItems:render.yCount,overflow:render.inlineOverflow.length,documentExtraWidth:Math.max(0,render.rootWidth-vp.width),pass:true});
       }
+      // Actual PWA full viewport scroll QA: fixed bottom navigation must not
+      // make the last topic-detail card permanently unreadable.
+      const bottomReachability=await page.evaluate(()=>{
+        showTopicById("TQA-LONG",{scrollList:false});
+        window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"});
+        return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          const detail=document.querySelector("#topicDetail");
+          const nav=document.querySelector("#bottomNav");
+          const content=detail.closest(".content");
+          const lastCards=[...detail.querySelectorAll(".study-card")];
+          const lastCard=lastCards[lastCards.length-1];
+          const navRect=nav.getBoundingClientRect();
+          resolve({
+            scrollY:window.scrollY,canScroll:document.documentElement.scrollHeight>innerHeight,
+            detailBottom:detail.getBoundingClientRect().bottom,
+            lastCardBottom:lastCard?.getBoundingClientRect().bottom,
+            navTop:navRect.top,
+            navBottom:navRect.bottom,
+            paddingBottom:parseFloat(getComputedStyle(content).paddingBottom),
+            lastCardName:lastCard?.querySelector("h3")?.textContent||"unknown",
+            navVisible:getComputedStyle(nav).display!=="none"
+          });
+        })));
+      });
+      assert.equal(bottomReachability.navVisible,true,"Bottom navigation must be visible");
+      assert.equal(bottomReachability.canScroll,true,"Long detail must be scrollable");
+      assert.ok(bottomReachability.detailBottom<=bottomReachability.navTop+2,
+        "Last detail would be permanently hidden behind bottom navigation: "+JSON.stringify(bottomReachability));
+      assert.ok(bottomReachability.lastCardBottom<=bottomReachability.navTop+2,
+        "Last study card obstructed by bottom navigation: "+JSON.stringify(bottomReachability));
+
+      // Switching raw hierarchical source to an auto-numbered technical list
+      // must reset the CSS and fully replace the prior topic's view.
+      const swap=await page.evaluate(()=>{
+        showTopicById("T4038",{scrollList:false});
+        const raw=document.querySelector("#detailTechnicalComponents");
+        const rawPreserved=getComputedStyle(raw).whiteSpace==="pre-wrap";
+        const rawHasList=!!raw.querySelector("ol");
+        showTopicById("T1961",{scrollList:false});
+        const list=document.querySelector("#detailTechnicalComponents");
+        return {rawPreserved,rawHasList,listCount:list.querySelectorAll("ol.study-readable-list > li").length,
+          listWhiteSpace:getComputedStyle(list).whiteSpace,
+          stillHasPreserveClass:list.classList.contains("study-preserved-lines")};
+      });
+      assert.equal(swap.rawPreserved,true,"Authored hierarchy line breaks must be preserved");
+      assert.equal(swap.rawHasList,false,"Do not double-number authored Y hierarchy");
+      assert.equal(swap.listCount,6,"Technical list was not restored after topic switch");
+      assert.equal(swap.stillHasPreserveClass,false,"Previous topic pre-wrap class leaked");
+
+      // Responsive enlarged reading text: no horizontal overflow in X/Y fields.
+      const enlarged=await page.evaluate(()=>{
+        document.documentElement.style.fontSize="150%";
+        showTopicById("TQA-LONG",{scrollList:false});
+        const result={
+          docOverflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),
+          fieldOverflow:["detailFeatures","detailTechnicalComponents"].map(id=>{
+            const el=document.getElementById(id);
+            return {id,extra:Math.max(0,el.scrollWidth-el.clientWidth)};
+          })
+        };
+        document.documentElement.style.fontSize="";
+        return result;
+      });
+      assert.ok(enlarged.docOverflow<=2,
+        "150% root font size causes document horizontal overflow: "+JSON.stringify(enlarged));
+      assert.ok(enlarged.fieldOverflow.every(f=>f.extra<=2),
+        "150% root font size causes X/Y horizontal overflow: "+JSON.stringify(enlarged));
+      console.log("READABILITY PASS",vp.name,"bottom",JSON.stringify(bottomReachability),
+        "swap",JSON.stringify(swap),"largeFont",JSON.stringify(enlarged));
+
       const nav=await page.evaluate(()=>{
         showTopicById("T0001",{scrollList:false});
         moveTopic(1);
