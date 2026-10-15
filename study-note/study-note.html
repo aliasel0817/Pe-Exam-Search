@@ -250,6 +250,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .study-technical-item-label { font-weight: 750; }
 /* Keep verified Korean first, retaining the original English as a quieter study cue. */
 .study-technical-original-name { color: var(--muted); font-size: .82em; font-weight: 500; overflow-wrap: anywhere; }
+ /* Explicitly verified bilingual expressions in the X list, without rewriting MASTER. */
+ .study-feature-korean-name { font-weight: 700; }
+ .study-feature-original-name { color: var(--muted); font-size: .86em; font-weight: 500; overflow-wrap: anywhere; }
 .study-readable-heading { margin-bottom: .5rem; font-weight: 750; color: #344054; }
 .meta-grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .meta-grid > div { padding: 10px 0; border-bottom: 1px solid #eef2f6; }
@@ -6303,6 +6306,42 @@ function studyKoreanPrimaryTechnicalLabel(parsed, keywordGlossary, featureSource
   return { korean, english };
 }
 
+// Preserve both language names in the X field while giving already verified
+// Korean translations visual priority. Do not translate, infer, or reorder
+// unfamiliar technical names, proper nouns, acronyms, or standard identifiers.
+// A match is accepted ONLY for an explicit English(한글) phrase whose Korean
+// meaning exactly matches an already reviewed bilingual term in this PWA.
+function appendVerifiedFeatureBilingualText(element, value) {
+  const source = String(value == null ? '' : value);
+  const pair = /(^|[^A-Za-z0-9._/+])([A-Z][a-z]+(?: [A-Z][a-z]+){0,3})\(([가-힣][가-힣0-9· /-]{0,24})\)/g;
+  let consumed = 0;
+  let changed = false;
+  let match;
+  while ((match = pair.exec(source)) !== null) {
+    const english = match[2];
+    const korean = match[3].trim();
+    if (!Object.prototype.hasOwnProperty.call(STUDY_TECHNICAL_GLOSSARY, english) ||
+        STUDY_TECHNICAL_GLOSSARY[english] !== korean) continue;
+    const phraseStart = match.index + match[1].length;
+    const phraseEnd = match.index + match[0].length;
+    if (phraseStart < consumed) continue;
+    element.appendChild(document.createTextNode(source.slice(consumed, phraseStart)));
+    const primary = document.createElement('strong');
+    primary.className = 'study-feature-korean-name';
+    primary.textContent = korean;
+    element.appendChild(primary);
+    const original = document.createElement('span');
+    original.className = 'study-feature-original-name';
+    original.textContent = ' (' + english + ')';
+    element.appendChild(original);
+    consumed = phraseEnd;
+    changed = true;
+  }
+  if (changed) element.appendChild(document.createTextNode(source.slice(consumed)));
+  else element.textContent = source;
+  return changed;
+}
+
 // An exceptionally conservative display-only branch for already comma-listed,
 // short Korean feature names (e.g. T4036/X). Never split prose, mixed notation,
 // formulas, nested parentheses, or authored numbered/hierarchical sequences.
@@ -6377,6 +6416,9 @@ function setReadableStudyField(id, value, kind, eligible, keywordSource = '', fe
         // Ambiguous or malformed data is displayed literally and completely.
         li.textContent = item;
       }
+    } else if (kind === 'features' && eligible) {
+      // Original item text/order is also retained in data-study-original-item.
+      appendVerifiedFeatureBilingualText(li, item);
     } else {
       li.textContent = item;
     }
