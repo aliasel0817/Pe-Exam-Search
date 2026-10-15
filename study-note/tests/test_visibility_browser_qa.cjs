@@ -62,6 +62,9 @@ const fixtures = [
   makeTopic("T4038","QEC — 기작성 계층형/하이픈 원문",
     "- 논리 큐비트를 여러 물리 큐비트로 인코딩\n- 패리티(Parity) 측정 시 양자 상태 유지\n- 비파괴적 오류 검출과 선택적 보정",
     "1. 코드:\n  가. 표면 부호(suface code): 2차원 격자 기반 국소적 상호작용\n  나. 양자 LDPC(Quantum Low Density Parity Check, qLDPC): 희소 행렬 기반 장거리 상호작용"),
+  makeTopic("TQA-NUMERIC","소수점과 IEEE 규격으로 시작하는 특징",
+    "13.56MHz 대역에서 비접촉 통신 · 2.4GHz 무선 주파수 활용 · 802.11p PHY/MAC(물리계층/매체접근제어) 활용 · 802.1X/EAP(확장인증프로토콜) 인증",
+    "계측요소: NFC(근거리 무선통신 주파수를 사용하여 교환) · IEEE 802.11p(차량 통신 물리계층과 접근제어를 구현)"),
   makeTopic("TQA-LONG","긴 설명·중첩 괄호·수식/표준",
     "보안 경계 분석 · 표준·정량 지표 비교 · 알고리즘의 예외 조건 확인",
     "구성요소: Validation(검증)(입력 자료 내부에 (a+b)·[x,y]·O(n log n) 관계가 있어도 삭제 없이 유지하고, RFC 8446/TLS 1.3, AES-256, 1.25 Gbps, λ=0.025 및 99.999% 기준을 동시에 대조하여 적합성을 검증하고 보안 요구사항과 연결) · Monitoring(모니터링)(매우 긴 설명을 좁은 화면에서 다음 줄로 자연스럽게 연결하면서 계산식 2^256, 10^-6, HMAC-SHA256, TLS_AES_128_GCM_SHA256과 정책 식별자 ISO/IEC 27001:2022를 줄이지 않고 그대로 표시하기 위한 합성 테스트)")
@@ -88,7 +91,7 @@ function createServer(html){
   });
   return new Promise(resolve=>server.listen(0,"127.0.0.1",()=>resolve(server)));
 }
-const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
+const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-NUMERIC"]);
 
 (async()=>{
   const server=await createServer(testHtml);
@@ -169,6 +172,12 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
           assert.equal(render.y.whiteSpace,"pre-wrap");
           assert.equal(render.xRaw,topic.features);
           assert.equal(render.yRaw,topic.technicalComponents);
+        }
+        if(topic.topicId==="TQA-NUMERIC"){
+          assert.equal(render.xCount,4,"Dotted numbers cannot be treated as authored list numbering");
+          assert.deepEqual(render.xSourceItems,topic.features.split(" · "));
+          for(const token of ["13.56MHz","2.4GHz","802.11p","802.1X/EAP"])
+            assert.ok(render.xRaw.includes(token),"Numeric term lost: "+token);
         }
         if(topic.topicId==="TQA-LONG"){
           assert.equal(render.yCount,2);

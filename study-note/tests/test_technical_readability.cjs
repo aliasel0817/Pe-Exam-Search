@@ -399,3 +399,31 @@ test("X promotion does not borrow the last English word of a longer title",()=>{
   assert.equal(list.children[1].dataset.studyOriginalItem,"Customer(고객) 대응");
   assert.equal(list.children[1].textContent,"고객 (Customer) 대응");
 });
+
+test("Frequency decimals and IEEE dotted names start independent X list items",()=>{
+  const cases=[
+    ["T1362","13.56MHz 대역으로 근거리 통신 · Reader(리더) 모드 지원 · 결제·인증 활용 · Token(토큰) 교환"],
+    ["T2633","2.4GHz와 5GHz 대역 모두 지원 · MIMO 처리량 향상 · Frame 집성 · Wi-Fi 4 호환"],
+    ["T2569","2.4GHz ISM Band(산업·과학·의료 대역)에서 무선통신 · Pairing(페어링) · Piconet(피코넷) · 저전력 연결"],
+    ["T2801","802.11p PHY/MAC(물리계층/매체접근제어) 기반 · WAVE Layer(웨이브 계층) · WSMP 통신 · 보안서비스 제공"],
+    ["T3058","802.1X/EAP(확장인증프로토콜) 인증 · AES-CCMP 암호화 · 4-Way Handshake · RSN 기반"]
+  ];
+  const {els,render}=makeStudyDOMTestHarness();
+  for(const [id,source] of cases){
+    const parts=split(source);
+    assert.ok(parts,id+": misread as authored numbering");
+    assert.equal(parts.length,4,id);
+    assert.equal(Array.from(parts).join(" · "),source,id+": raw item lost");
+    render("detailFeatures",source,"features",true);
+    const li=els.detailFeatures.children.find(c=>c.tagName==="ol")?.children;
+    assert.equal(li?.length,4,id+": DOM list count");
+    assert.deepEqual(li.map(n=>n.dataset.studyOriginalItem),Array.from(parts),id+": DOM source fidelity");
+  }
+});
+test("Authored enumerations remain unnumbered and source preserved",()=>{
+  for(const source of ["1. 코드:\n  가. 표면 부호\n  나. 양자 LDPC",
+    "1) Model Query: 입력 조사\n2) Output Info: 출력 확인",
+    "가. 표면 부호\n나. 양자 LDPC"]){
+    assert.equal(split(source),null,source);
+  }
+});

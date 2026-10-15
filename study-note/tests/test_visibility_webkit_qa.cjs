@@ -39,6 +39,9 @@ const topics=[
     "Selection(선택)·Expansion(확장)·Simulation(시뮬레이션) 개념 비교 · UCT(탐색식) 활용",
     "탐색요소: Selection(선택)(Tree(트리)의 Node(노드)를 UCT(Upper Confidence Bounds for Trees, 트리 상한신뢰도)로 선택) · Expansion(확장)(미탐색 Child Node(자식 노드)를 추가하면서 RFC 8446, 1.25 Gbps, O(n log n)을 손상 없이 유지)",
     "선택(Selection), 확장(Expansion)"),
+ make("TQA-NUMERIC","IEEE 기술번호 시작 특징",
+    "13.56MHz 대역 통신 · 2.4GHz 주파수 활용 · 802.11p PHY/MAC 계층 · 802.1X/EAP 인증",
+    "구성요소: NFC(근거리 무선통신을 제공하고 교환) · IEEE 802.11p(물리계층을 지원하고 설계)"),
  make("T4038","번호형 원문 계층 보존",
     "- 논리 큐비트 인코딩\n- 패리티 측정\n- 비파괴 오류 검출",
     "1. 코드:\n  가. 표면 부호: 국소 연산\n  나. 양자 LDPC: 장거리 연산")
@@ -112,6 +115,11 @@ const server=http.createServer((req,res)=>{
      if(topic.topicId==="T1961"){
        assert.equal(r.sourceY.length,2);
        assert.match(r.displayY,/RFC 8446, 1\.25 Gbps, O\(n log n\)/);
+     }
+     if(topic.topicId==="TQA-NUMERIC"){
+       assert.deepEqual(r.sourceX,topic.features.split(" · "));
+       for(const token of ["13.56MHz","2.4GHz","802.11p","802.1X/EAP"])
+         assert.ok(r.displayX.includes(token),"Original dotted identifier missing: "+token);
      }
      if(topic.topicId==="T4038"){
        assert.equal(r.sourceX.length,0);
