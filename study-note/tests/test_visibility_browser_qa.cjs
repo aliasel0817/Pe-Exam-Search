@@ -77,6 +77,10 @@ function createServer(html){
     if(req.url === "/study-note.html"){
       res.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
       res.end(html);
+    }else if(req.url === "/study-note-safearea.html"){
+      res.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
+      // Simulate a 34px iOS bottom safe area without changing the PWA source.
+      res.end(html.replaceAll("env(safe-area-inset-bottom)","34px"));
     }else{res.writeHead(404);res.end("QA: no external resources served");}
   });
   return new Promise(resolve=>server.listen(0,"127.0.0.1",()=>resolve(server)));
@@ -250,6 +254,33 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
         return {afterNext,afterPrev:currentTopicId};
       });
       assert.deepEqual(nav,{afterNext:"T1961",afterPrev:"T0001"},"Topic prev/next navigation broke");
+      // iOS home-indicator inset simulation (34px) uses unchanged PWA styles
+      // with CSS env() substituted in the temporary HTTP response only.
+      if(vp.isMobile){
+        await page.goto("http://127.0.0.1:"+server.address().port+"/study-note-safearea.html",
+          {waitUntil:"domcontentloaded",timeout:15000});
+        await page.waitForFunction("window.__visibilityQaReady===true",{timeout:8000});
+        await page.evaluate(topics=>{
+          allTopics=topics;filteredTopics=topics;topicPage=1;
+          window.peStudyNoteTTS={onTopicChanged(){}};
+          showTopicById("TQA-LONG",{scrollList:false});
+        },fixtures);
+        const safeArea=await page.evaluate(()=>{
+          window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"});
+          return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
+            const detail=document.getElementById("topicDetail");
+            const content=detail.closest(".content");
+            const nav=document.getElementById("bottomNav");
+            resolve({contentPadding:parseFloat(getComputedStyle(content).paddingBottom),
+              navHeight:nav.getBoundingClientRect().height,
+              detailBottom:detail.getBoundingClientRect().bottom,
+              navTop:nav.getBoundingClientRect().top});
+          })));
+        });
+        assert.ok(safeArea.detailBottom<=safeArea.navTop+2,
+          "iOS safe-area inset hides last text under bottom controls: "+JSON.stringify(safeArea));
+        console.log("SAFEAREA PASS",vp.name,JSON.stringify(safeArea));
+      }
       console.log("VIEWPORT PASS",vp.name,"cases",fixtures.length,"navigation",JSON.stringify(nav));
       await page.close();
     }
