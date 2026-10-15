@@ -11,7 +11,7 @@ const start = html.indexOf("function splitStudyItemsForDisplay(value)");
 const end = html.indexOf("function showTopicById(", start);
 assert(start !== -1 && end > start, "Production formatter must exist");
 const block = html.slice(start, end);
-const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,splitSimpleKoreanFeatureNamesForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,studyKoreanPrimaryTechnicalLabel,STUDY_TECHNICAL_GLOSSARY})");
+const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,splitSimpleKoreanFeatureNamesForDisplay,appendVerifiedFeatureBilingualText,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,studyKoreanPrimaryTechnicalLabel,STUDY_TECHNICAL_GLOSSARY})");
 const {splitStudyItemsForDisplay: split,topicKeywordTechnicalGlossary: fromKeywords,
   describeStudyTechnicalItem: describe,addStudyTechnicalKoreanLabel: gloss} = formatter;
 const item=(original,keyword="",feature="")=>describe(original,fromKeywords(keyword),feature);
@@ -331,6 +331,57 @@ test("Ambiguous commas are not treated as feature separators",()=>{
 test("Non-Korean or ineligible comma text remains literal",()=>{
   const source="비대화형 인증, 상시 접근성, 권한 집중성";
   const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",false);
+  assert.equal(els.detailFeatures.textContent,source);
+  assert.equal(els.detailFeatures.children.length,0);
+});
+
+
+test("X verified English(Korean) pairs display Korean first while retaining exact original items",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Customer(고객)·Competitor(경쟁사)·Company(자사) 관점을 비교 · 전략에 적용";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,2);
+  const first=list.children[0];
+  assert.equal(first.dataset.studyOriginalItem,"Customer(고객)·Competitor(경쟁사)·Company(자사) 관점을 비교");
+  assert.equal(first.textContent,"고객 (Customer)·경쟁사 (Competitor)·자사 (Company) 관점을 비교");
+  assert.equal(first.children.filter(n=>n.className==="study-feature-korean-name").length,3);
+  assert.equal(first.children.filter(n=>n.className==="study-feature-original-name").length,3);
+  assert.equal(list.children[1].textContent,"전략에 적용");
+});
+
+test("X translation ambiguity and proper names are left in original order",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Customer(내부고객) 기준을 검토 · Docker(도커) 기능과 TLS(전송계층보안) 유지 · Star(성장주도사업) 분류";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,3);
+  for(const item of list.children){
+    assert.equal(item.textContent,item.dataset.studyOriginalItem);
+    assert.equal(item.children.length,0);
+  }
+});
+
+test("X nested explanations, quantities, and formulas survive inline bilingual emphasis",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Data(데이터)(단위는 1.25 Gbps이며 (a+b)=c 수식을 보존) · Network(네트워크) 연결과 RFC 8446/TLS 1.3 유지";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,2);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"Data(데이터)(단위는 1.25 Gbps이며 (a+b)=c 수식을 보존)");
+  assert.equal(list.children[0].textContent,"데이터 (Data)(단위는 1.25 Gbps이며 (a+b)=c 수식을 보존)");
+  assert.equal(list.children[1].textContent,"네트워크 (Network) 연결과 RFC 8446/TLS 1.3 유지");
+});
+
+test("X display is text-only and ineligible topics keep raw, unchanged text",()=>{
+  const source="Customer(고객) <script>alert(1)</script> 확인 · 보안 위험 검토";
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.ok(list);
+  assert.ok(list.children[0].textContent.includes("<script>alert(1)</script>"));
+  assert.ok(!list.children[0].children.some(n=>n.tagName==="script"));
   render("detailFeatures",source,"features",false);
   assert.equal(els.detailFeatures.textContent,source);
   assert.equal(els.detailFeatures.children.length,0);
