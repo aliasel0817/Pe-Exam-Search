@@ -22,6 +22,11 @@ jobs:
         run: |
           command -v google-chrome || command -v chromium || command -v chromium-browser
           (google-chrome --version || chromium --version || chromium-browser --version)
+      - name: Install Korean fallback font for readable screenshot QA
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-match -f '%{family}\n' 'Noto Sans CJK KR'
       - name: Install temporary browser driver (no repository lockfile change)
         run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
       - name: Run full-PWA DOM and responsive screen QA against synthetic topics
