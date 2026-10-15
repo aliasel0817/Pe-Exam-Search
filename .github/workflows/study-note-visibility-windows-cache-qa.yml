@@ -1,0 +1,51 @@
+name: Study Note Windows Preview and Cache QA
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/service-worker.js'
+      - 'study-note/manifest.webmanifest'
+      - 'study-note/tests/test_visibility_windows_cache_qa.cjs'
+      - '.github/workflows/study-note-visibility-windows-cache-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-preview-cache:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Locate installed Windows Chrome
+        shell: pwsh
+        run: |
+          $paths = @(
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+            "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+          )
+          $chrome = $paths | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $chrome) { throw 'Windows Chrome not found; no substitution of engine' }
+          Write-Output "CHROME_BIN=$chrome" >> $env:GITHUB_ENV
+          & $chrome --version
+      - name: Install isolated browser driver (no application dependencies changed)
+        shell: pwsh
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
+      - name: Validate PR preview, real PWA storage, local auth gate, cache update and offline fallback
+        shell: pwsh
+        run: node study-note/tests/test_visibility_windows_cache_qa.cjs
+      - name: Upload synthetic Windows preview QA results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-note-windows-preview-cache-${{ github.run_number }}
+          path: study-note/qa-artifacts/visibility-windows-cache/
+          if-no-files-found: warn
+          retention-days: 14
