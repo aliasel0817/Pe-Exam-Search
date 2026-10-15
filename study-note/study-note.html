@@ -206,7 +206,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .mini-badge { padding: 2px 5px; border-radius: 5px; background: #f1f5f9; }
 .mini-badge.target-n { background: var(--danger-soft); color: var(--danger); }
 
-.content { min-width: 0; padding: 22px; padding-bottom: calc(28px + var(--bottom-nav-h)); }
+.content { min-width: 0; padding: 22px; padding-bottom: calc(28px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
 .empty-state {
   max-width: 680px;
   margin: 10vh auto 0;
@@ -714,7 +714,7 @@ button { -webkit-tap-highlight-color: transparent; }
     -webkit-overflow-scrolling: touch;
   }
   .filter-grid > div { min-width: 0; }
-  .content { padding: 13px 11px calc(var(--bottom-nav-h) + 22px); }
+  .content { padding: 13px 11px calc(var(--bottom-nav-h) + 22px + env(safe-area-inset-bottom)); }
   .empty-state { margin-top: 5vh; padding: 24px 17px; }
   .empty-actions { flex-direction: column; }
   .empty-actions .btn { width: 100%; }
