@@ -49,7 +49,7 @@ const makeTopic = (id, title, features, technicalComponents, keywords = "") => (
 });
 const fixtures = [
   makeTopic("T0001","3C 분석 — 일반 항목 분리",
-    "고객 관점 확인 · 경쟁사 전략 분석 · 자사 역량 진단",
+    "Customer(고객)·Competitor(경쟁사)·Company(자사) 관점 분석 · 경쟁사 전략 분석 · 자사 역량 진단",
     "분석관점: Customer(고객 니즈·시장규모·구매행동 분석) · Competitor(경쟁사 전략·점유율·강약점 분석) · Company(자사 핵심역량·자원·성과 분석)",
     "고객(Customer), 경쟁사(Competitor), 자사(Company)"),
   makeTopic("T1961","MCTS — 중첩 괄호와 6개 기술요소",
@@ -146,6 +146,8 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
         if(topic.topicId==="T0001"){
           assert.equal(render.xCount,3);
           assert.equal(render.yCount,3);
+          assert.match(render.xRaw,/고객 \(Customer\)·경쟁사 \(Competitor\)·자사 \(Company\)/);
+          assert.equal(render.xSourceItems[0],"Customer(고객)·Competitor(경쟁사)·Company(자사) 관점 분석");
           assert.match(render.yRaw,/고객/);
           assert.match(render.yRaw,/Customer/);
         }
