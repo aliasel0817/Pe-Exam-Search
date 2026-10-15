@@ -559,7 +559,8 @@ button { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 980px) {
   .workspace { grid-template-columns: 330px minmax(0, 1fr); }
-  .content { padding: 18px; }
+  /* Keep the last X/Y and study cards readable above the fixed bottom nav. */
+  .content { padding: 18px; padding-bottom: calc(28px + var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
   .meta-grid { grid-template-columns: 1fr; }
   .meta-grid > div:nth-child(odd) { padding-right: 0; }
 }
