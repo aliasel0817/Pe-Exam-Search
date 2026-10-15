@@ -254,9 +254,10 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG"]);
         return {afterNext,afterPrev:currentTopicId};
       });
       assert.deepEqual(nav,{afterNext:"T1961",afterPrev:"T0001"},"Topic prev/next navigation broke");
-      // iOS home-indicator inset simulation (34px) uses unchanged PWA styles
-      // with CSS env() substituted in the temporary HTTP response only.
-      if(vp.isMobile){
+      // Simulate a 34px system bottom inset for every responsive breakpoint.
+      // This uses unchanged production CSS with env() substituted only in
+      // the temporary offline QA HTTP response, not in study-note.html.
+      {
         await page.goto("http://127.0.0.1:"+server.address().port+"/study-note-safearea.html",
           {waitUntil:"domcontentloaded",timeout:15000});
         await page.waitForFunction("window.__visibilityQaReady===true",{timeout:8000});
