@@ -1,9 +1,9 @@
 name: Study Note Visibility Browser QA
 
 on:
-  push:
-    branches:
-      - fix/study-note-display-preserve-authored-lines-20261014
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
