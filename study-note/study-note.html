@@ -739,6 +739,14 @@ button { -webkit-tap-highlight-color: transparent; }
   .field-label { margin-top: 9px; }
   .search-help { margin-top: 4px; }
   .top-meta #syncLabel { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Keep surrounding navigation usable at large text scaling without altering X/Y. */
+  .top-meta { min-width: 0; overflow: hidden; }
+  .top-meta .status-chip { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .detail-toolbar { flex-wrap: wrap; }
+  .detail-toolbar-right { min-width: 0; max-width: 100%; }
+  .detail-toolbar-right .icon-btn { font-size: min(1.2rem, 22px); }
+  .bottom-nav { left: 0; gap: 4px; }
+  .nav-btn { min-width: 0; flex-wrap: wrap; font-size: min(1rem, 22px); white-space: normal; overflow-wrap: anywhere; }
 }
 
 @media (max-width: 760px) and (max-height: 700px) {

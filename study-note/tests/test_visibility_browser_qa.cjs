@@ -248,7 +248,7 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
           showTopicById("TQA-LONG",{scrollList:false});
           results.push({
             scale,
-            docOverflow:Math.max(0,document.documentElement.scrollWidth-innerWidth),
+            docOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),
             fieldOverflow:["detailFeatures","detailTechnicalComponents"].map(id=>{
               const el=document.getElementById(id);
               return {id,extra:Math.max(0,el.scrollWidth-el.clientWidth)};
@@ -264,6 +264,22 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
         assert.ok(enlarged.fieldOverflow.every(f=>f.extra<=2),
           "Enlarged reading font causes X/Y overflow: "+JSON.stringify(enlarged));
       }
+      // At enlarged type sizes, the last study card must still clear fixed mobile controls.
+      const enlargedBottom = await page.evaluate(async()=>{
+        const measurements=[];
+        for(const scale of [150,200,250]){
+          document.documentElement.style.fontSize=scale+"%";
+          showTopicById("TQA-LONG",{scrollList:false});
+          window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"});
+          await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
+          measurements.push({scale,detailBottom:document.getElementById("topicDetail").getBoundingClientRect().bottom,
+            navTop:document.getElementById("bottomNav").getBoundingClientRect().top});
+        }
+        document.documentElement.style.fontSize="";
+        return measurements;
+      });
+      for(const z of enlargedBottom)
+        assert.ok(z.detailBottom<=z.navTop+2,"Enlarged font clips study content behind bottom nav: "+JSON.stringify(z));
       console.log("READABILITY PASS",vp.name,"bottom",JSON.stringify(bottomReachability),
         "swap",JSON.stringify(swap),"enlargedFonts",JSON.stringify(enlargements));
 

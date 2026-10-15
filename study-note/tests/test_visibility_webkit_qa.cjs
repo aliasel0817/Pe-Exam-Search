@@ -48,6 +48,8 @@ const topics=[
 ];
 const viewports=[
  {name:"iphone-like-402",width:402,height:874,isMobile:true},
+ {name:"iphone-like-390",width:390,height:844,isMobile:true},
+ {name:"narrow-320",width:320,height:720,isMobile:true},
  {name:"phone-landscape-844",width:844,height:390,isMobile:true},
  {name:"tablet-820",width:820,height:1180,isMobile:false},
  {name:"tablet-landscape-1180",width:1180,height:820,isMobile:false}
@@ -88,7 +90,7 @@ const server=http.createServer((req,res)=>{
          sourceY:list(y)?[...list(y).children].map(n=>n.dataset.studyOriginalItem):[],
          displayX:x.textContent,displayY:y.textContent,
          whiteX:getComputedStyle(x).whiteSpace,whiteY:getComputedStyle(y).whiteSpace,
-         overflowRoot:document.documentElement.scrollWidth>innerWidth+2,
+         overflowRoot:document.documentElement.scrollWidth>document.documentElement.clientWidth+2,
          overflowX:x.scrollWidth>x.clientWidth+2,
          overflowY:y.scrollWidth>y.clientWidth+2
        };
@@ -130,6 +132,26 @@ const server=http.createServer((req,res)=>{
      }
      assert.deepEqual(errors,[],"WebKit uncaught error");
      results.push({vp:vp.name,safeArea,topic:topic.topicId,pass:true});
+    }
+    // CSS font scaling is only a layout stress test, never a physical Safari claim.
+    for(const scale of [150,200,250]){
+      const zoom=await page.evaluate(async s=>{
+        document.documentElement.style.fontSize=s+"%";
+        showTopicById("TQA-NUMERIC",{scrollList:false});
+        window.scrollTo({top:document.documentElement.scrollHeight,behavior:"instant"});
+        await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
+        const x=document.getElementById("detailFeatures"),y=document.getElementById("detailTechnicalComponents");
+        const info={scale:s,root:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+          x:x.scrollWidth-x.clientWidth,y:y.scrollWidth-y.clientWidth,
+          detailBottom:document.getElementById("topicDetail").getBoundingClientRect().bottom,
+          navTop:document.getElementById("bottomNav").getBoundingClientRect().top};
+        document.documentElement.style.fontSize="";
+        return info;
+      },scale);
+      assert.ok(zoom.root<=2&&zoom.x<=2&&zoom.y<=2,
+        "WebKit enlarged text overflows: "+JSON.stringify({vp:vp.name,safeArea,zoom}));
+      assert.ok(zoom.detailBottom<=zoom.navTop+2,
+        "WebKit zoomed footer hides last content: "+JSON.stringify({vp:vp.name,safeArea,zoom}));
     }
     if(!safeArea)await page.screenshot({path:path.join(qaDir,vp.name+".png"),fullPage:true});
    }
