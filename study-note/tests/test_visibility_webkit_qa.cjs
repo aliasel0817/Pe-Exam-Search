@@ -93,6 +93,8 @@ const server=http.createServer((req,res)=>{
          id:currentTopicId,title:document.getElementById("detailTitle").textContent,
          sourceX:list(x)?[...list(x).children].map(n=>n.dataset.studyOriginalItem):[],
          sourceY:list(y)?[...list(y).children].map(n=>n.dataset.studyOriginalItem):[],
+         markerStyleX:list(x)?getComputedStyle(list(x)).listStyleType:null,
+         markerStyleY:list(y)?getComputedStyle(list(y)).listStyleType:null,
          displayX:x.textContent,displayY:y.textContent,
          whiteX:getComputedStyle(x).whiteSpace,whiteY:getComputedStyle(y).whiteSpace,
          overflowRoot:document.documentElement.scrollWidth>document.documentElement.clientWidth+2,
@@ -109,6 +111,8 @@ const server=http.createServer((req,res)=>{
      },topic.topicId);
      assert.equal(r.id,topic.topicId);
      assert.equal(r.title,topic.topicName);
+     if(r.sourceX.length) assert.equal(r.markerStyleX,"hangul","Auto X list marker must be 가./나.");
+     if(r.sourceY.length) assert.equal(r.markerStyleY,"hangul","Auto Y list marker must be 가./나.");
      assert.ok(!r.overflowRoot&&!r.overflowX&&!r.overflowY,
        "WebKit horizontal overflow "+JSON.stringify({vp:vp.name,topic:topic.topicId,safeArea}));
      assert.ok(r.footerClear,

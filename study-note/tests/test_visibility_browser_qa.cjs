@@ -134,6 +134,8 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
           const report={
             currentTopicId, display:getComputedStyle(main).display, x:boxed(x),y:boxed(y),
             xCount:xList?.children.length||0, yCount:yList?.children.length||0,
+            xMarkerStyle:xList?getComputedStyle(xList).listStyleType:null,
+            yMarkerStyle:yList?getComputedStyle(yList).listStyleType:null,
             xRaw:x.textContent,yRaw:y.textContent,
             xSourceItems:xList?[...xList.children].map(li=>li.dataset.studyOriginalItem):[],
             ySourceItems:yList?[...yList.children].map(li=>li.dataset.studyOriginalItem):[],
@@ -148,6 +150,8 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
         assert.equal(render.currentTopicId,topic.topicId,"Topic navigation must change selected id");
         assert.notEqual(render.display,"none","Full PWA detail must be visible");
         assert.ok(render.x.width>0&&render.y.width>0,"X/Y must have measurable width");
+        if(render.xCount) assert.equal(render.xMarkerStyle,"hangul","Auto X list marker must be 가./나.");
+        if(render.yCount) assert.equal(render.yMarkerStyle,"hangul","Auto Y list marker must be 가./나.");
         assert.equal(render.heading,topic.topicName);
         assert.equal(render.inlineOverflow.length,0,"Horizontal text overflow: "+JSON.stringify(render.inlineOverflow));
         assert.ok(render.rootWidth<=vp.width+2,"Document horizontally overflows: "+render.rootWidth+" > "+vp.width);

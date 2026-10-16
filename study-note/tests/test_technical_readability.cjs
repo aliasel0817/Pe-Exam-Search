@@ -18,6 +18,7 @@ const item=(original,keyword="",feature="")=>describe(original,fromKeywords(keyw
 
 test("A spacing and PDF control remain untouched",()=>{
   assert.match(html,/\.study-readable-list \{[^}]*gap: \.52rem;/);
+  assert.match(html,/\.study-readable-list \{[^}]*list-style-type: hangul;/);
   assert.match(html,/referencePdfCompactNextBtn/);
   assert.match(html,/function moveReferencePdfSequential/);
 });
