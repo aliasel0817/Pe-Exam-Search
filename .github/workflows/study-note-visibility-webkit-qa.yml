@@ -1,0 +1,41 @@
+name: Study Note WebKit X Y Visibility QA
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/tests/test_visibility_webkit_qa.cjs'
+      - '.github/workflows/study-note-visibility-webkit-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visibility-webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated WebKit browser QA dependency
+        run: npm install --prefix .qa-webkit --no-save --no-audit --no-fund playwright@1.56.1
+      - name: Install WebKit and Korean font
+        run: |
+          ./.qa-webkit/node_modules/.bin/playwright install --with-deps webkit
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-match -f '%{family}\n' 'Noto Sans CJK KR'
+      - name: Run isolated full-PWA WebKit X/Y QA
+        run: node study-note/tests/test_visibility_webkit_qa.cjs
+      - name: Upload synthetic WebKit QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-note-visibility-webkit-${{ github.run_number }}
+          path: study-note/qa-artifacts/visibility-webkit/
+          if-no-files-found: warn
+          retention-days: 14

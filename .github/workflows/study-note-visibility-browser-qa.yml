@@ -1,0 +1,48 @@
+name: Study Note Visibility Browser QA
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visibility-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm system Chrome
+        run: |
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+          (google-chrome --version || chromium --version || chromium-browser --version)
+      - name: Install Korean fallback font for readable screenshot QA
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-match -f '%{family}\n' 'Noto Sans CJK KR'
+      - name: Install temporary browser driver (no repository lockfile change)
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
+      - name: Run full-PWA DOM and responsive screen QA against synthetic topics
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: |
+          if [ ! -x "$CHROME_BIN" ]; then
+            CHROME_BIN="$(command -v chromium || command -v chromium-browser)"
+            export CHROME_BIN
+          fi
+          node study-note/tests/test_visibility_browser_qa.cjs
+      - name: Upload synthetic QA screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-note-visibility-browser-${{ github.run_number }}
+          path: study-note/qa-artifacts/visibility-browser/
+          if-no-files-found: warn
+          retention-days: 14

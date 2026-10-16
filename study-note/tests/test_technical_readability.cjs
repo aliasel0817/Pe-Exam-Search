@@ -11,13 +11,14 @@ const start = html.indexOf("function splitStudyItemsForDisplay(value)");
 const end = html.indexOf("function showTopicById(", start);
 assert(start !== -1 && end > start, "Production formatter must exist");
 const block = html.slice(start, end);
-const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,STUDY_TECHNICAL_GLOSSARY})");
+const formatter = vm.runInNewContext(block + "\n({splitStudyItemsForDisplay,splitSimpleKoreanFeatureNamesForDisplay,appendVerifiedFeatureBilingualText,addStudyTechnicalKoreanLabel,topicKeywordTechnicalGlossary,describeStudyTechnicalItem,studyKoreanPrimaryTechnicalLabel,STUDY_TECHNICAL_GLOSSARY})");
 const {splitStudyItemsForDisplay: split,topicKeywordTechnicalGlossary: fromKeywords,
   describeStudyTechnicalItem: describe,addStudyTechnicalKoreanLabel: gloss} = formatter;
 const item=(original,keyword="",feature="")=>describe(original,fromKeywords(keyword),feature);
 
 test("A spacing and PDF control remain untouched",()=>{
   assert.match(html,/\.study-readable-list \{[^}]*gap: \.52rem;/);
+  assert.match(html,/\.study-readable-list \{[^}]*list-style-type: hangul;/);
   assert.match(html,/referencePdfCompactNextBtn/);
   assert.match(html,/function moveReferencePdfSequential/);
 });
@@ -164,4 +165,368 @@ test("Porter five forces keeps each original competition explanation",()=>{
     assert.equal(v.label,en+"("+ko+")");
     assert.equal(v.description,"가격·품질·진입장벽에 영향을 주는 경쟁요인을 분석");
   }
+});
+
+
+test("Authored numbered Y hierarchy keeps raw text and line breaks",()=>{
+  const sample="1. 코드: \n  가. 표면 부호: 2차원 격자\n  나. 양자 LDPC: 희소 행렬";
+  assert.equal(split(sample),null);
+  assert.ok(html.includes(".study-text.study-preserved-lines { white-space: pre-wrap; }"));
+  assert.ok(html.includes("element.classList.toggle('study-preserved-lines'"));
+});
+test("Authored multi-line hyphen features are not double-numbered",()=>{
+  assert.equal(split("- 논리 큐비트 인코딩\n- 패리티 측정"),null);
+  assert.deepEqual(Array.from(split("분리된 특징 하나 · 분리된 특징 둘")),["분리된 특징 하나","분리된 특징 둘"]);
+});
+
+
+test("Explicit source bilingual term becomes Korean-first without loss",()=>{
+  const raw="Selection(선택)(현재 UCT(Upper Confidence Bounds for Trees, 트리상한신뢰도)로 Node(노드)를 선택)";
+  const parsed=item(raw);
+  assert.equal(parsed.originalLabel,"Selection(선택)");
+  const p=formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(""),"");
+  assert.equal(p.korean,"선택");
+  assert.equal(p.english,"Selection");
+  assert.equal(parsed.description,"현재 UCT(Upper Confidence Bounds for Trees, 트리상한신뢰도)로 Node(노드)를 선택");
+});
+test("Same-topic keyword supports Korean-first display without altering body",()=>{
+  const parsed=item("Customer(고객의 니즈와 구매행동을 분석)","고객(Customer)");
+  assert.equal(parsed.originalLabel,"Customer");
+  const p=formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords("고객(Customer)"),"");
+  assert.equal(p.korean,"고객");
+  assert.equal(p.english,"Customer");
+  assert.equal(parsed.description,"고객의 니즈와 구매행동을 분석");
+});
+test("Same-topic feature may support Korean-first labels",()=>{
+  const feature="벡터 공간을 Span(생성)하는 집합의 성질";
+  const parsed=item("Span(서로 다른 벡터의 결합으로 공간을 구성)","",feature);
+  const p=formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(""),feature);
+  assert.equal(p.korean,"생성");
+  assert.equal(p.english,"Span");
+});
+test("Keep acronym as the primary technical name",()=>{
+  const keywords="서비스수준협약(SLA)";
+  const parsed=item("SLA(서비스수준을 정의하고 위반을 지속적으로 점검)",keywords);
+  assert.equal(parsed.label,"SLA(서비스수준협약)");
+  assert.equal(formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(keywords),""),null);
+});
+test("Global fallback without same-topic evidence is not promoted",()=>{
+  const parsed=item("Rivalry(경쟁자 간 가격과 품질을 비교하여 강도를 분석)");
+  assert.equal(parsed.label,"Rivalry(기존 경쟁)");
+  assert.equal(formatter.studyKoreanPrimaryTechnicalLabel(parsed,fromKeywords(""),""),null);
+});
+test("Korean-first UI retains the source English and exact raw element in DOM",()=>{
+  assert.match(html,/li\.dataset\.studyOriginalItem = item;/);
+  assert.match(html,/original\.textContent = ' \(' \+ primary\.english \+ '\)'/);
+  assert.match(html,/heading\.textContent = primary\.korean/);
+  assert.match(html,/\.study-technical-original-name \{[^}]*overflow-wrap: anywhere;/);
+});
+
+
+function makeStudyDOMTestHarness(){
+  function element(tag){
+    let ownText="";
+    const children=[],classes=new Set();
+    const el={
+      tagName:tag,children,dataset:{},className:"",
+      classList:{toggle(c,on){if(on)classes.add(c);else classes.delete(c)},contains(c){return classes.has(c)}},
+      appendChild(v){children.push(v)},
+      replaceChildren(...v){ownText="";children.splice(0,children.length,...v)}
+    };
+    Object.defineProperty(el,"textContent",{
+      get(){return ownText+children.map(v=>v.textContent).join("")},
+      set(v){ownText=String(v);children.splice(0,children.length)}
+    });
+    return el;
+  }
+  const els={detailFeatures:element("div"),detailTechnicalComponents:element("div")};
+  const document={createElement:element,createTextNode(t){const node=element("text");node.textContent=t;return node}};
+  const code=block+"\n({setReadableStudyField})";
+  const render=vm.runInNewContext(code,{document,els}).setReadableStudyField;
+  return {els,render};
+}
+
+test("Actual X/Y display entrypoint preserves every source element and explanation",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const features="원래 내용을 분석 · 결과를 비교 · 미탐색 자식 노드를 추가";
+  render("detailFeatures",features,"features",true);
+  const x=els.detailFeatures.children.find(c=>c.tagName==="ol");
+  assert.equal(x.children.length,3);
+  assert.deepEqual(x.children.map(c=>c.dataset.studyOriginalItem),[
+    "원래 내용을 분석","결과를 비교","미탐색 자식 노드를 추가"
+  ]);
+  const original="탐색요소: Selection(선택)(현재 Tree(트리)의 Node(노드)를 선택) · Expansion(확장)(미탐색 자식 노드를 추가) · Backpropagation(역전파)(N=100, UCT(탐색계수)를 유지하고 보상을 역전파)";
+  render("detailTechnicalComponents",original,"technicalComponents",true,"선택(Selection), 확장(Expansion), 역전파(Backpropagation)");
+  const host=els.detailTechnicalComponents;
+  assert.equal(host.children[0].textContent,"탐색요소:");
+  const list=host.children.find(c=>c.tagName==="ol");
+  assert.equal(list.children.length,3);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"Selection(선택)(현재 Tree(트리)의 Node(노드)를 선택)");
+  assert.match(list.children[0].textContent,/선택 \(Selection\): 현재 Tree\(트리\)/);
+  assert.match(list.children[2].textContent,/Backpropagation/);
+  assert.match(list.children[2].textContent,/N=100, UCT\(탐색계수\)/);
+  assert.match(list.children[2].textContent,/보상을 역전파/);
+});
+
+test("Switching between hierarchical raw and normal list clears stale linebreak styling",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const authored="1. 코드:\n  가. 표면 부호: 격자\n  나. 양자 LDPC: 희소 행렬";
+  render("detailTechnicalComponents",authored,"technicalComponents",true);
+  assert.equal(els.detailTechnicalComponents.textContent,authored);
+  assert.equal(els.detailTechnicalComponents.classList.contains("study-preserved-lines"),true);
+  assert.equal(els.detailTechnicalComponents.children.length,0);
+  const ordinary="구성요소: 저장(데이터를 안전하게 보관) · 검증(데이터를 비교하고 결과를 검사)";
+  render("detailTechnicalComponents",ordinary,"technicalComponents",true);
+  assert.equal(els.detailTechnicalComponents.classList.contains("study-preserved-lines"),false);
+  assert.equal(els.detailTechnicalComponents.children.filter(c=>c.tagName==="ol").length,1);
+  assert.equal(els.detailTechnicalComponents.children.find(c=>c.tagName==="ol").children.length,2);
+  render("detailTechnicalComponents",authored,"technicalComponents",true);
+  assert.equal(els.detailTechnicalComponents.textContent,authored);
+  assert.equal(els.detailTechnicalComponents.classList.contains("study-preserved-lines"),true);
+});
+
+test("HTML-like labels remain literal text, and ineligible source is never split",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const hostile="보안요소: <script>alert(1)</script>(출력을 검증하고 저장) · B(항목을 제어)";
+  render("detailTechnicalComponents",hostile,"technicalComponents",true);
+  const root=els.detailTechnicalComponents;
+  const list=root.children.find(c=>c.tagName==="ol");
+  assert.ok(list);
+  assert.equal(list.children.some(li=>li.children.some(c=>c.tagName==="script")),false);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"<script>alert(1)</script>(출력을 검증하고 저장)");
+  const x="서로 다른 특성 분석 · 단계별 평가";
+  render("detailFeatures",x,"features",false);
+  assert.equal(els.detailFeatures.textContent,x);
+  assert.equal(els.detailFeatures.children.length,0);
+});
+
+
+test("Comma-delimited Korean noun features are independent lines",()=>{
+  const source="비대화형 인증, 대량 동적 생성, 상시 접근성, 권한 집중성";
+  const parts=formatter.splitSimpleKoreanFeatureNamesForDisplay(source);
+  assert.deepEqual(Array.from(parts),[
+    "비대화형 인증","대량 동적 생성","상시 접근성","권한 집중성"
+  ]);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(c=>c.tagName==="ol");
+  assert.ok(list);
+  assert.equal(list.children.length,4);
+  assert.deepEqual(list.children.map(c=>c.dataset.studyOriginalItem),Array.from(parts));
+  assert.deepEqual(list.children.map(c=>c.textContent),Array.from(parts));
+});
+test("Ambiguous commas are not treated as feature separators",()=>{
+  const unsafe=[
+    "속도는 10, 20, 30 Mbps",
+    "계산식 f(x, y), n=10, m=20",
+    "사용자 입력, 알고리즘 처리하고 결과 도출, 성공",
+    "비대화형 인증, 암호화(TLS), 상시 접근성",
+    "1. 인증, 2. 검사, 3. 종료",
+    "연산 비용이 증가하므로, 병목이 생기고, 위험이 커짐",
+    "번호 가. 하나, 나. 둘, 다. 셋"
+  ];
+  for(const source of unsafe){
+    assert.equal(formatter.splitSimpleKoreanFeatureNamesForDisplay(source),null,source);
+  }
+});
+test("Non-Korean or ineligible comma text remains literal",()=>{
+  const source="비대화형 인증, 상시 접근성, 권한 집중성";
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",false);
+  assert.equal(els.detailFeatures.textContent,source);
+  assert.equal(els.detailFeatures.children.length,0);
+});
+
+
+test("X verified English(Korean) pairs display Korean first while retaining exact original items",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Customer(고객)·Competitor(경쟁사)·Company(자사) 관점을 비교 · 전략에 적용";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,2);
+  const first=list.children[0];
+  assert.equal(first.dataset.studyOriginalItem,"Customer(고객)·Competitor(경쟁사)·Company(자사) 관점을 비교");
+  assert.equal(first.textContent,"고객 (Customer)·경쟁사 (Competitor)·자사 (Company) 관점을 비교");
+  assert.equal(first.children.filter(n=>n.className==="study-feature-korean-name").length,3);
+  assert.equal(first.children.filter(n=>n.className==="study-feature-original-name").length,3);
+  assert.equal(list.children[1].textContent,"전략에 적용");
+});
+
+test("X translation ambiguity and proper names are left in original order",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Customer(내부고객) 기준을 검토 · Docker(도커) 기능과 TLS(전송계층보안) 유지 · Star(성장주도사업) 분류";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,3);
+  for(const item of list.children){
+    assert.equal(item.textContent,item.dataset.studyOriginalItem);
+    assert.equal(item.children.length,0);
+  }
+});
+
+test("X nested explanations, quantities, and formulas survive inline bilingual emphasis",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Data(데이터)(단위는 1.25 Gbps이며 (a+b)=c 수식을 보존) · Network(네트워크) 연결과 RFC 8446/TLS 1.3 유지";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,2);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"Data(데이터)(단위는 1.25 Gbps이며 (a+b)=c 수식을 보존)");
+  assert.equal(list.children[0].textContent,"데이터 (Data)(단위는 1.25 Gbps이며 (a+b)=c 수식을 보존)");
+  assert.equal(list.children[1].textContent,"네트워크 (Network) 연결과 RFC 8446/TLS 1.3 유지");
+});
+
+test("X display is text-only and ineligible topics keep raw, unchanged text",()=>{
+  const source="Customer(고객) <script>alert(1)</script> 확인 · 보안 위험 검토";
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.ok(list);
+  assert.ok(list.children[0].textContent.includes("<script>alert(1)</script>"));
+  assert.ok(!list.children[0].children.some(n=>n.tagName==="script"));
+  render("detailFeatures",source,"features",false);
+  assert.equal(els.detailFeatures.textContent,source);
+  assert.equal(els.detailFeatures.children.length,0);
+});
+
+
+test("X promotion does not borrow the last English word of a longer title",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const source="Initial Data(데이터) 보존 · Customer(고객) 대응";
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.equal(list.children.length,2);
+  assert.equal(list.children[0].dataset.studyOriginalItem,"Initial Data(데이터) 보존");
+  assert.equal(list.children[0].textContent,"Initial Data(데이터) 보존");
+  assert.equal(list.children[1].dataset.studyOriginalItem,"Customer(고객) 대응");
+  assert.equal(list.children[1].textContent,"고객 (Customer) 대응");
+});
+
+test("Frequency decimals and IEEE dotted names start independent X list items",()=>{
+  const cases=[
+    ["T1362","13.56MHz 대역으로 근거리 통신 · Reader(리더) 모드 지원 · 결제·인증 활용 · Token(토큰) 교환"],
+    ["T2633","2.4GHz와 5GHz 대역 모두 지원 · MIMO 처리량 향상 · Frame 집성 · Wi-Fi 4 호환"],
+    ["T2569","2.4GHz ISM Band(산업·과학·의료 대역)에서 무선통신 · Pairing(페어링) · Piconet(피코넷) · 저전력 연결"],
+    ["T2801","802.11p PHY/MAC(물리계층/매체접근제어) 기반 · WAVE Layer(웨이브 계층) · WSMP 통신 · 보안서비스 제공"],
+    ["T3058","802.1X/EAP(확장인증프로토콜) 인증 · AES-CCMP 암호화 · 4-Way Handshake · RSN 기반"]
+  ];
+  const {els,render}=makeStudyDOMTestHarness();
+  for(const [id,source] of cases){
+    const parts=split(source);
+    assert.ok(parts,id+": misread as authored numbering");
+    assert.equal(parts.length,4,id);
+    assert.equal(Array.from(parts).join(" · "),source,id+": raw item lost");
+    render("detailFeatures",source,"features",true);
+    const li=els.detailFeatures.children.find(c=>c.tagName==="ol")?.children;
+    assert.equal(li?.length,4,id+": DOM list count");
+    assert.deepEqual(li.map(n=>n.dataset.studyOriginalItem),Array.from(parts),id+": DOM source fidelity");
+  }
+});
+test("Authored enumerations remain unnumbered and source preserved",()=>{
+  for(const source of ["1. 코드:\n  가. 표면 부호\n  나. 양자 LDPC",
+    "1) Model Query: 입력 조사\n2) Output Info: 출력 확인",
+    "가. 표면 부호\n나. 양자 LDPC"]){
+    assert.equal(split(source),null,source);
+  }
+});
+
+test("Top-level equation multiplication dots never become X/Y list boundaries",()=>{
+  const cases=[
+    ["내적식 x = a · b + c · d · 계산 결과 검증 · 적용 확인",
+      ["내적식 x = a · b + c · d","계산 결과 검증","적용 확인"]],
+    ["산식 R = 2 · 3 · 표준 RFC 8446 유지",
+      ["산식 R = 2 · 3","표준 RFC 8446 유지"]],
+    ["외부 인터페이스 · 수식 x = a · b · c · 데이터 흐름 비교",
+      ["외부 인터페이스","수식 x = a · b · c","데이터 흐름 비교"]]
+  ];
+  for(const [source,expected] of cases){
+    const result=split(source);
+    assert.deepEqual(Array.from(result||[]),expected,source);
+    assert.equal(Array.from(result).join(" · "),source,"Original formula/list content was changed");
+  }
+  assert.equal(split("x = a · b"),null,"A lone formula is not an enumerated list");
+  assert.deepEqual(Array.from(split("설계 단계 · 검증 단계")),
+    ["설계 단계","검증 단계"],"Ordinary list separators must still split");
+});
+test("Real display fields preserve unbracketed equations as one source element",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const feature="내적식 x = a · b + c · d · 계산 결과 검증 · 적용 확인";
+  render("detailFeatures",feature,"features",true);
+  const x=els.detailFeatures.children.find(x=>x.tagName==="ol");
+  assert.ok(x,"X should still show a numbered list");
+  assert.deepEqual(x.children.map(n=>n.dataset.studyOriginalItem),
+    ["내적식 x = a · b + c · d","계산 결과 검증","적용 확인"]);
+  assert.equal(x.children[0].textContent,"내적식 x = a · b + c · d");
+  const component="계산요소: 공식 R = 2 · 3 · 결과 정확도 점검 · RFC 8446 유지";
+  render("detailTechnicalComponents",component,"technicalComponents",true);
+  const y=els.detailTechnicalComponents.children.find(x=>x.tagName==="ol");
+  const heading=els.detailTechnicalComponents.children.find(x=>x.className==="study-readable-heading");
+  assert.equal(heading.textContent,"계산요소:");
+  assert.deepEqual(y.children.map(n=>n.dataset.studyOriginalItem),
+    ["공식 R = 2 · 3","결과 정확도 점검","RFC 8446 유지"]);
+  assert.equal(y.children[0].textContent,"공식 R = 2 · 3");
+});
+
+
+test("Compact unspaced bilingual labels stay inside one feature item",()=>{
+  // Real corpus contains inline "A(가)·B(나)" groups; do not expand them into
+  // additional top-level numbered items simply because they contain dots.
+  const source="Customer(고객)·Competitor(경쟁사)·Company(자사) 기반 분석 · 외부 환경 평가 · 개선 방향 수립";
+  const expected=[
+    "Customer(고객)·Competitor(경쟁사)·Company(자사) 기반 분석",
+    "외부 환경 평가","개선 방향 수립"
+  ];
+  assert.deepEqual(Array.from(split(source)),expected);
+  assert.equal(expected.join(" · "),source);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.ok(list);
+  assert.deepEqual(list.children.map(n=>n.dataset.studyOriginalItem),expected);
+  assert.equal(list.children.length,3,"Only spaced outer bullets may become numbered items");
+  assert.ok(list.children[0].textContent.includes("고객 (Customer)·경쟁사 (Competitor)·자사 (Company)"));
+});
+test("Compact unspaced technical names stay together under one Y group",()=>{
+  const source="유형구분: Hard S(하드 요소)=Strategy(전략)·Structure(조직구조)·Systems(시스템)로 구성 · Soft S(소프트 요소)=Shared Values(공유가치)·Skills(역량)로 분류 · 후속 성과 평가";
+  const expected=[
+    "유형구분: Hard S(하드 요소)=Strategy(전략)·Structure(조직구조)·Systems(시스템)로 구성",
+    "Soft S(소프트 요소)=Shared Values(공유가치)·Skills(역량)로 분류",
+    "후속 성과 평가"
+  ];
+  assert.deepEqual(Array.from(split(source)),expected);
+  assert.equal(expected.join(" · "),source);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailTechnicalComponents",source,"technicalComponents",true);
+  const heading=els.detailTechnicalComponents.children.find(n=>n.className==="study-readable-heading");
+  const list=els.detailTechnicalComponents.children.find(n=>n.tagName==="ol");
+  assert.equal(heading?.textContent,"유형구분:");
+  assert.equal(list?.children.length,3);
+  assert.deepEqual(list.children.map(n=>n.dataset.studyOriginalItem),
+    [expected[0].slice("유형구분: ".length),expected[1],expected[2]]);
+  assert.ok(list.children[0].textContent.includes("Strategy(전략)·Structure(조직구조)·Systems(시스템)"));
+});
+
+const {authoredX:phase22X,authoredY:phase22Y}=require("./visibility_authored_hierarchy_fixture.cjs");
+test("Author-numbered ga./na./da. X remains original text without duplicate numbers",()=>{
+  assert.equal(split(phase22X),null);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",phase22X,"features",true);
+  const root=els.detailFeatures;
+  assert.equal(root.textContent,phase22X);
+  assert.equal(root.children.length,0);
+  assert.equal(root.classList.contains("study-preserved-lines"),true);
+  assert.equal((root.textContent.match(/^[가-다]\. /gm)||[]).length,3);
+});
+test("Four numbered Y sections and 12 indented ga)-style steps are exactly preserved",()=>{
+  assert.equal(split(phase22Y),null);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailTechnicalComponents",phase22Y,"technicalComponents",true);
+  const root=els.detailTechnicalComponents;
+  assert.equal(root.textContent,phase22Y);
+  assert.equal(root.children.length,0);
+  assert.equal(root.classList.contains("study-preserved-lines"),true);
+  assert.equal((root.textContent.match(/^\d+\. /gm)||[]).length,4);
+  assert.equal((root.textContent.match(/^  [가-라]\) /gm)||[]).length,12);
+  assert.equal(root.textContent.split("\n").length,19);
+  for(const token of ["RFC 8446","IEEE 802.1X","13.56MHz","1.25 Gbps","(A(B)C)"])
+    assert.ok(root.textContent.includes(token),token);
 });
