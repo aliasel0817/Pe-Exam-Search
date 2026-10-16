@@ -464,3 +464,42 @@ test("Real display fields preserve unbracketed equations as one source element",
     ["공식 R = 2 · 3","결과 정확도 점검","RFC 8446 유지"]);
   assert.equal(y.children[0].textContent,"공식 R = 2 · 3");
 });
+
+
+test("Compact unspaced bilingual labels stay inside one feature item",()=>{
+  // Real corpus contains inline "A(가)·B(나)" groups; do not expand them into
+  // additional top-level numbered items simply because they contain dots.
+  const source="Customer(고객)·Competitor(경쟁사)·Company(자사) 기반 분석 · 외부 환경 평가 · 개선 방향 수립";
+  const expected=[
+    "Customer(고객)·Competitor(경쟁사)·Company(자사) 기반 분석",
+    "외부 환경 평가","개선 방향 수립"
+  ];
+  assert.deepEqual(Array.from(split(source)),expected);
+  assert.equal(expected.join(" · "),source);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",source,"features",true);
+  const list=els.detailFeatures.children.find(n=>n.tagName==="ol");
+  assert.ok(list);
+  assert.deepEqual(list.children.map(n=>n.dataset.studyOriginalItem),expected);
+  assert.equal(list.children.length,3,"Only spaced outer bullets may become numbered items");
+  assert.ok(list.children[0].textContent.includes("고객 (Customer)·경쟁사 (Competitor)·자사 (Company)"));
+});
+test("Compact unspaced technical names stay together under one Y group",()=>{
+  const source="유형구분: Hard S(하드 요소)=Strategy(전략)·Structure(조직구조)·Systems(시스템)로 구성 · Soft S(소프트 요소)=Shared Values(공유가치)·Skills(역량)로 분류 · 후속 성과 평가";
+  const expected=[
+    "유형구분: Hard S(하드 요소)=Strategy(전략)·Structure(조직구조)·Systems(시스템)로 구성",
+    "Soft S(소프트 요소)=Shared Values(공유가치)·Skills(역량)로 분류",
+    "후속 성과 평가"
+  ];
+  assert.deepEqual(Array.from(split(source)),expected);
+  assert.equal(expected.join(" · "),source);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailTechnicalComponents",source,"technicalComponents",true);
+  const heading=els.detailTechnicalComponents.children.find(n=>n.className==="study-readable-heading");
+  const list=els.detailTechnicalComponents.children.find(n=>n.tagName==="ol");
+  assert.equal(heading?.textContent,"유형구분:");
+  assert.equal(list?.children.length,3);
+  assert.deepEqual(list.children.map(n=>n.dataset.studyOriginalItem),
+    [expected[0].slice("유형구분: ".length),expected[1],expected[2]]);
+  assert.ok(list.children[0].textContent.includes("Strategy(전략)·Structure(조직구조)·Systems(시스템)"));
+});
