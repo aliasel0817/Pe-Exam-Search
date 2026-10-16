@@ -13,6 +13,7 @@ const path = require("node:path");
 const http = require("node:http");
 const puppeteer = require("../../.qa-browser/node_modules/puppeteer-core");
 
+const {authoredX:phase22X,authoredY:phase22Y}=require("./visibility_authored_hierarchy_fixture.cjs");
 const root = path.resolve(__dirname, "..");
 const htmlPath = path.join(root, "study-note.html");
 const outputDir = path.join(root, "qa-artifacts", "visibility-browser");
@@ -59,6 +60,7 @@ const fixtures = [
   makeTopic("T4036","쉼표형 특징 6개 / 기존 번호 절차",
     "비대화형 인증, 대량 동적 생성, 상시 접근성, 자격증명 의존성, 권한 집중성, 추적 관리 복잡성",
     "1. 공격절차: 1)신원정보 수집(영상과 음성 데이터), 2)AI 신원 합성(딥페이크)\n2. 공격유형: 인간 신원 및 AI 에이전트 신원 위조\n3. 대응방안: 위험기반 인증·권한통제"),
+  makeTopic("TQA-AUTHORED-MULTILEVEL","작성 번호 및 12개 하위 항목 장문",phase22X,phase22Y),
   makeTopic("T4038","QEC — 기작성 계층형/하이픈 원문",
     "- 논리 큐비트를 여러 물리 큐비트로 인코딩\n- 패리티(Parity) 측정 시 양자 상태 유지\n- 비파괴적 오류 검출과 선택적 보정",
     "1. 코드:\n  가. 표면 부호(suface code): 2차원 격자 기반 국소적 상호작용\n  나. 양자 LDPC(Quantum Low Density Parity Check, qLDPC): 희소 행렬 기반 장거리 상호작용"),
@@ -94,7 +96,7 @@ function createServer(html){
   });
   return new Promise(resolve=>server.listen(0,"127.0.0.1",()=>resolve(server)));
 }
-const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-NUMERIC","TQA-FORMULA"]);
+const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-NUMERIC","TQA-FORMULA","TQA-AUTHORED-MULTILEVEL"]);
 
 (async()=>{
   const server=await createServer(testHtml);
@@ -167,6 +169,18 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
           assert.equal(render.yCount,0);
           assert.equal(render.y.whiteSpace,"pre-wrap");
           assert.equal(render.yRaw,topic.technicalComponents);
+        }
+        if(topic.topicId==="TQA-AUTHORED-MULTILEVEL"){
+          assert.equal(render.xCount,0);
+          assert.equal(render.yCount,0);
+          assert.equal(render.x.whiteSpace,"pre-wrap");
+          assert.equal(render.y.whiteSpace,"pre-wrap");
+          assert.equal(render.xRaw,topic.features,"Raw authored X lost");
+          assert.equal(render.yRaw,topic.technicalComponents,"Raw authored Y lost");
+          assert.equal((render.xRaw.match(/^[가-다]\. /gm)||[]).length,3);
+          assert.equal((render.yRaw.match(/^\d+\. /gm)||[]).length,4);
+          assert.equal((render.yRaw.match(/^  [가-라]\) /gm)||[]).length,12);
+          assert.equal(render.yRaw.split("\n").length,19);
         }
         if(topic.topicId==="T4038"){
           assert.equal(render.xCount,0);

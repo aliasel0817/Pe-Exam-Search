@@ -503,3 +503,29 @@ test("Compact unspaced technical names stay together under one Y group",()=>{
     [expected[0].slice("유형구분: ".length),expected[1],expected[2]]);
   assert.ok(list.children[0].textContent.includes("Strategy(전략)·Structure(조직구조)·Systems(시스템)"));
 });
+
+const {authoredX:phase22X,authoredY:phase22Y}=require("./visibility_authored_hierarchy_fixture.cjs");
+test("Author-numbered ga./na./da. X remains original text without duplicate numbers",()=>{
+  assert.equal(split(phase22X),null);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailFeatures",phase22X,"features",true);
+  const root=els.detailFeatures;
+  assert.equal(root.textContent,phase22X);
+  assert.equal(root.children.length,0);
+  assert.equal(root.classList.contains("study-preserved-lines"),true);
+  assert.equal((root.textContent.match(/^[가-다]\. /gm)||[]).length,3);
+});
+test("Four numbered Y sections and 12 indented ga)-style steps are exactly preserved",()=>{
+  assert.equal(split(phase22Y),null);
+  const {els,render}=makeStudyDOMTestHarness();
+  render("detailTechnicalComponents",phase22Y,"technicalComponents",true);
+  const root=els.detailTechnicalComponents;
+  assert.equal(root.textContent,phase22Y);
+  assert.equal(root.children.length,0);
+  assert.equal(root.classList.contains("study-preserved-lines"),true);
+  assert.equal((root.textContent.match(/^\d+\. /gm)||[]).length,4);
+  assert.equal((root.textContent.match(/^  [가-라]\) /gm)||[]).length,12);
+  assert.equal(root.textContent.split("\n").length,19);
+  for(const token of ["RFC 8446","IEEE 802.1X","13.56MHz","1.25 Gbps","(A(B)C)"])
+    assert.ok(root.textContent.includes(token),token);
+});
