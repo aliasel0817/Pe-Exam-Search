@@ -5703,6 +5703,15 @@ function splitStudyItemsForDisplay(value) {
     if (matching[ch]) stack.push(matching[ch]);
     else if (closers.has(ch) && stack.pop() !== ch) return null;
     if (ch === '·' && !stack.length && /\s/.test(source[i - 1] || '') && /\s/.test(source[i + 1] || '')) {
+      // A multiplication dot inside an explicit equation is not a list delimiter.
+      // Only protect clear single-letter/numeric operands; ambiguous prose
+      // and ordinary X/Y bullets retain the existing fail-closed behavior.
+      const beforeIsEquationOperand = /[=＝][^;:\n]{0,120}(?:[A-Za-z]|\d+(?:\.\d+)?)\s*$/.test(part);
+      const afterIsEquationOperand = /^\s*(?:[A-Za-z]|\d+(?:\.\d+)?)(?=\s*(?:[+\-*/×^=)·]|$))/.test(source.slice(i + 1));
+      if (beforeIsEquationOperand && afterIsEquationOperand) {
+        part += ch;
+        continue;
+      }
       items.push(part.trim());
       part = '';
       continue;

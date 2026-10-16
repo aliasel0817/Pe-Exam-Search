@@ -427,3 +427,40 @@ test("Authored enumerations remain unnumbered and source preserved",()=>{
     assert.equal(split(source),null,source);
   }
 });
+
+test("Top-level equation multiplication dots never become X/Y list boundaries",()=>{
+  const cases=[
+    ["내적식 x = a · b + c · d · 계산 결과 검증 · 적용 확인",
+      ["내적식 x = a · b + c · d","계산 결과 검증","적용 확인"]],
+    ["산식 R = 2 · 3 · 표준 RFC 8446 유지",
+      ["산식 R = 2 · 3","표준 RFC 8446 유지"]],
+    ["외부 인터페이스 · 수식 x = a · b · c · 데이터 흐름 비교",
+      ["외부 인터페이스","수식 x = a · b · c","데이터 흐름 비교"]]
+  ];
+  for(const [source,expected] of cases){
+    const result=split(source);
+    assert.deepEqual(Array.from(result||[]),expected,source);
+    assert.equal(Array.from(result).join(" · "),source,"Original formula/list content was changed");
+  }
+  assert.equal(split("x = a · b"),null,"A lone formula is not an enumerated list");
+  assert.deepEqual(Array.from(split("설계 단계 · 검증 단계")),
+    ["설계 단계","검증 단계"],"Ordinary list separators must still split");
+});
+test("Real display fields preserve unbracketed equations as one source element",()=>{
+  const {els,render}=makeStudyDOMTestHarness();
+  const feature="내적식 x = a · b + c · d · 계산 결과 검증 · 적용 확인";
+  render("detailFeatures",feature,"features",true);
+  const x=els.detailFeatures.children.find(x=>x.tagName==="ol");
+  assert.ok(x,"X should still show a numbered list");
+  assert.deepEqual(x.children.map(n=>n.dataset.studyOriginalItem),
+    ["내적식 x = a · b + c · d","계산 결과 검증","적용 확인"]);
+  assert.equal(x.children[0].textContent,"내적식 x = a · b + c · d");
+  const component="계산요소: 공식 R = 2 · 3 · 결과 정확도 점검 · RFC 8446 유지";
+  render("detailTechnicalComponents",component,"technicalComponents",true);
+  const y=els.detailTechnicalComponents.children.find(x=>x.tagName==="ol");
+  const heading=els.detailTechnicalComponents.children.find(x=>x.className==="study-readable-heading");
+  assert.equal(heading.textContent,"계산요소:");
+  assert.deepEqual(y.children.map(n=>n.dataset.studyOriginalItem),
+    ["공식 R = 2 · 3","결과 정확도 점검","RFC 8446 유지"]);
+  assert.equal(y.children[0].textContent,"공식 R = 2 · 3");
+});
