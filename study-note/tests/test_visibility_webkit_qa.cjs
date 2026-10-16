@@ -42,6 +42,9 @@ const topics=[
  make("TQA-NUMERIC","IEEE 기술번호 시작 특징",
     "13.56MHz 대역 통신 · 2.4GHz 주파수 활용 · 802.11p PHY/MAC 계층 · 802.1X/EAP 인증",
     "구성요소: NFC(근거리 무선통신을 제공하고 교환) · IEEE 802.11p(물리계층을 지원하고 설계)"),
+ make("TQA-FORMULA","괄호 밖 곱셈점 수식",
+    "내적식 x = a · b + c · d · 계산 결과 검증 · 적용 확인",
+    "계산요소: 공식 R = 2 · 3 · 결과 정확도 점검 · RFC 8446 유지"),
  make("T4038","번호형 원문 계층 보존",
     "- 논리 큐비트 인코딩\n- 패리티 측정\n- 비파괴 오류 검출",
     "1. 코드:\n  가. 표면 부호: 국소 연산\n  나. 양자 LDPC: 장거리 연산")
@@ -122,6 +125,12 @@ const server=http.createServer((req,res)=>{
        assert.deepEqual(r.sourceX,topic.features.split(" · "));
        for(const token of ["13.56MHz","2.4GHz","802.11p","802.1X/EAP"])
          assert.ok(r.displayX.includes(token),"Original dotted identifier missing: "+token);
+     }
+     if(topic.topicId==="TQA-FORMULA"){
+       assert.deepEqual(r.sourceX,["내적식 x = a · b + c · d","계산 결과 검증","적용 확인"]);
+       assert.deepEqual(r.sourceY,["공식 R = 2 · 3","결과 정확도 점검","RFC 8446 유지"]);
+       assert.ok(r.displayX.includes("x = a · b + c · d"));
+       assert.ok(r.displayY.includes("R = 2 · 3"));
      }
      if(topic.topicId==="T4038"){
        assert.equal(r.sourceX.length,0);
