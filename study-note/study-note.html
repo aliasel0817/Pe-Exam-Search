@@ -3808,9 +3808,9 @@ function reconcileReferencePdfLinks(topics, links, pageFiles = []) {
   return { links: validLinks, expectedCount, missingCount, staleCount };
 }
 
-async function fetchMediaContent(apiUrl, attachmentId) {
+async function fetchMediaContent(apiUrl, attachmentId, { signal } = {}) {
   const url = `${normalizeApiUrl(apiUrl)}?action=mediaContent&attachmentId=${encodeURIComponent(attachmentId)}&_=${Date.now()}`;
-  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow', signal });
   if (!response.ok) throw new Error(`첨부파일 조회 실패: HTTP ${response.status}`);
   const json = await response.json();
   if (!json || json.ok !== true) throw new Error(json?.message || '첨부파일 응답이 올바르지 않습니다.');
@@ -3989,6 +3989,8 @@ function saveSecuritySession(value) {
 }
 
 function clearSecuritySession() {
+  clearCachedImageBlobs();
+  cancelImageViewerPendingLoads();
   localStorage.removeItem(SECURITY_SESSION_KEY);
   clearSecurityValidationStamp();
   securityState.authenticated = false;
@@ -4250,6 +4252,16 @@ let referencePdfPreparationCount = 0;
 let referencePdfPreparationGeneration = 0;
 let mediaViewerObjectUrls = [];
 let mediaImageObserver = null;
+let mediaImageFallbackScrollHandler = null;
+let mediaImageViewerGeneration = 0;
+const mediaImageAbortControllers = new Set();
+// Keep only decoded binary Blobs for this tab; no persistent media copies.
+const IMAGE_BLOB_CACHE_MAX_BYTES = 32 * 1024 * 1024;
+const IMAGE_BLOB_CACHE_MAX_ITEMS = 12;
+const IMAGE_BLOB_CACHE_MAX_SINGLE_BYTES = 12 * 1024 * 1024;
+const IMAGE_VIEWER_MAX_PARALLEL_FETCHES = 2;
+const imageMediaBlobCache = new Map();
+let imageMediaBlobCacheBytes = 0;
 let activeImageZoomController = null;
 let activeImageFigure = null;
 let activePdfAttachments = [];
@@ -12733,6 +12745,7 @@ async function applyPendingAttachmentChanges(topicId) {
     pendingAttachmentDeletes.delete(attachmentId);
     allAttachments = allAttachments.filter(item => item.attachmentId !== attachmentId);
     await removeAttachment(db, attachmentId);
+    evictCachedImageBlob(attachmentId);
     renderManageAttachments();
   }
 
@@ -12759,6 +12772,86 @@ async function applyPendingAttachmentChanges(topicId) {
   await setMeta(db, 'lastAttachmentSyncAt', new Date().toISOString());
 }
 
+// Cache decoded binary Blobs by attachment ID + version metadata, not Base64.
+// The LRU is session-only, bounded to 32 MiB / 12 images, and keeps originals intact.
+function imageMediaSignature(item) {
+  return JSON.stringify([item.attachmentId, item.driveFileId, item.size, item.createdAt, item.mime, item.fileName]);
+}
+
+function evictCachedImageBlob(attachmentId) {
+  const old = imageMediaBlobCache.get(attachmentId);
+  if (!old) return;
+  imageMediaBlobCache.delete(attachmentId);
+  imageMediaBlobCacheBytes -= old.blob.size;
+}
+
+function clearCachedImageBlobs() {
+  imageMediaBlobCache.clear();
+  imageMediaBlobCacheBytes = 0;
+}
+
+function cachedImageBlob(item) {
+  const entry = imageMediaBlobCache.get(item.attachmentId);
+  if (!entry) return null;
+  if (entry.signature !== imageMediaSignature(item)) {
+    evictCachedImageBlob(item.attachmentId);
+    return null;
+  }
+  imageMediaBlobCache.delete(item.attachmentId);
+  imageMediaBlobCache.set(item.attachmentId, entry);
+  return entry;
+}
+
+function cacheImageBlob(item, blob, fileName) {
+  evictCachedImageBlob(item.attachmentId);
+  if (blob.size > IMAGE_BLOB_CACHE_MAX_SINGLE_BYTES || blob.size > IMAGE_BLOB_CACHE_MAX_BYTES) return;
+  while (imageMediaBlobCache.size >= IMAGE_BLOB_CACHE_MAX_ITEMS
+    || imageMediaBlobCacheBytes + blob.size > IMAGE_BLOB_CACHE_MAX_BYTES) {
+    const oldest = imageMediaBlobCache.keys().next().value;
+    if (oldest === undefined) break;
+    evictCachedImageBlob(oldest);
+  }
+  imageMediaBlobCache.set(item.attachmentId, { signature: imageMediaSignature(item), blob, fileName });
+  imageMediaBlobCacheBytes += blob.size;
+}
+
+function imageBase64ToBlob(base64, mime) {
+  const source = String(base64 || '');
+  if (!source) throw new Error('첨부 이미지 데이터가 비어 있습니다.');
+  // Align chunk boundaries to four Base64 bytes: avoid a huge temporary atob string.
+  const parts = [];
+  for (let offset = 0; offset < source.length; offset += 32768) {
+    const binary = atob(source.slice(offset, offset + 32768));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    parts.push(bytes);
+  }
+  return new Blob(parts, { type: mime || 'application/octet-stream' });
+}
+
+async function loadCachedImageBlob(item, signal) {
+  const cached = cachedImageBlob(item);
+  if (cached) return cached;
+  const payload = await fetchMediaContent(getApiUrl(), item.attachmentId, { signal });
+  if (signal?.aborted) throw new DOMException('이미지 불러오기 취소', 'AbortError');
+  const blob = imageBase64ToBlob(payload.base64, payload.mime);
+  if (signal?.aborted) throw new DOMException('이미지 불러오기 취소', 'AbortError');
+  const fileName = payload.fileName || item.fileName || '첨부 이미지';
+  cacheImageBlob(item, blob, fileName);
+  return { blob, fileName };
+}
+
+function cancelImageViewerPendingLoads() {
+  mediaImageViewerGeneration++;
+  if (mediaImageObserver) mediaImageObserver.disconnect();
+  mediaImageObserver = null;
+  if (mediaImageFallbackScrollHandler && els.imageViewerBody) {
+    els.imageViewerBody.removeEventListener('scroll', mediaImageFallbackScrollHandler);
+  }
+  mediaImageFallbackScrollHandler = null;
+  for (const controller of mediaImageAbortControllers) controller.abort();
+  mediaImageAbortControllers.clear();
+}
 function base64ToObjectUrl(base64, mime) {
   const binary = atob(base64);
   const chunkSize = 8192;
@@ -12810,8 +12903,7 @@ function closeMediaViewer() {
 }
 
 function cleanupMediaViewerObjects() {
-  if (mediaImageObserver) mediaImageObserver.disconnect();
-  mediaImageObserver = null;
+  cancelImageViewerPendingLoads();
   attachmentPdfLoadSerial++;
   if (activeAttachmentPdfRenderTask) {
     try { activeAttachmentPdfRenderTask.cancel(); } catch (error) { /* noop */ }
@@ -12856,6 +12948,9 @@ function setActiveImageZoomController(figure, controller) {
 }
 
 function renderImageViewer(items) {
+  // Obsolete async responses cannot alter the next popup or leak Object URLs.
+  cancelImageViewerPendingLoads();
+  const generation = mediaImageViewerGeneration;
   destroyAnnotationSurfacesWithin(els.imageViewerBody);
   setActiveImageZoomController(null, null);
   els.imageViewerBody.innerHTML = `<div class="media-image-list">${items.map((item, index) => `
@@ -12866,19 +12961,42 @@ function renderImageViewer(items) {
       </div>
       <div class="media-image-zoom-hint">모바일·태블릿: 이미지 위에서 두 손가락 확대/축소</div>
     </figure>`).join('')}</div>`;
+  els.imageViewerBody.scrollTop = 0;
+  const itemsById = new Map(items.map(item => [item.attachmentId, item]));
+  const figures = [...els.imageViewerBody.querySelectorAll('[data-media-image-id]')];
+  const pending = new Map();
+  let inflight = 0;
+  const isCurrent = () => mediaImageViewerGeneration === generation
+    && !els.imageViewerModal.classList.contains('hidden');
 
   const loadFigure = async figure => {
-    if (figure.dataset.loaded === '1' || figure.dataset.loading === '1') return;
-    figure.dataset.loading = '1';
+    if (!isCurrent() || !figure.isConnected || figure.dataset.loaded === '1'
+      || figure.dataset.loading === '1') return;
+    const item = itemsById.get(figure.dataset.mediaImageId);
     const placeholder = figure.querySelector('.media-placeholder');
+    if (!item || !placeholder) return;
+    figure.dataset.loading = '1';
     placeholder.textContent = '이미지 불러오는 중...';
+    const controller = new AbortController();
+    mediaImageAbortControllers.add(controller);
     try {
-      const payload = await fetchMediaContent(getApiUrl(), figure.dataset.mediaImageId);
-      if (els.imageViewerModal.classList.contains('hidden')) return;
-      const url = base64ToObjectUrl(payload.base64, payload.mime);
+      const { blob, fileName } = await loadCachedImageBlob(item, controller.signal);
+      if (!isCurrent() || !figure.isConnected || controller.signal.aborted) return;
+      const url = URL.createObjectURL(blob);
+      mediaViewerObjectUrls.push(url);
       const img = document.createElement('img');
       img.className = 'media-viewer-image';
-      img.alt = payload.fileName || '첨부 이미지';
+      img.alt = fileName;
+      img.decoding = 'async';
+      img.addEventListener('error', () => {
+        if (!isCurrent() || !figure.isConnected) return;
+        evictCachedImageBlob(item.attachmentId);
+        const fallback = document.createElement('div');
+        fallback.className = 'media-placeholder';
+        fallback.textContent = '이미지를 표시할 수 없습니다. 다시 열어 주세요.';
+        img.replaceWith(fallback);
+        figure.dataset.loaded = '';
+      }, { once: true });
       img.src = url;
       placeholder.replaceWith(img);
       const zoomController = installAttachmentImageZoom(figure, img);
@@ -12886,35 +13004,82 @@ function renderImageViewer(items) {
       figure.addEventListener('pointerenter', () => setActiveImageZoomController(figure, zoomController));
       figure.addEventListener('focusin', () => setActiveImageZoomController(figure, zoomController));
       if (!activeImageZoomController) setActiveImageZoomController(figure, zoomController);
-      const installAnnotation = () => ensureAnnotationSurface({
-        host: figure.querySelector('.media-image-zoom-wrap'),
-        media: img,
-        key: annotationSurfaceKey('attachment-image', figure.dataset.mediaImageId),
-        kind: 'attachment-image',
-        intrinsicWidth: img.naturalWidth,
-        intrinsicHeight: img.naturalHeight,
-      });
+      const installAnnotation = () => {
+        if (!isCurrent() || !figure.isConnected || !img.isConnected || !img.naturalWidth) return;
+        ensureAnnotationSurface({
+          host: figure.querySelector('.media-image-zoom-wrap'),
+          media: img,
+          key: annotationSurfaceKey('attachment-image', item.attachmentId),
+          kind: 'attachment-image',
+          intrinsicWidth: img.naturalWidth,
+          intrinsicHeight: img.naturalHeight,
+        });
+      };
       if (img.complete && img.naturalWidth) installAnnotation();
       else img.addEventListener('load', installAnnotation, { once: true });
       figure.dataset.loaded = '1';
     } catch (error) {
-      placeholder.textContent = `불러오기 실패 · ${error.message || error}`;
+      if (isCurrent() && figure.isConnected && error?.name !== 'AbortError' && placeholder.isConnected) {
+        placeholder.textContent = `불러오기 실패 · ${error.message || error}`;
+      }
     } finally {
+      mediaImageAbortControllers.delete(controller);
       figure.dataset.loading = '';
     }
   };
 
-  const figures = [...els.imageViewerBody.querySelectorAll('[data-media-image-id]')];
-  if ('IntersectionObserver' in window) {
+  // Prioritize nearby images and keep at most two requests/conversions active.
+  const distanceToView = figure => {
+    const view = els.imageViewerBody.getBoundingClientRect();
+    const rect = figure.getBoundingClientRect();
+    return Math.max(0, rect.top - view.bottom, view.top - rect.bottom);
+  };
+  const pump = () => {
+    if (!isCurrent()) return;
+    while (inflight < IMAGE_VIEWER_MAX_PARALLEL_FETCHES && pending.size) {
+      const ordered = [...pending.values()].sort((a, b) =>
+        a.priority - b.priority || distanceToView(a.figure) - distanceToView(b.figure));
+      const job = ordered[0];
+      pending.delete(job.figure);
+      if (!job.figure.isConnected || job.figure.dataset.loaded === '1') continue;
+      inflight++;
+      loadFigure(job.figure).finally(() => {
+        inflight--;
+        if (isCurrent()) pump();
+      });
+    }
+  };
+  const enqueue = (figure, priority = 1) => {
+    if (!isCurrent() || !figure.isConnected || figure.dataset.loaded === '1'
+      || figure.dataset.loading === '1') return;
+    if (!pending.has(figure)) pending.set(figure, { figure, priority });
+    pump();
+  };
+  const queueVisible = () => {
+    const view = els.imageViewerBody.getBoundingClientRect();
+    const near = figures.filter(figure => {
+      const rect = figure.getBoundingClientRect();
+      return rect.bottom >= view.top - 250 && rect.top <= view.bottom + 250;
+    }).sort((a, b) => distanceToView(a) - distanceToView(b));
+    near.forEach(figure => enqueue(figure));
+  };
+
+  // Immediate first picture; only nearby subsequent pictures download.
+  if (figures[0]) enqueue(figures[0], 0);
+  if (typeof IntersectionObserver === 'function') {
     mediaImageObserver = new IntersectionObserver(entries => {
-      entries.forEach(entry => { if (entry.isIntersecting) loadFigure(entry.target); });
-    }, { root: els.imageViewerBody, rootMargin: '500px 0px' });
+      const visible = entries.filter(entry => entry.isIntersecting)
+        .sort((a, b) => distanceToView(a.target) - distanceToView(b.target));
+      visible.forEach(entry => enqueue(entry.target));
+      entries.filter(entry => !entry.isIntersecting).forEach(entry => pending.delete(entry.target));
+    }, { root: els.imageViewerBody, rootMargin: '250px 0px' });
     figures.forEach(figure => mediaImageObserver.observe(figure));
   } else {
-    figures.forEach(loadFigure);
+    mediaImageFallbackScrollHandler = queueVisible;
+    els.imageViewerBody.addEventListener('scroll', queueVisible, { passive: true });
+    queueVisible();
   }
 }
-
 function installAttachmentImageZoom(figure, image) {
   const wrap = figure?.querySelector('.media-image-zoom-wrap');
   if (!wrap || !image) return;
