@@ -38,6 +38,7 @@ jobs:
             export CHROME_BIN
           fi
           node study-note/tests/test_visibility_browser_qa.cjs
+          node study-note/tests/test_annotation_pointer_split.cjs
       - name: Upload synthetic QA screenshots and results
         if: always()
         uses: actions/upload-artifact@v4
