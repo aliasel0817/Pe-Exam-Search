@@ -4323,7 +4323,6 @@ const annotationEditorState = {
 let lastActiveAnnotationSurface = null;
 let annotationTemporaryPreviousTool = '';
 let annotationClipboardObject = null;
-const annotationPointerProfile = { stylusSeen: false, lastStylusAt: 0 };
 const ANNOTATION_HISTORY_LIMIT = 50;
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
@@ -10962,21 +10961,27 @@ function resetAnnotationTouchPanBaseline(gesture) {
   gesture.startX = first.x;
   gesture.startY = first.y;
   gesture.scrollLeft = gesture.scroller.scrollLeft;
-  gesture.scrollTop = gesture.scroller.scrollTop;
+  gesture.scrollTop = (gesture.verticalScroller || gesture.scroller).scrollTop;
 }
 
 function beginAnnotationTouchPan(surface, event) {
   const scroller = annotationPanScroller(surface);
   if (!scroller) return false;
+  // Image pages scroll vertically in the outer list, but horizontally in the zoom wrapper.
+  // PDFs use the same scroll element in both directions.
+  const verticalScroller = surface.kind === 'attachment-image'
+    ? (surface.host?.closest?.('.image-viewer-body') || scroller)
+    : scroller;
   if (!surface.touchGesture) {
     surface.touchGesture = {
       scroller,
+      verticalScroller,
       pointers: new Map(),
       mode: 'pan',
       startX: event.clientX,
       startY: event.clientY,
       scrollLeft: scroller.scrollLeft,
-      scrollTop: scroller.scrollTop,
+      scrollTop: verticalScroller.scrollTop,
       zoomAdapter: annotationTouchZoomAdapter(surface),
       pinchStartDistance: 0,
       pinchStartZoom: 1,
@@ -11016,7 +11021,8 @@ function moveAnnotationTouchPan(surface, event) {
   if (!point) return true;
   if (gesture.mode !== 'pan') resetAnnotationTouchPanBaseline(gesture);
   gesture.scroller.scrollLeft = gesture.scrollLeft - (point.x - gesture.startX);
-  if (typeof gesture.scroller.scrollTop === 'number') gesture.scroller.scrollTop = gesture.scrollTop - (point.y - gesture.startY);
+  const verticalScroller = gesture.verticalScroller || gesture.scroller;
+  if (typeof verticalScroller.scrollTop === 'number') verticalScroller.scrollTop = gesture.scrollTop - (point.y - gesture.startY);
   return true;
 }
 
@@ -11131,20 +11137,36 @@ function installAnnotationInputHandlers(surface) {
     syncAnnotationToolbarUi();
   });
 
+  // The image zoom wrapper also receives legacy Touch Events. In drawing mode,
+  // the annotation canvas owns touch gestures via Pointer Events, so do not
+  // run a second pan/pinch handler for the same fingers in the parent wrapper.
+  const stopDuplicateAnnotationTouch = event => {
+    if (!canvas.classList.contains('annotation-input-enabled')) return;
+    event.stopPropagation();
+    if (event.type === 'touchmove' && event.cancelable) event.preventDefault();
+  };
+  canvas.addEventListener('touchstart', stopDuplicateAnnotationTouch, { passive: true });
+  canvas.addEventListener('touchmove', stopDuplicateAnnotationTouch, { passive: false });
+  canvas.addEventListener('touchend', stopDuplicateAnnotationTouch, { passive: true });
+  canvas.addEventListener('touchcancel', stopDuplicateAnnotationTouch, { passive: true });
   canvas.addEventListener('pointerdown', async event => {
     if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (event.pointerType === 'pen') {
-      annotationPointerProfile.stylusSeen = true;
-      annotationPointerProfile.lastStylusAt = Date.now();
-    }
-    if (event.pointerType === 'touch' && annotationPointerProfile.stylusSeen) {
-      if (beginAnnotationTouchPan(surface, event)) {
-        event.preventDefault();
-        event.stopPropagation();
+    // Pointer Events distinguish touch navigation from S Pen annotations immediately,
+    // including when a finger touches before the first stylus stroke.
+    if (event.pointerType === 'touch') {
+      event.preventDefault();
+      event.stopPropagation();
+      // Ignore a palm landing while pen/selection/eraser input is active.
+      if (!surface.activeStroke && !surface.activeShape
+          && !surface.activeErase && !surface.selectionAction) {
+        beginAnnotationTouchPan(surface, event);
       }
       return;
     }
+    // Only a recognized digital pen (or a PC mouse) may modify annotations.
+    // Do not turn unknown pointer types into accidental handwriting.
+    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
     event.preventDefault();
     event.stopPropagation();
     lastActiveAnnotationSurface = surface;
