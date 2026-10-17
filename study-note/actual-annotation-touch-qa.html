@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>학습노트 실제 주석코드 · 손가락/S펜 확인</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic","Noto Sans KR",sans-serif;color:#172033;background:#f2f6fb}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh}
+button{font:inherit;cursor:pointer;padding:9px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-size:.8rem;font-weight:700;min-height:37px}
+button.active{color:#1e40af;border-color:#60a5fa;background:#eff6ff}
+button:focus-visible{outline:3px solid #f59e0b}
+header{background:#fff;padding:12px 15px;border-bottom:1px solid #dbe2ea}
+h1{font-size:1.05rem;line-height:1.4;margin:0 0 4px}
+p{font-size:.82rem;margin:6px 0;line-height:1.6;color:#475467}
+.notice{background:#eff6ff;border-bottom:1px solid #bfdbfe;padding:11px 15px;color:#1e40af}
+.notice p{color:#1e40af}
+.main{padding:10px;display:grid;gap:9px}
+.controls{display:flex;gap:6px;flex-wrap:wrap}
+.status{background:#fff;border:1px solid #dbe2ea;border-radius:10px;padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.76rem}
+.status div{min-width:0;border-bottom:1px solid #edf2f7;padding:5px}
+.status strong{display:block;color:#1d4ed8;font-size:.92rem;overflow-wrap:anywhere}
+.frame{width:100%;height:min(64dvh,730px);min-height:330px;border:2px solid #cbd5e1;border-radius:12px;background:#e2e8f0}
+.hint{font-size:.78rem;background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:10px}
+.safety{font-size:.76rem;color:#475569}
+@media(min-width:920px){.main{max-width:980px;margin:auto}.status{grid-template-columns:repeat(4,1fr)}.frame{height:650px}}
+</style>
+</head>
+<body>
+<header><h1>학습노트 · 실제 주석 처리 코드 입력검사</h1><p>Galaxy Tab S11 손가락 이동 / S펜 필기 · PR #22 개선안</p></header>
+<section class="notice"><strong>운영판과 분리된 시험 환경</strong><p>GitHub의 수정된 실제 주석 입력 코드를 격리 실행합니다. MASTER, 등록 이미지·PDF, 로그인, 기작성 주석, 저장소에는 접근하지 않습니다. 이 페이지에서 그린 선은 저장되지 않습니다.</p></section>
+<main class="main">
+<div class="controls" role="group" aria-label="뷰어 종류">
+<button data-mode="subnote" class="active">서브노트</button>
+<button data-mode="textbook">교재</button>
+<button data-mode="image">이미지</button>
+<button data-mode="pdf">첨부 PDF</button>
+</div>
+<div class="controls" role="group" aria-label="주석 도구">
+<button data-tool="pen" class="active">펜</button>
+<button data-tool="highlighter">형광펜</button>
+<button data-tool="eraser">지우개</button>
+<button data-tool="pan">이동</button>
+<button id="clearInk">시험 필기 초기화</button>
+</div>
+<div class="status">
+<div>테스트 프로그램 상태<strong id="state">실제 코드 불러오는 중…</strong></div>
+<div>마지막 입력 종류<strong id="input">대기 중</strong></div>
+<div>현재 페이지 필기 수<strong id="inkCount">0</strong></div>
+<div>손가락 이동 거리<strong id="scroll">0px</strong></div>
+</div>
+<iframe class="frame" id="qaFrame" sandbox="allow-scripts" title="운영 주석 코드 격리 검증 영역"></iframe>
+<section class="hint">
+<strong>확인 순서</strong>
+<p>① <b>펜</b>을 선택한 상태에서 손가락으로 화면을 위아래로 움직이세요. 페이지는 이동하지만 선이 생기거나 필기 수가 늘어나면 안 됩니다.</p>
+<p>② 같은 화면에서 <b>S펜</b>으로 줄을 그으세요. 필기 수가 증가해야 합니다.</p>
+<p>③ 손가락으로 다시 이동하고, <b>형광펜</b>과 <b>두 손가락 확대</b>도 시험해 보세요.</p>
+<p>④ 서브노트·교재·이미지·첨부 PDF 탭에서 반복하세요.</p>
+</section>
+<p class="safety">테스트 코드 고정 커밋: <code>764c4a535787</code> · 실제 운영 프로그램은 이 수정안을 아직 적용하지 않았습니다.</p>
+</main>
+
+<script id="previewRuntime" type="text/plain">
+(function() {
+"use strict";
+const modes={
+ subnote:{kind:"reference-pdf",label:"서브노트 예시 문서"},
+ textbook:{kind:"reference-pdf",label:"교재 예시 문서"},
+ image:{kind:"attachment-image",label:"이미지 예시 문서"},
+ pdf:{kind:"attachment-pdf",label:"첨부 PDF 예시 문서"}
+};
+const status={mode:"subnote",tool:"pen",lastInput:"대기 중",pointerStarts:0};
+let currentSurface=null,outer=null,inner=null;
+let zoom=1,serial=0;
+function report(type) {
+ const doc=currentSurface?getAnnotationDocument(currentSurface.key):null;
+ const scroll=outer?Math.round(outer.scrollTop):0;
+ window.parent.postMessage({
+  from:"actual-annotation-preview",type:type||"status",
+  mode:status.mode,tool:status.tool,lastInput:status.lastInput,
+  strokes:doc?.objects?.length||0,scrollTop:scroll,zoom:zoom
+ },"*");
+}
+function mount(mode) {
+ if(!modes[mode])return;
+ if(currentSurface){destroyAnnotationSurface(currentSurface);currentSurface=null;}
+ if(outer){outer.remove();outer=null;}
+ status.mode=mode;zoom=1;serial++;
+ const cfg=modes[mode];
+ outer=document.createElement("section");
+ outer.className=cfg.kind==="attachment-image"?"image-viewer-body":"qa-outer";
+ outer.style.cssText="position:fixed;inset:0;overflow:auto;overscroll-behavior:contain;background:#cbd5e1;padding:0;z-index:99999";
+ inner=document.createElement("div");
+ inner.className=cfg.kind==="attachment-image"?"media-image-zoom-wrap":cfg.kind==="attachment-pdf"?"attachment-pdf-pan-scroller":"reference-pdf-pan-scroller";
+ inner.style.cssText="position:relative;overflow-x:auto;overflow-y:auto;touch-action:none;height:100%;width:100%;background:#e2e8f0";
+ const stage=document.createElement("div");
+ stage.style.cssText="position:relative;width:1100px;height:1680px;margin:0;background:white";
+ const media=document.createElement("canvas");
+ media.width=1040;media.height=1560;
+ media.style.cssText="display:block;position:absolute;left:0;top:0;width:1040px;height:1560px;background:white";
+ const ctx=media.getContext("2d");
+ ctx.fillStyle="#fff";ctx.fillRect(0,0,1040,1560);
+ ctx.fillStyle="#1e40af";ctx.font="bold 37px sans-serif";
+ ctx.fillText(cfg.label,64,100);
+ ctx.fillStyle="#334155";ctx.font="25px sans-serif";
+ ctx.fillText("이 페이지에서 손가락은 이동, S펜은 필기",64,155);
+ ctx.fillText("실제 등록 자료가 아닌 입력검사 전용 내용",64,210);
+ ctx.lineWidth=1;ctx.strokeStyle="#cbd5e1";
+ for(let i=0;i<22;i++){ctx.beginPath();ctx.moveTo(64,300+i*50);ctx.lineTo(980,300+i*50);ctx.stroke();}
+ ctx.fillStyle="#64748b";ctx.font="bold 24px sans-serif";
+ ctx.fillText("한 손가락으로 스크롤하며 선이 생기지 않는지 확인",64,275);
+ ctx.fillText("S펜으로 여기에 밑줄을 그어 보세요",64,440);
+ stage.append(media);
+ inner.append(stage);
+ if(cfg.kind==="attachment-image"){
+  inner.style.cssText="position:relative;width:100%;height:400px;overflow-x:auto;overflow-y:hidden;touch-action:pan-y;background:#fff";
+  outer.append(inner);
+  const spacer=document.createElement("div");
+  spacer.style.cssText="height:1300px;background:linear-gradient(#e2e8f0,#e0e7ff)";
+  outer.append(spacer);
+ }else outer.append(inner);
+ document.body.append(outer);
+ const key="qa-actual-"+mode+"-"+serial;
+ currentSurface=ensureAnnotationSurface({
+  host:stage,media:media,key:key,kind:cfg.kind,
+  intrinsicWidth:1040,intrinsicHeight:1560
+ });
+ syncAnnotationSurface(media);
+ const canvas=currentSurface.canvas;
+ const track=function(e){
+   if(e.type==="pointerdown"){
+     const detail=e.pointerType||"unknown";
+     status.lastInput=detail==="touch"?"손가락 (touch)":detail==="pen"?"S펜 (pen)":detail==="mouse"?"마우스 (mouse)":detail;
+   }
+   if(e.type==="touchstart")status.lastInput="손가락 (touchstart)";
+   requestAnimationFrame(function(){report()});
+ };
+ ["pointerdown","pointerup","touchstart"].forEach(function(t){
+  canvas.addEventListener(t,track,true);
+ });
+ setAnnotationTool(status.tool);
+ report("mounted");
+}
+window.addEventListener("message",function(event){
+ const m=event.data;
+ if(!m||m.from!=="actual-annotation-parent")return;
+ try{
+  if(m.action==="mode")mount(m.value);
+  else if(m.action==="tool"){status.tool=m.value;setAnnotationTool(m.value);report();}
+  else if(m.action==="clear")mount(status.mode);
+ }catch(error){
+  window.parent.postMessage({from:"actual-annotation-preview",type:"error",message:String(error.message||error)},"*");
+ }
+});
+window.addEventListener("DOMContentLoaded",function(){
+ setTimeout(function(){
+  try{
+   // No read/write requests to local/remote user data in this sandbox.
+   scheduleAnnotationPersist=function(){};
+   flushPendingAnnotationSaves=function(){};
+   annotationTouchZoomAdapter=function(){
+     return{getZoom:function(){return zoom},setZoom:function(value){zoom=Math.max(.5,Math.min(3,value));report()}};
+   };
+   mount("subnote");
+   setInterval(function(){report()},400);
+   report("ready");
+  }catch(error){
+   window.parent.postMessage({from:"actual-annotation-preview",type:"error",message:String(error.message||error)},"*");
+  }
+ },0);
+});
+})();
+</script>
+
+<script>
+(function(){
+"use strict";
+const SHA="764c4a535787390708c0dc4017c77d78b47e48f8";
+const file="https://raw.githubusercontent.com/aliasel0817/Pe-Exam-Search/"+SHA+"/study-note/study-note.html";
+const frame=document.getElementById("qaFrame");
+const state=document.getElementById("state");
+const input=document.getElementById("input");
+const ink=document.getElementById("inkCount");
+const scroll=document.getElementById("scroll");
+const send=function(action,value){if(frame.contentWindow)frame.contentWindow.postMessage({from:"actual-annotation-parent",action:action,value:value},"*")};
+document.querySelectorAll("[data-mode]").forEach(function(b){
+ b.addEventListener("click",function(){
+  document.querySelectorAll("[data-mode]").forEach(function(x){x.classList.toggle("active",x===b)});
+  send("mode",b.dataset.mode);
+ });
+});
+document.querySelectorAll("[data-tool]").forEach(function(b){
+ b.addEventListener("click",function(){
+  document.querySelectorAll("[data-tool]").forEach(function(x){x.classList.toggle("active",x===b)});
+  send("tool",b.dataset.tool);
+ });
+});
+document.getElementById("clearInk").addEventListener("click",function(){send("clear")});
+window.addEventListener("message",function(e){
+ if(e.source!==frame.contentWindow||e.data?.from!=="actual-annotation-preview")return;
+ const m=e.data;
+ if(m.type==="error"){state.textContent="오류: "+m.message;return;}
+ state.textContent="준비 완료";
+ input.textContent=m.lastInput||"대기 중";
+ ink.textContent=String(m.strokes||0);
+ scroll.textContent=String(m.scrollTop||0)+"px · 확대 "+Math.round((m.zoom||1)*100)+"%";
+});
+(async function(){
+ try{
+  const r=await fetch(file,{cache:"no-store"});
+  if(!r.ok)throw Error("GitHub source HTTP "+r.status);
+  let source=await r.text();
+  if(source.indexOf("isTouchDerivedAnnotationMouse")<0||source.length<600000)throw Error("기대하는 PR #22 수정 코드가 아닙니다.");
+  source=source.replace(/<script src="https:\/\/accounts\.google\.com\/gsi\/client" async defer><\/script>/,"");
+  source=source.replace(/<script src="\.\/tts\/natural-tts\.js\?v=[^"]+"><\/script>/,"");
+  source=source.replace(/<link rel="manifest" href="\.\/manifest\.webmanifest">/,"");
+  const bootstrap="window.addEventListener('DOMContentLoaded', init);";
+  if(source.indexOf(bootstrap)<0)throw Error("안전 부트스트랩 위치를 찾지 못했습니다.");
+  source=source.replace(bootstrap,"window.addEventListener('DOMContentLoaded', () => { bindElements(); });");
+  // Opaque sandbox has no origin storage. Supply an in-memory substitute before
+  // the real PWA source executes, so the test cannot access the user's storage.
+  const shim="(function(){var map=new Map();var store={getItem:function(k){return map.has(String(k))?map.get(String(k)):null},setItem:function(k,v){map.set(String(k),String(v))},removeItem:function(k){map.delete(String(k))},clear:function(){map.clear()},key:function(i){return Array.from(map.keys())[i]||null},get length(){return map.size}};Object.defineProperty(window,'localStorage',{configurable:true,value:store});Object.defineProperty(window,'sessionStorage',{configurable:true,value:store});})();";
+  source=source.replace('<head>','<head><scr'+'ipt>'+shim+'</scr'+'ipt>');
+  source=source.replace('</head>','<style>.app-shell,.modal{display:none!important}</style></head>');
+  const inject=document.getElementById("previewRuntime").textContent;
+  source=source.replace("</body>","<script>"+inject+"</scr"+"ipt></body>");
+  frame.srcdoc=source;
+  state.textContent="실제 코드 준비 중…";
+ }catch(error){
+  state.textContent="불러오기 실패";
+  input.textContent=String(error.message||error);
+ }
+})();
+})();
+</script>
+</body>
+</html>
