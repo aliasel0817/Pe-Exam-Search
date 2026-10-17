@@ -106,6 +106,22 @@ button { -webkit-tap-highlight-color: transparent; }
   outline: none;
 }
 .field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+/* Only the topic search is a plain-text editor, not a credential form field. */
+.topic-search-editor {
+  padding: 10px 11px;
+  line-height: 20px;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.topic-search-editor[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
 
 .search-target-select { position: relative; }
 .search-target-button {
@@ -1947,8 +1963,8 @@ button { -webkit-tap-highlight-color: transparent; }
             <button id="resetBtn" class="text-btn" type="button">초기화</button>
           </div>
 
-          <label class="field-label" for="searchInput">검색어</label>
-          <input id="searchInput" name="peTopicSearchInput" class="field" type="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore="true" aria-autocomplete="none" readonly placeholder="예: 검색어1;검색어2">
+          <div class="field-label" id="searchInputLabel">검색어</div>
+          <div id="searchInput" class="field topic-search-editor" role="searchbox" aria-labelledby="searchInputLabel" aria-multiline="false" aria-placeholder="예: 검색어1;검색어2" data-placeholder="예: 검색어1;검색어2" data-empty="true" contenteditable="plaintext-only" spellcheck="false" tabindex="0"></div>
           <p class="search-help">여러 검색어는 세미콜론(;)으로 구분하면 OR 조건으로 조회합니다.</p>
 
           <label class="field-label" for="searchTargetButton">검색대상</label>
@@ -4734,9 +4750,14 @@ function bindEvents() {
   });
 
   const handleSearchInput = () => {
+    const text = getSearchInputText();
+    // Keep pasted text and mobile return keys from making a multiline search.
+    if (/[\r\n]/.test(text)) setSearchInputText(text.replace(/[\r\n]+/g, ' '));
+    else els.searchInput.dataset.empty = text ? 'false' : 'true';
     clearAccidentalSearchAutofill();
     applyFilters();
   };
+  installSearchEditorKeyboardGuards();
   els.searchInput.addEventListener('input', handleSearchInput);
   els.searchInput.addEventListener('change', handleSearchInput);
   els.searchTargetButton.addEventListener('click', event => {
@@ -5510,6 +5531,26 @@ function isAppsScriptUrlText(value) {
   return /^https:\/\/script\.google\.com\/macros\/s\//i.test(text);
 }
 
+function installSearchEditorKeyboardGuards() {
+  els.searchInput.addEventListener('beforeinput', event => {
+    if (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') event.preventDefault();
+  });
+  els.searchInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') event.preventDefault();
+  });
+}
+
+function getSearchInputText() {
+  return els.searchInput?.textContent || '';
+}
+
+function setSearchInputText(value) {
+  if (!els.searchInput) return;
+  const text = String(value ?? '');
+  if (els.searchInput.textContent !== text) els.searchInput.textContent = text;
+  els.searchInput.dataset.empty = text ? 'false' : 'true';
+}
+
 function installSearchAutofillGuard() {
   if (!els.searchInput) return;
 
@@ -5519,21 +5560,20 @@ function installSearchAutofillGuard() {
 
   const clearBeforeUserInput = () => {
     if (unlockedByUser) return;
-    if (els.searchInput.value) els.searchInput.value = '';
+    if (getSearchInputText()) setSearchInputText('');
   };
 
   const unlockForUser = () => {
     if (unlockedByUser) return;
     clearBeforeUserInput();
     unlockedByUser = true;
-    els.searchInput.readOnly = false;
     if (guardTimer) window.clearInterval(guardTimer);
     if (stopTimer) window.clearTimeout(stopTimer);
   };
 
-  // HTML 단계에서도 readonly이지만 JS 초기화 직후 다시 명시한다.
-  els.searchInput.readOnly = true;
-  els.searchInput.value = '';
+  // A contenteditable search is not a form input and cannot receive saved credentials.
+  // Retain the pre-interaction restore guard and Apps Script URL cleanup.
+  setSearchInputText('');
 
   // 마우스/터치, 키보드 Tab 이동 모두 실제 사용자 조작으로 본다.
   els.searchInput.addEventListener('pointerdown', unlockForUser, { once: true });
@@ -5552,12 +5592,12 @@ function installSearchAutofillGuard() {
 
 function clearAccidentalSearchAutofill() {
   if (!els.searchInput) return false;
-  const value = clean(els.searchInput.value);
+  const value = clean(getSearchInputText());
   if (!value) return false;
 
   const apiUrl = getApiUrl();
   if (isAppsScriptUrlText(value) || (apiUrl && normalizeApiUrl(value) === normalizeApiUrl(apiUrl))) {
-    els.searchInput.value = '';
+    setSearchInputText('');
     return true;
   }
   return false;
@@ -5565,14 +5605,14 @@ function clearAccidentalSearchAutofill() {
 
 function getSafeSearchTerms() {
   clearAccidentalSearchAutofill();
-  return els.searchInput.value
+  return getSearchInputText()
     .split(';')
     .map(term => normalizeSearchText(term))
     .filter(Boolean);
 }
 
 function resetFilters({ render = true } = {}) {
-  els.searchInput.value = '';
+  setSearchInputText('');
   getSearchTargetChecks().forEach(check => { check.checked = true; });
   updateSearchTargetLabel();
   closeSearchTargetMenu();
@@ -6822,7 +6862,7 @@ function renderLearningDashboard() {
 function navigateToLearningTopic(topicId) {
   const topic = allTopics.find(item => item.topicId === topicId);
   if (!topic) return;
-  els.searchInput.value = '';
+  setSearchInputText('');
   els.studyTargetFilter.value = topic.studyTarget === 'N' ? 'ALL' : 'Y';
   getImportanceChecks().forEach(check => { check.checked = true; });
   updateImportanceLabel();
@@ -13453,7 +13493,7 @@ async function applyServerTopicLocally(topic, { selectTopic = true } = {}) {
       els.domainFilter.value = 'ALL';
       populateCategoryFilter();
       els.categoryFilter.value = 'ALL';
-      els.searchInput.value = '';
+      setSearchInputText('');
       applyFilters();
     }
     showTopicById(topic.topicId);
