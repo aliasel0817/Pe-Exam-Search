@@ -10016,6 +10016,7 @@ function handleAnnotationSelectionPointerDown(surface, event) {
       const index = documentData.objects.findIndex(object => object.id === selected.id);
       surface.selectionAction = {
         pointerId: event.pointerId,
+        pointerType: event.pointerType,
         mode: 'resize',
         index,
         startPoint: point,
@@ -10040,6 +10041,7 @@ function handleAnnotationSelectionPointerDown(surface, event) {
   surface.selectedObjectId = hit.object.id;
   surface.selectionAction = {
     pointerId: event.pointerId,
+    pointerType: event.pointerType,
     mode: 'move',
     index: hit.index,
     startPoint: point,
@@ -11139,6 +11141,21 @@ function updateAnnotationStraightStroke(surface, stroke, event) {
   stroke.points = [stroke.points[0], point];
 }
 
+// Some touch browsers may emit compatibility mouse pointers alongside finger
+// navigation. A synthetic mouse pointer must never create annotation ink.
+function isTouchDerivedAnnotationMouse(surface, event) {
+  if (event.pointerType !== 'mouse') return false;
+  const capabilities = event.sourceCapabilities;
+  if (capabilities?.firesTouchEvents === true) return true;
+  if (surface.touchGesture?.pointers?.size) return true;
+  if (surface.lastTouchInputAt && Date.now() - surface.lastTouchInputAt < 1200) return true;
+  // Galaxy Tab/iOS rely on digital pen pointerType='pen' for handwriting.
+  // On mobile touch devices, mouse-classified contacts are navigation only.
+  const ua = navigator.userAgent || '';
+  return navigator.maxTouchPoints > 0
+    && (/(Android|iPad|iPhone|iPod)/i.test(ua)
+      || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1));
+}
 function installAnnotationInputHandlers(surface) {
   const canvas = surface?.canvas;
   if (!canvas || canvas.dataset.annotationInputBound === '1') return;
@@ -11154,10 +11171,13 @@ function installAnnotationInputHandlers(surface) {
   // run a second pan/pinch handler for the same fingers in the parent wrapper.
   const stopDuplicateAnnotationTouch = event => {
     if (!canvas.classList.contains('annotation-input-enabled')) return;
+    surface.lastTouchInputAt = Date.now();
     event.stopPropagation();
-    if (event.type === 'touchmove' && event.cancelable) event.preventDefault();
+    // Suppress compatibility mouse input before it becomes a ghost pen stroke.
+    // Pointer Events still handle scrolling and pinching on the canvas.
+    if (event.cancelable && (event.type === 'touchstart' || event.type === 'touchmove')) event.preventDefault();
   };
-  canvas.addEventListener('touchstart', stopDuplicateAnnotationTouch, { passive: true });
+  canvas.addEventListener('touchstart', stopDuplicateAnnotationTouch, { passive: false });
   canvas.addEventListener('touchmove', stopDuplicateAnnotationTouch, { passive: false });
   canvas.addEventListener('touchend', stopDuplicateAnnotationTouch, { passive: true });
   canvas.addEventListener('touchcancel', stopDuplicateAnnotationTouch, { passive: true });
@@ -11167,6 +11187,7 @@ function installAnnotationInputHandlers(surface) {
     // Pointer Events distinguish touch navigation from S Pen annotations immediately,
     // including when a finger touches before the first stylus stroke.
     if (event.pointerType === 'touch') {
+      surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
       // Ignore a palm landing while pen/selection/eraser input is active.
@@ -11179,6 +11200,11 @@ function installAnnotationInputHandlers(surface) {
     // Only a recognized digital pen (or a PC mouse) may modify annotations.
     // Do not turn unknown pointer types into accidental handwriting.
     if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
+    if (isTouchDerivedAnnotationMouse(surface, event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     lastActiveAnnotationSurface = surface;
@@ -11196,6 +11222,7 @@ function installAnnotationInputHandlers(surface) {
     if (annotationEditorState.tool === 'eraser') {
       surface.activeErase = {
         pointerId: event.pointerId,
+        pointerType: event.pointerType,
         beforeSnapshot: cloneAnnotationObjects(getAnnotationDocument(surface.key).objects),
         historyCaptured: false,
       };
@@ -11227,7 +11254,7 @@ function installAnnotationInputHandlers(surface) {
       annotationPushUndo(documentData);
       documentData.objects.push(shape);
       documentData.updatedAt = new Date().toISOString();
-      surface.activeShape = { pointerId: event.pointerId, shape };
+      surface.activeShape = { pointerId: event.pointerId, pointerType: event.pointerType, shape };
       try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
       scheduleAnnotationRender(surface);
       return;
@@ -11253,31 +11280,35 @@ function installAnnotationInputHandlers(surface) {
     annotationPushUndo(documentData);
     documentData.objects.push(stroke);
     documentData.updatedAt = new Date().toISOString();
-    surface.activeStroke = { pointerId: event.pointerId, stroke };
+    surface.activeStroke = { pointerId: event.pointerId, pointerType: event.pointerType, stroke };
     try { canvas.setPointerCapture(event.pointerId); } catch (error) { /* noop */ }
     scheduleAnnotationRender(surface);
   });
 
   canvas.addEventListener('pointermove', event => {
-    if (surface.touchGesture?.pointers?.has(event.pointerId)) {
+    // Never feed a finger move into a pen stroke, even when a driver reuses IDs.
+    if (event.pointerType === 'touch') {
+      surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
-      moveAnnotationTouchPan(surface, event);
+      if (surface.touchGesture?.pointers?.has(event.pointerId)) moveAnnotationTouchPan(surface, event);
       return;
     }
-    if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId) {
+    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
+    if (isTouchDerivedAnnotationMouse(surface, event)) return;
+    if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId && surface.selectionAction.pointerType === event.pointerType) {
       event.preventDefault();
       event.stopPropagation();
       updateAnnotationSelectionDrag(surface, event);
       return;
     }
-    if (surface.activeErase && surface.activeErase.pointerId === event.pointerId) {
+    if (surface.activeErase && surface.activeErase.pointerId === event.pointerId && surface.activeErase.pointerType === event.pointerType) {
       event.preventDefault();
       event.stopPropagation();
       eraseAnnotationAt(surface, event);
       return;
     }
-    if (surface.activeShape && surface.activeShape.pointerId === event.pointerId) {
+    if (surface.activeShape && surface.activeShape.pointerId === event.pointerId && surface.activeShape.pointerType === event.pointerType) {
       event.preventDefault();
       event.stopPropagation();
       const point = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
@@ -11288,7 +11319,7 @@ function installAnnotationInputHandlers(surface) {
       }
       return;
     }
-    if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
+    if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId || surface.activeStroke.pointerType !== event.pointerType) return;
     event.preventDefault();
     event.stopPropagation();
     const samples = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
@@ -11301,19 +11332,22 @@ function installAnnotationInputHandlers(surface) {
   });
 
   const finishStroke = event => {
-    if (surface.touchGesture?.pointers?.has(event.pointerId)) {
+    if (event.pointerType === 'touch') {
+      surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
-      finishAnnotationTouchPan(surface, event);
+      if (surface.touchGesture?.pointers?.has(event.pointerId)) finishAnnotationTouchPan(surface, event);
       return;
     }
-    if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId) {
+    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
+    if (isTouchDerivedAnnotationMouse(surface, event)) return;
+    if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId && surface.selectionAction.pointerType === event.pointerType) {
       event.preventDefault();
       event.stopPropagation();
       finishAnnotationSelectionDrag(surface, event);
       return;
     }
-    if (surface.activeErase && surface.activeErase.pointerId === event.pointerId) {
+    if (surface.activeErase && surface.activeErase.pointerId === event.pointerId && surface.activeErase.pointerType === event.pointerType) {
       event.preventDefault();
       event.stopPropagation();
       const erased = surface.activeErase.historyCaptured;
@@ -11323,7 +11357,7 @@ function installAnnotationInputHandlers(surface) {
       syncAnnotationToolbarUi();
       return;
     }
-    if (surface.activeShape && surface.activeShape.pointerId === event.pointerId) {
+    if (surface.activeShape && surface.activeShape.pointerId === event.pointerId && surface.activeShape.pointerType === event.pointerType) {
       event.preventDefault();
       event.stopPropagation();
       const point = annotationClientPointToNormalized(surface.media, event.clientX, event.clientY);
@@ -11337,7 +11371,7 @@ function installAnnotationInputHandlers(surface) {
       syncAnnotationToolbarUi();
       return;
     }
-    if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId) return;
+    if (!surface.activeStroke || surface.activeStroke.pointerId !== event.pointerId || surface.activeStroke.pointerType !== event.pointerType) return;
     event.preventDefault();
     event.stopPropagation();
     if (surface.activeStroke.stroke.strokeMode === 'straight') {

@@ -86,9 +86,10 @@ async function exerciseSynthetic(kind,viewport){
    window.__createPointerQaFixture();
    const s=window.__penTouchQaSurface,sc=window.__penTouchQaRoot,canvas=s.canvas,doc=getAnnotationDocument(s.key);
    const obj=()=>doc.objects;
-   function emit(type,pointerType,id,x,y,button=0){
+   function emit(type,pointerType,id,x,y,button=0,touchDerived=false){
     const rect=canvas.getBoundingClientRect();
     const evt=new PointerEvent(type,{pointerType,pointerId:id,clientX:rect.left+x,clientY:rect.top+y,button,buttons:type==="pointerup"?0:1,pressure:.5,bubbles:true,cancelable:true});
+    if(touchDerived)Object.defineProperty(evt,"sourceCapabilities",{value:{firesTouchEvents:true}});
     canvas.dispatchEvent(evt);
    }
    function eq(actual,expected,label){if(actual!==expected)throw Error(kind+" "+viewport+": "+label+" ("+JSON.stringify(actual)+" != "+JSON.stringify(expected)+")")}
@@ -169,10 +170,15 @@ async function exerciseSynthetic(kind,viewport){
    setAnnotationTool("pen");
    const prePalm=sc.scrollTop;
    emit("pointerdown","pen",63,160,400);
-   emit("pointerdown","touch",64,190,400);
-   if(s.touchGesture?.pointers?.has(64))throw Error(kind+" "+viewport+": palm became pan gesture");
-   emit("pointermove","touch",64,190,300);
-   emit("pointerup","touch",64,190,300);
+   // A Samsung touch/pen driver or interrupted stream may reuse a pointer ID.
+   // Touch must not append points to an active stylus stroke or finish it.
+   emit("pointerdown","touch",63,190,400);
+   if(s.touchGesture?.pointers?.has(63))throw Error(kind+" "+viewport+": palm became pan gesture");
+   const penPointsBeforePalm=s.activeStroke.stroke.points.length;
+   emit("pointermove","touch",63,190,300);
+   eq(s.activeStroke?.stroke?.points?.length,penPointsBeforePalm,"touch continued pen stroke after pointerId collision");
+   emit("pointerup","touch",63,190,300);
+   eq(s.activeStroke?.pointerId,63,"touch finished active stylus stroke");
    eq(sc.scrollTop,prePalm,"palm moved document while pen drew");
    emit("pointermove","pen",63,240,425);
    emit("pointerup","pen",63,270,440);
@@ -183,6 +189,38 @@ async function exerciseSynthetic(kind,viewport){
    emit("pointermove","unknown",70,160,190);
    emit("pointerup","unknown",70,160,190);
    eq(JSON.stringify(obj()),beforeUnknown,"unrecognized pointer created ink");
+   // Some touch-capable browsers can emit a compatibility mouse PointerEvent
+   // while the finger is already scrolling. It must not create ghost ink.
+   const beforeCompat=JSON.stringify(obj());
+   emit("pointerdown","touch",81,210,325);
+   emit("pointermove","touch",81,210,270);
+   emit("pointerdown","mouse",82,210,325);
+   emit("pointermove","mouse",82,240,270);
+   emit("pointerup","mouse",82,240,270);
+   emit("pointerup","touch",81,210,270);
+   eq(JSON.stringify(obj()),beforeCompat,"finger + compatibility mouse created simultaneous ink");
+   // Defensive Galaxy Tab case: a touch-capable Android browser may present
+   // a compatibility input as mouse even without a recorded touch pointer.
+   const androidBase=JSON.stringify(obj());
+   Object.defineProperty(navigator,"userAgent",{configurable:true,value:"Mozilla/5.0 (Linux; Android 16; SM-X730) AppleWebKit/537.36"});
+   Object.defineProperty(navigator,"maxTouchPoints",{configurable:true,value:5});
+   s.lastTouchInputAt=0;
+   emit("pointerdown","mouse",85,325,240);
+   emit("pointermove","mouse",85,375,270);
+   emit("pointerup","mouse",85,375,270);
+   eq(JSON.stringify(obj()),androidBase,"Android synthetic mouse bypassed stylus-only input");
+   delete navigator.userAgent;
+   delete navigator.maxTouchPoints;
+   // Explicitly flagged touch-synthesized mouse input must also be rejected
+   // on desktop-class browsers, even outside the recent-touch time window.
+   s.lastTouchInputAt=0;
+   const capBaseline=JSON.stringify(obj());
+   emit("pointerdown","mouse",86,100,200,0,true);
+   emit("pointermove","mouse",86,140,230,0,true);
+   emit("pointerup","mouse",86,140,230,0,true);
+   eq(JSON.stringify(obj()),capBaseline,"sourceCapabilities touch-derived mouse created ink");
+   // An independent PC mouse is allowed after the finger gesture has ended.
+   s.lastTouchInputAt=0;
    // Desktop mouse support remains available.
    emit("pointerdown","mouse",72,350,470);
    emit("pointermove","mouse",72,390,500);
