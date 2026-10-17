@@ -77,7 +77,21 @@ function initFakeMedia(){
  q.setup();
 }
 async function waitUntil(page,expression,timeout=9000){
- await page.waitForFunction(expression,{timeout});
+ try{
+   if(engine==='webkit')await page.waitForFunction(expression,null,{timeout});
+   else await page.waitForFunction(expression,{timeout});
+ }catch(error){
+   const state=await page.evaluate(()=>({
+     modalVisible:!document.getElementById('imageViewerModal')?.classList.contains('hidden'),
+     figureCount:document.querySelectorAll('.media-image-item').length,
+     placeholder:document.querySelector('.media-image-item .media-placeholder')?.textContent,
+     imageCount:document.querySelectorAll('.media-image-item img').length,
+     loading:document.querySelector('.media-image-item')?.dataset.loading,
+     loaded:document.querySelector('.media-image-item')?.dataset.loaded,
+     qa:window.__imgPerf?.info()
+   })).catch(e=>({diagnosticError:String(e)}));
+   throw new Error('Waiting for '+expression+': '+String(error.message||error)+'; state='+JSON.stringify(state));
+ }
 }
 async function run(){
  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
