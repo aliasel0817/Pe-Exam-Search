@@ -118,6 +118,42 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
       const ready=await page.evaluate(()=>({title:document.title,hasFullAppDom:!!document.getElementById("topicDetail")&&!!document.getElementById("topicList"),hasRealFormatter:typeof setReadableStudyField==="function",ready:window.__visibilityQaReady}));
       assert.equal(ready.hasFullAppDom,true,"Full PWA topic detail/list DOM must be present");
       assert.equal(ready.hasRealFormatter,true,"Must use actual production formatter");
+
+      // Only the topic search field opts out of password suggestions;
+      // leave security PIN and settings autocomplete behavior unchanged.
+      const searchGuard=await page.evaluate(isMobile=>{
+        const search=document.getElementById("searchInput");
+        const pin=document.getElementById("securityRecoveryPinInput");
+        const api=document.getElementById("apiUrlInput");
+        const originalSecurity={pinType:pin.type,pinAutocomplete:pin.autocomplete,apiAutocomplete:api.autocomplete};
+        installSearchAutofillGuard();
+        const initiallyReadOnly=search.readOnly;
+        search.value="https://script.google.com/macros/s/accidental-autofill";
+        search.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,pointerType:isMobile?"touch":"mouse"}));
+        const accidentalUrlCleared=search.value==="";
+        const unlocked=!search.readOnly;
+        search.value="검색어1;검색어2";
+        return {
+          autocomplete:search.autocomplete,
+          placeholder:search.placeholder,
+          type:search.type,
+          initiallyReadOnly,accidentalUrlCleared,unlocked,
+          searchTerms:getSafeSearchTerms(),
+          originalSecurity,
+          securityAfter:{pinType:pin.type,pinAutocomplete:pin.autocomplete,apiAutocomplete:api.autocomplete}
+        };
+      },vp.isMobile);
+      assert.equal(searchGuard.autocomplete,"off","Topic search must not request saved passwords");
+      assert.equal(searchGuard.type,"search","Topic search must remain a search control");
+      assert.equal(searchGuard.placeholder,"예: 검색어1;검색어2","Use a topic-neutral search example");
+      assert.equal(searchGuard.initiallyReadOnly,true,"Restore-value guard must remain active before use");
+      assert.equal(searchGuard.accidentalUrlCleared,true,"Previously restored Apps Script URL must be cleared");
+      assert.equal(searchGuard.unlocked,true,"First pointer interaction must unlock typing");
+      assert.deepEqual(searchGuard.searchTerms,["검색어1","검색어2"],"Semicolon OR search must still work");
+      assert.deepEqual(searchGuard.securityAfter,searchGuard.originalSecurity,"Other credential controls must remain unchanged");
+      assert.equal(searchGuard.originalSecurity.pinType,"password","Security PIN must still be a password field");
+      console.log("SEARCH_AUTOCOMPLETE_QA_PASS",vp.name);
+
       await page.evaluate(topics=>{
         allTopics=topics;
         filteredTopics=topics;
