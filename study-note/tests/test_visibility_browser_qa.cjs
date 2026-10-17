@@ -118,6 +118,56 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
       const ready=await page.evaluate(()=>({title:document.title,hasFullAppDom:!!document.getElementById("topicDetail")&&!!document.getElementById("topicList"),hasRealFormatter:typeof setReadableStudyField==="function",ready:window.__visibilityQaReady}));
       assert.equal(ready.hasFullAppDom,true,"Full PWA topic detail/list DOM must be present");
       assert.equal(ready.hasRealFormatter,true,"Must use actual production formatter");
+
+      // The topic search must not be a native form input: browsers may ignore
+      // autocomplete="off" and still offer credentials over a search box.
+      // Other credential and API settings fields must stay unchanged.
+      const searchGuard=await page.evaluate(isMobile=>{
+        const search=document.getElementById("searchInput");
+        const pin=document.getElementById("securityRecoveryPinInput");
+        const api=document.getElementById("apiUrlInput");
+        const originalSecurity={pinType:pin.type,pinAutocomplete:pin.autocomplete,apiAutocomplete:api.autocomplete};
+        installSearchAutofillGuard();
+        installSearchEditorKeyboardGuards();
+        const initiallyEmpty=getSearchInputText()==="" && search.dataset.empty==="true";
+        setSearchInputText("https://script.google.com/macros/s/accidental-autofill");
+        search.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,pointerType:isMobile?"touch":"mouse"}));
+        const accidentalUrlCleared=getSearchInputText()==="";
+        setSearchInputText("검색어1;검색어2");
+        const terms=getSafeSearchTerms();
+        const enter=new KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true});
+        search.dispatchEvent(enter);
+        const lineBreak=new InputEvent("beforeinput",{inputType:"insertParagraph",bubbles:true,cancelable:true});
+        search.dispatchEvent(lineBreak);
+        return {
+          tag:search.tagName,
+          editable:search.getAttribute("contenteditable"),
+          role:search.getAttribute("role"),
+          ariaLabel:search.getAttribute("aria-labelledby"),
+          hasFormName:search.hasAttribute("name"),
+          placeholder:search.dataset.placeholder,
+          initiallyEmpty,accidentalUrlCleared,preventedEnter:enter.defaultPrevented,
+          preventedBreak:lineBreak.defaultPrevented,
+          searchTerms:terms,
+          originalSecurity,
+          securityAfter:{pinType:pin.type,pinAutocomplete:pin.autocomplete,apiAutocomplete:api.autocomplete}
+        };
+      },vp.isMobile);
+      assert.equal(searchGuard.tag,"DIV","Search must not be a password-manager eligible form input");
+      assert.equal(searchGuard.editable,"plaintext-only","Search must be editable on desktop and mobile");
+      assert.equal(searchGuard.role,"searchbox","Keep accessible search-box semantics");
+      assert.equal(searchGuard.ariaLabel,"searchInputLabel","Search must have an accessible name");
+      assert.equal(searchGuard.hasFormName,false,"Search must not participate in credential form inference");
+      assert.equal(searchGuard.placeholder,"예: 검색어1;검색어2","Use a topic-neutral search example");
+      assert.equal(searchGuard.initiallyEmpty,true,"Restore-value guard must still start empty");
+      assert.equal(searchGuard.accidentalUrlCleared,true,"Previously restored Apps Script URL must be cleared");
+      assert.equal(searchGuard.preventedEnter,true,"Search must remain single line");
+      assert.equal(searchGuard.preventedBreak,true,"Soft-keyboard line break must be blocked");
+      assert.deepEqual(searchGuard.searchTerms,["검색어1","검색어2"],"Semicolon OR search must still work");
+      assert.deepEqual(searchGuard.securityAfter,searchGuard.originalSecurity,"Other credential controls must remain unchanged");
+      assert.equal(searchGuard.originalSecurity.pinType,"password","Security PIN must still be a password field");
+      console.log("SEARCH_CREDENTIAL_GUARD_QA_PASS",vp.name);
+
       await page.evaluate(topics=>{
         allTopics=topics;
         filteredTopics=topics;

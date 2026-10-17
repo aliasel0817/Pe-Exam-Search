@@ -226,6 +226,28 @@ async function exerciseSynthetic(kind,viewport){
    emit("pointermove","mouse",72,390,500);
    emit("pointerup","mouse",72,410,520);
    eq(obj().length,4,"desktop mouse stopped working");
+   // A legitimate mouse stroke already in progress must finish even if touch
+   // lands afterward. The old compatibility-mouse filter stranded such strokes.
+   s.lastTouchInputAt=0;
+   emit("pointerdown","mouse",73,180,450);
+   emit("pointerdown","touch",74,260,450);
+   emit("pointermove","mouse",73,235,465);
+   emit("pointerup","mouse",73,270,480);
+   emit("pointerup","touch",74,260,450);
+   eq(obj().length,5,"touch interrupted accepted mouse stroke");
+   eq(s.activeStroke,null,"accepted mouse stroke remained active after touch");
+   eq(obj()[4].pointerType,"mouse","mouse pointer type lost after mixed contact");
+   // Neither a pinch nor a pan may change the selected drawing tool.
+   setAnnotationTool("highlighter");
+   const beforeIndependentPinch=JSON.stringify(obj());
+   emit("pointerdown","touch",91,145,230);
+   emit("pointerdown","touch",92,235,230);
+   emit("pointermove","touch",92,300,230);
+   emit("pointerup","touch",92,300,230);
+   emit("pointerup","touch",91,145,230);
+   eq(annotationEditorState.tool,"highlighter","finger pinch switched the active pen tool");
+   eq(JSON.stringify(obj()),beforeIndependentPinch,"finger pinch changed saved ink");
+   setAnnotationTool("pen");
    // No touches should have pushed any undo history.
    if(!doc.undoStack || doc.undoStack.length<4)throw Error(kind+" "+viewport+": existing undo behavior regressed");
    // Use protected read-only data shape for the outcome; no server or LIVE write.
