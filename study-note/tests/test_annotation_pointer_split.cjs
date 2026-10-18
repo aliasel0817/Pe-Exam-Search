@@ -178,6 +178,11 @@ async function exerciseSynthetic(kind,viewport){
    eq(sc.scrollTop,scrollBeforeHand,"hand edge panned document during pen hover");
    eq(JSON.stringify(obj()),handBefore,"hand edge made ink");
    eq(s.touchGesture,null,"hand edge began a touch gesture");
+   // The ulnar edge of a hand can be elongated and comparatively narrow.
+   emit("pointerdown","touch",127,235,400,0,false,38,9);
+   emit("pointermove","touch",127,235,260,0,false,38,9);
+   emit("pointerup","touch",127,235,260);
+   eq(sc.scrollTop,scrollBeforeHand,"long narrow hand edge panned document");
    // Ordinary finger navigation must remain available even during pen hover.
    emit("pointerdown","touch",122,205,310,0,false,14,12);
    emit("pointermove","touch",122,205,260,0,false,14,12);

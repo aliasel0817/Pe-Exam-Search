@@ -11212,7 +11212,10 @@ function isLikelyAnnotationPalmContact(event) {
   const major = Math.max(width, height);
   const minor = Math.min(width, height);
   const penNearby = annotationLastPenPointerAt > 0 && Date.now() - annotationLastPenPointerAt < 900;
-  return major >= 44 || (major >= 32 && minor >= 18)
+  // The side of a hand may register as a long, narrow contact rather than
+  // a large oval. Keep ordinary round finger contacts eligible for pan/pinch.
+  const elongatedHandEdge = major >= 34 && minor >= 8 && major / minor >= 2.8;
+  return major >= 44 || (major >= 32 && minor >= 18) || elongatedHandEdge
     || (penNearby && major >= 27 && minor >= 15);
 }
 
