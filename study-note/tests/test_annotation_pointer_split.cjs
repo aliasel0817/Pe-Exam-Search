@@ -86,9 +86,9 @@ async function exerciseSynthetic(kind,viewport){
    window.__createPointerQaFixture();
    const s=window.__penTouchQaSurface,sc=window.__penTouchQaRoot,canvas=s.canvas,doc=getAnnotationDocument(s.key);
    const obj=()=>doc.objects;
-   function emit(type,pointerType,id,x,y,button=0,touchDerived=false){
+   function emit(type,pointerType,id,x,y,button=0,touchDerived=false,width=1,height=1){
     const rect=canvas.getBoundingClientRect();
-    const evt=new PointerEvent(type,{pointerType,pointerId:id,clientX:rect.left+x,clientY:rect.top+y,button,buttons:type==="pointerup"?0:1,pressure:.5,bubbles:true,cancelable:true});
+    const evt=new PointerEvent(type,{pointerType,pointerId:id,clientX:rect.left+x,clientY:rect.top+y,button,buttons:type==="pointerup"?0:1,pressure:.5,width,height,bubbles:true,cancelable:true});
     if(touchDerived)Object.defineProperty(evt,"sourceCapabilities",{value:{firesTouchEvents:true}});
     canvas.dispatchEvent(evt);
    }
@@ -165,6 +165,72 @@ async function exerciseSynthetic(kind,viewport){
     emit("pointerup","touch",53,240,185);
     eq(JSON.stringify(obj()),baseline,"finger edited in "+tool);
     if(document.querySelector(".annotation-entry-overlay"))throw Error(kind+" "+viewport+": finger opened "+tool+" editor");
+   }
+   // An S Pen may hover above the tablet while the side of the hand lands first.
+   // Large contacts must not pan even though no pen stroke is active.
+   setAnnotationTool("pen");
+   emit("pointermove","pen",120,190,390);
+   const handBefore=JSON.stringify(obj());
+   const scrollBeforeHand=sc.scrollTop;
+   emit("pointerdown","touch",121,230,400,0,false,56,22);
+   emit("pointermove","touch",121,230,260,0,false,56,22);
+   emit("pointerup","touch",121,230,260,0,false,56,22);
+   eq(sc.scrollTop,scrollBeforeHand,"hand edge panned document during pen hover");
+   eq(JSON.stringify(obj()),handBefore,"hand edge made ink");
+   eq(s.touchGesture,null,"hand edge began a touch gesture");
+   // Ordinary finger navigation must remain available even during pen hover.
+   emit("pointerdown","touch",122,205,310,0,false,14,12);
+   emit("pointermove","touch",122,205,260,0,false,14,12);
+   emit("pointerup","touch",122,205,260,0,false,14,12);
+   if(sc.scrollTop<scrollBeforeHand+45)throw Error(kind+" "+viewport+": normal finger pan blocked while S Pen hovered");
+   // A small contact that expands into a palm may not continue the pan.
+   const scrollBeforeGrowingHand=sc.scrollTop;
+   emit("pointerdown","touch",123,210,350,0,false,12,11);
+   emit("pointermove","touch",123,210,210,0,false,42,26);
+   emit("pointermove","touch",123,210,170,0,false,12,11);
+   emit("pointerup","touch",123,210,170);
+   eq(sc.scrollTop,scrollBeforeGrowingHand,"growing palm contact moved document");
+   eq(s.touchGesture,null,"growing palm remained active");
+   // Large hand contacts cannot count as a second finger in a pinch.
+   const zoomBeforeHandPinch=window.__penTouchQaZoom;
+   emit("pointerdown","touch",124,110,300,0,false,66,32);
+   emit("pointerdown","touch",125,215,300,0,false,13,11);
+   emit("pointermove","touch",125,315,300,0,false,13,11);
+   emit("pointerup","touch",125,315,300);
+   emit("pointerup","touch",124,110,300);
+   eq(window.__penTouchQaZoom,zoomBeforeHandPinch,"hand edge triggered a false pinch");
+   eq(JSON.stringify(obj()),handBefore,"hand contact or finger navigation mutated ink");
+   // The PDF page margin has a separate pan handler. Palm rejection must apply
+   // there too, without disabling normal touch pan or zoom.
+   const pageScroller=s.canvas.closest(".reference-pdf-pan-scroller, .attachment-pdf-pan-scroller");
+   if(pageScroller){
+     let marginZoom=1;
+     installPdfPanPinchHandlers(pageScroller,{getZoom:()=>marginZoom,setZoom:value=>{marginZoom=value}});
+     const emitMargin=(type,pointerType,id,x,y,width=1,height=1)=>{
+       const evt=new PointerEvent(type,{pointerType,pointerId:id,clientX:x,clientY:y,width,height,button:0,buttons:type==="pointerup"?0:1,bubbles:true,cancelable:true});
+       pageScroller.dispatchEvent(evt);
+     };
+     const marginBase=pageScroller.scrollTop;
+     emitMargin("pointerdown","touch",201,100,270,58,24);
+     emitMargin("pointermove","touch",201,100,150,58,24);
+     emitMargin("pointerup","touch",201,100,150,58,24);
+     eq(pageScroller.scrollTop,marginBase,"PDF margin hand edge panned");
+     emitMargin("pointerdown","touch",202,140,270,12,11);
+     emitMargin("pointermove","touch",202,140,210,12,11);
+     emitMargin("pointerup","touch",202,140,210,12,11);
+     if(pageScroller.scrollTop<marginBase+55)throw Error(kind+" "+viewport+": PDF margin finger pan stopped");
+     const noFalsePinch=marginZoom;
+     emitMargin("pointerdown","touch",203,100,270,54,26);
+     emitMargin("pointerdown","touch",204,230,270,12,11);
+     emitMargin("pointermove","touch",204,290,270,12,11);
+     emitMargin("pointerup","touch",204,290,270,12,11);
+     emitMargin("pointerup","touch",203,100,270,54,26);
+     eq(marginZoom,noFalsePinch,"PDF margin palm counted as pinch");
+     const marginBeforePen=pageScroller.scrollTop;
+     emitMargin("pointerdown","pen",205,130,250);
+     emitMargin("pointermove","pen",205,130,170);
+     emitMargin("pointerup","pen",205,130,170);
+     eq(pageScroller.scrollTop,marginBeforePen,"stylus on page margin panned in pen tool");
    }
    // Ignore a palm touchdown while an S Pen stroke is active.
    setAnnotationTool("pen");
@@ -275,6 +341,16 @@ async function verifyNativeChromiumPointerInput(page){
  const moved=await page.evaluate(()=>({scrollTop:window.__penTouchQaRoot.scrollTop,ink:getAnnotationDocument(window.__penTouchQaSurface.key).objects.length}));
  assert(moved.scrollTop>=90,"Native finger pan failed "+JSON.stringify(moved));
  assert.equal(moved.ink,0,"Native finger produced annotation");
+ // A native Chromium touch stream with a broad contact patch represents a
+ // resting hand edge, not an intentional scrolling finger.
+ await client.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x,y,id:171,radiusX:35,radiusY:19,force:.5}]});
+ await client.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x,y:y-105,id:171,radiusX:35,radiusY:19,force:.5}]});
+ await client.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+ await new Promise(r=>setTimeout(r,70));
+ const palmNative=await page.evaluate(()=>({scrollTop:window.__penTouchQaRoot.scrollTop,ink:getAnnotationDocument(window.__penTouchQaSurface.key).objects.length}));
+ assert.equal(palmNative.scrollTop,moved.scrollTop,"Native broad hand contact panned PDF "+JSON.stringify(palmNative));
+ assert.equal(palmNative.ink,0,"Native broad hand contact created ink");
+ console.log("ANNOTATION_NATIVE_PALM_REJECTION_PASS "+JSON.stringify(palmNative));
  await client.send("Input.dispatchMouseEvent",{type:"mousePressed",x,y,button:"left",buttons:1,pointerType:"pen",clickCount:1});
  await client.send("Input.dispatchMouseEvent",{type:"mouseMoved",x:x+65,y:y+20,button:"left",buttons:1,pointerType:"pen"});
  await client.send("Input.dispatchMouseEvent",{type:"mouseReleased",x:x+85,y:y+35,button:"left",buttons:0,pointerType:"pen"});
