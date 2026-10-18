@@ -11196,12 +11196,37 @@ function isTouchDerivedAnnotationMouse(surface, event) {
     && (/(Android|iPad|iPhone|iPod)/i.test(ua)
       || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1));
 }
+// A broad touch contact is often a hand edge rather than an intentional finger.
+// DOM Pointer Events expose contact width/height when the browser reports them.
+// Narrow contacts keep working even when the S Pen is hovering nearby.
+let annotationLastPenPointerAt = 0;
+function noteAnnotationPenPointer(event) {
+  if (event?.pointerType === 'pen') annotationLastPenPointerAt = Date.now();
+}
+
+function isLikelyAnnotationPalmContact(event) {
+  if (event?.pointerType !== 'touch') return false;
+  const width = Number(event.width);
+  const height = Number(event.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return false;
+  const major = Math.max(width, height);
+  const minor = Math.min(width, height);
+  const penNearby = annotationLastPenPointerAt > 0 && Date.now() - annotationLastPenPointerAt < 900;
+  // The side of a hand may register as a long, narrow contact rather than
+  // a large oval. Keep ordinary round finger contacts eligible for pan/pinch.
+  const elongatedHandEdge = major >= 34 && minor >= 8 && major / minor >= 2.8;
+  return major >= 44 || (major >= 32 && minor >= 18) || elongatedHandEdge
+    || (penNearby && major >= 27 && minor >= 15);
+}
+
 function installAnnotationInputHandlers(surface) {
   const canvas = surface?.canvas;
   if (!canvas || canvas.dataset.annotationInputBound === '1') return;
   canvas.dataset.annotationInputBound = '1';
+  surface.palmRejectedPointerIds = new Set();
 
-  canvas.addEventListener('pointerenter', () => {
+  canvas.addEventListener('pointerenter', event => {
+    noteAnnotationPenPointer(event);
     lastActiveAnnotationSurface = surface;
     syncAnnotationToolbarUi();
   });
@@ -11222,19 +11247,21 @@ function installAnnotationInputHandlers(surface) {
   canvas.addEventListener('touchend', stopDuplicateAnnotationTouch, { passive: true });
   canvas.addEventListener('touchcancel', stopDuplicateAnnotationTouch, { passive: true });
   canvas.addEventListener('pointerdown', async event => {
+    noteAnnotationPenPointer(event);
     if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    // Pointer Events distinguish touch navigation from S Pen annotations immediately,
-    // including when a finger touches before the first stylus stroke.
+    // Touch and S Pen are independent inputs; reject broad hand-edge contacts
+    // even when the pen is only held/hovering rather than drawing a stroke.
     if (event.pointerType === 'touch') {
       surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
-      // Ignore a palm landing while pen/selection/eraser input is active.
-      if (!surface.activeStroke && !surface.activeShape
-          && !surface.activeErase && !surface.selectionAction) {
-        beginAnnotationTouchPan(surface, event);
+      if (isLikelyAnnotationPalmContact(event) || surface.activeStroke || surface.activeShape
+          || surface.activeErase || surface.selectionAction) {
+        surface.palmRejectedPointerIds.add(event.pointerId);
+        return;
       }
+      beginAnnotationTouchPan(surface, event);
       return;
     }
     // Only a recognized digital pen (or a PC mouse) may modify annotations.
@@ -11326,11 +11353,18 @@ function installAnnotationInputHandlers(surface) {
   });
 
   canvas.addEventListener('pointermove', event => {
-    // Never feed a finger move into a pen stroke, even when a driver reuses IDs.
+    noteAnnotationPenPointer(event);
+    // Reject a hand contact that widens only after touchstart. Once rejected,
+    // do not reinterpret the same pointer as a finger if its size shrinks.
     if (event.pointerType === 'touch') {
       surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
+      if (isLikelyAnnotationPalmContact(event)) surface.palmRejectedPointerIds.add(event.pointerId);
+      if (surface.palmRejectedPointerIds.has(event.pointerId)) {
+        if (surface.touchGesture?.pointers?.has(event.pointerId)) finishAnnotationTouchPan(surface, event);
+        return;
+      }
       if (surface.touchGesture?.pointers?.has(event.pointerId)) moveAnnotationTouchPan(surface, event);
       return;
     }
@@ -11373,10 +11407,12 @@ function installAnnotationInputHandlers(surface) {
   });
 
   const finishStroke = event => {
+    noteAnnotationPenPointer(event);
     if (event.pointerType === 'touch') {
       surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
+      surface.palmRejectedPointerIds.delete(event.pointerId);
       if (surface.touchGesture?.pointers?.has(event.pointerId)) finishAnnotationTouchPan(surface, event);
       return;
     }
@@ -12445,6 +12481,7 @@ function referencePdfViewerMarkup(page) {
 
 function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5, maxZoom = 10 } = {}) {
   const pointers = new Map();
+  const rejectedPalmPointers = new Set();
   let mode = '';
   let activePointerId = null;
   let startX = 0;
@@ -12475,6 +12512,16 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   };
 
   scroller.addEventListener('pointerdown', event => {
+    noteAnnotationPenPointer(event);
+    // A hand edge on the PDF margin must not enter the pan/pinch pointer map.
+    if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
+      rejectedPalmPointers.add(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    // Outside the actual page a pen should still behave as a drawing tool,
+    // not unexpectedly pan, unless the explicit movement tool is selected.
+    if (event.pointerType === 'pen' && annotationEditorState.tool !== 'pan') return;
     if (event.pointerType === 'mouse') {
       if (event.button !== 0) return;
       mode = 'mouse-pan';
@@ -12496,6 +12543,15 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   });
 
   scroller.addEventListener('pointermove', event => {
+    noteAnnotationPenPointer(event);
+    if (rejectedPalmPointers.has(event.pointerId)) return;
+    if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
+      // Contacts that expand after the initial touch must stop navigating.
+      if (pointers.has(event.pointerId)) finish(event);
+      rejectedPalmPointers.add(event.pointerId);
+      event.preventDefault();
+      return;
+    }
     if (event.pointerType === 'mouse') {
       if (mode !== 'mouse-pan' || event.pointerId !== activePointerId) return;
       scroller.scrollLeft = startScrollLeft - (event.clientX - startX);
@@ -12521,6 +12577,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   });
 
   const finish = event => {
+    if (rejectedPalmPointers.delete(event.pointerId)) return;
     if (event.pointerType === 'mouse') {
       if (event.pointerId !== activePointerId) return;
       scroller.classList.remove('dragging');
