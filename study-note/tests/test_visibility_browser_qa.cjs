@@ -174,6 +174,91 @@ const keepScreenshot = new Set(["T0001","T1961","T4036","T4038","TQA-LONG","TQA-
         topicPage=1;
         window.peStudyNoteTTS={onTopicChanged(){}};
       },fixtures);
+      // Exercise the REAL bulk-favorite reset on isolated in-memory learning
+      // states. All persistence/network/auth functions are replaced with spies.
+      const favoriteReset=await page.evaluate(async()=>{
+        const original={
+          learningStateMap,currentTopicId,db,learningView,learningPage,
+          putLearningStates,syncLearningStates,hasActiveSecuritySession,
+          getAllMeta,showToast,confirm:window.confirm
+        };
+        const toSnapshot=state=>({
+          topicId:state.topicId,studyStatus:state.studyStatus,
+          reviewCount:state.reviewCount,missCount:state.missCount,
+          lastStudiedAt:state.lastStudiedAt,lastMissedAt:state.lastMissedAt,
+          personalMemo:state.personalMemo
+        });
+        const originalRows=[
+          normalizeLearningState({topicId:"T0001",favorite:true,studyStatus:"암기",reviewCount:7,missCount:2,personalMemo:"중요 메모 유지",lastStudiedAt:"2026-10-11T09:00:00Z",lastMissedAt:"2026-10-09T09:00:00Z",revision:3}),
+          normalizeLearningState({topicId:"T1961",favorite:false,studyStatus:"미암기",reviewCount:4,missCount:3,personalMemo:"일반 메모",lastStudiedAt:"2026-10-12T09:00:00Z",lastMissedAt:"2026-10-12T09:00:00Z",revision:6}),
+          normalizeLearningState({topicId:"T4036",favorite:true,studyStatus:"미암기",reviewCount:5,missCount:4,personalMemo:"복습 필요",lastStudiedAt:"2026-10-12T09:00:00Z",lastMissedAt:"2026-10-12T09:00:00Z",revision:2}),
+          normalizeLearningState({topicId:"TQA-HIDDEN-FAVORITE",favorite:true,studyStatus:"암기",reviewCount:1,personalMemo:"비표시 토픽도 해제",revision:1}),
+        ];
+        let cancelText="",confirmText="",writeCount=0,syncCount=0,confirmed=false;
+        const writes=[],toasts=[];
+        try{
+          learningStateMap=new Map(originalRows.map(state=>[state.topicId,state]));
+          currentTopicId="T0001";
+          learningView="favorite";learningPage=1;db={};
+          putLearningStates=async(_db,items)=>{
+            writeCount++;
+            writes.push(items.map(item=>({...item})));
+          };
+          syncLearningStates=async()=>{syncCount++;};
+          hasActiveSecuritySession=()=>false;
+          getAllMeta=async()=>({});
+          showToast=message=>{toasts.push(message);};
+          window.confirm=message=>{cancelText=message;return false;};
+
+          await resetAllFavorites();
+          const cancelDidNotWrite=writeCount===0 && originalRows.every(state=>learningStateMap.get(state.topicId).favorite===state.favorite);
+          confirmed=true;
+          window.confirm=message=>{confirmText=message;return true;};
+          await resetAllFavorites();
+          const after=[...learningStateMap.values()];
+          const originalById=new Map(originalRows.map(item=>[item.topicId,item]));
+          const unchangedData=after.every(state=>JSON.stringify(toSnapshot(state))===JSON.stringify(toSnapshot(originalById.get(state.topicId))));
+          const unfavorited=after.every(item=>item.favorite===false);
+          const unchangedNonfavorite=after.find(item=>item.topicId==="T1961").revision===6;
+          const revisions=after.filter(item=>originalById.get(item.topicId).favorite).every(item=>item.revision===originalById.get(item.topicId).revision+1 && item.dirty);
+          const savedOnlyFavorites=writes.length===1 && writes[0].length===3 && writes[0].every(item=>!item.favorite && item.dirty);
+          const currentButtonCleared=!els.favoriteBtn.classList.contains("active");
+          const dashboardZero=els.statFavorite.textContent==="0";
+          const emptyFavoriteList=els.learningList.textContent.includes("해당 학습 기록이 없습니다.");
+          const noSyncWithoutSession=syncCount===0;
+          await resetAllFavorites();
+          const emptyPromptSkipped=writeCount===1 && toasts.some(message=>message.includes("해제할 즐겨찾기가 없습니다"));
+
+          const revisit=learningStateMap.get("T1961");
+          learningStateMap.set("T1961",{...revisit,favorite:true});
+          hasActiveSecuritySession=()=>true;
+          await resetAllFavorites();
+          const syncOnAuthorizedDevice=syncCount===1 && writeCount===2;
+          return {
+            buttonExists:!!els.resetFavoritesBtn,
+            cancelPromptIncludesCount:cancelText.includes("3개 토픽"),
+            confirmKeepsMemo:confirmText.includes("개인메모는 유지"),
+            cancelDidNotWrite,unchangedData,unfavorited,unchangedNonfavorite,revisions,
+            savedOnlyFavorites,currentButtonCleared,dashboardZero,emptyFavoriteList,
+            noSyncWithoutSession,emptyPromptSkipped,syncOnAuthorizedDevice,
+            finalFavorites:[...learningStateMap.values()].filter(state=>state.favorite).length,
+            finalButtonEnabled:!els.resetFavoritesBtn.disabled
+          };
+        }finally{
+          learningStateMap=original.learningStateMap;currentTopicId=original.currentTopicId;
+          db=original.db;learningView=original.learningView;learningPage=original.learningPage;
+          putLearningStates=original.putLearningStates;
+          syncLearningStates=original.syncLearningStates;
+          hasActiveSecuritySession=original.hasActiveSecuritySession;
+          getAllMeta=original.getAllMeta;
+          showToast=original.showToast;
+          window.confirm=original.confirm;
+        }
+      });
+      for(const [check,passed] of Object.entries(favoriteReset))
+        if(typeof passed==="boolean")assert.equal(passed,true,"Bulk favorite reset regression "+vp.name+" "+check);
+      assert.equal(favoriteReset.finalFavorites,0,"Favorite reset left stale favorite flags");
+      console.log("BULK_FAVORITES_QA_PASS",vp.name);
       for(const topic of fixtures){
         const render=await page.evaluate(topicId=>{
           showTopicById(topicId,{scrollList:false});
