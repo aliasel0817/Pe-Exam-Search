@@ -1328,6 +1328,13 @@ button { -webkit-tap-highlight-color: transparent; }
 .security-login-box { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfe; }
 .security-login-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .security-device-list { display: grid; gap: 8px; margin-top: 8px; }
+.security-device-toolbar { flex-wrap: wrap; }
+.security-device-toolbar-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-left: auto; }
+.security-device-filter-label { color: var(--muted); font-size: .75rem; font-weight: 700; }
+.security-device-filter { min-height: 38px; max-width: min(250px, 60vw); padding: 6px 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: #fff; font: inherit; font-size: .8rem; }
+.security-device-filter:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 420px) { .security-device-toolbar-controls { width: 100%; margin-left: 0; } .security-device-filter { flex: 1 1 140px; min-width: 0; max-width: 100%; } }
+
 .security-device-item { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
 .security-device-main { min-width: 0; }
 .security-device-main strong, .security-device-main small { display: block; overflow-wrap: anywhere; }
@@ -2333,11 +2340,19 @@ button { -webkit-tap-highlight-color: transparent; }
       </section>
 
       <section id="securityDevicesSection" class="security-section hidden">
-        <div class="section-title-row">
+        <div class="section-title-row security-device-toolbar">
           <h3>등록 기기</h3>
-          <button id="securityRefreshDevicesBtn" class="btn" type="button">새로고침</button>
+          <div class="security-device-toolbar-controls">
+            <label for="securityDeviceStatusFilter" class="security-device-filter-label">표시</label>
+            <select id="securityDeviceStatusFilter" class="security-device-filter" aria-label="등록 기기 표시 범위">
+              <option value="active">활성·승인 대기</option>
+              <option value="revoked">차단된 기기</option>
+              <option value="all">전체 기기</option>
+            </select>
+            <button id="securityRefreshDevicesBtn" class="btn" type="button">새로고침</button>
+          </div>
         </div>
-        <p class="help-text">PENDING 기기를 승인하거나 분실/미사용 기기를 차단할 수 있습니다. 차단 즉시 해당 기기의 쓰기 권한이 무효화됩니다.</p>
+        <p class="help-text">PENDING 기기는 여기서 승인할 수 있습니다. 접속 차단(REVOKED)은 기기 인증 권한을 취소하는 상태로, 서버 기록은 삭제하지 않습니다. 차단된 기기는 기본 목록에서 숨기고 「차단된 기기」 또는 「전체 기기」에서 확인할 수 있습니다.</p>
         <div id="securityDeviceList" class="security-device-list"></div>
       </section>
 
@@ -4409,6 +4424,8 @@ const BOTTOM_NAV_COLLAPSE_KEY = 'peStudyNote.bottomNavCollapsed.v1';
 let bottomNavCollapsed = localStorage.getItem(BOTTOM_NAV_COLLAPSE_KEY) === '1';
 
 const els = {};
+// Read-only UI cache. Switching the device-list filter never calls revoke/approve APIs.
+let securityDevicesCache = [];
 
 window.addEventListener('DOMContentLoaded', init);
 
@@ -4530,7 +4547,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetFavoritesBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceStatusFilter','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetFavoritesBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -4686,6 +4703,7 @@ function bindEvents() {
   els.securityRecoveryBtn.addEventListener('click', () => beginGoogleDeviceRegistration(true));
   els.securityCheckApprovalBtn.addEventListener('click', () => refreshSecurityState({ showToastOnChange: true, force: true }));
   els.securityRefreshDevicesBtn.addEventListener('click', refreshSecurityDevices);
+  els.securityDeviceStatusFilter.addEventListener('change', () => renderSecurityDevices(securityDevicesCache));
   els.securityModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 관리 팝업은 바깥 영역 클릭이나 ESC로 닫히지 않는다.
@@ -5338,18 +5356,33 @@ async function refreshSecurityDevices() {
 }
 
 function renderSecurityDevices(devices) {
-  if (!devices.length) {
-    els.securityDeviceList.innerHTML = '<div class="empty-mini">등록된 기기가 없습니다.</div>';
+  securityDevicesCache = Array.isArray(devices) ? devices.slice() : [];
+  const isRevoked = device => String(device?.status || '').trim().toUpperCase() === 'REVOKED';
+  const available = securityDevicesCache.filter(device => !isRevoked(device));
+  const revoked = securityDevicesCache.filter(isRevoked);
+  // The selector filters server-returned records locally; it never updates credentials or status.
+  const options = els.securityDeviceStatusFilter.options;
+  options[0].textContent = `활성·승인 대기 (${available.length})`;
+  options[1].textContent = `차단된 기기 (${revoked.length})`;
+  options[2].textContent = `전체 기기 (${securityDevicesCache.length})`;
+  const choice = els.securityDeviceStatusFilter.value;
+  const visible = choice === 'revoked' ? revoked : choice === 'all' ? securityDevicesCache : available;
+  if (!visible.length) {
+    const label = !securityDevicesCache.length ? '등록된 기기가 없습니다.'
+      : choice === 'revoked' ? '차단된 기기가 없습니다.'
+      : '현재 사용 중이거나 승인 대기 중인 기기가 없습니다. 전체 기기에서 확인할 수 있습니다.';
+    els.securityDeviceList.innerHTML = `<div class="empty-mini">${label}</div>`;
     return;
   }
-  els.securityDeviceList.innerHTML = devices.map(device => {
-    const statusClass = String(device.status || '').toLowerCase();
-    const statusLabel = escapeHtml(device.status || '-');
+  els.securityDeviceList.innerHTML = visible.map(device => {
+    const normalizedStatus = String(device.status || '').trim().toUpperCase();
+    const statusClass = normalizedStatus.toLowerCase();
+    const statusLabel = escapeHtml(normalizedStatus || '-');
     const current = device.current ? ' · 현재 기기' : '';
     const dates = `마지막 사용 ${escapeHtml(device.lastAccessAt ? formatDateTime(device.lastAccessAt) : '-')} · 등록 ${escapeHtml(device.registeredAt ? formatDateTime(device.registeredAt) : '-')}`;
-    const approve = device.status === 'PENDING' ? `<button class="btn security-approve-device" data-device-id="${escapeHtml(device.deviceId)}" type="button">승인</button>` : '';
-    const rename = device.status !== 'REVOKED' ? `<button class="btn security-rename-device" data-device-id="${escapeHtml(device.deviceId)}" data-device-name="${escapeHtml(device.deviceName)}" type="button">이름변경</button>` : '';
-    const revoke = device.status !== 'REVOKED' ? `<button class="btn danger security-revoke-device" data-device-id="${escapeHtml(device.deviceId)}" data-current="${device.current ? '1' : '0'}" type="button">접속 차단</button>` : '';
+    const approve = normalizedStatus === 'PENDING' ? `<button class="btn security-approve-device" data-device-id="${escapeHtml(device.deviceId)}" type="button">승인</button>` : '';
+    const rename = normalizedStatus !== 'REVOKED' ? `<button class="btn security-rename-device" data-device-id="${escapeHtml(device.deviceId)}" data-device-name="${escapeHtml(device.deviceName)}" type="button">이름변경</button>` : '';
+    const revoke = normalizedStatus !== 'REVOKED' ? `<button class="btn danger security-revoke-device" data-device-id="${escapeHtml(device.deviceId)}" data-current="${device.current ? '1' : '0'}" type="button">접속 차단</button>` : '';
     return `<div class="security-device-item"><div class="security-device-main"><strong>${escapeHtml(device.deviceName || '내 기기')}<span class="security-device-badge ${statusClass}">${statusLabel}</span>${current}</strong><small>${escapeHtml(device.platform || '')} · ${escapeHtml(device.browserInfo || '')}</small><small>${dates}</small></div><div class="security-device-actions">${approve}${rename}${revoke}</div></div>`;
   }).join('');
   els.securityDeviceList.querySelectorAll('.security-approve-device').forEach(btn => btn.addEventListener('click', () => approveSecurityDevice(btn.dataset.deviceId)));

@@ -9,6 +9,7 @@ on:
       - 'study-note/tests/test_visibility_webkit_qa.cjs'
       - 'study-note/tests/test_annotation_pointer_split.cjs'
       - 'study-note/tests/test_image_viewer_loading.cjs'
+      - 'study-note/tests/test_security_device_filter_webkit.cjs'
       - '.github/workflows/study-note-visibility-webkit-qa.yml'
   workflow_dispatch:
 
@@ -41,6 +42,8 @@ jobs:
         env:
           IMAGE_QA_ENGINE: webkit
         run: node study-note/tests/test_image_viewer_loading.cjs
+      - name: Verify revoked-device list filter on Safari WebKit sizes
+        run: node study-note/tests/test_security_device_filter_webkit.cjs
       - name: Upload synthetic WebKit QA evidence
         if: always()
         uses: actions/upload-artifact@v4
