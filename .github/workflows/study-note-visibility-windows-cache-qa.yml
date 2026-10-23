@@ -7,6 +7,9 @@ on:
     paths:
       - 'study-note/study-note.html'
       - 'study-note/service-worker.js'
+      - 'study-note/study-planner.js'
+      - 'study-note/study-plans/**'
+      - 'study-note/tests/test_study_planner_management_qa.cjs'
       - 'study-note/manifest.webmanifest'
       - 'study-note/tests/test_visibility_windows_cache_qa.cjs'
       - '.github/workflows/study-note-visibility-windows-cache-qa.yml'
@@ -41,6 +44,9 @@ jobs:
       - name: Validate PR preview, real PWA storage, local auth gate, cache update and offline fallback
         shell: pwsh
         run: node study-note/tests/test_visibility_windows_cache_qa.cjs
+      - name: Verify planner groups, ten-topic pages, CSV/JSON templates and progress restore
+        shell: pwsh
+        run: node study-note/tests/test_study_planner_management_qa.cjs
       - name: Upload synthetic Windows preview QA results
         if: always()
         uses: actions/upload-artifact@v4

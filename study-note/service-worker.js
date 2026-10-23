@@ -1,5 +1,5 @@
 // Study planner additive rollout; keep existing shell caching semantics.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-5-studyplanner-pagination';
+const CACHE_NAME = 'pe-study-note-shell-v4-6-6-studyplanner-group-management';
 const APP_SHELL = [
   './study-note.html',
   './manifest.webmanifest',
