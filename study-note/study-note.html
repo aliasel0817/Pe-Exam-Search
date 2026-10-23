@@ -5376,7 +5376,7 @@ function renderSecurityDevices(devices) {
   }
   els.securityDeviceList.innerHTML = visible.map(device => {
     const normalizedStatus = String(device.status || '').trim().toUpperCase();
-    const statusClass = normalizedStatus.toLowerCase();
+    const statusClass = ['ACTIVE', 'PENDING', 'REVOKED'].includes(normalizedStatus) ? normalizedStatus.toLowerCase() : 'unknown';
     const statusLabel = escapeHtml(normalizedStatus || '-');
     const current = device.current ? ' · 현재 기기' : '';
     const dates = `마지막 사용 ${escapeHtml(device.lastAccessAt ? formatDateTime(device.lastAccessAt) : '-')} · 등록 ${escapeHtml(device.registeredAt ? formatDateTime(device.registeredAt) : '-')}`;

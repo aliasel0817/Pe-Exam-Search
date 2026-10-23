@@ -101,6 +101,13 @@ async function readUi(page){
   assert.equal(normalized.count,1);
   assert.deepEqual(normalized.statuses,["REVOKED"]);
   assert.equal(normalized.revoke,0);
+  await page.select("#securityDeviceStatusFilter","active");
+  await page.evaluate(()=>renderSecurityDevices([{deviceId:"test-malformed-status",deviceName:"비정상 상태",status:'ACTIVE" onclick="alert(1)'}]));
+  const unknown=await page.evaluate(()=>({className:document.querySelector("#securityDeviceList .security-device-badge")?.className,onclick:document.querySelector("#securityDeviceList .security-device-badge")?.getAttribute("onclick"),label:document.querySelector("#securityDeviceList .security-device-badge")?.textContent}));
+  assert(unknown.className.includes("unknown"),"Unexpected server status must use a whitelisted CSS class");
+  assert.equal(unknown.onclick,null);
+  assert(unknown.label.toLowerCase().includes('onclick="alert(1)'));
+  await page.select("#securityDeviceStatusFilter","revoked");
   await page.evaluate(()=>renderSecurityDevices([]));
   assert.equal((await readUi(page)).count,0);
   assert((await readUi(page)).empty.includes("등록된 기기가 없습니다"));
