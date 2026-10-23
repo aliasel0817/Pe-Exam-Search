@@ -12,6 +12,7 @@ on:
       - 'study-note/tests/test_study_planner_management_qa.cjs'
       - 'study-note/manifest.webmanifest'
       - 'study-note/tests/test_visibility_windows_cache_qa.cjs'
+      - 'study-note/tests/test_bottom_nav_scroll_collapse.cjs'
       - '.github/workflows/study-note-visibility-windows-cache-qa.yml'
   workflow_dispatch:
 
@@ -47,6 +48,9 @@ jobs:
       - name: Verify planner groups, ten-topic pages, CSV/JSON templates and progress restore
         shell: pwsh
         run: node study-note/tests/test_study_planner_management_qa.cjs
+      - name: Validate bottom navigation top/bottom scroll and manual collapse across screen sizes
+        shell: pwsh
+        run: node study-note/tests/test_bottom_nav_scroll_collapse.cjs
       - name: Upload synthetic Windows preview QA results
         if: always()
         uses: actions/upload-artifact@v4
