@@ -1926,6 +1926,47 @@ button { -webkit-tap-highlight-color: transparent; }
 .tts-help { margin:12px 0 0; color:#64748b; font-size:.76rem; line-height:1.5; }
 .tts-reading-highlight { outline:3px solid #60a5fa; outline-offset:3px; background:#eff6ff!important; transition:background .2s; }
 @media(max-width:760px){.tts-settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tts-field-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tts-title-row #detailTitle{flex-basis:100%}.tts-title-row .btn{min-height:44px}.tts-settings-panel{padding:12px}}
+/* Compact collapsible topic navigation: no full-width text-covering footer. */
+.bottom-nav{
+  left:auto;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));
+  min-height:0;width:max-content;max-width:calc(100vw - 16px);
+  align-items:center;justify-content:flex-end;gap:6px;
+  padding:6px 8px;border:1px solid var(--line);border-radius:15px;
+  background:rgba(255,255,255,.97);box-shadow:0 5px 20px rgba(15,23,42,.16);
+}
+.bottom-nav-actions{display:flex;align-items:center;gap:6px;min-width:0;}
+.bottom-nav .nav-btn{flex:0 0 auto;min-width:67px;min-height:40px;padding:6px 10px;font-size:.87rem;white-space:nowrap;flex-wrap:nowrap;}
+.bottom-nav .nav-jump-btn{min-width:39px;width:39px;padding:6px;font-size:.85rem;}
+.bottom-nav .nav-toggle-btn{
+  flex:0 0 auto;width:40px;min-width:40px;min-height:40px;
+  padding:5px;border:1px solid #cbd5e1;border-radius:12px;
+  color:var(--primary-strong);background:var(--primary-soft);font-size:1.4rem;
+  font-weight:800;line-height:1;cursor:pointer;
+}
+.bottom-nav .nav-toggle-btn:focus-visible{outline:3px solid var(--primary);outline-offset:2px;}
+.bottom-nav.nav-collapsed{
+  min-height:0;padding:0;gap:0;background:transparent;border-color:transparent;
+  box-shadow:none;backdrop-filter:none;
+}
+.bottom-nav.nav-collapsed .bottom-nav-actions{display:none;}
+.bottom-nav.nav-collapsed .nav-toggle-btn{
+  background:#fff;box-shadow:0 4px 16px rgba(15,23,42,.16);
+}
+@media(max-width:760px){
+  .bottom-nav{left:auto;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));gap:4px;padding:5px;}
+  .bottom-nav-actions{gap:4px;}
+  .bottom-nav .nav-btn{flex:0 0 auto;min-width:54px;min-height:38px;padding:5px 7px;font-size:.82rem;white-space:nowrap;flex-wrap:nowrap;}
+  .bottom-nav .nav-jump-btn{min-width:34px;width:34px;padding:5px;font-size:.85rem;}
+  .bottom-nav .nav-toggle-btn{min-width:34px;width:34px;min-height:38px;}
+  .bottom-nav.nav-collapsed{left:auto;padding:0;}
+}
+@media(max-width:420px){
+  .bottom-nav{left:auto;right:6px;max-width:calc(100vw - 12px);gap:3px;}
+  .bottom-nav-actions{gap:3px;}
+  .bottom-nav .nav-btn{min-width:48px;padding:4px 5px;font-size:.76rem;}
+  .bottom-nav .nav-jump-btn{min-width:32px;width:32px;padding:4px;}
+  .bottom-nav .nav-toggle-btn{min-width:32px;width:32px;}
+}
 </style>
 </head>
 <body>
@@ -2212,9 +2253,14 @@ button { -webkit-tap-highlight-color: transparent; }
     </div>
 
     <nav id="bottomNav" class="bottom-nav hidden" aria-label="토픽 이동">
-      <button id="prevBtn" class="nav-btn" type="button"><span class="nav-arrow" aria-hidden="true">←</span><span>이전</span></button>
-      <button id="listBtn" class="nav-btn mobile-only" type="button">☰ 목록</button>
-      <button id="nextBtn" class="nav-btn" type="button"><span>다음</span><span class="nav-arrow" aria-hidden="true">→</span></button>
+      <div id="bottomNavActions" class="bottom-nav-actions">
+        <button id="jumpTopBtn" class="nav-btn nav-jump-btn" type="button" aria-label="맨 위로 이동" title="맨 위로 이동">▲</button>
+        <button id="prevBtn" class="nav-btn" type="button"><span class="nav-arrow" aria-hidden="true">←</span><span>이전</span></button>
+        <button id="listBtn" class="nav-btn mobile-only" type="button">☰ 목록</button>
+        <button id="nextBtn" class="nav-btn" type="button"><span>다음</span><span class="nav-arrow" aria-hidden="true">→</span></button>
+        <button id="jumpBottomBtn" class="nav-btn nav-jump-btn" type="button" aria-label="맨 아래로 이동" title="맨 아래로 이동">▼</button>
+      </div>
+      <button id="navToggleBtn" class="nav-toggle-btn" type="button" aria-controls="bottomNavActions" aria-expanded="true" aria-label="토픽 이동 버튼 숨기기" title="토픽 이동 버튼 숨기기"><span class="nav-toggle-icon" aria-hidden="true">›</span></button>
     </nav>
   </div>
 
@@ -4359,6 +4405,8 @@ let learningStateMap = new Map();
 let recallMode = false;
 let learningView = 'plan';
 let learningPage = 1;
+const BOTTOM_NAV_COLLAPSE_KEY = 'peStudyNote.bottomNavCollapsed.v1';
+let bottomNavCollapsed = localStorage.getItem(BOTTOM_NAV_COLLAPSE_KEY) === '1';
 
 const els = {};
 
@@ -4477,7 +4525,7 @@ function bindElements() {
   const ids = [
     'topbar','networkBadge','securityBadge','syncLabel','refreshBtn','learningBtn','manageBtn','settingsBtn','openSidebarBtn','closeSidebarBtn','sidebar','sidebarBackdrop',
     'searchInput','searchTargetSelect','searchTargetButton','searchTargetLabel','searchTargetMenu','studyTargetFilter','importanceSelect','importanceButton','importanceLabel','importanceMenu','domainFilter','categoryFilter','resetBtn','resultCount','topicList',
-    'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','prevBtn','nextBtn','listBtn',
+    'topicPager','topicPrevPageBtn','topicNextPageBtn','topicPageInput','topicTotalPages','topicPageSize','topicPageRange','emptyState','topicDetail','emptySettingsBtn','emptyRefreshBtn','bottomNav','bottomNavActions','jumpTopBtn','jumpBottomBtn','navToggleBtn','prevBtn','nextBtn','listBtn',
     'questionSearchBtn','detailLearningBtn','detailManageBtn','detailTopicId','detailDomain','detailCategoryCode','detailTopicOrder','detailImportance','detailStudyTarget','detailCounter',
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
@@ -4816,6 +4864,10 @@ function bindEvents() {
   els.prevBtn.addEventListener('click', () => moveTopic(-1));
   els.nextBtn.addEventListener('click', () => moveTopic(1));
   els.listBtn.addEventListener('click', openSidebar);
+  els.jumpTopBtn.addEventListener('click', () => jumpToPageEdge('top'));
+  els.jumpBottomBtn.addEventListener('click', () => jumpToPageEdge('bottom'));
+  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed));
+  setBottomNavCollapsed(bottomNavCollapsed, { persist: false });
   els.openSidebarBtn.addEventListener('click', openSidebar);
   els.closeSidebarBtn.addEventListener('click', closeSidebar);
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
@@ -6581,6 +6633,23 @@ function showEmptyState() {
   els.resultCount.textContent = '0건';
   els.topicPager.classList.add('hidden');
   clearDetailForNoResults();
+}
+
+function jumpToPageEdge(edge) {
+  const scroller = document.scrollingElement || document.documentElement;
+  const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  window.scrollTo({ top: edge === 'bottom' ? maxScroll : 0, behavior: 'instant' });
+}
+
+function setBottomNavCollapsed(collapsed, { persist = true } = {}) {
+  bottomNavCollapsed = Boolean(collapsed);
+  els.bottomNav.classList.toggle('nav-collapsed', bottomNavCollapsed);
+  els.navToggleBtn.setAttribute('aria-expanded', String(!bottomNavCollapsed));
+  const label = bottomNavCollapsed ? '토픽 이동 버튼 펼치기' : '토픽 이동 버튼 숨기기';
+  els.navToggleBtn.setAttribute('aria-label', label);
+  els.navToggleBtn.title = label;
+  els.navToggleBtn.querySelector('.nav-toggle-icon').textContent = bottomNavCollapsed ? '‹' : '›';
+  if (persist) localStorage.setItem(BOTTOM_NAV_COLLAPSE_KEY, bottomNavCollapsed ? '1' : '0');
 }
 
 function moveTopic(direction) {
