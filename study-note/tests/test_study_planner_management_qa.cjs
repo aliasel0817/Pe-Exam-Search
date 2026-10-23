@@ -44,9 +44,34 @@ async function downloaded(dir,name){
   await page.waitForFunction(()=>document.getElementById('plannerPageInput').value==='1'&&document.getElementById('plannerTotalPages').textContent==='14');
   const statsStyles=await page.evaluate(()=>({stats:getComputedStyle(document.getElementById('plannerStats')).fontSize,hint:getComputedStyle(document.querySelector('.planner-local-info')).fontSize}));
   assert.equal(statsStyles.stats,statsStyles.hint);
+  const compactClosed=await page.evaluate(()=>{
+   const panel=document.getElementById('plannerManagement');
+   const note=panel.querySelector(':scope > .planner-local-info');
+   const summary=panel.querySelector(':scope > summary');
+   return {
+    outsideNoteCount:document.querySelectorAll('#studyPlannerPanel > .planner-local-info').length,
+    insideNoteCount:panel.querySelectorAll(':scope > .planner-local-info').length,
+    noteText:note?.textContent,
+    noteVisibleHeight:note?.getBoundingClientRect().height,
+    noteDisplay:getComputedStyle(note).display,
+    titleSize:getComputedStyle(summary).fontSize,
+    panelHeight:panel.getBoundingClientRect().height,
+    marginTop:getComputedStyle(panel).marginTop
+   };
+  });
+  assert.equal(compactClosed.outsideNoteCount,0);
+  assert.equal(compactClosed.insideNoteCount,1);
+  assert(compactClosed.noteText.includes('기기 간 자동 동기화되지 않습니다'));
+  assert.equal(compactClosed.noteDisplay,'none','Collapsed note must be explicitly hidden on every browser');
+  assert.equal(compactClosed.noteVisibleHeight,0,'Note must not occupy space while collapsed');
+  assert.equal(compactClosed.titleSize,'12px','Summary title should be smaller');
+  assert(compactClosed.panelHeight<55,'Collapsed help must remain compact');
+  assert.equal(compactClosed.marginTop,'8px');
   assert.equal(await page.$eval('#plannerManagement',e=>e.open),false);
   await page.click("#plannerManage");
   await page.waitForFunction(()=>document.getElementById('plannerManagement').open);
+  const expandedNoteHeight=await page.$eval('#plannerManagement > .planner-local-info',e=>e.getBoundingClientRect().height);
+  assert(expandedNoteHeight>0,'Note should appear when manager is expanded');
   assert.equal(await page.$eval('#plannerManage',e=>e.getAttribute('aria-expanded')),'true');
   assert.equal(await page.$$eval('.planner-manage-section',xs=>xs.length),3);
   assert((await page.$eval('#plannerManagement',e=>e.textContent)).includes('CSV UTF-8'));
