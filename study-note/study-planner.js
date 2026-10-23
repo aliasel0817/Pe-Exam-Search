@@ -3,6 +3,9 @@
 'use strict';
 const DB='pe-study-planner-v1', PLAN='plans', PROGRESS='progress', PREF='peStudyPlanner.active.v1';
 let db, loading=null, plans=[], active='', dayKey='', filter='all', search='', loaded=false, context=null;
+const PAGE_SIZE_KEY='peStudyPlanner.pageSize.v1', PAGE_SIZES=[10,20,30,50];
+let page=1, pageSize=Number(localStorage.getItem(PAGE_SIZE_KEY))||20;
+if(!PAGE_SIZES.includes(pageSize))pageSize=20;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -33,21 +36,39 @@ function initUi(){
  <div class="planner-toolbar"><select id="plannerSelect" aria-label="학습계획 선택"></select><input id="plannerDate" type="date" aria-label="학습일 선택"><button type="button" id="plannerToday" class="btn">오늘</button><button type="button" id="plannerManage" class="btn">계획 등록·관리</button></div>
  <div id="plannerStats" class="planner-stats"></div>
  <p class="planner-local-info">학습계획별 진도는 현재 기기에 저장됩니다. 다른 기기와 자동으로 동기화되지 않으므로 기기 변경 전에 진도를 백업하세요.</p>
- <div class="planner-toolbar"><input id="plannerSearch" type="search" placeholder="토픽명 또는 통합ID 검색" aria-label="계획 토픽 검색"><select id="plannerFilter" aria-label="진도 필터"><option value="all">전체</option><option value="todo">미완료</option><option value="done">완료</option><option value="miss">다시보기</option></select></div>
+ <div class="planner-toolbar"><input id="plannerSearch" type="search" placeholder="토픽명 또는 통합ID 검색" aria-label="계획 토픽 검색"><select id="plannerFilter" aria-label="진도 필터"><option value="all">전체</option><option value="todo">미완료</option><option value="done">완료</option><option value="miss">다시보기</option></select><label for="plannerPageSize" class="planner-size-label">페이지당</label><select id="plannerPageSize" aria-label="한 페이지에 표시할 토픽 수"><option value="10">10개</option><option value="20">20개</option><option value="30">30개</option><option value="50">50개</option></select></div>
  <div id="plannerGroups" class="planner-groups"></div>
+ <nav id="plannerPager" class="learning-pager planner-pager hidden" aria-label="오늘의 학습 페이지 이동"><button id="plannerPrevPage" class="btn" type="button">← 이전</button><span class="pager-center"><input id="plannerPageInput" class="pager-page-input" type="number" min="1" value="1" inputmode="numeric" aria-label="오늘의 학습 현재 페이지"> / <span id="plannerTotalPages">1</span></span><button id="plannerNextPage" class="btn" type="button">다음 →</button><span id="plannerPageRange" class="pager-range" aria-live="polite">0건</span></nav>
  <details id="plannerManagement" class="planner-manager"><summary>학습계획 관리</summary><p>기존 계획은 보존합니다. 새 계획을 JSON으로 가져오면 별도 계획으로 등록할 수 있습니다.</p><input id="plannerUpload" type="file" accept=".json,application/json"><button id="plannerExport" class="btn" type="button">진도 백업 내려받기</button><input id="plannerRestore" type="file" accept=".json,application/json" aria-label="진도 백업 복원"><p id="plannerNotice" role="status"></p></details>`;
  document.querySelector('.learning-view-tabs').after(pane);
  const style=document.createElement('style');style.textContent=`
- #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:12px;border-radius:10px;line-height:1.6;margin:10px 0}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-manager{margin:20px 0;padding:12px;background:#f8fafc;border-radius:10px}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}`;document.head.appendChild(style);
- $('plannerToday').onclick=()=>{dayKey=today();$('plannerDate').value=dayKey;render()};
- $('plannerDate').onchange=e=>{dayKey=e.target.value;render()};
- $('plannerSelect').onchange=e=>{active=e.target.value;localStorage.setItem(PREF,active);const plan=plans.find(p=>p.id===active);dayKey=plan.days.find(d=>d.date===today())?today():plan.days[0].date;render()};
- $('plannerSearch').oninput=e=>{search=e.target.value.trim().toLowerCase();render()};
- $('plannerFilter').onchange=e=>{filter=e.target.value;render()};
+ #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:12px;border-radius:10px;line-height:1.6;margin:10px 0}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:20px 0;padding:12px;background:#f8fafc;border-radius:10px}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}`;document.head.appendChild(style);
+ $('plannerToday').onclick=()=>{page=1;dayKey=today();$('plannerDate').value=dayKey;render()};
+ $('plannerDate').onchange=e=>{page=1;dayKey=e.target.value;render()};
+ $('plannerSelect').onchange=e=>{page=1;active=e.target.value;localStorage.setItem(PREF,active);const plan=plans.find(p=>p.id===active);dayKey=plan.days.find(d=>d.date===today())?today():plan.days[0].date;render()};
+ $('plannerSearch').oninput=e=>{page=1;search=e.target.value.trim().toLowerCase();render()};
+ $('plannerFilter').onchange=e=>{page=1;filter=e.target.value;render()};
+ $('plannerPageSize').value=String(pageSize);
+ $('plannerPageSize').onchange=e=>{const value=Number(e.target.value);if(!PAGE_SIZES.includes(value))return;pageSize=value;page=1;localStorage.setItem(PAGE_SIZE_KEY,String(pageSize));render()};
+ $('plannerPrevPage').onclick=()=>goToPlannerPage(page-1);
+ $('plannerNextPage').onclick=()=>goToPlannerPage(page+1);
+ $('plannerPageInput').onchange=e=>goToPlannerPage(e.target.value);
+ $('plannerPageInput').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();goToPlannerPage(e.target.value);e.target.blur()}};
  $('plannerManage').onclick=()=>{$('plannerManagement').open=!$('plannerManagement').open};
- $('plannerUpload').onchange=async e=>{try{let j=JSON.parse(await e.target.files[0].text());let p=normalise(j);if(plans.some(x=>x.id===p.id))throw Error('이미 존재하는 계획 ID입니다. 기존 계획을 덮어쓰지 않도록 새 ID로 등록하세요.');await put(PLAN,p);plans.push(p);active=p.id;localStorage.setItem(PREF,active);dayKey=p.days[0].date;await render();$('plannerNotice').textContent=p.name+' 등록 완료 ('+p.entries+'건)';}catch(err){$('plannerNotice').textContent='등록 실패: '+err.message}e.target.value=''};
+ $('plannerUpload').onchange=async e=>{try{let j=JSON.parse(await e.target.files[0].text());let p=normalise(j);if(plans.some(x=>x.id===p.id))throw Error('이미 존재하는 계획 ID입니다. 기존 계획을 덮어쓰지 않도록 새 ID로 등록하세요.');await put(PLAN,p);plans.push(p);active=p.id;page=1;localStorage.setItem(PREF,active);dayKey=p.days[0].date;await render();$('plannerNotice').textContent=p.name+' 등록 완료 ('+p.entries+'건)';}catch(err){$('plannerNotice').textContent='등록 실패: '+err.message}e.target.value=''};
  $('plannerExport').onclick=async()=>{let payload={format:'study-planner-progress-v1',progress:await all(PROGRESS)};download('study-plan-progress-backup.json',JSON.stringify(payload))};
  $('plannerRestore').onchange=async e=>{try{let j=JSON.parse(await e.target.files[0].text());if(j.format!=='study-planner-progress-v1'||!Array.isArray(j.progress))throw Error('잘못된 백업 형식');for(let row of j.progress){if(typeof row.key!=='string'||!['done','miss'].includes(row.status))throw Error('진도 백업 항목 오류');await put(PROGRESS,row)}$('plannerNotice').textContent=j.progress.length+'건 복원 완료';await render()}catch(err){$('plannerNotice').textContent='복원 실패: '+err.message}e.target.value=''};
+}
+function goToPlannerPage(next){
+ const value=Number(next);
+ page=Number.isFinite(value)?Math.max(1,Math.trunc(value)):1;
+ render().then(()=>{
+  const card=$('learningModal')?.querySelector('.learning-dashboard-card');
+  const list=$('plannerGroups');
+  if(!card||!list)return;
+  const top=card.scrollTop+list.getBoundingClientRect().top-card.getBoundingClientRect().top-12;
+  card.scrollTop=Math.max(0,top);
+ }).catch(console.error);
 }
 function download(name,content){const blob=new Blob([content],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)}
 async function load(){
@@ -70,16 +91,29 @@ async function render(){
  if(!activeTab)return;
  document.querySelectorAll('[data-learning-view]').forEach(b=>b.classList.toggle('active',b.dataset.learningView==='plan'));
  $('plannerSelect').innerHTML=plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');$('plannerSelect').value=active;$('plannerDate').value=dayKey;
- const p=plans.find(p=>p.id===active);if(!p){$('plannerGroups').textContent='등록된 학습계획이 없습니다. 계획 JSON을 등록하세요.';$('plannerStats').textContent='';return}
+ const p=plans.find(p=>p.id===active);if(!p){$('plannerGroups').textContent='등록된 학습계획이 없습니다. 계획 JSON을 등록하세요.';$('plannerStats').textContent='';$('plannerPager').classList.add('hidden');return}
  const d=p.days.find(d=>d.date===dayKey);const states=await all(PROGRESS),map=new Map(states.map(s=>[s.key,s]));
- if(!d){$('plannerGroups').textContent='이 날짜에는 계획된 토픽이 없습니다.';$('plannerStats').textContent=p.name+' · '+dayKey;return}
- const byGroup=new Map();let done=0,miss=0;const known=new Map((typeof allTopics!=='undefined'?allTopics:[]).map(t=>[t.topicId,t]));
+ if(!d){$('plannerGroups').textContent='이 날짜에는 계획된 토픽이 없습니다.';$('plannerStats').textContent=p.name+' · '+dayKey;$('plannerPager').classList.add('hidden');return}
+ const matching=[];let done=0,miss=0;const known=new Map((typeof allTopics!=='undefined'?allTopics:[]).map(t=>[t.topicId,t]));
  for(let i=0;i<d.ids.length;i++){let id=d.ids[i],g=d.groups[i],state=map.get(active+'|'+d.date+'|'+id),status=state?.status||'todo';if(status==='done')done++;if(status==='miss')miss++;
   let topic=known.get(id),name=topic?.topicName||id;if(search&&!(id.toLowerCase().includes(search)||name.toLowerCase().includes(search)))continue;if(filter==='done'&&status!=='done'||filter==='miss'&&status!=='miss'||filter==='todo'&&status==='done')continue;
-  if(!byGroup.has(g))byGroup.set(g,[]);byGroup.get(g).push({id,name,status,group:g,missing:!topic});
+  matching.push({id,name,status,group:g,missing:!topic});
  }
+ const total=matching.length, totalPages=Math.max(1,Math.ceil(total/pageSize));
+ page=Math.min(Math.max(1,page),totalPages);
+ const start=(page-1)*pageSize, visible=matching.slice(start,start+pageSize);
+ const byGroup=new Map(), groupCounts=new Map();
+ for(const row of matching)groupCounts.set(row.group,(groupCounts.get(row.group)||0)+1);
+ for(const row of visible){if(!byGroup.has(row.group))byGroup.set(row.group,[]);byGroup.get(row.group).push(row)}
+ $('plannerPageInput').max=String(totalPages);
+ $('plannerPageInput').value=String(page);
+ $('plannerTotalPages').textContent=String(totalPages);
+ $('plannerPrevPage').disabled=page<=1;
+ $('plannerNextPage').disabled=page>=totalPages;
+ $('plannerPageRange').textContent=total?(start+1)+'–'+Math.min(start+pageSize,total)+' / '+total+'개':'0개';
+ $('plannerPager').classList.toggle('hidden',total<=pageSize);
  $('plannerStats').textContent=p.name+' · '+d.date+' · '+(d.round?d.round+'회독':'최종 점검')+' · 계획 '+d.ids.length+'개 / 완료 '+done+'개 / 다시보기 '+miss+'개 / 남은 '+(d.ids.length-done)+'개';
- $('plannerGroups').innerHTML=[...byGroup.entries()].map(([g,rows])=>'<details open class="planner-group"><summary>'+esc(g)+' · '+esc(p.groups?.[g]||g)+' ('+rows.length+'개)</summary>'+rows.map(r=>'<button class="planner-topic" data-plan-topic="'+esc(r.id)+'" type="button"><span>'+esc(r.name)+'<small>'+esc(r.id)+(r.missing?' · MASTER에 없음':'')+'</small></span><span>'+({done:'완료',miss:'다시보기',todo:'미학습'}[r.status])+'</span></button>').join('')+'</details>').join('')||'<p>조건에 맞는 토픽이 없습니다.</p>';
+ $('plannerGroups').innerHTML=[...byGroup.entries()].map(([g,rows])=>'<details open class="planner-group"><summary>'+esc(g)+' · '+esc(p.groups?.[g]||g)+' (이 페이지 '+rows.length+'개 / 해당 그룹 '+groupCounts.get(g)+'개)</summary>'+rows.map(r=>'<button class="planner-topic" data-plan-topic="'+esc(r.id)+'" type="button"><span>'+esc(r.name)+'<small>'+esc(r.id)+(r.missing?' · MASTER에 없음':'')+'</small></span><span>'+({done:'완료',miss:'다시보기',todo:'미학습'}[r.status])+'</span></button>').join('')+'</details>').join('')||'<p>조건에 맞는 토픽이 없습니다.</p>';
  $('plannerGroups').querySelectorAll('[data-plan-topic]').forEach(btn=>btn.onclick=()=>{let id=btn.dataset.planTopic;context={planId:active,date:d.date,topicId:id};if(!(typeof allTopics!=='undefined'&&allTopics.some(t=>t.topicId===id))){alert('MASTER에 없는 토픽입니다: '+id);return}navigateToLearningTopic(id)});
 }
 async function record(topicId,result){
