@@ -19,9 +19,12 @@ const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(root,"study-note.html"),"utf8");
 const swSource = fs.readFileSync(path.join(root,"service-worker.js"),"utf8");
 const manifest = fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8");
+const plannerJs = fs.readFileSync(path.join(root,"study-planner.js"),"utf8");
+const plannerJson = fs.readFileSync(path.join(root,"study-plans","pe141-100days.json"),"utf8");
 assert(source.includes("window.addEventListener('DOMContentLoaded', init);"));
 assert(swSource.includes("fetch(event.request, { cache: 'no-store' })"));
-assert(swSource.includes(".catch(() => caches.match(event.request))"));
+assert(swSource.includes(".catch(() => caches.match(event.request))") ||
+       swSource.includes(".catch(() => caches.match(event.request, { ignoreSearch: true }))"));
 const fixtures = [
  {topicId:"T0001",topicName:"검증: 3C 분석",
   features:"Customer(고객)(고객 요구 파악) · Competitor(경쟁사)(경쟁 환경 분석) · Company(자사)(자원과 역량 분석)",
@@ -71,6 +74,14 @@ const server=http.createServer((req,res)=>{
  if(pathname==="/manifest.webmanifest"){
   res.writeHead(200,{"Content-Type":"application/manifest+json"});
   return res.end(manifest);
+ }
+ if(pathname==="/study-planner.js"){
+  res.writeHead(200,{"Content-Type":"text/javascript; charset=utf-8"});
+  return res.end(plannerJs);
+ }
+ if(pathname==="/study-plans/pe141-100days.json"){
+  res.writeHead(200,{"Content-Type":"application/json; charset=utf-8"});
+  return res.end(plannerJson);
  }
  res.writeHead(404,{"Content-Type":"text/plain; charset=utf-8"});
  res.end("Local PR QA asset not found");
