@@ -1,0 +1,80 @@
+"use strict";
+const assert=require("node:assert/strict");
+const fs=require("node:fs"),path=require("node:path"),http=require("node:http");
+const puppeteer=require("../../.qa-browser/node_modules/puppeteer-core");
+const root=path.resolve(__dirname,"..");
+const server=http.createServer((req,res)=>{
+ const u=new URL(req.url,"http://localhost"), p=path.resolve(root,"."+decodeURIComponent(u.pathname));
+ if(!p.startsWith(root+path.sep)||!fs.existsSync(p)){res.writeHead(404);res.end();return}
+ res.setHeader("Content-Type",p.endsWith(".json")?"application/json":p.endsWith(".js")?"text/javascript":"text/html");
+ res.end(fs.readFileSync(p));
+});
+(async()=>{
+ await new Promise(r=>server.listen(0,"127.0.0.1",r));
+ const port=server.address().port;
+ const browser=await puppeteer.launch({executablePath:"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",headless:true,args:["--no-sandbox","--disable-extensions"]});
+ let page;
+ try{
+ page=await browser.newPage();
+ await page.setRequestInterception(true);
+ page.on("request",req=>{if(req.url().startsWith("http://127.0.0.1:"+port+"/"))req.continue();else req.abort()});
+ const errors=[];page.on("pageerror",e=>errors.push(String(e)));
+ await page.goto("http://127.0.0.1:"+port+"/study-note.html",{waitUntil:"domcontentloaded"});
+ await page.waitForFunction(()=>!!window.StudyPlanner&&!!document.querySelector('[data-learning-view="plan"]'),{timeout:20000});
+ await page.evaluate(()=>document.querySelector('#learningBtn').click());
+ await page.evaluate(()=>document.querySelector('[data-learning-view="plan"]').click());
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('137'),{timeout:20000});
+ const before=await page.evaluate(()=>({stats:document.getElementById('plannerStats').textContent,day:document.getElementById('plannerDate').value,visible:!document.getElementById('studyPlannerPanel').classList.contains('hidden'),count:document.querySelectorAll('.planner-topic').length}));
+ assert.equal(before.day,'2026-10-23');assert.equal(before.count,137);assert.equal(before.visible,true);
+ await page.evaluate(()=>document.getElementById('plannerDate').value='2026-10-22');
+ await page.evaluate(()=>document.getElementById('plannerDate').dispatchEvent(new Event('change',{bubbles:true})));
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('2026-10-22'));
+ assert.equal(await page.evaluate(()=>document.querySelectorAll('.planner-topic').length),137);
+ await page.evaluate(()=>{document.getElementById('plannerDate').value='2026-10-23';document.getElementById('plannerDate').dispatchEvent(new Event('change',{bubbles:true}))});
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('2026-10-23'));
+ await page.evaluate(()=>{allTopics=[{topicId:'T0692',topicName:'SW 개발 생명주기(SDLC)',studyTarget:'Y',importance:'중',domain:'SW',categoryCode:'SW-01',domainName:'소프트웨어공학',categoryName:'SW공학'}]});
+ await page.evaluate(()=>document.querySelector('[data-plan-topic="T0692"]').click());
+ await page.waitForFunction(()=>document.querySelector('#learningModal')?.classList.contains('hidden'));
+ assert.equal(await page.evaluate(()=>currentTopicId),'T0692');
+ await page.evaluate(()=>recordLearningResult('암기'));
+ await page.waitForFunction(async()=>{const db=await new Promise((ok,no)=>{let r=indexedDB.open('pe-study-planner-v1');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});const value=await new Promise((ok,no)=>{const r=db.transaction('progress').objectStore('progress').get('pe141-100d-2026|2026-10-23|T0692');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});return value?.status==='done'},{timeout:15000});
+ await page.evaluate(()=>{learningView='plan';renderLearningDashboard()});
+ await page.waitForFunction(()=>document.querySelector('#plannerStats')?.textContent.includes('완료 1개'));
+ await page.evaluate(()=>{learningView='today';renderLearningDashboard()});
+ await page.waitForFunction(()=>document.getElementById('studyPlannerPanel')?.classList.contains('hidden'));
+ assert.equal(await page.evaluate(()=>document.querySelector('[data-learning-view="today"]').textContent),'오늘 학습한 기록');
+ const views=[];for(const width of [390,820,1280]){
+ await page.setViewport({width,height:900,deviceScaleFactor:1});
+ await page.evaluate(()=>{learningView='plan';openLearningDashboard()});
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('완료 1개')&&!document.getElementById('learningModal').classList.contains('hidden'));
+ const metrics=await page.evaluate(()=>{const modal=document.querySelector('.learning-dashboard-card'),p=document.getElementById('studyPlannerPanel');return{vw:innerWidth,docW:document.documentElement.scrollWidth,modalW:Math.round(modal.getBoundingClientRect().width),panelW:Math.round(p.getBoundingClientRect().width),topicCount:document.querySelectorAll('.planner-topic').length}});
+ assert(metrics.docW<=metrics.vw+2,'Viewport overflow '+JSON.stringify(metrics));
+ assert(metrics.panelW<=metrics.vw,'Panel overflow '+JSON.stringify(metrics));
+ views.push({width,...metrics});
+ }
+ await page.evaluate(()=>navigator.serviceWorker.ready);
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>navigator.serviceWorker.controller!==null,{timeout:12000});
+ await page.setOfflineMode(true);
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>!!window.StudyPlanner&&!!document.querySelector('[data-learning-view="plan"]'),{timeout:12000});
+ await page.evaluate(()=>document.querySelector('#learningBtn').click());
+ await page.waitForFunction(()=>document.querySelector('#plannerStats')?.textContent.includes('137'),{timeout:12000});
+ const offline={controller:await page.evaluate(()=>!!navigator.serviceWorker.controller),stats:await page.evaluate(()=>document.querySelector('#plannerStats').textContent)};
+ await page.setOfflineMode(false);
+ const fixtureDir=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'planner-qa-'));
+ const fixture=path.join(fixtureDir,'second-plan.json');
+ fs.writeFileSync(fixture,JSON.stringify({id:'qa-plan-second',name:'2번째 시험계획',groups:{G16:'소프트웨어공학'},days:[{date:'2026-10-23',round:1,ids:['T0692'],groups:['G16']}]}),'utf8');
+ await page.evaluate(()=>{document.getElementById('plannerManagement').open=true});
+ await (await page.$('#plannerUpload')).uploadFile(fixture);
+ await page.waitForFunction(()=>document.querySelectorAll('#plannerSelect option').length===2,{timeout:10000});
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('계획 1개'),{timeout:10000});
+ const second={optionCount:await page.evaluate(()=>document.querySelectorAll('#plannerSelect option').length),stats:await page.evaluate(()=>document.getElementById('plannerStats').textContent)};
+ await page.evaluate(()=>{document.getElementById('plannerSelect').value='pe141-100d-2026';document.getElementById('plannerSelect').dispatchEvent(new Event('change',{bubbles:true}))});
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('계획 137개'),{timeout:10000});
+ fs.rmSync(fixtureDir,{recursive:true,force:true});
+ const result={before,views,offline,second,passed:true,errors};
+ console.log('PLANNER_BROWSER_QA',JSON.stringify(result));
+ if(errors.length)throw new Error('Browser errors: '+errors.join('; '));
+ }finally{await browser.close();server.close()}
+})().catch(e=>{console.error(e.stack);process.exitCode=1;server.close()});

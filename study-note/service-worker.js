@@ -1,8 +1,10 @@
-// Deployment retry for v4.6.3; runtime and cached content remain unchanged.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-3-rgb-keyboard';
+// Study planner additive rollout; keep existing shell caching semantics.
+const CACHE_NAME = 'pe-study-note-shell-v4-6-4-studyplanner';
 const APP_SHELL = [
   './study-note.html',
-  './manifest.webmanifest'
+  './manifest.webmanifest',
+  './study-planner.js',
+  './study-plans/pe141-100days.json'
 ];
 
 self.addEventListener('install', event => {
@@ -32,10 +34,11 @@ self.addEventListener('fetch', event => {
 
   const isStudyNoteHtml = url.pathname.endsWith('/study-note.html');
   const isManifest = url.pathname.endsWith('/manifest.webmanifest');
-  if (!isStudyNoteHtml && !isManifest) return;
+  const isPlannerAsset = url.pathname.endsWith('/study-planner.js') || url.pathname.endsWith('/study-plans/pe141-100days.json');
+  if (!isStudyNoteHtml && !isManifest && !isPlannerAsset) return;
 
   // HTML은 network-first: GitHub에 새 버전을 올리면 다음 접속/새로고침에서 우선 최신 파일을 사용한다.
-  if (isStudyNoteHtml) {
+  if (isStudyNoteHtml || isPlannerAsset) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
         .then(response => {
@@ -43,7 +46,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request, { ignoreSearch: true }))
     );
     return;
   }
