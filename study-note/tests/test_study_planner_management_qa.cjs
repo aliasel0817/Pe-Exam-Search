@@ -53,6 +53,7 @@ async function downloaded(dir,name){
     insideNoteCount:panel.querySelectorAll(':scope > .planner-local-info').length,
     noteText:note?.textContent,
     noteVisibleHeight:note?.getBoundingClientRect().height,
+    noteDisplay:getComputedStyle(note).display,
     titleSize:getComputedStyle(summary).fontSize,
     panelHeight:panel.getBoundingClientRect().height,
     marginTop:getComputedStyle(panel).marginTop
@@ -61,6 +62,7 @@ async function downloaded(dir,name){
   assert.equal(compactClosed.outsideNoteCount,0);
   assert.equal(compactClosed.insideNoteCount,1);
   assert(compactClosed.noteText.includes('기기 간 자동 동기화되지 않습니다'));
+  assert.equal(compactClosed.noteDisplay,'none','Collapsed note must be explicitly hidden on every browser');
   assert.equal(compactClosed.noteVisibleHeight,0,'Note must not occupy space while collapsed');
   assert.equal(compactClosed.titleSize,'12px','Summary title should be smaller');
   assert(compactClosed.panelHeight<55,'Collapsed help must remain compact');
