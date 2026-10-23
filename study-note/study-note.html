@@ -4357,7 +4357,7 @@ const ANNOTATION_HISTORY_LIMIT = 50;
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
 let learningStateMap = new Map();
 let recallMode = false;
-let learningView = 'recent';
+let learningView = 'plan';
 let learningPage = 1;
 
 const els = {};
@@ -6644,6 +6644,7 @@ async function updateLearningState(topicId, patch, { trySync = true } = {}) {
   els.topicList.scrollTop = previousListScrollTop;
   if (!els.learningModal.classList.contains('hidden')) renderLearningDashboard();
   if (trySync) syncSingleLearningState(next).catch(() => {});
+  if (window.StudyPlanner) StudyPlanner.render().catch(console.error);
   return next;
 }
 
@@ -6697,6 +6698,7 @@ async function recordLearningResult(result) {
   }
 
   const next = await updateLearningState(currentTopicId, patch);
+  if (window.StudyPlanner) StudyPlanner.record(currentTopicId, result).catch(console.error);
 
   if (result === '암기') {
     showToast(reviewedToday
@@ -6784,6 +6786,8 @@ function setLearningPage(page) {
 }
 
 function renderLearningDashboard() {
+  if (learningView === 'plan') { StudyPlanner.render().catch(console.error); return; }
+  if (window.StudyPlanner) StudyPlanner.render().catch(console.error);
   const targetTopics = allTopics.filter(topic => topic.studyTarget === 'Y');
   const states = learningStatesForExistingTopics();
   const stateById = new Map(states.map(state => [state.topicId, state]));
@@ -14043,5 +14047,6 @@ window.peStudyNoteTtsBridge = {
 };
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
+<script src="./study-planner.js?v=20261023-1"></script>
 </body>
 </html>
