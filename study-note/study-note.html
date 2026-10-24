@@ -270,6 +270,18 @@ button { -webkit-tap-highlight-color: transparent; }
  .study-feature-korean-name { font-weight: 700; }
  .study-feature-original-name { color: var(--muted); font-size: .86em; font-weight: 500; overflow-wrap: anywhere; }
 .study-readable-heading { margin-bottom: .5rem; font-weight: 750; color: #344054; }
+.study-card.metadata-collapsible { padding-top: 0; padding-bottom: 0; }
+.metadata-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 13px 0; color: #475467; font-size: .85rem; font-weight: 700; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.metadata-summary::-webkit-details-marker { display: none; }
+.metadata-summary::marker { content: ''; }
+.metadata-summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
+.metadata-summary-hint { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: .75rem; font-weight: 500; white-space: nowrap; }
+.metadata-hint-close { display: none; }
+.metadata-chevron { display: inline-block; font-size: 1.05rem; line-height: 1; transition: transform .15s ease; }
+.metadata-collapsible[open] .metadata-hint-open { display: none; }
+.metadata-collapsible[open] .metadata-hint-close { display: inline; }
+.metadata-collapsible[open] .metadata-chevron { transform: rotate(180deg); }
+.metadata-collapsible[open] .meta-grid { padding-bottom: 12px; border-top: 1px solid #eef2f6; }
 .meta-grid { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .meta-grid > div { padding: 10px 0; border-bottom: 1px solid #eef2f6; }
 .meta-grid > div:nth-child(odd) { padding-right: 16px; }
@@ -2242,8 +2254,8 @@ button { -webkit-tap-highlight-color: transparent; }
             </div>
           </section>
 
-          <section class="study-card metadata-card">
-            <h3>페이지 · 참고정보</h3>
+          <details id="detailPageReference" class="study-card metadata-card metadata-collapsible">
+            <summary class="metadata-summary"><span>페이지 · 참고정보</span><span class="metadata-summary-hint" aria-hidden="true"><span class="metadata-hint-open">펼치기</span><span class="metadata-hint-close">접기</span><span class="metadata-chevron">⌄</span></span></summary>
             <dl class="meta-grid">
               <div><dt>서브노트페이지</dt><dd id="detailSubnotePages">-</dd></div>
               <div><dt>교재페이지</dt><dd id="detailTextbookPages">-</dd></div>
@@ -2252,7 +2264,7 @@ button { -webkit-tap-highlight-color: transparent; }
               <div><dt>학습제외사유</dt><dd id="detailExclusionReason">-</dd></div>
               <div><dt>비고</dt><dd id="detailNotes" class="preserve-lines">-</dd></div>
             </dl>
-          </section>
+          </details>
 
           <div class="detail-bottom-spacer"></div>
         </article>
