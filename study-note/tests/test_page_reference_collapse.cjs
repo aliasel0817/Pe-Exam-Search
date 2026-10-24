@@ -1,10 +1,11 @@
 "use strict";
 const assert = require("node:assert/strict");
-const puppeteer = require("C:/Users/user/AppData/Local/npm-cache/_npx/4b4c857f6efdfb61/node_modules/puppeteer");
+const puppeteer = require("puppeteer-core");
 const path = require("node:path");
 const url = "file:///" + path.resolve(__dirname, "..", "study-note.html").replaceAll("\\", "/");
 (async () => {
- const browser = await puppeteer.launch({headless: true, executablePath:"C:/Program Files/Google/Chrome/Application/chrome.exe", args:["--no-sandbox","--disable-extensions"]});
+ const chrome = process.env.CHROME_BIN || (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/usr/bin/google-chrome");
+ const browser = await puppeteer.launch({headless: true, executablePath:chrome, args:["--no-sandbox","--disable-extensions"]});
  try {
   const page = await browser.newPage();
   for (const width of [320,390,820,1280]) {
