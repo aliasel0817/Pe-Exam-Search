@@ -21,7 +21,8 @@ const testHTML=raw.replace(original,
  .replace(/<script src="\.\/tts\/natural-tts\.js\?v=[^"]+"><\/script>/,"")
  .replace(/<link rel="manifest" href="\.\/manifest\.webmanifest">/,"");
 assert(!testHTML.includes("const annotationPointerProfile"),"Old stylus history gate must not remain");
-assert(testHTML.includes("if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;"));
+assert(testHTML.includes("event.pointerType !== 'pen' && event.pointerType !== 'mouse'"));
+assert(testHTML.includes("phoneCanDrawWithTouch(surface)"), "Only explicit phone mode may allow finger ink");
 
 const server=http.createServer((req,res)=>{
  if(req.url==="/"){

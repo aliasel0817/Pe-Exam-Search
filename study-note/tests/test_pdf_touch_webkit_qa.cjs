@@ -1,6 +1,7 @@
 "use strict";
 /* Synthetic Safari WebKit engine QA; no LIVE Google Sheet, PDF, or mutation. */
 const fs = require("node:fs");
+const http = require("node:http");
 const path = require("node:path");
 const assert = require("node:assert/strict");
 const { webkit } = require("../../.qa-webkit/node_modules/playwright");
@@ -8,7 +9,17 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
   .replace("window.addEventListener('DOMContentLoaded', init);", "")
   .replace(/<script src="https:\/\/accounts\.google\.com\/gsi\/client" async defer><\/script>/, "")
   .replace(/<script src="\.\/tts\/natural-tts\.js\?v=[^"]+"><\/script>/, "");
+// An about:blank frame rejects localStorage in WebKit, aborting app startup
+// before the annotation pointer map is initialized. Use a real local origin.
+const server = http.createServer((req,res) => {
+  if (req.url === "/study-note.html") {
+    res.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});
+    res.end(html);
+  } else { res.writeHead(404); res.end("Synthetic QA only"); }
+});
 (async () => {
+  await new Promise(resolve => server.listen(0,"127.0.0.1",resolve));
+  const origin = "http://127.0.0.1:" + server.address().port;
   const browser = await webkit.launch({headless:true});
   try {
     for (const width of [390, 820]) {
@@ -16,9 +27,13 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
         viewport: { width, height: 844 }, isMobile: width < 761, hasTouch: true
       });
       const page = await context.newPage();
-      await page.route("**/*", route => route.abort());
-      await page.setContent(html, { waitUntil:"domcontentloaded" });
+      page.on("pageerror", error => console.error("WEBKIT_PDF_PAGEERROR", String(error), error.stack || ""));
+      await page.route("**/*", route => route.request().url().startsWith(origin + "/")
+        ? route.continue() : route.abort());
+      await page.goto(origin + "/study-note.html", { waitUntil:"domcontentloaded" });
       const results = await page.evaluate(() => {
+        const errors = [];
+        window.addEventListener("error",e=>errors.push(String(e.message||e.error||e)),{capture:true});
         if (typeof installPdfPanPinchHandlers !== "function") throw Error("PDF gesture function missing");
         // Linux WebKit exposes Touch/TouchEvent but their JS constructors
         // are illegal; dispatch an Event with the same TouchList fields.
@@ -46,6 +61,9 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
           let zoom=2.5;
           installPdfPanPinchHandlers(scroller,{getZoom:()=>zoom,setZoom:value=>{zoom=value;},
             minZoom:.5,maxZoom:10});
+          const observed=[];
+          scroller.addEventListener("touchstart",ev=>observed.push({step:"start",target:ev.target?.className,hadTouches:!!ev.touches,len:ev.touches?.length}),{capture:true});
+          scroller.addEventListener("touchmove",ev=>observed.push({step:"move",hadTouches:!!ev.touches,len:ev.touches?.length,blocked:scroller.dataset.pdfPalmBlocked||"",managed:scroller.dataset.pdfTouchManaged||""}),{capture:true});
           const a=touch(1,layer,100,100),b=touch(2,layer,180,100);
           emit(layer,"touchstart",[a,b],[a,b]);
           const b1=touch(2,layer,270,100);
@@ -58,7 +76,7 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
           emit(layer,"touchmove",[c,e1],[e1]);
           const reduced=zoom;
           emit(layer,"touchend",[],[c,e1]);
-          results.push({name,expanded,reduced});
+          results.push({name,expanded,reduced,observed,errors:[...errors]});
           scroller.remove();
         }
         return results;
@@ -70,5 +88,8 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
       console.log("WEBKIT_PDF_PINCH_PASS",JSON.stringify({width,results}));
       await context.close();
     }
-  } finally {await browser.close();}
-})().catch(e=>{console.error("WEBKIT_PDF_PINCH_FAIL",e);process.exitCode=1});
+  } finally {
+    await browser.close();
+    await new Promise(resolve=>server.close(resolve));
+  }
+})().catch(e=>{console.error("WEBKIT_PDF_PINCH_FAIL",e);process.exitCode=1;server.close();});

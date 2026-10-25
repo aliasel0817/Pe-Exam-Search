@@ -851,6 +851,8 @@ button { -webkit-tap-highlight-color: transparent; }
   background: #f8fafc;
 }
 .annotation-toolbar .btn { min-height: 32px; padding: 4px 8px; font-size: .72rem; }
+.annotation-finger-mode { white-space: nowrap; flex: 0 0 auto; border-color: #9aa9bc; font-weight: 750; }
+.annotation-finger-mode[aria-pressed="true"] { background: #e0ecff; border-color: #2563eb; color: #184ab1; }
 .annotation-toolbar .annotation-tool-btn.active {
   border-color: var(--primary);
   background: var(--primary-soft);
@@ -2757,7 +2759,7 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
         <div class="attachment-pdf-bottom" aria-label="첨부 PDF 확대 축소">
           <button id="pdfZoomOutBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 축소">−</button>
-          <span id="pdfZoomLabel" class="attachment-pdf-zoom-label">250%</span>
+          <span id="pdfZoomLabel" class="attachment-pdf-zoom-label">100%</span>
           <button id="pdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
           <button id="pdfZoomFitBtn" class="btn" type="button">맞춤</button>
           <span class="attachment-pdf-pinch-hint">모바일·태블릿: 두 손가락 확대/축소</span>
@@ -2862,7 +2864,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <span class="pdf-tool-page">1 / 1 페이지</span>
           <span class="pdf-tool-separator" aria-hidden="true"></span>
           <button id="referencePdfZoomOutBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 축소">−</button>
-          <span id="referencePdfZoomLabel" class="pdf-tool-zoom">250%</span>
+          <span id="referencePdfZoomLabel" class="pdf-tool-zoom">100%</span>
           <button id="referencePdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
           <button id="referencePdfZoomFitBtn" class="btn pdf-tool-fit" type="button">맞춤</button>
         </div>
@@ -4323,7 +4325,7 @@ let referencePdfLoadSerial = 0;
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 10;
 const REFERENCE_PDF_ZOOM_STEP = 0.25;
-const REFERENCE_PDF_DEFAULT_ZOOM = 2.5;
+const REFERENCE_PDF_DEFAULT_ZOOM = 1; // 100% of the current viewer width-fit scale.
 const REFERENCE_PDF_PAGE_KEY_SEQUENCES = [
   ['SW-1','SW-2','SW-3'],
   ['AL-1','AL-2'],
@@ -4365,11 +4367,12 @@ let activeAttachmentPdfPageCount = 0;
 let activeAttachmentPdfFitScale = 1;
 let activeAttachmentPdfZoomFactor = 1;
 let activeAttachmentPdfRenderTask = null;
+let pdfViewerResizeRaf = 0;
 let pdfJsLoadPromise = null;
 const ATTACHMENT_PDF_ZOOM_MIN = 0.5;
 const ATTACHMENT_PDF_ZOOM_MAX = 10;
 const ATTACHMENT_PDF_ZOOM_STEP = 0.25;
-const ATTACHMENT_PDF_DEFAULT_ZOOM = 2.5;
+const ATTACHMENT_PDF_DEFAULT_ZOOM = 1; // 100% of the current viewer width-fit scale.
 const PDFJS_CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174';
 const PDFLIB_CDN_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 let pdfLibLoadPromise = null;
@@ -4407,8 +4410,23 @@ const ANNOTATION_SHAPE_CHOICES = [
   ['square', '□ 정사각형'], ['pentagon', '⬠ 오각형'], ['hexagon', '⬡ 육각형'],
   ['ellipse', '⬭ 타원'], ['circle', '○ 원'], ['diamond', '◇ 마름모'], ['star', '☆ 별']
 ];
-const ANNOTATION_PALETTE_KEY = 'peStudyNote.annotation.favoriteColors.v1';
-const ANNOTATION_OPTIONS_KEY = 'peStudyNote.annotation.toolPreferences.v1';
+// Keep the original preferences read-only for first-run migration; each
+// device class uses an independent local key (each physical device already
+// has its own localStorage). Never put these UI settings in cloud annotations.
+function detectAnnotationDeviceClass() {
+  const ua = String(navigator.userAgent || '');
+  const smallSide = Math.min(Number(window.screen?.width || 0), Number(window.screen?.height || 0));
+  if (/iPhone|iPod/i.test(ua)) return 'phone';
+  if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return 'tablet';
+  if (/Android/i.test(ua)) return /Mobile/i.test(ua) && smallSide < 600 ? 'phone' : 'tablet';
+  if (navigator.userAgentData?.mobile === true) return 'phone';
+  return 'desktop';
+}
+const ANNOTATION_DEVICE_CLASS = detectAnnotationDeviceClass();
+const ANNOTATION_PALETTE_LEGACY_KEY = 'peStudyNote.annotation.favoriteColors.v1';
+const ANNOTATION_OPTIONS_LEGACY_KEY = 'peStudyNote.annotation.toolPreferences.v1';
+const ANNOTATION_PALETTE_KEY = 'peStudyNote.annotation.favoriteColors.v2.' + ANNOTATION_DEVICE_CLASS;
+const ANNOTATION_OPTIONS_KEY = 'peStudyNote.annotation.toolPreferences.v2.' + ANNOTATION_DEVICE_CLASS;
 const annotationEditorState = {
   tool: 'pan',
   lastDrawTool: 'pen',
@@ -4421,6 +4439,9 @@ const annotationEditorState = {
   text: { color: '#111827', width: 18, opacity: 1 },
   note: { color: '#f59e0b', width: 18, opacity: 1 },
   eraserSize: 18,
+  // On capacitive-only phones a finger and a passive stylus are both touch.
+  // Explicit opt-in permits single-finger drawing; two fingers stay pinch-zoom.
+  fingerDraw: false,
 };
 let lastActiveAnnotationSurface = null;
 let annotationTemporaryPreviousTool = '';
@@ -4484,10 +4505,12 @@ async function init() {
     });
   });
   window.addEventListener('offline', updateNetworkStatus);
-  window.addEventListener('resize', syncViewportMetrics);
-  window.addEventListener('orientationchange', () => setTimeout(syncViewportMetrics, 120));
+  window.addEventListener('resize', () => { syncViewportMetrics(); schedulePdfViewerWidthFit(); });
+  window.addEventListener('orientationchange', () => setTimeout(() => {
+    syncViewportMetrics(); schedulePdfViewerWidthFit();
+  }, 120));
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', syncViewportMetrics);
+    window.visualViewport.addEventListener('resize', () => { syncViewportMetrics(); schedulePdfViewerWidthFit(); });
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) flushPendingAnnotationSaves();
@@ -5047,6 +5070,19 @@ function syncViewportMetrics() {
   document.documentElement.style.setProperty('--app-vh', `${vh}px`);
   const topbar = els.topbar || document.getElementById('topbar');
   if (topbar) document.documentElement.style.setProperty('--topbar-h', `${Math.max(topbar.offsetHeight || 72, 60)}px`);
+}
+
+function schedulePdfViewerWidthFit() {
+  if (pdfViewerResizeRaf) return;
+  pdfViewerResizeRaf = requestAnimationFrame(() => {
+    pdfViewerResizeRaf = 0;
+    if (els.referencePdfFrameWrap && !els.referencePdfViewerModal?.classList.contains('hidden')) {
+      renderActiveReferencePdfImage({ preserveCenter: true });
+    }
+    if (activeAttachmentPdfPage && !els.mediaViewerModal?.classList.contains('hidden')) {
+      renderActiveAttachmentPdfCanvas({ preserveCenter: true });
+    }
+  });
 }
 
 function getSecurityValidationAt() {
@@ -10610,6 +10646,14 @@ function syncAnnotationToolbarUi() {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+    const fingerButton = toolbar.querySelector('[data-annotation-finger-mode]');
+    if (fingerButton) {
+      fingerButton.textContent = annotationEditorState.fingerDraw ? '☝ 손가락 필기 켬' : '☝ 손가락 이동';
+      fingerButton.setAttribute('aria-pressed', String(annotationEditorState.fingerDraw));
+      fingerButton.title = annotationEditorState.fingerDraw
+        ? '한 손가락·정전식 펜으로 선택 도구 사용, 두 손가락으로 확대/축소. 끄면 한 손가락으로 이동'
+        : '정전식 펜은 손가락과 자동 구분되지 않습니다. 켜면 손가락·정전식 펜 필기 사용';
+    }
     const width = toolbar.querySelector('[data-annotation-width]');
     const opacity = toolbar.querySelector('[data-annotation-opacity]');
     const opacityValue = toolbar.querySelector('[data-annotation-opacity-value]');
@@ -10720,6 +10764,7 @@ function setAnnotationTool(tool) {
   annotationEditorState.tool = tool;
   if (tool === 'pen' || tool === 'highlighter' || tool === 'text' || tool === 'note') annotationEditorState.lastDrawTool = tool;
   else if (annotationIsShapeTool(tool)) annotationEditorState.lastDrawTool = 'shape';
+  saveAnnotationToolPreferences();
   syncAnnotationToolbarUi();
 }
 
@@ -11399,6 +11444,7 @@ function installAnnotationInputHandlers(surface) {
   if (!canvas || canvas.dataset.annotationInputBound === '1') return;
   canvas.dataset.annotationInputBound = '1';
   surface.palmRejectedPointerIds = new Set();
+  surface.suppressedPhoneTouchIds = new Set();
 
   canvas.addEventListener('pointerenter', event => {
     noteAnnotationPenPointer(event);
@@ -11431,18 +11477,44 @@ function installAnnotationInputHandlers(surface) {
       surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
-      if (isLikelyAnnotationPalmContact(event) || surface.activeStroke || surface.activeShape
-          || surface.activeErase || surface.selectionAction) {
+      const scroller = annotationPanScroller(surface);
+      if (surface.touchDrawingRollback && surface.touchDrawingRollback.pointerId !== event.pointerId) {
+        cancelPhoneTouchDrawingInScroller(scroller);
+        surface.suppressedPhoneTouchIds.add(event.pointerId);
+        return;
+      }
+      const broadPalm = isLikelyAnnotationPalmContact(event);
+      if (broadPalm && scroller?.matches?.('.reference-pdf-pan-scroller, .attachment-pdf-pan-scroller')) {
+        scroller.dataset.pdfPalmBlocked = '1';
+      }
+      if (broadPalm || annotationDigitalPenActive(scroller)
+          || surface.activeStroke || surface.activeShape || surface.activeErase || surface.selectionAction
+          || surface.suppressedPhoneTouchIds.has(event.pointerId)) {
         surface.palmRejectedPointerIds.add(event.pointerId);
         return;
       }
-      beginAnnotationTouchPan(surface, event);
-      return;
+      if (phoneCanDrawWithTouch(surface) && event.isPrimary !== false
+          && scroller?.dataset.pdfTouchPinching !== '1') {
+        const documentData = getAnnotationDocument(surface.key);
+        // Roll back incomplete one-finger ink if a second finger begins pinching.
+        surface.touchDrawingRollback = {
+          pointerId: event.pointerId,
+          objects: cloneAnnotationObjects(documentData.objects),
+          undoStack: (documentData.undoStack || []).slice(),
+          redoStack: (documentData.redoStack || []).slice(),
+          updatedAt: documentData.updatedAt,
+        };
+      } else {
+        beginAnnotationTouchPan(surface, event);
+        return;
+      }
     }
-    // Only a recognized digital pen (or a PC mouse) may modify annotations.
-    // Do not turn unknown pointer types into accidental handwriting.
-    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
-    if (isTouchDerivedAnnotationMouse(surface, event)) {
+    // A phone in explicit finger-draw mode can ink with a touch; on tablets
+    // only digital pens and PC mice can draw. Passive styluses are touches.
+    const fingerDrawing = event.pointerType === 'touch'
+      && surface.touchDrawingRollback?.pointerId === event.pointerId;
+    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse' && !fingerDrawing) return;
+    if (event.pointerType === 'mouse' && isTouchDerivedAnnotationMouse(surface, event)) {
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -11535,15 +11607,29 @@ function installAnnotationInputHandlers(surface) {
       surface.lastTouchInputAt = Date.now();
       event.preventDefault();
       event.stopPropagation();
-      if (isLikelyAnnotationPalmContact(event)) surface.palmRejectedPointerIds.add(event.pointerId);
-      if (surface.palmRejectedPointerIds.has(event.pointerId)) {
+      if (isLikelyAnnotationPalmContact(event)) {
+        surface.palmRejectedPointerIds.add(event.pointerId);
+        const scroller = annotationPanScroller(surface);
+        if (scroller?.matches?.('.reference-pdf-pan-scroller, .attachment-pdf-pan-scroller')) {
+          scroller.dataset.pdfPalmBlocked = '1';
+        }
+        if (surface.touchDrawingRollback?.pointerId === event.pointerId) {
+          cancelPhoneTouchDrawingInScroller(annotationPanScroller(surface));
+        }
+      }
+      if (surface.palmRejectedPointerIds.has(event.pointerId)
+          || surface.suppressedPhoneTouchIds?.has(event.pointerId)) {
         if (surface.touchGesture?.pointers?.has(event.pointerId)) finishAnnotationTouchPan(surface, event);
         return;
       }
-      if (surface.touchGesture?.pointers?.has(event.pointerId)) moveAnnotationTouchPan(surface, event);
-      return;
+      if (surface.touchDrawingRollback?.pointerId !== event.pointerId) {
+        if (surface.touchGesture?.pointers?.has(event.pointerId)) moveAnnotationTouchPan(surface, event);
+        return;
+      }
+      // Explicit phone finger drawing continues through the shared stroke/shape path.
     }
-    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
+    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse'
+        && !(event.pointerType === 'touch' && surface.touchDrawingRollback?.pointerId === event.pointerId)) return;
     // Compatibility mouse contacts are rejected on pointerdown only.
     // An already active mouse annotation must finish after incidental touch.
     if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId && surface.selectionAction.pointerType === event.pointerType) {
@@ -11588,10 +11674,21 @@ function installAnnotationInputHandlers(surface) {
       event.preventDefault();
       event.stopPropagation();
       surface.palmRejectedPointerIds.delete(event.pointerId);
-      if (surface.touchGesture?.pointers?.has(event.pointerId)) finishAnnotationTouchPan(surface, event);
-      return;
+      if (surface.suppressedPhoneTouchIds?.delete(event.pointerId)) return;
+      if (event.type === 'pointercancel' && surface.touchDrawingRollback?.pointerId === event.pointerId) {
+        cancelPhoneTouchDrawingInScroller(annotationPanScroller(surface));
+        return;
+      }
+      if (surface.touchDrawingRollback?.pointerId !== event.pointerId) {
+        if (surface.touchGesture?.pointers?.has(event.pointerId)) finishAnnotationTouchPan(surface, event);
+        return;
+      }
     }
-    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse') return;
+    if (event.pointerType !== 'pen' && event.pointerType !== 'mouse'
+        && !(event.pointerType === 'touch' && surface.touchDrawingRollback?.pointerId === event.pointerId)) return;
+    const completePhoneInk = () => {
+      if (surface.touchDrawingRollback?.pointerId === event.pointerId) surface.touchDrawingRollback = null;
+    };
     // Compatibility mouse contacts are rejected on pointerdown only.
     // An already active mouse annotation must finish after incidental touch.
     if (surface.selectionAction && surface.selectionAction.pointerId === event.pointerId && surface.selectionAction.pointerType === event.pointerType) {
@@ -11607,6 +11704,7 @@ function installAnnotationInputHandlers(surface) {
       surface.activeErase = null;
       try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
       if (erased) scheduleAnnotationPersist(getAnnotationDocument(surface.key));
+      completePhoneInk();
       syncAnnotationToolbarUi();
       return;
     }
@@ -11621,6 +11719,7 @@ function installAnnotationInputHandlers(surface) {
       documentData.updatedAt = new Date().toISOString();
       scheduleAnnotationRender(surface);
       scheduleAnnotationPersist(documentData);
+      completePhoneInk();
       syncAnnotationToolbarUi();
       return;
     }
@@ -11637,6 +11736,7 @@ function installAnnotationInputHandlers(surface) {
     try { canvas.releasePointerCapture(event.pointerId); } catch (error) { /* noop */ }
     scheduleAnnotationRender(surface);
     scheduleAnnotationPersist(getAnnotationDocument(surface.key));
+    completePhoneInk();
   };
   canvas.addEventListener('pointerup', finishStroke);
   canvas.addEventListener('pointercancel', finishStroke);
@@ -11684,35 +11784,110 @@ function prepareAnnotationMobileToolbar(toolbar) {
 }
 
 
+function preparePhoneFingerDrawingControl(toolbar) {
+  if (ANNOTATION_DEVICE_CLASS !== 'phone' ||
+      !toolbar.closest('#mediaViewerModal, #referencePdfViewerModal') ||
+      toolbar.querySelector('[data-annotation-finger-mode]')) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn annotation-finger-mode';
+  button.dataset.annotationFingerMode = '1';
+  button.setAttribute('aria-label', '스마트폰 손가락 필기 모드 전환');
+  const pan = toolbar.querySelector('[data-annotation-tool="pan"]');
+  if (pan) pan.insertAdjacentElement('afterend', button);
+  else toolbar.prepend(button);
+}
+
+function phoneCanDrawWithTouch(surface) {
+  return ANNOTATION_DEVICE_CLASS === 'phone' && annotationEditorState.fingerDraw
+    && ['reference-pdf', 'attachment-pdf'].includes(surface?.kind)
+    && ['pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool);
+}
+
+function annotationDigitalPenActive(scroller = null) {
+  for (const surface of activeAnnotationSurfaces) {
+    if (scroller && !scroller.contains(surface.canvas)) continue;
+    if ([surface.activeStroke, surface.activeShape, surface.activeErase, surface.selectionAction]
+      .some(action => action?.pointerType === 'pen')) return true;
+  }
+  return false;
+}
+
+function cancelPhoneTouchDrawingInScroller(scroller) {
+  for (const surface of activeAnnotationSurfaces) {
+    if (!scroller?.contains(surface.canvas) || !surface.touchDrawingRollback) continue;
+    const snapshot = surface.touchDrawingRollback;
+    const doc = getAnnotationDocument(surface.key);
+    doc.objects = snapshot.objects;
+    doc.undoStack = snapshot.undoStack;
+    doc.redoStack = snapshot.redoStack;
+    doc.updatedAt = snapshot.updatedAt;
+    surface.activeStroke = null;
+    surface.activeShape = null;
+    surface.activeErase = null;
+    surface.selectionAction = null;
+    surface.suppressedPhoneTouchIds ||= new Set();
+    surface.suppressedPhoneTouchIds.add(snapshot.pointerId);
+    try { surface.canvas.releasePointerCapture(snapshot.pointerId); } catch (error) { /* noop */ }
+    surface.touchDrawingRollback = null;
+    scheduleAnnotationRender(surface);
+    syncAnnotationToolbarUi();
+  }
+}
+
 function restoreAnnotationToolPreferences() {
+  // One-time fallback to v1 keeps prior colors and pen choices intact.
+  // All subsequent writes are confined to the current device-class key.
   try {
-    const raw = JSON.parse(localStorage.getItem(ANNOTATION_OPTIONS_KEY) || '{}');
+    const scoped = localStorage.getItem(ANNOTATION_OPTIONS_KEY);
+    const raw = JSON.parse(scoped ?? localStorage.getItem(ANNOTATION_OPTIONS_LEGACY_KEY) ?? '{}');
     if (ANNOTATION_PEN_STYLES.includes(raw.penStyle)) annotationEditorState.penStyle = raw.penStyle;
+    if (['pen', 'highlighter', 'shape', 'text', 'note'].includes(raw.lastDrawTool)) {
+      annotationEditorState.lastDrawTool = raw.lastDrawTool;
+    }
     for (const kind of ['pen', 'highlighter']) {
-      if (raw.strokeModes?.[kind] === 'straight') annotationEditorState.strokeModes[kind] = 'straight';
+      if (['free', 'straight'].includes(raw.strokeModes?.[kind])) {
+        annotationEditorState.strokeModes[kind] = raw.strokeModes[kind];
+      }
     }
     for (const kind of ['pen', 'highlighter', 'shape', 'text', 'note']) {
       const value = raw.colors?.[kind];
       if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) {
         annotationEditorState[kind].color = value.toLowerCase();
       }
+      const size = Number(raw.widths?.[kind]);
+      if (Number.isFinite(size) && size >= 0.5 && size <= 60) annotationEditorState[kind].width = size;
+      const opacity = Number(raw.opacities?.[kind]);
+      if (Number.isFinite(opacity) && opacity >= 0.1 && opacity <= 1) annotationEditorState[kind].opacity = opacity;
     }
+    if (Number.isFinite(Number(raw.eraserSize)) && Number(raw.eraserSize) >= 4 && Number(raw.eraserSize) <= 60) {
+      annotationEditorState.eraserSize = Number(raw.eraserSize);
+    }
+    annotationEditorState.fingerDraw = ANNOTATION_DEVICE_CLASS === 'phone' && raw.fingerDraw === true;
+    if (scoped === null && localStorage.getItem(ANNOTATION_OPTIONS_LEGACY_KEY) !== null) saveAnnotationToolPreferences();
   } catch (error) { /* Private browsing may deny local preferences. */ }
   try {
-    const colors = JSON.parse(localStorage.getItem(ANNOTATION_PALETTE_KEY) || '[]');
+    const scoped = localStorage.getItem(ANNOTATION_PALETTE_KEY);
+    const colors = JSON.parse(scoped ?? localStorage.getItem(ANNOTATION_PALETTE_LEGACY_KEY) ?? '[]');
     annotationEditorState.favoriteColors = Array.isArray(colors)
       ? [...new Set(colors.filter(value => /^#[0-9a-f]{6}$/i.test(value)).map(value => value.toLowerCase()))].slice(0, 16)
       : [];
+    if (scoped === null && localStorage.getItem(ANNOTATION_PALETTE_LEGACY_KEY) !== null) saveAnnotationFavoriteColors();
   } catch (error) { annotationEditorState.favoriteColors = []; }
 }
 
 function saveAnnotationToolPreferences() {
   try {
+    const kinds = ['pen', 'highlighter', 'shape', 'text', 'note'];
     localStorage.setItem(ANNOTATION_OPTIONS_KEY, JSON.stringify({
       penStyle: annotationEditorState.penStyle,
+      lastDrawTool: annotationEditorState.lastDrawTool,
       strokeModes: annotationEditorState.strokeModes,
-      colors: Object.fromEntries(['pen', 'highlighter', 'shape', 'text', 'note']
-        .map(kind => [kind, annotationEditorState[kind].color])),
+      colors: Object.fromEntries(kinds.map(kind => [kind, annotationEditorState[kind].color])),
+      widths: Object.fromEntries(kinds.map(kind => [kind, annotationEditorState[kind].width])),
+      opacities: Object.fromEntries(kinds.map(kind => [kind, annotationEditorState[kind].opacity])),
+      eraserSize: annotationEditorState.eraserSize,
+      fingerDraw: ANNOTATION_DEVICE_CLASS === 'phone' && annotationEditorState.fingerDraw,
     }));
   } catch (error) { /* Preferences still work for the current session. */ }
 }
@@ -12398,12 +12573,20 @@ function bindAnnotationToolbarEvents() {
     toolbar.dataset.annotationBound = '1';
     prepareAnnotationMobileToolbar(toolbar);
     prepareEnhancedAnnotationToolbar(toolbar);
+    preparePhoneFingerDrawingControl(toolbar);
     toolbar.addEventListener('click', event => {
       const moreButton = event.target.closest('[data-annotation-more]');
       if (moreButton) {
         const collapsed = toolbar.classList.toggle('mobile-collapsed');
         moreButton.textContent = collapsed ? '더보기' : '접기';
         moreButton.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        return;
+      }
+      const fingerButton = event.target.closest('[data-annotation-finger-mode]');
+      if (fingerButton) {
+        annotationEditorState.fingerDraw = !annotationEditorState.fingerDraw;
+        saveAnnotationToolPreferences();
+        syncAnnotationToolbarUi();
         return;
       }
       const toolButton = event.target.closest('[data-annotation-tool]');
@@ -12466,6 +12649,7 @@ function bindAnnotationToolbarEvents() {
         const styleKey = annotationStyleKey();
         if (annotationEditorState[styleKey]) annotationEditorState[styleKey].width = Math.max(1, Number(width.value) || 4);
       }
+      saveAnnotationToolPreferences();
       syncAnnotationToolbarUi();
     });
     const commitDirectWidth = () => {
@@ -12485,6 +12669,7 @@ function bindAnnotationToolbarEvents() {
         if (annotationEditorState[styleKey]) annotationEditorState[styleKey].width = chosen;
       }
       directWidth.blur();
+      saveAnnotationToolPreferences();
       syncAnnotationToolbarUi();
     };
     directWidth.addEventListener('change', commitDirectWidth);
@@ -12495,6 +12680,7 @@ function bindAnnotationToolbarEvents() {
     opacity?.addEventListener('input', () => {
       const styleKey = annotationStyleKey();
       if (annotationEditorState[styleKey]) annotationEditorState[styleKey].opacity = Math.max(0.1, Math.min(1, Number(opacity.value) / 100));
+      saveAnnotationToolPreferences();
       syncAnnotationToolbarUi();
     });
   });
@@ -12699,7 +12885,18 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   let touchScrollTop = 0;
   let touchStartDistance = 1;
   let touchStartZoom = 1;
-  const pdfTouches = event => [...event.touches].filter(touch => scroller.contains(touch.target));
+  const rejectedTouchIds = new Set();
+  const pdfTouches = event => [...event.touches].filter(touch => {
+    if (!scroller.contains(touch.target)) return false;
+    // Safari Touch radius is in CSS pixels; Pointer width/height is unavailable
+    // on many iPads. Keep large palm contacts excluded for their entire life.
+    const width = Number(touch.radiusX) > 0 ? Number(touch.radiusX) * 2 : 0;
+    const height = Number(touch.radiusY) > 0 ? Number(touch.radiusY) * 2 : 0;
+    if (isLikelyAnnotationPalmContact({ pointerType: 'touch', width, height })) {
+      rejectedTouchIds.add(touch.identifier);
+    }
+    return !rejectedTouchIds.has(touch.identifier);
+  });
   const touchDistance = touches => touches.length < 2 ? 0 : Math.hypot(
     touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
   const resetTouchBaseline = touches => {
@@ -12716,6 +12913,8 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     }
   };
   const finishTouch = event => {
+    for (const touch of event.changedTouches || []) rejectedTouchIds.delete(touch.identifier);
+    if (!event.touches?.length) delete scroller.dataset.pdfPalmBlocked;
     if (!nativeTouchActive) return;
     const touches = pdfTouches(event);
     if (touches.length) resetTouchBaseline(touches);
@@ -12723,15 +12922,32 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
       nativeTouchActive = false;
       touchMode = '';
       delete scroller.dataset.pdfTouchManaged;
+      delete scroller.dataset.pdfTouchPinching;
     }
     if (event.cancelable) event.preventDefault();
   };
   scroller.addEventListener('touchstart', event => {
+    if (scroller.dataset.pdfPalmBlocked === '1') {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
+    // While the S Pen is drawing, resting a hand on the screen may emit touch
+    // contacts with no reported radius. Never let those move the PDF.
+    if (annotationDigitalPenActive(scroller)) {
+      for (const touch of event.touches) rejectedTouchIds.add(touch.identifier);
+      nativeTouchActive = false;
+      delete scroller.dataset.pdfTouchManaged;
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     const touches = pdfTouches(event);
-    if (!touches.length) return;
+    if (!touches.length) {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     nativeTouchActive = true;
     scroller.dataset.pdfTouchManaged = '1';
-    // Discard a first-finger Pointer Events pan before switching ownership.
+    // Discard an initial finger Pointer Events pan when Touch Events own it.
     for (const pointerId of pointers.keys()) {
       try { scroller.releasePointerCapture(pointerId); } catch (error) { /* noop */ }
     }
@@ -12739,18 +12955,46 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     mode = '';
     activePointerId = null;
     scroller.classList.remove('dragging');
-    resetTouchBaseline(touches);
+    if (touches.length >= 2) {
+      scroller.dataset.pdfTouchPinching = '1';
+      cancelPhoneTouchDrawingInScroller(scroller);
+      resetTouchBaseline(touches);
+    } else if (ANNOTATION_DEVICE_CLASS === 'phone' && annotationEditorState.fingerDraw
+        && !scroller.dataset.pdfTouchPinching && ['pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)
+        && touches[0].target.closest?.('.annotation-canvas.annotation-input-enabled')) {
+      // A capacitive stylus is indistinguishable from a finger. Explicit
+      // finger-draw mode owns one contact; a second contact always pinches.
+      touchMode = 'draw';
+    } else {
+      resetTouchBaseline(touches);
+    }
     if (event.cancelable) event.preventDefault();
   }, { capture: true, passive: false });
   scroller.addEventListener('touchmove', event => {
+    if (scroller.dataset.pdfPalmBlocked === '1') {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
+    if (annotationDigitalPenActive(scroller)) {
+      for (const touch of event.touches) rejectedTouchIds.add(touch.identifier);
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     if (!nativeTouchActive) return;
     const touches = pdfTouches(event);
-    if (!touches.length) return;
+    if (!touches.length) {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     if (touches.length >= 2) {
-      if (touchMode !== 'pinch') resetTouchBaseline(touches);
+      if (touchMode !== 'pinch') {
+        scroller.dataset.pdfTouchPinching = '1';
+        cancelPhoneTouchDrawingInScroller(scroller);
+        resetTouchBaseline(touches);
+      }
       const ratio = touchDistance(touches) / Math.max(1, touchStartDistance);
       setZoom?.(Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio)));
-    } else {
+    } else if (touchMode !== 'draw') {
       if (touchMode !== 'pan') resetTouchBaseline(touches);
       scroller.scrollLeft = touchScrollLeft - (touches[0].clientX - touchStartX);
       scroller.scrollTop = touchScrollTop - (touches[0].clientY - touchStartY);
@@ -12761,11 +13005,12 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   scroller.addEventListener('touchcancel', finishTouch, { capture: true, passive: false });
 
   scroller.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'touch' && nativeTouchActive) return;
+    if (event.pointerType === 'touch' && (nativeTouchActive || annotationDigitalPenActive(scroller))) return;
     noteAnnotationPenPointer(event);
     // A hand edge on the PDF margin must not enter the pan/pinch pointer map.
     if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
       rejectedPalmPointers.add(event.pointerId);
+      scroller.dataset.pdfPalmBlocked = '1';
       event.preventDefault();
       return;
     }
@@ -12794,9 +13039,10 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
 
   scroller.addEventListener('pointermove', event => {
     noteAnnotationPenPointer(event);
-    if (event.pointerType === 'touch' && nativeTouchActive) return;
+    if (event.pointerType === 'touch' && (nativeTouchActive || annotationDigitalPenActive(scroller))) return;
     if (rejectedPalmPointers.has(event.pointerId)) return;
     if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
+      scroller.dataset.pdfPalmBlocked = '1';
       // Contacts that expand after the initial touch must stop navigating.
       if (pointers.has(event.pointerId)) finish(event);
       rejectedPalmPointers.add(event.pointerId);
@@ -12864,10 +13110,9 @@ function installReferencePdfPanHandlers(scroller) {
 
 function computeReferencePdfFitScale(image, scroller) {
   const naturalWidth = Math.max(1, image.naturalWidth || 1);
-  const naturalHeight = Math.max(1, image.naturalHeight || 1);
-  const availableWidth = Math.max(120, scroller.clientWidth - 28);
-  const availableHeight = Math.max(120, scroller.clientHeight - 28);
-  return Math.max(0.05, Math.min(availableWidth / naturalWidth, availableHeight / naturalHeight));
+  const availableWidth = Math.max(1, scroller.clientWidth - 28);
+  // Width-fit, not page-fit: tall pages may scroll vertically without cutting off the sides.
+  return Math.max(0.01, availableWidth / naturalWidth);
 }
 
 function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
@@ -12887,7 +13132,7 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   const displayHeight = Math.max(1, Math.round(image.naturalHeight * scale));
   const stagePadding = window.innerWidth <= 760 ? 16 : 24;
 
-  // 표시 배율과 실제 이미지 크기/스크롤 영역을 함께 확정해 250%가 실제 화면에도 반영되게 한다.
+  // Keep the rendered image dimensions and scrollable stage consistent with width-fit zoom.
   image.style.width = `${displayWidth}px`;
   image.style.height = `${displayHeight}px`;
   stage.style.width = `${Math.max(scroller.clientWidth, displayWidth + stagePadding)}px`;
@@ -12909,8 +13154,9 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
     } else {
+      // A width-fit opening should begin at the top of a tall PDF page.
       scroller.scrollLeft = Math.max(0, (scroller.scrollWidth - scroller.clientWidth) / 2);
-      scroller.scrollTop = Math.max(0, (scroller.scrollHeight - scroller.clientHeight) / 2);
+      scroller.scrollTop = 0;
     }
   });
 }
@@ -13713,9 +13959,8 @@ async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSer
     if (serial !== attachmentPdfLoadSerial || bounded !== activeAttachmentPdfPageNumber || els.mediaViewerModal.classList.contains('hidden')) return;
     activeAttachmentPdfPage = page;
     const baseViewport = page.getViewport({ scale: 1 });
-    const availableWidth = Math.max(160, scroller.clientWidth - 28);
-    const availableHeight = Math.max(160, scroller.clientHeight - 28);
-    activeAttachmentPdfFitScale = Math.max(0.05, Math.min(availableWidth / baseViewport.width, availableHeight / baseViewport.height));
+    const availableWidth = Math.max(1, scroller.clientWidth - 28);
+    activeAttachmentPdfFitScale = Math.max(0.01, availableWidth / Math.max(1, baseViewport.width));
     const longEdge = Math.max(baseViewport.width, baseViewport.height);
     const targetLongEdge = Math.min(4096, Math.max(2200, Math.round(longEdge * activeAttachmentPdfFitScale * 4)));
     const renderScale = targetLongEdge / longEdge;
@@ -13749,6 +13994,8 @@ function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
   const canvas = wrap?.querySelector('.attachment-pdf-canvas');
   if (!scroller || !stage || !canvas || !activeAttachmentPdfPage) return;
   const baseViewport = activeAttachmentPdfPage.getViewport({ scale: 1 });
+  // Recompute on orientation/window resize while retaining the user's zoom factor.
+  activeAttachmentPdfFitScale = Math.max(0.01, Math.max(1, scroller.clientWidth - 28) / Math.max(1, baseViewport.width));
   const oldWidth = Math.max(scroller.scrollWidth, 1);
   const oldHeight = Math.max(scroller.scrollHeight, 1);
   const centerXRatio = (scroller.scrollLeft + scroller.clientWidth / 2) / oldWidth;
@@ -13776,8 +14023,9 @@ function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
     } else {
+      // A width-fit opening should begin at the top of a tall PDF page.
       scroller.scrollLeft = Math.max(0, (scroller.scrollWidth - scroller.clientWidth) / 2);
-      scroller.scrollTop = Math.max(0, (scroller.scrollHeight - scroller.clientHeight) / 2);
+      scroller.scrollTop = 0;
     }
   });
 }
