@@ -41,13 +41,13 @@ const challenge=async page=>page.evaluate(async()=>{
  setAnnotationTool("pen");
  const doc=getAnnotationDocument(surface.key);
  const initialDoc=JSON.stringify(doc.objects);
- const testTouch=(id,x,y,radiusX=4,radiusY=4)=>({
-   identifier:id,target:surface.canvas,clientX:x,clientY:y,radiusX,radiusY
+ const testTouch=(id,x,y,radiusX=4,radiusY=4,target=kind==="phone"?media:surface.canvas)=>({
+   identifier:id,target,clientX:x,clientY:y,radiusX,radiusY
  });
  const fireTouch=(type,points,changed)=> {
    const evt=new Event(type,{bubbles:true,cancelable:true});
    Object.defineProperties(evt,{touches:{value:points},changedTouches:{value:changed},targetTouches:{value:points}});
-   surface.canvas.dispatchEvent(evt);
+   (points[0]||changed[0]||{}).target?.dispatchEvent(evt);
  };
  const pointer=(type,id,x,y,pointerType="touch",w=7,h=7)=>{
    surface.canvas.dispatchEvent(new PointerEvent(type,{pointerType,pointerId:id,isPrimary:true,
@@ -68,7 +68,8 @@ const challenge=async page=>page.evaluate(async()=>{
  fireTouch("touchend",[],[moved]);
  await new Promise(resolve=>requestAnimationFrame(resolve));
  const navigation={scroll:sc.scrollTop,ink:doc.objects.length};
- // Pen should still draw in phone/tablet/PC if recognized as pen.
+ // Tablet S Pen / desktop pen still draw; phone stylus cannot annotate.
+ const phoneInputDisabled = !surface.canvas.classList.contains("annotation-input-enabled");
  pointer("pointerdown",70,x,y,"pen");
  const palm=testTouch(72,x+20,y+30,28,22);
  const prePalmScroll=sc.scrollTop;
@@ -79,6 +80,7 @@ const challenge=async page=>page.evaluate(async()=>{
  fireTouch("touchend",[],[palm]);
  const pen={ink:doc.objects.length,scrollUnchanged:sc.scrollTop===prePalmScroll,
    lastType:doc.objects.at(-1)?.pointerType};
+ const penCount=doc.objects.length;
  // Width fit tall page (vertical scroll allowed).
  const referenceScale=computeReferencePdfFitScale({naturalWidth:800,naturalHeight:2600},sc);
  const referenceWidth=800*referenceScale;
@@ -92,7 +94,8 @@ const challenge=async page=>page.evaluate(async()=>{
  pointer("pointermove",75,175,90,"touch",56,44);
  pointer("pointerup",75,175,90,"touch",56,44);
  fireTouch("touchend",[],[palmOnly]);
- const palmOnlyIgnored=sc.scrollTop===beforePalmOnly && doc.objects.length===1;
+ const palmOnlyIgnored=sc.scrollTop===beforePalmOnly && doc.objects.length===penCount;
+ const wideFingerPanned=sc.scrollTop>=beforePalmOnly+45 && doc.objects.length===penCount;
  // A palm must not leave the navigation surface permanently disabled.
  const afterPalmTop=sc.scrollTop;
  pointer("pointerdown",76,165,180);
@@ -121,6 +124,7 @@ const challenge=async page=>page.evaluate(async()=>{
  const attachmentCanvas=attachmentWrap.querySelector(".attachment-pdf-canvas");
  const attachmentWidth=Number.parseFloat(attachmentCanvas.style.width);
  const attachmentExpected=Math.max(1,attachmentScroller.clientWidth-28);
+ const attachmentInputDisabled=!attachmentWrap.querySelector(".annotation-canvas")?.classList.contains("annotation-input-enabled");
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
  const attachmentStartTop=attachmentScroller.scrollTop;
  attachmentWrap.style.width="330px";
@@ -130,13 +134,14 @@ const challenge=async page=>page.evaluate(async()=>{
  const resizedExpected=Math.max(1,attachmentScroller.clientWidth-28);
  destroyAnnotationSurfacesWithin(attachmentWrap);attachmentWrap.remove();
  els.mediaViewerModal.classList.add("hidden");activeAttachmentPdfPage=null;
- let fingerInk=null,pinchRollback=null;
+ let fingerInk=null,pinchRollback=null,toolsStayedReadOnly=null;
  if(kind==="phone"){
    annotationEditorState.fingerDraw=true;
    saveAnnotationToolPreferences();
    syncAnnotationToolbarUi();
    const stored=JSON.parse(localStorage.getItem(ANNOTATION_OPTIONS_KEY));
    const beforeInk=doc.objects.length;
+   const beforePhoneFingerPan=sc.scrollTop;
    pointer("pointerdown",81,140,160);
    const a=testTouch(81,140,160);
    fireTouch("touchstart",[a],[a]);
@@ -145,7 +150,28 @@ const challenge=async page=>page.evaluate(async()=>{
    pointer("pointerup",81,210,180);
    fireTouch("touchend",[],[a]);
    fingerInk={beforeInk,afterInk:doc.objects.length,lastType:doc.objects.at(-1)?.pointerType,
+     panDistance:Math.abs(sc.scrollTop-beforePhoneFingerPan),
      saved:stored.fingerDraw,ui:document.querySelector("[data-annotation-finger-mode]")?.textContent};
+   // The UI and old preference may say finger-draw, but all phone ink is disabled.
+   for (const tool of ["highlighter","rect","eraser","text","note","select"]) {
+     setAnnotationTool(tool);
+     pointer("pointerdown",82,140,160);
+     pointer("pointermove",82,210,180);
+     pointer("pointerup",82,210,180);
+     pointer("pointerdown",83,140,160,"pen");
+     pointer("pointermove",83,210,180,"pen");
+     pointer("pointerup",83,210,180,"pen");
+   }
+   toolsStayedReadOnly=doc.objects.length===beforeInk;
+   // A shape tool must not prevent ordinary one-finger navigation.
+   setAnnotationTool("rect");
+   const beforeShapePan=sc.scrollTop;
+   const shapeFinger=testTouch(87,140,185);
+   fireTouch("touchstart",[shapeFinger],[shapeFinger]);
+   fireTouch("touchmove",[testTouch(87,140,140)],[shapeFinger]);
+   fireTouch("touchend",[],[shapeFinger]);
+   toolsStayedReadOnly &&= doc.objects.length===beforeInk && sc.scrollTop>=beforeShapePan+40;
+   setAnnotationTool("pen");
    const beforeSecond=doc.objects.length;
    pointer("pointerdown",91,140,170);
    fireTouch("touchstart",[testTouch(91,140,170)],[testTouch(91,140,170)]);
@@ -156,8 +182,41 @@ const challenge=async page=>page.evaluate(async()=>{
    pointer("pointerup",91,190,180);
    fireTouch("touchend",[],[testTouch(91,190,180),b]);
    pinchRollback={beforeSecond,afterSecond:doc.objects.length,zoom};
+   // Existing annotation content must survive the still-visible PDF toolbar
+   // undo / clear buttons. Test enabled controls, not disabled-button no-ops.
+   lastActiveAnnotationSurface=surface;
+   doc.objects.push({id:"qa-existing-ink",type:"stroke",tool:"pen",
+     points:[{x:.1,y:.1,p:.5},{x:.2,y:.2,p:.5}],widthN:.004,color:"#2563eb",opacity:1});
+   doc.undoStack.push([]);
+   syncAnnotationToolbarUi();
+   const clear=els.referencePdfViewerModal.querySelector("[data-annotation-clear]");
+   const undo=els.referencePdfViewerModal.querySelector("[data-annotation-undo]");
+   const beforeToolbar=JSON.stringify(doc.objects);
+   const oldConfirm=window.confirm;
+   window.confirm=()=>true;
+   let toolbarActionsIgnored;
+   try{
+     const controlsPresent=Boolean(clear && undo && !clear.disabled && !undo.disabled);
+     clear?.click();undo?.click();
+     toolbarActionsIgnored=controlsPresent && JSON.stringify(doc.objects)===beforeToolbar;
+   }finally{window.confirm=oldConfirm;}
+   doc.objects=[];doc.undoStack=[];doc.redoStack=[];
+   toolsStayedReadOnly &&=toolbarActionsIgnored;
  }
  const referenceClientWidth=sc.clientWidth;
+ // Image viewer is out of scope: its annotation overlay must remain usable.
+ const imageHost=document.createElement("div");
+ imageHost.style.cssText="position:relative;width:150px;height:150px;";
+ const imageMedia=document.createElement("canvas");
+ imageMedia.style.cssText="position:absolute;width:150px;height:150px;";
+ imageMedia.width=150;imageMedia.height=150;
+ imageHost.append(imageMedia);document.body.append(imageHost);
+ setAnnotationTool("pen");
+ const imageSurface=ensureAnnotationSurface({host:imageHost,media:imageMedia,
+   key:"qa-image-"+kind,kind:"attachment-image",intrinsicWidth:150,intrinsicHeight:150});
+ syncAnnotationSurface(imageMedia);
+ const imageAnnotationPreserved=imageSurface.canvas.classList.contains("annotation-input-enabled");
+ destroyAnnotationSurface(imageSurface);imageHost.remove();
  const savedPreferences=JSON.parse(localStorage.getItem(ANNOTATION_OPTIONS_KEY) || '{}');
  // No cloud/settings cross-device writes. Distinct keys on this same origin.
  if(kind==="phone"){
@@ -167,8 +226,9 @@ const challenge=async page=>page.evaluate(async()=>{
  const toolSettings={width:annotationEditorState.pen.width,opacity:annotationEditorState.pen.opacity,
    savedKey:ANNOTATION_OPTIONS_KEY,storageKeys:Object.keys(localStorage).filter(k=>k.startsWith("peStudyNote.annotation.toolPreferences.v2."))};
  destroyAnnotationSurface(surface);sc.remove();
- return {ui,navigation,pen,palmOnlyIgnored,normalFingerRestored,referenceWidth,referenceClientWidth,
+ return {ui,navigation,pen,phoneInputDisabled,attachmentInputDisabled,imageAnnotationPreserved,palmOnlyIgnored,wideFingerPanned,normalFingerRestored,referenceWidth,referenceClientWidth,
    attachmentWidth,attachmentExpected,attachmentStartTop,resizedWidth,resizedExpected,toolSettings,fingerInk,pinchRollback,
+   toolsStayedReadOnly:kind==="phone"?toolsStayedReadOnly:undefined,
    storedKeys:Object.keys(localStorage).filter(k=>k.startsWith("peStudyNote.annotation.toolPreferences"))};
 });
 async function main(){
@@ -203,22 +263,29 @@ async function main(){
    assert(Math.abs(out.attachmentWidth-out.attachmentExpected)<1.1,"Attachment width fit "+JSON.stringify(out));
    assert(Math.abs(out.resizedWidth-out.resizedExpected)<1.1,"Resize width fit "+JSON.stringify(out));
    assert(out.resizedWidth>out.attachmentWidth+20,"Resize must really reflow the page");
-   assert(out.palmOnlyIgnored,"Broad palm contact must not scroll or ink");
+   assert.equal(out.phoneInputDisabled,profile.kind==="phone","Phone annotation overlay must not intercept touches");
+   assert.equal(out.attachmentInputDisabled,profile.kind==="phone","Attachment PDF annotation overlay must not intercept touches");
+   assert(out.imageAnnotationPreserved,"Image viewer annotation must not be changed");
+   if(profile.kind==="phone") assert(out.wideFingerPanned,"Broad finger input must pan on phone");
+   else assert(out.palmOnlyIgnored,"Broad palm contact must not scroll or ink on tablet/desktop");
    assert(out.normalFingerRestored,"Normal finger navigation must resume after a rejected palm");
    assert.equal(out.attachmentStartTop,0,"Width-fit PDF must start at top of the page");
    if(profile.kind!=="phone"){
      assert.equal(out.toolSettings.width,4,"Device class inherited phone width");
      assert.equal(out.toolSettings.opacity,1,"Device class inherited phone opacity");
    }
-   assert(out.pen.ink===1&&out.pen.lastType==="pen"&&out.pen.scrollUnchanged,"Pen/palm isolation "+JSON.stringify(out));
+   assert(out.pen.ink===(profile.kind==="phone"?0:1)
+     && (profile.kind==="phone" || (out.pen.lastType==="pen" && out.pen.scrollUnchanged)),
+     "Phone pen disabled / tablet pen and palm isolation "+JSON.stringify(out));
    assert.equal(out.navigation.ink,0,"Finger navigation inked unexpectedly");
    if(profile.kind!=="desktop") assert(out.navigation.scroll>=225,"Finger should pan PDF "+JSON.stringify(out));
    if(profile.kind==="phone"){
-     assert.equal(out.fingerInk.afterInk,out.fingerInk.beforeInk+1,"Finger draw must create stroke");
-     assert.equal(out.fingerInk.lastType,"touch");
-     assert.equal(out.fingerInk.saved,true);
-     assert(out.fingerInk.ui.includes("켬"),"Finger mode must be visible");
-     assert.equal(out.pinchRollback.afterSecond,out.pinchRollback.beforeSecond,"Two finger gesture must roll back ink");
+     assert.equal(out.fingerInk.afterInk,out.fingerInk.beforeInk,"Phone finger must never create ink");
+     assert.equal(out.fingerInk.saved,true,"Previously saved finger mode still loads");
+     assert(out.fingerInk.panDistance>=15,"Finger must still pan with saved drawing mode on");
+     assert(out.fingerInk.ui.includes("켬"),"Existing finger-mode UI remains visible");
+     assert(out.toolsStayedReadOnly,"Phone annotation tools, pen, undo and clear must not modify PDF content");
+     assert.equal(out.pinchRollback.afterSecond,out.pinchRollback.beforeSecond,"Phone two-finger pinch must not create ink");
      assert(out.pinchRollback.zoom>1.1,"Phone two-finger pinch must zoom");
    }
    console.log("PDF_DEVICE_INPUT_PASS",JSON.stringify({engine,profile:profile.kind,results:out}));
