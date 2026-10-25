@@ -84,10 +84,11 @@ const challenge=async page=>page.evaluate(async()=>{
  const referenceWidth=800*referenceScale;
  // Broad palm contact must not move a tablet PDF even when the stylus is idle.
  const beforePalmOnly=sc.scrollTop;
- const palmOnly=testTouch(75,175,185,28,22);
+ // Simulate an engine with no Touch radius metadata, but broad Pointer size.
+ const palmOnly=testTouch(75,175,185,0,0);
  pointer("pointerdown",75,175,185,"touch",56,44);
  fireTouch("touchstart",[palmOnly],[palmOnly]);
- fireTouch("touchmove",[testTouch(75,175,90,28,22)],[palmOnly]);
+ fireTouch("touchmove",[testTouch(75,175,90,0,0)],[palmOnly]);
  pointer("pointermove",75,175,90,"touch",56,44);
  pointer("pointerup",75,175,90,"touch",56,44);
  fireTouch("touchend",[],[palmOnly]);

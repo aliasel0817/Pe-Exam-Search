@@ -11483,7 +11483,11 @@ function installAnnotationInputHandlers(surface) {
         surface.suppressedPhoneTouchIds.add(event.pointerId);
         return;
       }
-      if (isLikelyAnnotationPalmContact(event) || annotationDigitalPenActive(scroller)
+      const broadPalm = isLikelyAnnotationPalmContact(event);
+      if (broadPalm && scroller?.matches?.('.reference-pdf-pan-scroller, .attachment-pdf-pan-scroller')) {
+        scroller.dataset.pdfPalmBlocked = '1';
+      }
+      if (broadPalm || annotationDigitalPenActive(scroller)
           || surface.activeStroke || surface.activeShape || surface.activeErase || surface.selectionAction
           || surface.suppressedPhoneTouchIds.has(event.pointerId)) {
         surface.palmRejectedPointerIds.add(event.pointerId);
@@ -11605,6 +11609,10 @@ function installAnnotationInputHandlers(surface) {
       event.stopPropagation();
       if (isLikelyAnnotationPalmContact(event)) {
         surface.palmRejectedPointerIds.add(event.pointerId);
+        const scroller = annotationPanScroller(surface);
+        if (scroller?.matches?.('.reference-pdf-pan-scroller, .attachment-pdf-pan-scroller')) {
+          scroller.dataset.pdfPalmBlocked = '1';
+        }
         if (surface.touchDrawingRollback?.pointerId === event.pointerId) {
           cancelPhoneTouchDrawingInScroller(annotationPanScroller(surface));
         }
@@ -12906,6 +12914,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   };
   const finishTouch = event => {
     for (const touch of event.changedTouches || []) rejectedTouchIds.delete(touch.identifier);
+    if (!event.touches?.length) delete scroller.dataset.pdfPalmBlocked;
     if (!nativeTouchActive) return;
     const touches = pdfTouches(event);
     if (touches.length) resetTouchBaseline(touches);
@@ -12918,6 +12927,10 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     if (event.cancelable) event.preventDefault();
   };
   scroller.addEventListener('touchstart', event => {
+    if (scroller.dataset.pdfPalmBlocked === '1') {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     // While the S Pen is drawing, resting a hand on the screen may emit touch
     // contacts with no reported radius. Never let those move the PDF.
     if (annotationDigitalPenActive(scroller)) {
@@ -12958,6 +12971,10 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     if (event.cancelable) event.preventDefault();
   }, { capture: true, passive: false });
   scroller.addEventListener('touchmove', event => {
+    if (scroller.dataset.pdfPalmBlocked === '1') {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
     if (annotationDigitalPenActive(scroller)) {
       for (const touch of event.touches) rejectedTouchIds.add(touch.identifier);
       if (event.cancelable) event.preventDefault();
@@ -12993,6 +13010,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     // A hand edge on the PDF margin must not enter the pan/pinch pointer map.
     if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
       rejectedPalmPointers.add(event.pointerId);
+      scroller.dataset.pdfPalmBlocked = '1';
       event.preventDefault();
       return;
     }
@@ -13024,6 +13042,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     if (event.pointerType === 'touch' && (nativeTouchActive || annotationDigitalPenActive(scroller))) return;
     if (rejectedPalmPointers.has(event.pointerId)) return;
     if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
+      scroller.dataset.pdfPalmBlocked = '1';
       // Contacts that expand after the initial touch must stop navigating.
       if (pointers.has(event.pointerId)) finish(event);
       rejectedPalmPointers.add(event.pointerId);
