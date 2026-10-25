@@ -93,6 +93,16 @@ const challenge=async page=>page.evaluate(async()=>{
  pointer("pointerup",75,175,90,"touch",56,44);
  fireTouch("touchend",[],[palmOnly]);
  const palmOnlyIgnored=sc.scrollTop===beforePalmOnly && doc.objects.length===1;
+ // A palm must not leave the navigation surface permanently disabled.
+ const afterPalmTop=sc.scrollTop;
+ pointer("pointerdown",76,165,180);
+ const nextFinger=testTouch(76,165,180);
+ fireTouch("touchstart",[nextFinger],[nextFinger]);
+ fireTouch("touchmove",[testTouch(76,165,130)],[nextFinger]);
+ pointer("pointermove",76,165,130);
+ pointer("pointerup",76,165,130);
+ fireTouch("touchend",[],[nextFinger]);
+ const normalFingerRestored=sc.scrollTop>=afterPalmTop+45;
  // Real attachment display sizing is recomputed against the current scroller.
  els.mediaViewerModal.classList.remove("hidden");
  const attachmentWrap=document.createElement("div");
@@ -111,6 +121,8 @@ const challenge=async page=>page.evaluate(async()=>{
  const attachmentCanvas=attachmentWrap.querySelector(".attachment-pdf-canvas");
  const attachmentWidth=Number.parseFloat(attachmentCanvas.style.width);
  const attachmentExpected=Math.max(1,attachmentScroller.clientWidth-28);
+ await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+ const attachmentStartTop=attachmentScroller.scrollTop;
  attachmentWrap.style.width="330px";
  schedulePdfViewerWidthFit();
  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
@@ -155,8 +167,8 @@ const challenge=async page=>page.evaluate(async()=>{
  const toolSettings={width:annotationEditorState.pen.width,opacity:annotationEditorState.pen.opacity,
    savedKey:ANNOTATION_OPTIONS_KEY,storageKeys:Object.keys(localStorage).filter(k=>k.startsWith("peStudyNote.annotation.toolPreferences.v2."))};
  destroyAnnotationSurface(surface);sc.remove();
- return {ui,navigation,pen,palmOnlyIgnored,referenceWidth,referenceClientWidth,
-   attachmentWidth,attachmentExpected,resizedWidth,resizedExpected,toolSettings,fingerInk,pinchRollback,
+ return {ui,navigation,pen,palmOnlyIgnored,normalFingerRestored,referenceWidth,referenceClientWidth,
+   attachmentWidth,attachmentExpected,attachmentStartTop,resizedWidth,resizedExpected,toolSettings,fingerInk,pinchRollback,
    storedKeys:Object.keys(localStorage).filter(k=>k.startsWith("peStudyNote.annotation.toolPreferences"))};
 });
 async function main(){
@@ -192,6 +204,8 @@ async function main(){
    assert(Math.abs(out.resizedWidth-out.resizedExpected)<1.1,"Resize width fit "+JSON.stringify(out));
    assert(out.resizedWidth>out.attachmentWidth+20,"Resize must really reflow the page");
    assert(out.palmOnlyIgnored,"Broad palm contact must not scroll or ink");
+   assert(out.normalFingerRestored,"Normal finger navigation must resume after a rejected palm");
+   assert.equal(out.attachmentStartTop,0,"Width-fit PDF must start at top of the page");
    if(profile.kind!=="phone"){
      assert.equal(out.toolSettings.width,4,"Device class inherited phone width");
      assert.equal(out.toolSettings.opacity,1,"Device class inherited phone opacity");
