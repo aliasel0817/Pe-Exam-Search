@@ -11231,6 +11231,9 @@ function moveAnnotationTouchPan(surface, event) {
   const gesture = surface.touchGesture;
   if (!gesture?.pointers?.has(event.pointerId)) return false;
   gesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  // The containing PDF scroller owns native multi-touch on Safari.
+  // Keep the canvas pointer map for cleanup, but never zoom/pan twice.
+  if (gesture.scroller?.dataset.pdfTouchManaged === '1') return true;
 
   if (gesture.pointers.size >= 2 && gesture.zoomAdapter) {
     if (gesture.mode !== 'pinch') {
@@ -12683,7 +12686,82 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     pinchStartZoom = Number(getZoom?.() || 1);
   };
 
+  // iOS Safari may deliver multi-finger Touch Events while pointer capture
+  // and the annotation canvas intercept the corresponding Pointer Events.
+  // Own finger gestures on the scroll container's capture phase so that
+  // touchstart/move still arrive when a drawing overlay stops bubbling.
+  // Mouse and digital-pen Pointer Events retain their existing handlers.
+  let nativeTouchActive = false;
+  let touchMode = '';
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchScrollLeft = 0;
+  let touchScrollTop = 0;
+  let touchStartDistance = 1;
+  let touchStartZoom = 1;
+  const pdfTouches = event => [...event.touches].filter(touch => scroller.contains(touch.target));
+  const touchDistance = touches => touches.length < 2 ? 0 : Math.hypot(
+    touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  const resetTouchBaseline = touches => {
+    if (touches.length >= 2) {
+      touchMode = 'pinch';
+      touchStartDistance = Math.max(1, touchDistance(touches));
+      touchStartZoom = Number(getZoom?.() || 1);
+    } else if (touches.length === 1) {
+      touchMode = 'pan';
+      touchStartX = touches[0].clientX;
+      touchStartY = touches[0].clientY;
+      touchScrollLeft = scroller.scrollLeft;
+      touchScrollTop = scroller.scrollTop;
+    }
+  };
+  const finishTouch = event => {
+    if (!nativeTouchActive) return;
+    const touches = pdfTouches(event);
+    if (touches.length) resetTouchBaseline(touches);
+    else {
+      nativeTouchActive = false;
+      touchMode = '';
+      delete scroller.dataset.pdfTouchManaged;
+    }
+    if (event.cancelable) event.preventDefault();
+  };
+  scroller.addEventListener('touchstart', event => {
+    const touches = pdfTouches(event);
+    if (!touches.length) return;
+    nativeTouchActive = true;
+    scroller.dataset.pdfTouchManaged = '1';
+    // Discard a first-finger Pointer Events pan before switching ownership.
+    for (const pointerId of pointers.keys()) {
+      try { scroller.releasePointerCapture(pointerId); } catch (error) { /* noop */ }
+    }
+    pointers.clear();
+    mode = '';
+    activePointerId = null;
+    scroller.classList.remove('dragging');
+    resetTouchBaseline(touches);
+    if (event.cancelable) event.preventDefault();
+  }, { capture: true, passive: false });
+  scroller.addEventListener('touchmove', event => {
+    if (!nativeTouchActive) return;
+    const touches = pdfTouches(event);
+    if (!touches.length) return;
+    if (touches.length >= 2) {
+      if (touchMode !== 'pinch') resetTouchBaseline(touches);
+      const ratio = touchDistance(touches) / Math.max(1, touchStartDistance);
+      setZoom?.(Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio)));
+    } else {
+      if (touchMode !== 'pan') resetTouchBaseline(touches);
+      scroller.scrollLeft = touchScrollLeft - (touches[0].clientX - touchStartX);
+      scroller.scrollTop = touchScrollTop - (touches[0].clientY - touchStartY);
+    }
+    if (event.cancelable) event.preventDefault();
+  }, { capture: true, passive: false });
+  scroller.addEventListener('touchend', finishTouch, { capture: true, passive: false });
+  scroller.addEventListener('touchcancel', finishTouch, { capture: true, passive: false });
+
   scroller.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch' && nativeTouchActive) return;
     noteAnnotationPenPointer(event);
     // A hand edge on the PDF margin must not enter the pan/pinch pointer map.
     if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
@@ -12716,6 +12794,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
 
   scroller.addEventListener('pointermove', event => {
     noteAnnotationPenPointer(event);
+    if (event.pointerType === 'touch' && nativeTouchActive) return;
     if (rejectedPalmPointers.has(event.pointerId)) return;
     if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
       // Contacts that expand after the initial touch must stop navigating.
