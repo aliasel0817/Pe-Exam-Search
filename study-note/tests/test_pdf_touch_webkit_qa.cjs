@@ -20,11 +20,16 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
       await page.setContent(html, { waitUntil:"domcontentloaded" });
       const results = await page.evaluate(() => {
         if (typeof installPdfPanPinchHandlers !== "function") throw Error("PDF gesture function missing");
-        const touch = (id,target,x,y) => new Touch({identifier:id,target,clientX:x,clientY:y,
+        // Linux WebKit exposes Touch/TouchEvent but their JS constructors
+        // are illegal; dispatch an Event with the same TouchList fields.
+        const touch = (id,target,x,y) => ({identifier:id,target,clientX:x,clientY:y,
           pageX:x,pageY:y,screenX:x,screenY:y});
-        const emit = (target,type,points,changed) => target.dispatchEvent(
-          new TouchEvent(type,{bubbles:true,cancelable:true,touches:points,
-            targetTouches:points,changedTouches:changed}));
+        const emit = (target,type,points,changed) => {
+          const event = new Event(type,{bubbles:true,cancelable:true});
+          Object.defineProperties(event,{touches:{value:points},
+            targetTouches:{value:points},changedTouches:{value:changed}});
+          return target.dispatchEvent(event);
+        };
         const results=[];
         for(const name of ["reference-pdf","attachment-pdf"]){
           const scroller=document.createElement("div");
