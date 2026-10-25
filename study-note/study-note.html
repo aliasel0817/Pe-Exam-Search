@@ -4423,6 +4423,13 @@ function detectAnnotationDeviceClass() {
   return 'desktop';
 }
 const ANNOTATION_DEVICE_CLASS = detectAnnotationDeviceClass();
+// Only PDF viewers on phones are gesture-only. Preserve image annotation
+// behavior and all desktop/tablet inputs, as well as the existing PDF tool UI.
+const ANNOTATION_PHONE_GESTURES_ONLY = ANNOTATION_DEVICE_CLASS === 'phone';
+function isPhoneGestureOnlyPdfSurface(surface) {
+  return ANNOTATION_PHONE_GESTURES_ONLY
+    && ['reference-pdf', 'attachment-pdf'].includes(surface?.kind);
+}
 const ANNOTATION_PALETTE_LEGACY_KEY = 'peStudyNote.annotation.favoriteColors.v1';
 const ANNOTATION_OPTIONS_LEGACY_KEY = 'peStudyNote.annotation.toolPreferences.v1';
 const ANNOTATION_PALETTE_KEY = 'peStudyNote.annotation.favoriteColors.v2.' + ANNOTATION_DEVICE_CLASS;
@@ -10569,6 +10576,9 @@ function annotationShortcutIgnored(event) {
 
 function handleAnnotationShortcut(event) {
   if (!annotationViewerOpen() || annotationShortcutIgnored(event)) return;
+  if (ANNOTATION_PHONE_GESTURES_ONLY
+      && (!els.mediaViewerModal?.classList.contains('hidden')
+        || !els.referencePdfViewerModal?.classList.contains('hidden'))) return;
   const key = String(event.key || '').toLowerCase();
 
   if ((event.ctrlKey || event.metaKey) && key === 'z') {
@@ -10772,12 +10782,12 @@ function updateAnnotationSurfaceInteraction(surface) {
   if (!surface?.canvas) return;
   const documentData = getAnnotationDocument(surface.key);
   const viewState = getAnnotationViewState(surface.key);
-  const enabled = annotationEditorState.tool !== 'pan' && !documentData.locked && viewState.visible;
+  const enabled = !isPhoneGestureOnlyPdfSurface(surface) && annotationEditorState.tool !== 'pan'
+    && !documentData.locked && viewState.visible;
   surface.canvas.classList.toggle('annotation-input-enabled', enabled);
   surface.canvas.dataset.annotationTool = annotationEditorState.tool;
-  surface.canvas.style.cursor = annotationEditorState.tool === 'eraser' ? 'cell'
-    : enabled ? 'crosshair'
-    : '';
+  surface.canvas.style.cursor = !enabled ? ''
+    : annotationEditorState.tool === 'eraser' ? 'cell' : 'crosshair';
 }
 
 function openAnnotationEntryEditor({ title = '내용 입력', value = '', multiline = true } = {}) {
@@ -11468,6 +11478,9 @@ function installAnnotationInputHandlers(surface) {
   canvas.addEventListener('touchend', stopDuplicateAnnotationTouch, { passive: true });
   canvas.addEventListener('touchcancel', stopDuplicateAnnotationTouch, { passive: true });
   canvas.addEventListener('pointerdown', async event => {
+    // Defense in depth: even a directly dispatched/synthetic pointer cannot
+    // draw, erase, select, or edit annotations on a phone.
+    if (isPhoneGestureOnlyPdfSurface(surface)) return;
     noteAnnotationPenPointer(event);
     if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -11799,9 +11812,9 @@ function preparePhoneFingerDrawingControl(toolbar) {
 }
 
 function phoneCanDrawWithTouch(surface) {
-  return ANNOTATION_DEVICE_CLASS === 'phone' && annotationEditorState.fingerDraw
-    && ['reference-pdf', 'attachment-pdf'].includes(surface?.kind)
-    && ['pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool);
+  // Previously saved finger-draw preferences/UI remain readable, but phone
+  // annotation input is intentionally disabled. Only pan/pinch is supported.
+  return false;
 }
 
 function annotationDigitalPenActive(scroller = null) {
@@ -12595,6 +12608,10 @@ function bindAnnotationToolbarEvents() {
         setAnnotationTool(toolButton.dataset.annotationTool);
         return;
       }
+      // Keep tool UI, but do not let phone toolbar actions mutate existing
+      // annotations (undo, redo, eraser selections, clear, layers, etc.).
+      if (ANNOTATION_PHONE_GESTURES_ONLY
+          && toolbar.closest('#mediaViewerModal, #referencePdfViewerModal')) return;
       if (event.target.closest('[data-annotation-undo]')) {
         annotationUndo();
         return;
@@ -12888,6 +12905,9 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
   const rejectedTouchIds = new Set();
   const pdfTouches = event => [...event.touches].filter(touch => {
     if (!scroller.contains(touch.target)) return false;
+    // Phone contacts are all navigation; do not mistake a broad finger
+    // for tablet palm rejection and block scrolling or pinch.
+    if (ANNOTATION_PHONE_GESTURES_ONLY) return true;
     // Safari Touch radius is in CSS pixels; Pointer width/height is unavailable
     // on many iPads. Keep large palm contacts excluded for their entire life.
     const width = Number(touch.radiusX) > 0 ? Number(touch.radiusX) * 2 : 0;
@@ -12927,7 +12947,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     if (event.cancelable) event.preventDefault();
   };
   scroller.addEventListener('touchstart', event => {
-    if (scroller.dataset.pdfPalmBlocked === '1') {
+    if (!ANNOTATION_PHONE_GESTURES_ONLY && scroller.dataset.pdfPalmBlocked === '1') {
       if (event.cancelable) event.preventDefault();
       return;
     }
@@ -12959,19 +12979,15 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
       scroller.dataset.pdfTouchPinching = '1';
       cancelPhoneTouchDrawingInScroller(scroller);
       resetTouchBaseline(touches);
-    } else if (ANNOTATION_DEVICE_CLASS === 'phone' && annotationEditorState.fingerDraw
-        && !scroller.dataset.pdfTouchPinching && ['pen', 'highlighter', 'eraser', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)
-        && touches[0].target.closest?.('.annotation-canvas.annotation-input-enabled')) {
-      // A capacitive stylus is indistinguishable from a finger. Explicit
-      // finger-draw mode owns one contact; a second contact always pinches.
-      touchMode = 'draw';
     } else {
+      // A phone always pans with one contact, even if the retained finger
+      // drawing switch is on or a pen/highlighter/shape tool is selected.
       resetTouchBaseline(touches);
     }
     if (event.cancelable) event.preventDefault();
   }, { capture: true, passive: false });
   scroller.addEventListener('touchmove', event => {
-    if (scroller.dataset.pdfPalmBlocked === '1') {
+    if (!ANNOTATION_PHONE_GESTURES_ONLY && scroller.dataset.pdfPalmBlocked === '1') {
       if (event.cancelable) event.preventDefault();
       return;
     }
@@ -12994,7 +13010,7 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
       }
       const ratio = touchDistance(touches) / Math.max(1, touchStartDistance);
       setZoom?.(Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio)));
-    } else if (touchMode !== 'draw') {
+    } else {
       if (touchMode !== 'pan') resetTouchBaseline(touches);
       scroller.scrollLeft = touchScrollLeft - (touches[0].clientX - touchStartX);
       scroller.scrollTop = touchScrollTop - (touches[0].clientY - touchStartY);
@@ -13008,7 +13024,8 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     if (event.pointerType === 'touch' && (nativeTouchActive || annotationDigitalPenActive(scroller))) return;
     noteAnnotationPenPointer(event);
     // A hand edge on the PDF margin must not enter the pan/pinch pointer map.
-    if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
+    if (!ANNOTATION_PHONE_GESTURES_ONLY && event.pointerType === 'touch'
+        && isLikelyAnnotationPalmContact(event)) {
       rejectedPalmPointers.add(event.pointerId);
       scroller.dataset.pdfPalmBlocked = '1';
       event.preventDefault();
@@ -13041,7 +13058,8 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
     noteAnnotationPenPointer(event);
     if (event.pointerType === 'touch' && (nativeTouchActive || annotationDigitalPenActive(scroller))) return;
     if (rejectedPalmPointers.has(event.pointerId)) return;
-    if (event.pointerType === 'touch' && isLikelyAnnotationPalmContact(event)) {
+    if (!ANNOTATION_PHONE_GESTURES_ONLY && event.pointerType === 'touch'
+        && isLikelyAnnotationPalmContact(event)) {
       scroller.dataset.pdfPalmBlocked = '1';
       // Contacts that expand after the initial touch must stop navigating.
       if (pointers.has(event.pointerId)) finish(event);
