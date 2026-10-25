@@ -40,6 +40,7 @@ jobs:
           node study-note/tests/test_visibility_browser_qa.cjs
           node study-note/tests/test_annotation_pointer_split.cjs
           node study-note/tests/test_image_viewer_loading.cjs
+          node study-note/tests/test_pdf_mobile_touch_pinch.cjs
       - name: Upload synthetic QA screenshots and results
         if: always()
         uses: actions/upload-artifact@v4
