@@ -16,9 +16,12 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
         viewport: { width, height: 844 }, isMobile: width < 761, hasTouch: true
       });
       const page = await context.newPage();
+      page.on("pageerror", error => console.error("WEBKIT_PDF_PAGEERROR", String(error), error.stack || ""));
       await page.route("**/*", route => route.abort());
       await page.setContent(html, { waitUntil:"domcontentloaded" });
       const results = await page.evaluate(() => {
+        const errors = [];
+        window.addEventListener("error",e=>errors.push(String(e.message||e.error||e)),{capture:true});
         if (typeof installPdfPanPinchHandlers !== "function") throw Error("PDF gesture function missing");
         // Linux WebKit exposes Touch/TouchEvent but their JS constructors
         // are illegal; dispatch an Event with the same TouchList fields.
@@ -46,6 +49,9 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
           let zoom=2.5;
           installPdfPanPinchHandlers(scroller,{getZoom:()=>zoom,setZoom:value=>{zoom=value;},
             minZoom:.5,maxZoom:10});
+          const observed=[];
+          scroller.addEventListener("touchstart",ev=>observed.push({step:"start",target:ev.target?.className,hadTouches:!!ev.touches,len:ev.touches?.length}),{capture:true});
+          scroller.addEventListener("touchmove",ev=>observed.push({step:"move",hadTouches:!!ev.touches,len:ev.touches?.length,blocked:scroller.dataset.pdfPalmBlocked||"",managed:scroller.dataset.pdfTouchManaged||""}),{capture:true});
           const a=touch(1,layer,100,100),b=touch(2,layer,180,100);
           emit(layer,"touchstart",[a,b],[a,b]);
           const b1=touch(2,layer,270,100);
@@ -58,7 +64,7 @@ const html = fs.readFileSync(path.resolve(__dirname, "../study-note.html"), "utf
           emit(layer,"touchmove",[c,e1],[e1]);
           const reduced=zoom;
           emit(layer,"touchend",[],[c,e1]);
-          results.push({name,expanded,reduced});
+          results.push({name,expanded,reduced,observed,errors:[...errors]});
           scroller.remove();
         }
         return results;
