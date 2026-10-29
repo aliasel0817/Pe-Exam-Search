@@ -13297,7 +13297,7 @@ async function fetchReferencePdfBytesFromServer(page) {
   return bytes;
 }
 
-async async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = referencePdfLoadSerial } = {}) {
+async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = referencePdfLoadSerial } = {}) {
   clearTimeout(referencePdfRenderTimer);
   const paintSerial = ++referencePdfRenderSerial;
   const paint = async () => {
@@ -13350,7 +13350,7 @@ async async function repaintReferencePdfAtZoom({ immediate = false, loadSerial =
   else referencePdfRenderTimer = setTimeout(() => { paint().catch(console.warn); }, 180);
 }
 
-async async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
+async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
   // Automatic source: only the existing ACTIVE-device signed Apps Script backend.
   // Never initiate separate Google Drive OAuth or request the disabled Drive API.
   if (!page || !referencePdfBackendSourceReady || loadSerial !== referencePdfLoadSerial) return;
