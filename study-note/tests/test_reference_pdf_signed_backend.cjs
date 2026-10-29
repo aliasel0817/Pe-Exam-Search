@@ -72,6 +72,34 @@ async function testBackendWhitelisting() {
   size = pdf.length;
   content = [0, 1, 2, 3, 4, 5, 6, 7];
   assert.throws(() => env.readReferencePdfPageForSignedGet_(auth, sheet, data), /PDF 헤더/);
+
+  // Production MASTER 'PDF페이지파일_20260928' has the exact header order below,
+  // with NO '활성여부' column. Never add that column as a prerequisite.
+  // The row IDs are deliberately synthetic, to keep private Drive IDs out of Git.
+  content = pdf;
+  const liveHeaders = [
+    '출처유형', '페이지키', '페이지번호', '페이지토큰',
+    '통합원본Drive파일ID', '페이지Drive파일ID', '페이지파일명',
+    'Drive파일URL', 'Drive폴더ID', '로컬분할검증', 'Drive업로드검증', '등록일'
+  ];
+  const liveMG = ['교재', 'MG', '187', 'MG:187', 'rootPDFSynthetic',
+    'registeredFile123', 'MG_0187.pdf', 'https://example.invalid/1',
+    'folderSynthetic', 'OK', 'OK', '2026-09-28'];
+  const liveSW = ['서브노트', 'SW', '10', 'SW:10', 'rootSWPDFSynthetic',
+    'registeredSWFile234', 'SW_0010.pdf', 'https://example.invalid/2',
+    'folderSynthetic2', 'OK', 'OK', '2026-09-28'];
+  rows = [liveHeaders, liveMG, liveSW];
+  const liveMGPdf = env.readReferencePdfPageForSignedGet_(auth, sheet, data);
+  assert.equal(liveMGPdf.pageToken, 'MG:187');
+  assert.equal(selectedId, 'registeredFile123');
+  const liveSWPdf = env.readReferencePdfPageForSignedGet_(auth, sheet,
+    { sourceType: '서브노트', pageToken: 'SW:10', driveFileId: 'untrustedBrowserID' });
+  assert.equal(liveSWPdf.pageToken, 'SW:10');
+  assert.equal(selectedId, 'registeredSWFile234',
+    'Exact current MASTER headers must resolve the page PDF ID, never the original full-document ID');
+  rows = [liveHeaders.filter(h => h !== '페이지Drive파일ID'),
+    liveMG.filter((_, i) => i !== 5)];
+  assert.throws(() => env.readReferencePdfPageForSignedGet_(auth, sheet, data), /필수 컬럼/);
 }
 
 async function testFrontendCapabilityAndRead() {
