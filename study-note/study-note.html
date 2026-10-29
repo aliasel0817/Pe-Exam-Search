@@ -2928,6 +2928,7 @@ button { -webkit-tap-highlight-color: transparent; }
   </div>
 
   <div id="toast" class="toast hidden" role="status"></div>
+  <script src="./image-upload-optimizer.js"></script>
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
@@ -13399,7 +13400,11 @@ async function applyPendingAttachmentChanges(topicId) {
 
   for (const type of ['I', 'P']) {
     while (pendingAttachmentFiles[type].length) {
-      const file = pendingAttachmentFiles[type][0];
+      const originalFile = pendingAttachmentFiles[type][0];
+      const conversion = type === 'I' && window.PEImageUploadOptimizer
+        ? await window.PEImageUploadOptimizer.optimizeFile(originalFile)
+        : { file: originalFile, optimized: false };
+      const file = conversion.file;
       const dataUrl = await readFileAsDataUrl(file);
       const status = await sendMutation(getApiUrl(), {
         action: 'uploadAttachment',

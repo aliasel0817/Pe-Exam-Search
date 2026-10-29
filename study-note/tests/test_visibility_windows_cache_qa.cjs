@@ -18,6 +18,7 @@ const puppeteer = require("../../.qa-browser/node_modules/puppeteer-core");
 const root = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(root,"study-note.html"),"utf8");
 const swSource = fs.readFileSync(path.join(root,"service-worker.js"),"utf8");
+const imageOptimizerJs = fs.readFileSync(path.join(root,"image-upload-optimizer.js"),"utf8");
 const manifest = fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8");
 const plannerJs = fs.readFileSync(path.join(root,"study-planner.js"),"utf8");
 const plannerJson = fs.readFileSync(path.join(root,"study-plans","pe141-100days.json"),"utf8");
@@ -78,6 +79,10 @@ const server=http.createServer((req,res)=>{
  if(pathname==="/study-planner.js"){
   res.writeHead(200,{"Content-Type":"text/javascript; charset=utf-8"});
   return res.end(plannerJs);
+ }
+ if(pathname==="/image-upload-optimizer.js"){
+  res.writeHead(200,{"Content-Type":"text/javascript; charset=utf-8"});
+  return res.end(imageOptimizerJs);
  }
  if(pathname==="/study-plans/pe141-100days.json"){
   res.writeHead(200,{"Content-Type":"application/json; charset=utf-8"});
