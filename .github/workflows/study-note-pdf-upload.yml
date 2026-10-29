@@ -9,6 +9,8 @@ on:
       - 'study-note/STUDY-NOTE-USER-MANUAL-KO.md'
       - 'study-note/tests/test_reference_pdf_multipage.cjs'
       - 'study-note/tests/test_pdf_vector_sharp_qa.cjs'
+      - 'study-note/tests/test_reference_pdf_signed_backend.cjs'
+      - 'study-note/backend/referencePdfContent.addon.gs'
       - '.github/workflows/study-note-pdf-upload.yml'
   pull_request:
     paths:
@@ -16,6 +18,8 @@ on:
       - 'study-note/STUDY-NOTE-USER-MANUAL-KO.md'
       - 'study-note/tests/test_reference_pdf_multipage.cjs'
       - 'study-note/tests/test_pdf_vector_sharp_qa.cjs'
+      - 'study-note/tests/test_reference_pdf_signed_backend.cjs'
+      - 'study-note/backend/referencePdfContent.addon.gs'
       - '.github/workflows/study-note-pdf-upload.yml'
   workflow_dispatch:
 
@@ -39,5 +43,7 @@ jobs:
         run: node study-note/tests/test_reference_pdf_multipage.cjs
       - name: Assert in-viewer PDF.js rendering, safe zoom and Drive token flow
         run: node study-note/tests/test_pdf_vector_sharp_qa.cjs
+      - name: Test additive Apps Script signed original PDF backend and client
+        run: node study-note/tests/test_reference_pdf_signed_backend.cjs
       - name: Guard existing technical glossary and display behavior
         run: node --test study-note/tests/test_technical_readability.cjs
