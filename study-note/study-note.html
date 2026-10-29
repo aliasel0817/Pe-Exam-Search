@@ -1195,9 +1195,9 @@ button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.reference-pdf-native-overlay { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; min-height: 0; background: #fff; }
-.reference-pdf-native-hint { flex: 0 0 auto; padding: 6px 10px; font-size: .72rem; line-height: 1.4; color: #334155; background: #eef4ff; }
-.reference-pdf-native-frame { flex: 1 1 auto; display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: #fff; }
+.reference-pdf-vector-canvas { display: none; }
+.reference-pdf-vector-canvas.is-rendered { display: block; }
+.reference-pdf-preview-image.pdf-replaced { display: none; }
 .reference-pdf-pan-scroller {
   position: absolute;
   inset: 0;
@@ -2870,7 +2870,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <span id="referencePdfZoomLabel" class="pdf-tool-zoom">100%</span>
           <button id="referencePdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
           <button id="referencePdfZoomFitBtn" class="btn pdf-tool-fit" type="button">맞춤</button>
-          <button id="referencePdfQualityBtn" class="btn" type="button" aria-label="원본 PDF 고선명 보기" title="Google Drive 원본 PDF를 선명하게 확대해서 봅니다. 필기 화면으로 복귀할 수 있습니다." aria-pressed="false">고선명</button>
+          <button id="referencePdfQualityBtn" class="btn" type="button" aria-label="PDF 원본 고선명 렌더링" title="학습노트 안에서 원본 PDF를 직접 렌더링합니다. 처음 사용 시 Google Drive 읽기 전용 권한 승인이 필요합니다.">고화질</button>
         </div>
         <button id="closeReferencePdfViewerBottomBtn" class="btn primary" type="button">닫기</button>
       </div>
@@ -4326,8 +4326,17 @@ let activeReferencePdfSourceType = '';
 let activeReferencePdfCurrentPage = null;
 let activeReferencePdfFitScale = 1;
 let activeReferencePdfZoomFactor = 1;
-let referencePdfNativeView = false; // Drive's genuine PDF viewer; annotation view remains intact underneath.
 let referencePdfLoadSerial = 0;
+let activeReferencePdfDocument = null;
+let activeReferencePdfPage = null;
+let activeReferencePdfRenderTask = null;
+let activeReferencePdfVectorReady = false;
+let referencePdfRenderTimer = null;
+let referencePdfRenderSerial = 0;
+let referencePdfQualityPending = false;
+// Short-lived OAuth access token stays in memory. Never persist tokens in storage.
+let referencePdfDriveToken = '';
+let referencePdfDriveTokenExpiry = 0;
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 10;
 const REFERENCE_PDF_ZOOM_STEP = 0.25;
@@ -4825,7 +4834,7 @@ function bindEvents() {
     updateReferencePdfZoomUi();
     renderActiveReferencePdfImage({ preserveCenter: false });
   });
-  els.referencePdfQualityBtn.addEventListener('click', () => setReferencePdfNativeView(!referencePdfNativeView));
+  els.referencePdfQualityBtn.addEventListener('click', () => enableReferencePdfHighQuality());
   els.referencePdfViewerModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 3단계 학습기능 이벤트 연결
@@ -8961,10 +8970,9 @@ function closeReferencePdfViewer() {
   els.referencePdfViewerModal.classList.add('hidden');
   destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
   referencePdfLoadSerial++;
+  resetReferencePdfHighQualityRenderer();
   activeReferencePdfFitScale = 1;
   activeReferencePdfZoomFactor = 1;
-  const frame = els.referencePdfFrameWrap.querySelector('iframe');
-  if (frame) frame.src = 'about:blank';
   els.referencePdfFrameWrap.innerHTML = '<div class="media-placeholder">페이지를 선택해 주세요.</div>';
   els.referencePdfPageSelect.innerHTML = '';
   els.referencePdfOpenDriveLink.href = '#';
@@ -8973,7 +8981,6 @@ function closeReferencePdfViewer() {
   activeReferencePdfSourceType = '';
   activeReferencePdfCurrentPage = null;
   activeReferencePdfZoomFactor = REFERENCE_PDF_DEFAULT_ZOOM;
-  referencePdfNativeView = false;
   updateReferencePdfZoomUi();
 }
 
@@ -12861,7 +12868,10 @@ window.StudyNoteAnnotation = Object.freeze({
 function referencePdfViewerMarkup(page) {
   return `
     <div class="reference-pdf-pan-scroller" tabindex="0" aria-label="PDF page. Use scrollbars, mouse drag, or touch drag to move around the enlarged page.">
-      <div class="reference-pdf-image-stage"><img class="reference-pdf-page-image" draggable="false" alt="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}"></div>
+      <div class="reference-pdf-image-stage">
+        <img class="reference-pdf-page-image reference-pdf-preview-image" draggable="false" alt="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}">
+        <canvas class="reference-pdf-page-image reference-pdf-vector-canvas" aria-label="PDF 원본 고화질 렌더링"></canvas>
+      </div>
     </div>
     <div class="reference-pdf-image-loading">\uc6d0\ubcf8 \ud398\uc774\uc9c0 \ubd88\ub7ec\uc624\ub294 \uc911...</div>
     `;
@@ -13160,7 +13170,7 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   const displayHeight = Math.max(1, Math.round(image.naturalHeight * scale));
   const stagePadding = window.innerWidth <= 760 ? 16 : 24;
 
-  // Keep the rendered image dimensions and scrollable stage consistent with width-fit zoom.
+  // Keep the media dimensions and scrollable stage consistent with width-fit zoom.
   image.style.width = `${displayWidth}px`;
   image.style.height = `${displayHeight}px`;
   stage.style.width = `${Math.max(scroller.clientWidth, displayWidth + stagePadding)}px`;
@@ -13189,40 +13199,15 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   });
 }
 
-function syncReferencePdfNativeView() {
-  const wrap = els.referencePdfFrameWrap;
-  wrap.querySelector('.reference-pdf-native-overlay')?.remove();
-  if (!referencePdfNativeView || !activeReferencePdfCurrentPage?.driveFileId) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'reference-pdf-native-overlay';
-  const hint = document.createElement('div');
-  hint.className = 'reference-pdf-native-hint';
-  hint.textContent = '고선명 원본: 아래 Drive PDF 뷰어에서 확대하세요. 필기하려면 [필기로] 버튼으로 돌아갑니다.';
-  const frame = document.createElement('iframe');
-  frame.className = 'reference-pdf-native-frame';
-  frame.title = 'Google Drive 원본 PDF 고선명 미리보기';
-  frame.loading = 'eager';
-  frame.src = drivePreviewUrl(activeReferencePdfCurrentPage.driveFileId);
-  overlay.append(hint, frame);
-  wrap.append(overlay);
-}
-
-function setReferencePdfNativeView(enabled) {
-  if (!activeReferencePdfCurrentPage?.driveFileId) return;
-  referencePdfNativeView = Boolean(enabled);
-  syncReferencePdfNativeView();
-  updateReferencePdfZoomUi();
-}
-
 function updateReferencePdfZoomUi() {
-  if (els.referencePdfZoomLabel) els.referencePdfZoomLabel.textContent = referencePdfNativeView
-    ? 'Drive 확대' : `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
-  if (els.referencePdfZoomOutBtn) els.referencePdfZoomOutBtn.disabled = referencePdfNativeView || activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
-  if (els.referencePdfZoomInBtn) els.referencePdfZoomInBtn.disabled = referencePdfNativeView || activeReferencePdfZoomFactor >= REFERENCE_PDF_ZOOM_MAX;
-  if (els.referencePdfZoomFitBtn) els.referencePdfZoomFitBtn.disabled = referencePdfNativeView;
+  if (els.referencePdfZoomLabel) els.referencePdfZoomLabel.textContent = `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
+  if (els.referencePdfZoomOutBtn) els.referencePdfZoomOutBtn.disabled = activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
+  if (els.referencePdfZoomInBtn) els.referencePdfZoomInBtn.disabled = activeReferencePdfZoomFactor >= REFERENCE_PDF_ZOOM_MAX;
+  if (els.referencePdfZoomFitBtn) els.referencePdfZoomFitBtn.disabled = false;
   if (els.referencePdfQualityBtn) {
-    els.referencePdfQualityBtn.textContent = referencePdfNativeView ? '필기로' : '고선명';
-    els.referencePdfQualityBtn.setAttribute('aria-pressed', String(referencePdfNativeView));
+    els.referencePdfQualityBtn.disabled = referencePdfQualityPending || activeReferencePdfVectorReady;
+    els.referencePdfQualityBtn.textContent = referencePdfQualityPending
+      ? 'PDF 로딩 중' : activeReferencePdfVectorReady ? '고화질 ✓' : '고화질';
   }
 }
 
