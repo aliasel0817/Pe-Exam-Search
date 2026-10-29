@@ -30,19 +30,21 @@ assert.match(functionSource('referencePdfViewerMarkup'), /reference-pdf-vector-c
 assert.doesNotMatch(functionSource('renderReferencePdfFallback'), /<iframe|drivePreviewUrl/);
 assert.doesNotMatch(functionSource('loadReferencePdfPage'), /syncReferencePdfNativeView|drivePreviewUrl/);
 assert.doesNotMatch(source, /reference-pdf-native-overlay|referencePdfNativeView/);
-assert.match(functionSource('loadReferencePdfPage'), /hasReferencePdfDriveToken\(\)/);
+assert.doesNotMatch(functionSource('loadReferencePdfPage'), /hasReferencePdfDriveToken/);
 assert.match(functionSource('renderActiveReferencePdfImage'), /ensureAnnotationSurface/);
 assert.match(functionSource('renderActiveReferencePdfImage'), /annotationSurfaceKey\('reference-pdf'/);
 assert.match(functionSource('repaintReferencePdfAtZoom'), /computeAttachmentPdfRenderMetrics/);
-assert.match(functionSource('requestReferencePdfDriveToken'), /drive\.readonly/);
+assert.match(functionSource('fetchReferencePdfBytesFromServer'), /buildSignedGetUrl\(getApiUrl\(\), 'referencePdfContent'/);
+assert.match(functionSource('openReferencePdfViewer'), /refreshReferencePdfBackendSourceCapability\(\)/);
+assert.match(functionSource('loadReferencePdfPage'), /referencePdfBackendSourceReady/);
+assert.match(functionSource('loadReferencePdfHighQuality'), /fetchReferencePdfBytesFromServer\(page\)/);
+assert.doesNotMatch(html, /id="referencePdfQualityBtn"/);
+assert.doesNotMatch(source, /drive\.readonly|www\.googleapis\.com\/drive\/v3\/files|requestReferencePdfDriveToken|enableReferencePdfHighQuality/);
 assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\s*\{\s*display:\s*none;/);
 assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\.is-rendered\s*\{\s*display:\s*block;/);
 assert.match(functionSource('renderActiveReferencePdfImage'), /activeReferencePdfZoomFactor > 1\.001/);
 assert.match(functionSource('annotationStudySurface'), /activeReferencePdfVectorReady/);
-assert.match(functionSource('enableReferencePdfHighQuality'), /requestReferencePdfDriveToken\(\)/);
 assert.match(functionSource('loadReferencePdfHighQuality'), /referencePdfBackendSourceReady/);
-assert.match(functionSource('refreshReferencePdfBackendSourceCapability'), /health\.referencePdfContentReady === true/);
-assert.match(functionSource('fetchReferencePdfBytesFromServer'), /buildSignedGetUrl\(getApiUrl\(\), 'referencePdfContent'/);
 
 const render = harness(['computeAttachmentPdfRenderMetrics'], {});
 const page = { getViewport: ({ scale }) => ({ width: 600 * scale, height: 840 * scale }) };
@@ -55,75 +57,6 @@ assert(retina.width > a.width, 'DPR must increase resolution');
 assert(capped.width <= 8192 && capped.height <= 8192, 'Edge cap exceeded');
 assert(capped.width * capped.height <= 20 * 1024 * 1024, 'Pixel cap exceeded');
 assert(Math.abs(b.width / b.height - 600 / 840) < .002, 'PDF aspect ratio changed');
-
-async function testDriveOAuthClick() {
-  let prompts = 0;
-  let scope = '';
-  const ctx = {
-    GOOGLE_OAUTH_CLIENT_ID: 'test-client',
-    referencePdfDriveToken: '',
-    referencePdfDriveTokenExpiry: 0,
-    referencePdfDriveAutoBlocked: false,
-    Date,
-    window: {
-      google: { accounts: { oauth2: { initTokenClient(opts) {
-        scope = opts.scope;
-        return { requestAccessToken(args) {
-          prompts++;
-          assert.equal(args.prompt, 'consent');
-          opts.callback({ access_token: 'token-only-in-memory', expires_in: 3600 });
-        } };
-      } } } },
-    },
-  };
-  const h = harness(['hasReferencePdfDriveToken', 'requestReferencePdfDriveToken'], ctx);
-  assert.equal(h.hasReferencePdfDriveToken(), false);
-  const token = await h.requestReferencePdfDriveToken();
-  assert.equal(token, 'token-only-in-memory');
-  assert.equal(scope, 'https://www.googleapis.com/auth/drive.readonly');
-  assert.equal(prompts, 1);
-  await h.requestReferencePdfDriveToken();
-  assert.equal(prompts, 1, 'Valid in-memory token should be reused');
-}
-
-async function testRealPdfBytesReachPdfJs() {
-  let url = '', authorization = '', firstPage = null, docData = null, errors = [];
-  const pdfPage = { getViewport: ({ scale }) => ({ width: 400 * scale, height: 600 * scale }) };
-  const doc = { getPage: async n => { firstPage = n; return pdfPage; } };
-  const ctx = {
-    referencePdfDriveToken: 'test-bearer',
-    referencePdfDriveTokenExpiry: Date.now() + 3600000,
-    referencePdfDriveAutoBlocked: false,
-    referencePdfBackendSourceReady: false,
-    referencePdfQualityPending: false,
-    referencePdfLoadSerial: 4,
-    activeReferencePdfVectorReady: false,
-    activeReferencePdfDocument: null,
-    activeReferencePdfPage: null,
-    Date, Uint8Array, String, console,
-    hasReferencePdfDriveToken: () => true,
-    updateReferencePdfZoomUi: () => {},
-    repaintReferencePdfAtZoom: async () => { ctx.activeReferencePdfVectorReady = true; },
-    showToast: e => errors.push(e),
-    els: { referencePdfViewerModal: { classList: { contains: () => false } } },
-    ensurePdfJsLoaded: async () => ({
-      getDocument({ data }) { docData = data; return { promise: Promise.resolve(doc) }; },
-    }),
-    fetch: async (target, opts) => {
-      url = target; authorization = opts.headers.Authorization;
-      return { ok: true, arrayBuffer: async () => Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 52]).buffer };
-    },
-  };
-  const h = harness(['fetchReferencePdfBytesFromDrive', 'describeReferencePdfDriveError', 'loadReferencePdfHighQuality'], ctx);
-  await h.loadReferencePdfHighQuality({ driveFileId: 'verified-file-id' }, 4);
-  assert.match(url, /www\.googleapis\.com\/drive\/v3\/files\/verified-file-id\?alt=media/);
-  assert.equal(authorization, 'Bearer test-bearer');
-  assert(docData instanceof Uint8Array);
-  assert.equal(firstPage, 1);
-  assert.equal(ctx.activeReferencePdfDocument, doc);
-  assert.equal(ctx.referencePdfQualityPending, false);
-  assert.equal(errors.length, 0, errors.join(','));
-}
 
 async function testNativeRepaintStaysInViewer() {
   let renderWidth = 0, draws = 0, removed = 0, destroyed = 0, synced = 0, hiddenThumb = 0;
@@ -181,45 +114,16 @@ async function testNativeRepaintStaysInViewer() {
   assert.equal(synced, 1, 'Annotation alignment must be restored on native canvas');
 }
 
-async function testForbiddenDriveDoesNotSpamNextPages() {
-  const messages = [];
-  const ctx = {
-    referencePdfDriveToken: 'temporary-token',
-    referencePdfDriveTokenExpiry: Date.now() + 3600000,
-    referencePdfDriveAutoBlocked: false,
-    referencePdfBackendSourceReady: false,
-    referencePdfQualityPending: false,
-    referencePdfLoadSerial: 4,
-    activeReferencePdfVectorReady: false,
-    Date, Uint8Array, String,
-    console: { warn: () => {} },
-    hasReferencePdfDriveToken: null,
-    updateReferencePdfZoomUi: () => {},
-    resetReferencePdfHighQualityRenderer: () => {},
-    showToast: message => messages.push(message),
-    els: { referencePdfViewerModal: { classList: { contains: () => false } } },
-    ensurePdfJsLoaded: async () => ({ getDocument: () => { throw Error('PDF.js should not be called'); } }),
-    fetch: async () => ({
-      ok: false, status: 403,
-      json: async () => ({ error: { status: 'PERMISSION_DENIED', errors: [{ reason: 'insufficientPermissions' }] } }),
-    }),
-  };
-  const h = harness(['hasReferencePdfDriveToken', 'describeReferencePdfDriveError',
-    'fetchReferencePdfBytesFromDrive', 'loadReferencePdfHighQuality'], ctx);
-  assert.equal(h.hasReferencePdfDriveToken(), true);
-  await h.loadReferencePdfHighQuality({ driveFileId: 'synthetic-id' }, 4);
-  assert.equal(ctx.referencePdfDriveAutoBlocked, true, '403 must disable automatic retries');
-  assert.equal(ctx.referencePdfDriveToken, '', '403 must drop rejected credential');
-  assert.equal(h.hasReferencePdfDriveToken(), false, 'Next PDF page must not retry');
-  assert.equal(ctx.referencePdfQualityPending, false, 'Button must be usable after failure');
-  assert.equal(messages.length, 1);
-  assert.match(messages[0], /403/);
+async function testUnsupportedServerStaysOnPreview() {
+  const state = { referencePdfBackendSourceReady: false, referencePdfLoadSerial: 4 };
+  const h = harness(['loadReferencePdfHighQuality'], state);
+  await h.loadReferencePdfHighQuality({ sourceType: '교재', pageToken: 'MG:187' }, 4);
+  assert.equal(state.referencePdfBackendSourceReady, false);
+  assert.equal(h.referencePdfBackendSourceReady, false);
 }
 
 (async () => {
-  await testForbiddenDriveDoesNotSpamNextPages();
+  await testUnsupportedServerStaysOnPreview();
   await testNativeRepaintStaysInViewer();
-  await testDriveOAuthClick();
-  await testRealPdfBytesReachPdfJs();
-  console.log('PDF_VECTOR_SHARP_QA_PASS: in-viewer vector PDF, zoom resolution, OAuth click, real PDF byte path, no Drive iframe');
+  console.log('PDF_VECTOR_SHARP_QA_PASS: inline high density, auto signed backend only, no Drive OAuth or manual button');
 })().catch(error => { console.error(error); process.exitCode = 1; });
