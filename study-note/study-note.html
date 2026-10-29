@@ -1195,6 +1195,9 @@ button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+.reference-pdf-native-overlay { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; min-height: 0; background: #fff; }
+.reference-pdf-native-hint { flex: 0 0 auto; padding: 6px 10px; font-size: .72rem; line-height: 1.4; color: #334155; background: #eef4ff; }
+.reference-pdf-native-frame { flex: 1 1 auto; display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: #fff; }
 .reference-pdf-pan-scroller {
   position: absolute;
   inset: 0;
@@ -2867,6 +2870,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <span id="referencePdfZoomLabel" class="pdf-tool-zoom">100%</span>
           <button id="referencePdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
           <button id="referencePdfZoomFitBtn" class="btn pdf-tool-fit" type="button">맞춤</button>
+          <button id="referencePdfQualityBtn" class="btn" type="button" aria-label="원본 PDF 고선명 보기" title="Google Drive 원본 PDF를 선명하게 확대해서 봅니다. 필기 화면으로 복귀할 수 있습니다." aria-pressed="false">고선명</button>
         </div>
         <button id="closeReferencePdfViewerBottomBtn" class="btn primary" type="button">닫기</button>
       </div>
@@ -4322,6 +4326,7 @@ let activeReferencePdfSourceType = '';
 let activeReferencePdfCurrentPage = null;
 let activeReferencePdfFitScale = 1;
 let activeReferencePdfZoomFactor = 1;
+let referencePdfNativeView = false; // Drive's genuine PDF viewer; annotation view remains intact underneath.
 let referencePdfLoadSerial = 0;
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 10;
@@ -4590,7 +4595,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceStatusFilter','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetFavoritesBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceStatusFilter','securityDeviceList','manageModal','closeManageBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','referencePdfQualityBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetFavoritesBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -4818,6 +4823,7 @@ function bindEvents() {
     updateReferencePdfZoomUi();
     renderActiveReferencePdfImage({ preserveCenter: false });
   });
+  els.referencePdfQualityBtn.addEventListener('click', () => setReferencePdfNativeView(!referencePdfNativeView));
   els.referencePdfViewerModal.addEventListener('keydown', event => event.stopPropagation());
 
   // 3단계 학습기능 이벤트 연결
@@ -8965,6 +8971,7 @@ function closeReferencePdfViewer() {
   activeReferencePdfSourceType = '';
   activeReferencePdfCurrentPage = null;
   activeReferencePdfZoomFactor = REFERENCE_PDF_DEFAULT_ZOOM;
+  referencePdfNativeView = false;
   updateReferencePdfZoomUi();
 }
 
@@ -13180,10 +13187,41 @@ function renderActiveReferencePdfImage({ preserveCenter = true } = {}) {
   });
 }
 
+function syncReferencePdfNativeView() {
+  const wrap = els.referencePdfFrameWrap;
+  wrap.querySelector('.reference-pdf-native-overlay')?.remove();
+  if (!referencePdfNativeView || !activeReferencePdfCurrentPage?.driveFileId) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'reference-pdf-native-overlay';
+  const hint = document.createElement('div');
+  hint.className = 'reference-pdf-native-hint';
+  hint.textContent = '고선명 원본: 아래 Drive PDF 뷰어에서 확대하세요. 필기하려면 [필기로] 버튼으로 돌아갑니다.';
+  const frame = document.createElement('iframe');
+  frame.className = 'reference-pdf-native-frame';
+  frame.title = 'Google Drive 원본 PDF 고선명 미리보기';
+  frame.loading = 'eager';
+  frame.src = drivePreviewUrl(activeReferencePdfCurrentPage.driveFileId);
+  overlay.append(hint, frame);
+  wrap.append(overlay);
+}
+
+function setReferencePdfNativeView(enabled) {
+  if (!activeReferencePdfCurrentPage?.driveFileId) return;
+  referencePdfNativeView = Boolean(enabled);
+  syncReferencePdfNativeView();
+  updateReferencePdfZoomUi();
+}
+
 function updateReferencePdfZoomUi() {
-  if (els.referencePdfZoomLabel) els.referencePdfZoomLabel.textContent = `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
-  if (els.referencePdfZoomOutBtn) els.referencePdfZoomOutBtn.disabled = activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
-  if (els.referencePdfZoomInBtn) els.referencePdfZoomInBtn.disabled = activeReferencePdfZoomFactor >= REFERENCE_PDF_ZOOM_MAX;
+  if (els.referencePdfZoomLabel) els.referencePdfZoomLabel.textContent = referencePdfNativeView
+    ? 'Drive 확대' : `${Math.round(activeReferencePdfZoomFactor * 100)}%`;
+  if (els.referencePdfZoomOutBtn) els.referencePdfZoomOutBtn.disabled = referencePdfNativeView || activeReferencePdfZoomFactor <= REFERENCE_PDF_ZOOM_MIN;
+  if (els.referencePdfZoomInBtn) els.referencePdfZoomInBtn.disabled = referencePdfNativeView || activeReferencePdfZoomFactor >= REFERENCE_PDF_ZOOM_MAX;
+  if (els.referencePdfZoomFitBtn) els.referencePdfZoomFitBtn.disabled = referencePdfNativeView;
+  if (els.referencePdfQualityBtn) {
+    els.referencePdfQualityBtn.textContent = referencePdfNativeView ? '필기로' : '고선명';
+    els.referencePdfQualityBtn.setAttribute('aria-pressed', String(referencePdfNativeView));
+  }
 }
 
 function setReferencePdfZoomFactor(nextFactor) {
@@ -13253,6 +13291,8 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
     showToast('\uace0\ud574\uc0c1\ub3c4 \ud398\uc774\uc9c0 \ubbf8\ub9ac\ubcf4\uae30\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud574 Drive PDF \ubdf0\uc5b4\ub85c \uc804\ud658\ud588\uc2b5\ub2c8\ub2e4.');
   }, { once: true });
   image.src = driveThumbnailUrl(page.driveFileId);
+  // Navigating between registered/sequential pages keeps the selected reading mode.
+  syncReferencePdfNativeView();
 }
 
 function getTopicAttachments(topicId, type = '') {
