@@ -102,6 +102,72 @@ async function testBackendWhitelisting() {
   assert.throws(() => env.readReferencePdfPageForSignedGet_(auth, sheet, data), /필수 컬럼/);
 }
 
+async function testOptimizedMasterColumnLookup() {
+  const headers = ['출처유형','페이지키','페이지번호','페이지토큰',
+    '통합원본Drive파일ID','페이지Drive파일ID','페이지파일명',
+    'Drive파일URL','Drive폴더ID','로컬분할검증','Drive업로드검증','등록일'];
+  // Simulate the current production MASTER size with synthetic values only.
+  const rows = [headers];
+  for (let i = 1; i <= 6280; i++) {
+    rows.push(['교재', 'MG', i, 'MG:' + i, 'syntheticRoot',
+      'syntheticPageId' + i, 'MG_' + i + '.pdf', 'https://example.invalid/',
+      'syntheticFolder', 'OK', 'OK', '2026-09-28']);
+  }
+  rows[5717] = ['서브노트','SW',10,'SW:10','syntheticRootSW',
+    'syntheticSWPageId10','SW_0010.pdf','https://example.invalid/',
+    'syntheticFolderSW','OK','OK','2026-09-28'];
+  const readRanges = [];
+  let driveId = '', fullDataRead = false;
+  const mockSheet = {
+    getLastRow: () => rows.length,
+    getLastColumn: () => headers.length,
+    getRange: (startRow, startCol, rowCount, colCount) => {
+      readRanges.push([startRow, startCol, rowCount, colCount]);
+      assert(rowCount === 1 || colCount === 1,
+        'Never load the complete MASTER row/column matrix into Apps Script on page navigation');
+      return { getValues: () => rows.slice(startRow - 1, startRow - 1 + rowCount)
+        .map(row => row.slice(startCol - 1, startCol - 1 + colCount)) };
+    },
+    getDataRange: () => { fullDataRead = true; throw Error('No full data reads allowed'); },
+  };
+  const pdf = [37,80,68,70,45,49,46,55];
+  const env = {
+    DriveApp: { getFileById: id => {
+      driveId = id;
+      return { getMimeType: () => 'application/pdf',
+        getSize: () => pdf.length,
+        getBlob: () => ({ getBytes: () => pdf }) };
+    }},
+    Utilities: { base64Encode: bytes => Buffer.from(bytes).toString('base64') },
+  };
+  vm.createContext(env);
+  vm.runInContext(backendText, env);
+  const auth = { authenticated: true, status: 'ACTIVE' };
+  const mg = env.readReferencePdfPageForSignedGet_(auth, mockSheet,
+    { sourceType: '교재', pageToken: 'MG:187', driveFileId: 'maliciousId' });
+  assert.equal(mg.pageToken, 'MG:187');
+  assert.equal(driveId, 'syntheticPageId187');
+  const sw = env.readReferencePdfPageForSignedGet_(auth, mockSheet,
+    { sourceType: '서브노트', pageToken: 'SW:10' });
+  assert.equal(sw.pageToken, 'SW:10');
+  assert.equal(driveId, 'syntheticSWPageId10');
+  assert.equal(fullDataRead, false);
+  assert(readRanges.some(([r,c,n,w]) => r===2 && c===4 && n===6280 && w===1),
+    'Must scan only page-token column D');
+  assert(readRanges.some(([r,c,n,w]) => r===188 && c===1 && n===1 && w===12),
+    'Must resolve matching row for MG:187');
+  const bulkReads = readRanges.filter(([, , n, w]) => n>1 && w>1);
+  assert.equal(bulkReads.length, 0, 'No full-sheet multi-column bulk read');
+  rows[6280] = ['교재','MG',187,'MG:187','otherRoot',
+    'syntheticDuplicateID','duplicate.pdf','', '', 'OK','OK',''];
+  assert.throws(() => env.readReferencePdfPageForSignedGet_(auth, mockSheet,
+    {sourceType:'교재',pageToken:'MG:187'}), /중복/);
+  rows[6280][3] = 'MG:6280';
+  for(let i=1;i<=101;i++) rows[i][3] = 'MG:187';
+  assert.throws(() => env.readReferencePdfPageForSignedGet_(auth, mockSheet,
+    {sourceType:'교재',pageToken:'MG:187'}), /비정상/);
+}
+
 async function testFrontendCapabilityAndRead() {
   const api = 'https://script.google.com/macros/s/SYNTHETIC/exec';
   const context = {
@@ -211,6 +277,7 @@ async function testPDFJsUsesServerWithoutDriveOAuth() {
 
 (async () => {
   await testBackendWhitelisting();
+  await testOptimizedMasterColumnLookup();
   await testFrontendCapabilityAndRead();
   await testPDFJsUsesServerWithoutDriveOAuth();
   console.log('SIGNED_REFERENCE_PDF_BACKEND_PASS: active device + registered ID only, bounded PDF, health opt-in, signed fetch, native PDF.js');
