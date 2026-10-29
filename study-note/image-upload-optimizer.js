@@ -22,13 +22,13 @@
   }
 
   function hasSensitivePngMetadata(bytes) {
-    if (ascii(bytes, 1, 3) !== 'PNG') return true;
+    if (bytes.length < 8 || bytes[0] !== 137 || ascii(bytes, 1, 3) !== 'PNG' || ascii(bytes, 4, 4) !== '\r\n\x1a\n') return true;
     let offset = 8;
     while (offset + 12 <= bytes.length) {
       const length = ((bytes[offset] * 0x1000000) + (bytes[offset + 1] << 16)
         + (bytes[offset + 2] << 8) + bytes[offset + 3]) >>> 0;
       const kind = ascii(bytes, offset + 4, 4);
-      if (['iCCP', 'eXIf', 'tEXt', 'zTXt', 'iTXt', 'acTL', 'fcTL'].includes(kind)) return true;
+      if (['iCCP', 'eXIf', 'tEXt', 'zTXt', 'iTXt', 'sRGB', 'gAMA', 'cHRM', 'sBIT', 'pHYs', 'cICP', 'mDCv', 'cLLi', 'acTL', 'fcTL'].includes(kind)) return true;
       if (length > bytes.length - offset - 12) return true;
       offset += 12 + length;
       if (kind === 'IEND') return false;
@@ -137,9 +137,9 @@
         if (!context) return unchanged(file, 'canvas-unavailable');
         decoded.draw(context);
       } finally { decoded.release(); }
-      const converted = await encodeWebp(canvas);
-      canvas.width = 0;
-      canvas.height = 0;
+      let converted;
+      try { converted = await encodeWebp(canvas); }
+      finally { canvas.width = 0; canvas.height = 0; }
       if (converted.type !== 'image/webp') return unchanged(file, 'webp-unsupported');
       if (converted.size >= file.size) return unchanged(file, 'not-smaller');
       const verify = await decodeImage(converted);
