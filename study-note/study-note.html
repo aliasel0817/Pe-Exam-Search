@@ -13292,7 +13292,11 @@ async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = refer
         wrap.querySelector('.reference-pdf-preview-image')?.classList.add('pdf-replaced');
         canvas.classList.add('is-rendered');
         activeReferencePdfVectorReady = true;
+        wrap.querySelector('.reference-pdf-image-loading')?.remove();
         renderActiveReferencePdfImage({ preserveCenter: true, scheduleRender: false });
+        const current = computeAttachmentPdfRenderMetrics(page, activeReferencePdfFitScale,
+          activeReferencePdfZoomFactor, window.devicePixelRatio || 1);
+        if (Math.abs(current.renderScale - metrics.renderScale) > 0.001) repaintReferencePdfAtZoom();
       }
     } catch (error) {
       if (error?.name !== 'RenderingCancelledException') console.warn('서브노트 고화질 재렌더링 오류:', error);
@@ -13342,6 +13346,7 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
   } catch (error) {
     if (loadSerial === referencePdfLoadSerial) {
       console.warn('서브노트 원본 PDF 로딩 오류:', error);
+      if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
       showToast(error?.message || 'PDF 고화질 불러오기에 실패했습니다.');
     }
   } finally {
