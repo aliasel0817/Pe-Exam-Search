@@ -82,7 +82,13 @@ async function verify(browser, width, height, label) {
       const vector = measure();
       activeReferencePdfVectorReady = false;
       activeReferencePdfPage = null;
-      return { first, zoom, fitAgain, vector };
+      return {
+        first, zoom, fitAgain, vector,
+        manualQualityButton: Boolean(document.getElementById('referencePdfQualityBtn')),
+        fitButton: Boolean(document.getElementById('referencePdfZoomFitBtn')),
+        zoomOutButton: Boolean(document.getElementById('referencePdfZoomOutBtn')),
+        zoomInButton: Boolean(document.getElementById('referencePdfZoomInBtn')),
+      };
     });
     const epsilon = 3;
     function checkFit(state, step) {
@@ -94,6 +100,9 @@ async function verify(browser, width, height, label) {
       assert(state.right <= state.viewportRight + epsilon, label + ' ' + step + ' right outside: ' + JSON.stringify(state));
       assert.equal(Math.round(state.scrollLeft), 0, label + ' ' + step + ' horizontal scroll not reset');
     }
+    assert.equal(result.manualQualityButton, false, label + ' must not offer broken Drive OAuth button');
+    assert.equal(result.fitButton, true, label + ' original fit button missing');
+    assert.equal(result.zoomOutButton && result.zoomInButton, true, label + ' original zoom buttons missing');
     checkFit(result.first, 'first');
     assert.equal(result.first.canvasDisplay, 'none', label + ' canvas must not take flex space before PDF.js paint');
     assert.equal(result.first.imageDisplay, 'block', label + ' preview should remain visible');
