@@ -13204,9 +13204,12 @@ function renderActiveReferencePdfImage({ preserveCenter = true, scheduleRender =
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
     } else {
-      // 100%/fit must never inherit pan from the previous high-zoom page.
+      // At width fit, never inherit horizontal pan from a larger zoom.
       scroller.scrollLeft = Math.max(0, (scroller.scrollWidth - scroller.clientWidth) / 2);
-      scroller.scrollTop = 0;
+      // The fit button opens at the top, but rotation/resize should retain
+      // the user's vertical reading position at 100% zoom.
+      scroller.scrollTop = preserveCenter
+        ? Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2) : 0;
     }
   });
   if (vector && scheduleRender) repaintReferencePdfAtZoom();
