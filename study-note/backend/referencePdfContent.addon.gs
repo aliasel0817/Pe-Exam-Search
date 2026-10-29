@@ -25,7 +25,9 @@ function readReferencePdfPageForSignedGet_(validatedSession, pageFilesSheet, inp
       validatedSession.status !== 'ACTIVE') {
     throw new Error('원본 PDF 조회는 ACTIVE 기기의 검증된 서명 요청만 허용됩니다.');
   }
-  if (!pageFilesSheet || typeof pageFilesSheet.getDataRange !== 'function') {
+  const targeted = Boolean(pageFilesSheet && typeof pageFilesSheet.getRange === 'function' &&
+    typeof pageFilesSheet.getLastRow === 'function' && typeof pageFilesSheet.getLastColumn === 'function');
+  if (!pageFilesSheet || (!targeted && typeof pageFilesSheet.getDataRange !== 'function')) {
     throw new Error('등록된 PDF 페이지 목록 시트를 찾지 못했습니다.');
   }
   const sourceType = String(input && input.sourceType || '').trim();
@@ -38,11 +40,26 @@ function readReferencePdfPageForSignedGet_(validatedSession, pageFilesSheet, inp
   }
   // The source page is resolved exclusively from the trusted registered
   // sheet. An arbitrary fileId sent by the browser is NEVER used.
-  const rows = pageFilesSheet.getDataRange().getValues();
-  if (!Array.isArray(rows) || rows.length < 2) {
-    throw new Error('등록된 PDF 페이지 목록이 비어 있습니다.');
+  // The production MASTER contains thousands of rows. Read just its header
+  // and one token column, then load only matching rows. This avoids copying
+  // every unrelated cell on each PDF page turn.
+  let rows = null;
+  let lastRow = 0, lastColumn = 0;
+  let headerValues;
+  if (targeted) {
+    lastRow = pageFilesSheet.getLastRow();
+    lastColumn = pageFilesSheet.getLastColumn();
+    if (lastRow < 2 || lastColumn < 1) throw new Error('등록된 PDF 페이지 목록이 비어 있습니다.');
+    headerValues = pageFilesSheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  } else {
+    // Lightweight mock compatibility; Google Sheets itself uses the narrow path.
+    rows = pageFilesSheet.getDataRange().getValues();
+    if (!Array.isArray(rows) || rows.length < 2) {
+      throw new Error('등록된 PDF 페이지 목록이 비어 있습니다.');
+    }
+    headerValues = rows[0];
   }
-  const headers = rows[0].map(value => String(value || '').trim());
+  const headers = headerValues.map(value => String(value || '').trim());
   const col = name => headers.indexOf(name);
   const kindCol = col('출처유형');
   const tokenCol = col('페이지토큰');
@@ -51,7 +68,23 @@ function readReferencePdfPageForSignedGet_(validatedSession, pageFilesSheet, inp
   if (kindCol < 0 || tokenCol < 0 || fileCol < 0) {
     throw new Error('PDF 페이지 목록 필수 컬럼이 누락되었습니다.');
   }
-  const matches = rows.slice(1).filter(row => {
+  let candidates;
+  if (targeted) {
+    const tokens = pageFilesSheet.getRange(2, tokenCol + 1, lastRow - 1, 1).getValues();
+    const matchingRowNumbers = [];
+    for (let index = 0; index < tokens.length; index++) {
+      if (String(tokens[index][0] || '').trim() !== pageToken) continue;
+      matchingRowNumbers.push(index + 2); // 1-based sheet rows, row 1 is the header.
+      if (matchingRowNumbers.length > 100) {
+        throw new Error('등록된 PDF 페이지 토큰의 중복 수가 비정상적으로 많습니다.');
+      }
+    }
+    candidates = matchingRowNumbers.map(rowNumber =>
+      pageFilesSheet.getRange(rowNumber, 1, 1, lastColumn).getValues()[0]);
+  } else {
+    candidates = rows.slice(1).filter(row => String(row[tokenCol] || '').trim() === pageToken);
+  }
+  const matches = candidates.filter(row => {
     return String(row[kindCol] || '').trim() === sourceType &&
       String(row[tokenCol] || '').trim() === pageToken &&
       (activeCol < 0 || String(row[activeCol] || 'Y').trim().toUpperCase() !== 'N');
