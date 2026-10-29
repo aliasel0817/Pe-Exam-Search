@@ -115,7 +115,64 @@ async function testRealPdfBytesReachPdfJs() {
   assert.equal(errors.length, 0, errors.join(','));
 }
 
+async function testNativeRepaintStaysInViewer() {
+  let renderWidth = 0, draws = 0, removed = 0, destroyed = 0, synced = 0, hiddenThumb = 0;
+  const visible = {
+    isConnected: true, width: 0, height: 0,
+    classList: { add: name => assert.equal(name, 'is-rendered') },
+    getContext: () => ({ drawImage: () => draws++ }),
+  };
+  const stage = {};
+  const thumb = { classList: { add: name => { assert.equal(name, 'pdf-replaced'); hiddenThumb++; } } };
+  const scroller = { clientWidth: 748 };
+  const wrap = { querySelector: selector => ({
+    '.reference-pdf-vector-canvas': visible,
+    '.reference-pdf-pan-scroller': scroller,
+    '.reference-pdf-image-stage': stage,
+    '.reference-pdf-preview-image': thumb,
+    '.reference-pdf-image-loading': { remove: () => removed++ },
+  })[selector] || null };
+  const pdfPage = {
+    getViewport: ({ scale }) => ({ width: 720 * scale, height: 1000 * scale }),
+    render({ viewport }) { renderWidth = viewport.width; return { promise: Promise.resolve() }; },
+  };
+  const ctx = {
+    activeReferencePdfPage: pdfPage,
+    activeReferencePdfRenderTask: null,
+    activeReferencePdfVectorReady: false,
+    referencePdfRenderTimer: null,
+    referencePdfRenderSerial: 0,
+    referencePdfLoadSerial: 7,
+    activeReferencePdfFitScale: 1,
+    activeReferencePdfZoomFactor: 2.75,
+    window: { devicePixelRatio: 2 },
+    clearTimeout: () => {},
+    setTimeout, console, Math,
+    els: { referencePdfFrameWrap: wrap },
+    document: { createElement: name => {
+      assert.equal(name, 'canvas');
+      return { width: 0, height: 0, getContext: () => ({}) };
+    } },
+    flushPendingAnnotationSaves: () => {},
+    destroyAnnotationSurfacesWithin: target => { assert.equal(target, stage); destroyed++; },
+    renderActiveReferencePdfImage: ({ scheduleRender }) => {
+      assert.equal(scheduleRender, false);
+      synced++;
+    },
+  };
+  const h = harness(['computeAttachmentPdfRenderMetrics', 'repaintReferencePdfAtZoom'], ctx);
+  await h.repaintReferencePdfAtZoom({ immediate: true, loadSerial: 7 });
+  assert.equal(ctx.activeReferencePdfVectorReady, true, 'Native canvas must become the visible media');
+  assert(renderWidth > 1500, 'PDF.js must render at zoom, not stretch the thumbnail');
+  assert.equal(draws, 1, 'Rendered vector bitmap must be copied to visible canvas');
+  assert.equal(removed, 1, 'Thumbnail loading mask must disappear');
+  assert.equal(hiddenThumb, 1, 'Thumbnail must be hidden after native render');
+  assert.equal(destroyed, 1, 'Old thumbnail annotation surface must be replaced');
+  assert.equal(synced, 1, 'Annotation alignment must be restored on native canvas');
+}
+
 (async () => {
+  await testNativeRepaintStaysInViewer();
   await testDriveOAuthClick();
   await testRealPdfBytesReachPdfJs();
   console.log('PDF_VECTOR_SHARP_QA_PASS: in-viewer vector PDF, zoom resolution, OAuth click, real PDF byte path, no Drive iframe');
