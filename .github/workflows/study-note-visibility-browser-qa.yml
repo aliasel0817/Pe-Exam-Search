@@ -42,6 +42,7 @@ jobs:
           node study-note/tests/test_image_viewer_loading.cjs
           node study-note/tests/test_image_upload_webp98.cjs
           node study-note/tests/test_image_upload_webp98_browser.cjs
+          node study-note/tests/test_pdf_reference_fit_browser_qa.cjs
       - name: Verify production read-only image mapping and media bytes (canary)
         run: node study-note/tests/test_live_image_readback_canary.cjs
           node study-note/tests/test_pdf_mobile_touch_pinch.cjs

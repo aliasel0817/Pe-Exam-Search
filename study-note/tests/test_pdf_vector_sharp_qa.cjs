@@ -35,6 +35,10 @@ assert.match(functionSource('renderActiveReferencePdfImage'), /ensureAnnotationS
 assert.match(functionSource('renderActiveReferencePdfImage'), /annotationSurfaceKey\('reference-pdf'/);
 assert.match(functionSource('repaintReferencePdfAtZoom'), /computeAttachmentPdfRenderMetrics/);
 assert.match(functionSource('requestReferencePdfDriveToken'), /drive\.readonly/);
+assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\s*\{\s*display:\s*none;/);
+assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\.is-rendered\s*\{\s*display:\s*block;/);
+assert.match(functionSource('renderActiveReferencePdfImage'), /activeReferencePdfZoomFactor > 1\.001/);
+assert.match(functionSource('annotationStudySurface'), /activeReferencePdfVectorReady/);
 assert.match(functionSource('enableReferencePdfHighQuality'), /requestReferencePdfDriveToken\(\)/);
 
 const render = harness(['computeAttachmentPdfRenderMetrics'], {});
@@ -56,6 +60,7 @@ async function testDriveOAuthClick() {
     GOOGLE_OAUTH_CLIENT_ID: 'test-client',
     referencePdfDriveToken: '',
     referencePdfDriveTokenExpiry: 0,
+    referencePdfDriveAutoBlocked: false,
     Date,
     window: {
       google: { accounts: { oauth2: { initTokenClient(opts) {
@@ -85,6 +90,7 @@ async function testRealPdfBytesReachPdfJs() {
   const ctx = {
     referencePdfDriveToken: 'test-bearer',
     referencePdfDriveTokenExpiry: Date.now() + 3600000,
+    referencePdfDriveAutoBlocked: false,
     referencePdfQualityPending: false,
     referencePdfLoadSerial: 4,
     activeReferencePdfVectorReady: false,
@@ -171,7 +177,41 @@ async function testNativeRepaintStaysInViewer() {
   assert.equal(synced, 1, 'Annotation alignment must be restored on native canvas');
 }
 
+async function testForbiddenDriveDoesNotSpamNextPages() {
+  const messages = [];
+  const ctx = {
+    referencePdfDriveToken: 'temporary-token',
+    referencePdfDriveTokenExpiry: Date.now() + 3600000,
+    referencePdfDriveAutoBlocked: false,
+    referencePdfQualityPending: false,
+    referencePdfLoadSerial: 4,
+    activeReferencePdfVectorReady: false,
+    Date, Uint8Array, String,
+    console: { warn: () => {} },
+    hasReferencePdfDriveToken: null,
+    updateReferencePdfZoomUi: () => {},
+    resetReferencePdfHighQualityRenderer: () => {},
+    showToast: message => messages.push(message),
+    els: { referencePdfViewerModal: { classList: { contains: () => false } } },
+    ensurePdfJsLoaded: async () => ({ getDocument: () => { throw Error('PDF.js should not be called'); } }),
+    fetch: async () => ({
+      ok: false, status: 403,
+      json: async () => ({ error: { status: 'PERMISSION_DENIED', errors: [{ reason: 'insufficientPermissions' }] } }),
+    }),
+  };
+  const h = harness(['hasReferencePdfDriveToken', 'describeReferencePdfDriveError', 'loadReferencePdfHighQuality'], ctx);
+  assert.equal(h.hasReferencePdfDriveToken(), true);
+  await h.loadReferencePdfHighQuality({ driveFileId: 'synthetic-id' }, 4);
+  assert.equal(ctx.referencePdfDriveAutoBlocked, true, '403 must disable automatic retries');
+  assert.equal(ctx.referencePdfDriveToken, '', '403 must drop rejected credential');
+  assert.equal(h.hasReferencePdfDriveToken(), false, 'Next PDF page must not retry');
+  assert.equal(ctx.referencePdfQualityPending, false, 'Button must be usable after failure');
+  assert.equal(messages.length, 1);
+  assert.match(messages[0], /403/);
+}
+
 (async () => {
+  await testForbiddenDriveDoesNotSpamNextPages();
   await testNativeRepaintStaysInViewer();
   await testDriveOAuthClick();
   await testRealPdfBytesReachPdfJs();

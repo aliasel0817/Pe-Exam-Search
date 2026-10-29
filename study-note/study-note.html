@@ -1196,9 +1196,11 @@ button { -webkit-tap-highlight-color: transparent; }
   border-radius: 10px;
 }
 #referencePdfQualityBtn { min-width: 0; padding-left: 7px; padding-right: 7px; white-space: nowrap; }
-.reference-pdf-vector-canvas { display: none; }
-.reference-pdf-vector-canvas.is-rendered { display: block; }
-.reference-pdf-preview-image.pdf-replaced { display: none; }
+/* Override the shared .reference-pdf-page-image display:block rule below:
+   before the first PDF.js frame, the hidden canvas must occupy no flex width. */
+.reference-pdf-page-image.reference-pdf-vector-canvas { display: none; }
+.reference-pdf-page-image.reference-pdf-vector-canvas.is-rendered { display: block; }
+.reference-pdf-page-image.reference-pdf-preview-image.pdf-replaced { display: none; }
 .reference-pdf-pan-scroller {
   position: absolute;
   inset: 0;
@@ -4271,7 +4273,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.17-pdf-vector-sharp-zoom';
+const APP_VERSION = '4.6.18-pdf-fit-drive403-guard';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4339,6 +4341,7 @@ let referencePdfQualityPending = false;
 // Short-lived OAuth access token stays in memory. Never persist tokens in storage.
 let referencePdfDriveToken = '';
 let referencePdfDriveTokenExpiry = 0;
+let referencePdfDriveAutoBlocked = false; // Stop repeating API errors on every page after one rejected read.
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 10;
 const REFERENCE_PDF_ZOOM_STEP = 0.25;
@@ -9683,7 +9686,9 @@ function annotationPageIcons(key) {
 
 function annotationStudySurface(context) {
   let media = null;
-  if (context === 'reference-pdf') media = els.referencePdfFrameWrap?.querySelector('.reference-pdf-page-image');
+  if (context === 'reference-pdf') media = els.referencePdfFrameWrap?.querySelector(
+    activeReferencePdfVectorReady ? '.reference-pdf-vector-canvas.is-rendered' : '.reference-pdf-preview-image'
+  );
   else if (context === 'attachment-pdf') media = els.mediaViewerBody?.querySelector('.attachment-pdf-canvas');
   else if (context === 'attachment-image') media = activeImageFigure?.querySelector('.media-viewer-image');
   return media ? annotationSurfaceByMedia.get(media) || null : null;
@@ -13195,12 +13200,16 @@ function renderActiveReferencePdfImage({ preserveCenter = true, scheduleRender =
   requestAnimationFrame(() => {
     if (!media.isConnected) return;
     syncAnnotationSurface(media);
-    if (preserveCenter) {
+    if (preserveCenter && activeReferencePdfZoomFactor > 1.001) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
     } else {
+      // At width fit, never inherit horizontal pan from a larger zoom.
       scroller.scrollLeft = Math.max(0, (scroller.scrollWidth - scroller.clientWidth) / 2);
-      scroller.scrollTop = 0;
+      // The fit button opens at the top, but rotation/resize should retain
+      // the user's vertical reading position at 100% zoom.
+      scroller.scrollTop = preserveCenter
+        ? Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2) : 0;
     }
   });
   if (vector && scheduleRender) repaintReferencePdfAtZoom();
@@ -13223,7 +13232,7 @@ function resetReferencePdfHighQualityRenderer() {
 }
 
 function hasReferencePdfDriveToken() {
-  return Boolean(referencePdfDriveToken && referencePdfDriveTokenExpiry > Date.now() + 30000);
+  return Boolean(!referencePdfDriveAutoBlocked && referencePdfDriveToken && referencePdfDriveTokenExpiry > Date.now() + 30000);
 }
 
 function requestReferencePdfDriveToken() {
@@ -13306,6 +13315,31 @@ async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = refer
   else referencePdfRenderTimer = setTimeout(() => { paint().catch(console.warn); }, 180);
 }
 
+async function describeReferencePdfDriveError(response) {
+  let reason = '';
+  let detail = '';
+  try {
+    const body = await response.json();
+    reason = String(body?.error?.errors?.[0]?.reason || body?.error?.details?.[0]?.reason || body?.error?.status || '');
+    detail = String(body?.error?.message || '').slice(0, 240);
+  } catch (_) { /* Google API may return a non-JSON error. */ }
+  // Keep diagnostic context in developer tools, never log the OAuth token or full PDF URL.
+  console.warn('PDF 원본 Google API 응답:', response.status, reason, detail);
+  if (response.status === 401) return new Error('원본 PDF 인증이 만료되었습니다(401). 고화질을 다시 눌러 로그인하세요.');
+  if (response.status === 403) {
+    if (/accessNotConfigured|SERVICE_DISABLED|API_DISABLED/i.test(reason + detail)) {
+      return new Error('Google Drive API가 비활성화되어 PDF 원본을 읽지 못했습니다(403).');
+    }
+    if (/insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientFilePermissions/i.test(reason + detail)) {
+      return new Error('현재 Google 계정 또는 OAuth 권한으로 PDF 원본에 접근할 수 없습니다(403).');
+    }
+    return new Error('원본 PDF 접근 거부(403). Drive API 사용 설정 및 승인한 Google 계정을 확인하세요.');
+  }
+  if (response.status === 404) return new Error('원본 PDF에 접근할 수 없습니다(404). 파일 연결과 공유 설정을 확인하세요.');
+  if (response.status === 429) return new Error('Google Drive 조회 한도를 초과했습니다(429). 잠시 후 다시 시도하세요.');
+  return new Error('Google Drive 원본 PDF 조회 실패 (HTTP ' + response.status + ')');
+}
+
 async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
   if (!page || !hasReferencePdfDriveToken() || loadSerial !== referencePdfLoadSerial) return;
   referencePdfQualityPending = true;
@@ -13321,8 +13355,11 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
         }),
     ]);
     if (!response.ok) {
-      if (response.status === 401) { referencePdfDriveToken = ''; referencePdfDriveTokenExpiry = 0; }
-      throw new Error('Google Drive 원본 PDF 조회 실패 (HTTP ' + response.status + ')');
+      // A denied API call must not be retried automatically on every next/previous page.
+      referencePdfDriveAutoBlocked = true;
+      referencePdfDriveToken = '';
+      referencePdfDriveTokenExpiry = 0;
+      throw await describeReferencePdfDriveError(response);
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
@@ -13336,6 +13373,7 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
     }
     activeReferencePdfDocument = doc;
     activeReferencePdfPage = await doc.getPage(1); // Each registered source page is a one-page PDF.
+    referencePdfDriveAutoBlocked = false;
     if (loadSerial !== referencePdfLoadSerial) return;
     await repaintReferencePdfAtZoom({ immediate: true, loadSerial });
     if (!activeReferencePdfVectorReady && loadSerial === referencePdfLoadSerial) {
@@ -13362,6 +13400,8 @@ async function enableReferencePdfHighQuality() {
   referencePdfQualityPending = true;
   updateReferencePdfZoomUi();
   try {
+    // Explicit click permits retry after a failure; never retry automatically without it.
+    referencePdfDriveAutoBlocked = false;
     await requestReferencePdfDriveToken();
     if (serial === referencePdfLoadSerial) await loadReferencePdfHighQuality(page, serial);
   } catch (error) {
