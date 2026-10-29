@@ -4273,7 +4273,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.18-pdf-fit-drive403-guard';
+const APP_VERSION = '4.6.19-pdf-signed-backend-ready';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4342,6 +4342,10 @@ let referencePdfQualityPending = false;
 let referencePdfDriveToken = '';
 let referencePdfDriveTokenExpiry = 0;
 let referencePdfDriveAutoBlocked = false; // Stop repeating API errors on every page after one rejected read.
+let referencePdfBackendSourceReady = false; // Opt in only after server health explicitly declares support.
+let referencePdfBackendSourceCheckedAt = 0;
+let referencePdfBackendSourceUrl = '';
+let referencePdfBackendSourceCheckPromise = null;
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 10;
 const REFERENCE_PDF_ZOOM_STEP = 0.25;
@@ -8958,6 +8962,13 @@ async function openReferencePdfViewer(sourceType) {
   renderReferencePdfRegisteredOptions();
   els.referencePdfViewerModal.classList.remove('hidden');
   loadReferencePdfAtIndex(0);
+  // Once a compatible Apps Script deployment is present, automatically render the
+  // actual one-page PDF in the existing viewer. Existing servers still use thumbnail.
+  refreshReferencePdfBackendSourceCapability().then(ready => {
+    if (!ready || referencePdfQualityPending || activeReferencePdfVectorReady) return;
+    if (els.referencePdfViewerModal.classList.contains('hidden')) return;
+    if (activeReferencePdfCurrentPage) void loadReferencePdfHighQuality(activeReferencePdfCurrentPage, referencePdfLoadSerial);
+  }).catch(error => console.warn('PDF 서버 기능 확인 실패:', error));
 }
 
 function renderReferencePdfRegisteredOptions() {
@@ -13231,6 +13242,85 @@ function resetReferencePdfHighQualityRenderer() {
   referencePdfQualityPending = false;
 }
 
+async function refreshReferencePdfBackendSourceCapability({ force = false } = {}) {
+  if (!navigator.onLine || !hasActiveSecuritySession()) {
+    referencePdfBackendSourceReady = false;
+    return false;
+  }
+  const apiUrl = getApiUrl();
+  if (referencePdfBackendSourceUrl !== apiUrl) {
+    referencePdfBackendSourceReady = false;
+    referencePdfBackendSourceCheckedAt = 0;
+    referencePdfBackendSourceUrl = apiUrl;
+  }
+  if (!force && referencePdfBackendSourceCheckedAt && Date.now() - referencePdfBackendSourceCheckedAt < 120000) {
+    return referencePdfBackendSourceReady;
+  }
+  if (referencePdfBackendSourceCheckPromise) return referencePdfBackendSourceCheckPromise;
+  const targetUrl = apiUrl;
+  referencePdfBackendSourceCheckPromise = (async () => {
+    try {
+      const health = await fetchHealth(targetUrl);
+      if (targetUrl !== getApiUrl()) return false;
+      referencePdfBackendSourceReady = health.referencePdfContentReady === true;
+    } catch (error) {
+      referencePdfBackendSourceReady = false;
+      console.warn('원본 PDF 서버 기능 조회 실패 (기존 뷰어 유지):', error);
+    } finally {
+      if (targetUrl === getApiUrl()) referencePdfBackendSourceCheckedAt = Date.now();
+    }
+    return referencePdfBackendSourceReady;
+  })();
+  try { return await referencePdfBackendSourceCheckPromise; }
+  finally { referencePdfBackendSourceCheckPromise = null; }
+}
+
+async function fetchReferencePdfBytesFromServer(page) {
+  // This endpoint MUST be backed by the existing ACTIVE-device signed GET
+  // validator; never send a bare Drive file ID or trust caller-supplied URLs.
+  if (!referencePdfBackendSourceReady || !hasActiveSecuritySession()) {
+    throw new Error('원본 PDF 서버 접근에 필요한 신뢰기기 인증이 없습니다.');
+  }
+  const sourceType = clean(page.sourceType || activeReferencePdfSourceType);
+  const pageToken = clean(page.pageToken);
+  if (!['서브노트', '교재'].includes(sourceType) || !pageToken || pageToken.length > 60) {
+    throw new Error('원본 PDF의 등록 페이지 정보가 올바르지 않습니다.');
+  }
+  const url = await buildSignedGetUrl(getApiUrl(), 'referencePdfContent', { sourceType, pageToken });
+  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  if (!response.ok) throw new Error('원본 PDF 서버 조회 실패 (HTTP ' + response.status + ')');
+  const payload = await response.json();
+  if (!payload || payload.ok !== true) throw new Error(payload?.message || '원본 PDF 서버 응답을 확인할 수 없습니다.');
+  if (payload.sourceType !== sourceType || payload.pageToken !== pageToken || payload.mime !== 'application/pdf') {
+    throw new Error('요청한 원본 PDF 페이지와 서버 응답이 일치하지 않습니다.');
+  }
+  const base64 = payload.base64;
+  if (typeof base64 !== 'string' || !base64 || base64.length > Math.ceil(MAX_REFERENCE_PAGE_BYTES / 3) * 4 + 8) {
+    throw new Error('원본 PDF가 비어 있거나 허용 크기를 초과했습니다.');
+  }
+  const bytes = base64ToUint8Array(base64);
+  if (bytes.byteLength > MAX_REFERENCE_PAGE_BYTES || (Number(payload.size) && Number(payload.size) !== bytes.byteLength)) {
+    throw new Error('원본 PDF 파일 크기가 올바르지 않습니다.');
+  }
+  return bytes;
+}
+
+async function fetchReferencePdfBytesFromDrive(page) {
+  const response = await fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(page.driveFileId)
+    + '?alt=media&supportsAllDrives=true', {
+      method: 'GET',
+      headers: { Authorization: 'Bearer ' + referencePdfDriveToken },
+      cache: 'no-store',
+    });
+  if (!response.ok) {
+    referencePdfDriveAutoBlocked = true;
+    referencePdfDriveToken = '';
+    referencePdfDriveTokenExpiry = 0;
+    throw await describeReferencePdfDriveError(response);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 function hasReferencePdfDriveToken() {
   return Boolean(!referencePdfDriveAutoBlocked && referencePdfDriveToken && referencePdfDriveTokenExpiry > Date.now() + 30000);
 }
@@ -13341,27 +13431,15 @@ async function describeReferencePdfDriveError(response) {
 }
 
 async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
-  if (!page || !hasReferencePdfDriveToken() || loadSerial !== referencePdfLoadSerial) return;
+  if (!page || !(referencePdfBackendSourceReady || hasReferencePdfDriveToken()) || loadSerial !== referencePdfLoadSerial) return;
+  const useBackend = referencePdfBackendSourceReady;
   referencePdfQualityPending = true;
   updateReferencePdfZoomUi();
   try {
-    const [pdfjsLib, response] = await Promise.all([
+    const [pdfjsLib, bytes] = await Promise.all([
       ensurePdfJsLoaded(),
-      fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(page.driveFileId)
-        + '?alt=media&supportsAllDrives=true', {
-          method: 'GET',
-          headers: { Authorization: 'Bearer ' + referencePdfDriveToken },
-          cache: 'no-store',
-        }),
+      useBackend ? fetchReferencePdfBytesFromServer(page) : fetchReferencePdfBytesFromDrive(page),
     ]);
-    if (!response.ok) {
-      // A denied API call must not be retried automatically on every next/previous page.
-      referencePdfDriveAutoBlocked = true;
-      referencePdfDriveToken = '';
-      referencePdfDriveTokenExpiry = 0;
-      throw await describeReferencePdfDriveError(response);
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
       throw new Error('원본 파일에서 올바른 PDF 데이터를 받지 못했습니다.');
     }
@@ -13382,6 +13460,12 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
   } catch (error) {
     if (loadSerial === referencePdfLoadSerial) {
       console.warn('서브노트 원본 PDF 로딩 오류:', error);
+      if (useBackend) {
+        // Do not spam errors during page navigation if server advertised an
+        // endpoint but its deployment or device-auth policy is not ready.
+        referencePdfBackendSourceReady = false;
+        referencePdfBackendSourceCheckedAt = Date.now();
+      }
       if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
       showToast(error?.message || 'PDF 고화질 불러오기에 실패했습니다.');
     }
@@ -13400,10 +13484,16 @@ async function enableReferencePdfHighQuality() {
   referencePdfQualityPending = true;
   updateReferencePdfZoomUi();
   try {
-    // Explicit click permits retry after a failure; never retry automatically without it.
-    referencePdfDriveAutoBlocked = false;
-    await requestReferencePdfDriveToken();
-    if (serial === referencePdfLoadSerial) await loadReferencePdfHighQuality(page, serial);
+    // On servers advertising signed PDF content, reuse the existing ACTIVE
+    // device session. Do not request Google Drive OAuth in that mode.
+    if (referencePdfBackendSourceReady && hasActiveSecuritySession()) {
+      await loadReferencePdfHighQuality(page, serial);
+    } else {
+      // Legacy fallback needs a fresh user-gesture token; never auto-prompt.
+      referencePdfDriveAutoBlocked = false;
+      await requestReferencePdfDriveToken();
+      if (serial === referencePdfLoadSerial) await loadReferencePdfHighQuality(page, serial);
+    }
   } catch (error) {
     if (serial === referencePdfLoadSerial) showToast(error?.message || 'Drive 읽기 전용 권한 승인에 실패했습니다.');
   } finally {
@@ -13496,7 +13586,7 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   }, { once: true });
   image.src = driveThumbnailUrl(page.driveFileId);
   // Once the user approves read-only access, subsequent pages are rendered directly.
-  if (hasReferencePdfDriveToken()) loadReferencePdfHighQuality(page, loadSerial);
+  if (referencePdfBackendSourceReady || hasReferencePdfDriveToken()) loadReferencePdfHighQuality(page, loadSerial);
 }
 
 function getTopicAttachments(topicId, type = '') {
