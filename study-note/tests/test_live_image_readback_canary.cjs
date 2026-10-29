@@ -32,5 +32,29 @@ async function get(action,more){
  assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"),
    "345db1f5a2ed72c6b8ecb2a2fbb6ec60387d1eeaaa8693c698cf43c9e060fc6b",
    "Live media checksum mismatch");
- console.log("LIVE_IMAGE_READBACK_CANARY_PASS",JSON.stringify({attachmentId,bytes:bytes.length,mime:rec.mime,linked:true}));
+ const full=await get("attachments",{});
+ const activeImages=(full.attachments||[]).filter(x=>String(x.type).toUpperCase()==="I");
+ assert(activeImages.length>=88,"Unexpectedly few live images");
+ const oversized=activeImages.filter(x=>Number(x.size)>=1048576);
+ assert.equal(oversized.length,0,"Live attachment list still contains 1MiB+ images");
+ const sampleChecks=[
+   ["A000087","1wnm_OCIYdjMgJ0ogC9D-bviciL7DOs1f","T4039_I_2.webp",880428,"7797e73dace5a687706f3d5f90bb651f8a107a72ea54655cd9e9c49355dcbad9"],
+   ["A000098","1M80M8qqG3sBQOirReEkk2dB03GSVfNdQ","T1223_I_4.webp",639970,"6f6381c766053f49497d563cbed0d274f319fbbf4ecd78bb3dbdf4847632b09d"],
+   ["A000238","14APkTbAZaBtb53ZIpeSHQmH1D-dCiPKI","T4051_I_1.webp",370988,"2f4a40bf5951f14200e11d28aef00e1464e0cfd45ac3d0a44501ad7570a506e1"]
+ ];
+ for(const [id,driveId,name,size,checksum] of sampleChecks){
+   const record=(full.attachments||[]).find(x=>String(x.attachmentId)===id);
+   assert(record,"Additional attachment not returned");
+   assert.equal(String(record.driveFileId),driveId);
+   assert.equal(String(record.fileName),name);
+   assert.equal(String(record.mime),"image/webp");
+   assert.equal(Number(record.size),size);
+   const payload=await get("mediaContent",{attachmentId:id});
+   const raw=Buffer.from(payload.base64||"","base64");
+   assert.equal(raw.length,size);
+   assert.equal(raw.subarray(0,4).toString("ascii"),"RIFF");
+   assert.equal(raw.subarray(8,12).toString("ascii"),"WEBP");
+   assert.equal(crypto.createHash("sha256").update(raw).digest("hex"),checksum);
+ }
+ console.log("LIVE_IMAGE_READBACK_CANARY_PASS",JSON.stringify({validatedMedia:1+sampleChecks.length,images:activeImages.length,oversizedRemaining:oversized.length,linked:true}));
 })().catch(err=>{console.error("LIVE_IMAGE_READBACK_CANARY_FAIL",String(err?.message||err).slice(0,230));process.exitCode=1});
