@@ -4269,7 +4269,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.16-pdf-all-batch-readback';
+const APP_VERSION = '4.6.17-pdf-vector-sharp-zoom';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -13401,15 +13401,18 @@ function bindReferencePdfViewerControls() {
 }
 
 function renderReferencePdfFallback(page) {
-  destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
-  els.referencePdfFrameWrap.innerHTML = `<iframe class="reference-pdf-frame" title="${escapeHtml(`${activeReferencePdfSourceType} ${page.pageToken}`)}" loading="eager" allowfullscreen></iframe>`;
-  const frame = els.referencePdfFrameWrap.querySelector('iframe');
-  frame.src = drivePreviewUrl(page.driveFileId);
+  // Never leave the study-note viewer or reopen the obsolete embedded Drive UI.
+  const loading = els.referencePdfFrameWrap.querySelector('.reference-pdf-image-loading');
+  if (loading) {
+    loading.textContent = '페이지 미리보기를 불러오지 못했습니다. 아래 [고화질]로 원본 PDF를 직접 불러올 수 있습니다.';
+    loading.style.pointerEvents = 'none';
+  }
 }
 
 function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   if (!page || !page.driveFileId) return;
   const loadSerial = ++referencePdfLoadSerial;
+  resetReferencePdfHighQualityRenderer();
   activeReferencePdfCurrentPage = page;
   setReferencePdfSelectForCurrentPage(page, registeredIndex);
 
@@ -13436,22 +13439,21 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   els.referencePdfFrameWrap.innerHTML = referencePdfViewerMarkup(page);
   bindReferencePdfViewerControls();
 
-  const image = els.referencePdfFrameWrap.querySelector('.reference-pdf-page-image');
+  const image = els.referencePdfFrameWrap.querySelector('.reference-pdf-preview-image');
   const loading = els.referencePdfFrameWrap.querySelector('.reference-pdf-image-loading');
   image.addEventListener('load', () => {
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
     if (loading) loading.remove();
-    renderActiveReferencePdfImage({ preserveCenter: false });
+    if (!activeReferencePdfVectorReady) renderActiveReferencePdfImage({ preserveCenter: false });
   }, { once: true });
   image.addEventListener('error', () => {
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
-    console.warn('Drive high-resolution page preview failed; falling back to embedded Drive PDF viewer.');
-    renderReferencePdfFallback(page);
-    showToast('\uace0\ud574\uc0c1\ub3c4 \ud398\uc774\uc9c0 \ubbf8\ub9ac\ubcf4\uae30\ub97c \ubd88\ub7ec\uc624\uc9c0 \ubabb\ud574 Drive PDF \ubdf0\uc5b4\ub85c \uc804\ud658\ud588\uc2b5\ub2c8\ub2e4.');
+    console.warn('원본 PDF 썸네일 불러오기 실패: 앱 내부 PDF.js 렌더링을 사용할 수 있습니다.');
+    if (!activeReferencePdfVectorReady) renderReferencePdfFallback(page);
   }, { once: true });
   image.src = driveThumbnailUrl(page.driveFileId);
-  // Navigating between registered/sequential pages keeps the selected reading mode.
-  syncReferencePdfNativeView();
+  // Once the user approves read-only access, subsequent pages are rendered directly.
+  if (hasReferencePdfDriveToken()) loadReferencePdfHighQuality(page, loadSerial);
 }
 
 function getTopicAttachments(topicId, type = '') {
