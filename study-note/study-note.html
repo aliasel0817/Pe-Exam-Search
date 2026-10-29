@@ -1195,6 +1195,7 @@ button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+#referencePdfQualityBtn { min-width: 0; padding-left: 7px; padding-right: 7px; white-space: nowrap; }
 .reference-pdf-vector-canvas { display: none; }
 .reference-pdf-vector-canvas.is-rendered { display: block; }
 .reference-pdf-preview-image.pdf-replaced { display: none; }
@@ -1643,6 +1644,7 @@ button { -webkit-tap-highlight-color: transparent; }
     padding: 4px 3px; font-size: .64rem; margin-right: 1px;
   }
   .reference-pdf-bottom-zoom .pdf-tool-fit { min-width: 0; }
+  #referencePdfQualityBtn { font-size: .68rem; padding: 4px 5px; }
 }
 
 
@@ -8982,10 +8984,6 @@ function closeReferencePdfViewer() {
   activeReferencePdfCurrentPage = null;
   activeReferencePdfZoomFactor = REFERENCE_PDF_DEFAULT_ZOOM;
   updateReferencePdfZoomUi();
-}
-
-function drivePreviewUrl(fileId) {
-  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
 }
 
 function driveViewUrl(fileId) {
