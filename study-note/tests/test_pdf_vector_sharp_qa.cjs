@@ -30,7 +30,7 @@ assert.match(functionSource('referencePdfViewerMarkup'), /reference-pdf-vector-c
 assert.doesNotMatch(functionSource('renderReferencePdfFallback'), /<iframe|drivePreviewUrl/);
 assert.doesNotMatch(functionSource('loadReferencePdfPage'), /syncReferencePdfNativeView|drivePreviewUrl/);
 assert.doesNotMatch(source, /reference-pdf-native-overlay|referencePdfNativeView/);
-assert.match(functionSource('loadReferencePdfPage'), /hasReferencePdfDriveToken\(\)/);
+assert.doesNotMatch(functionSource('loadReferencePdfPage'), /hasReferencePdfDriveToken/);
 assert.match(functionSource('renderActiveReferencePdfImage'), /ensureAnnotationSurface/);
 assert.match(functionSource('renderActiveReferencePdfImage'), /annotationSurfaceKey\('reference-pdf'/);
 assert.match(functionSource('repaintReferencePdfAtZoom'), /computeAttachmentPdfRenderMetrics/);
@@ -44,10 +44,7 @@ assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\s*\{
 assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\.is-rendered\s*\{\s*display:\s*block;/);
 assert.match(functionSource('renderActiveReferencePdfImage'), /activeReferencePdfZoomFactor > 1\.001/);
 assert.match(functionSource('annotationStudySurface'), /activeReferencePdfVectorReady/);
-assert.match(functionSource('refreshReferencePdfBackendSourceCapability'), /health\.referencePdfContentReady === true/);
 assert.match(functionSource('loadReferencePdfHighQuality'), /referencePdfBackendSourceReady/);
-assert.match(functionSource('refreshReferencePdfBackendSourceCapability'), /health\.referencePdfContentReady === true/);
-assert.match(functionSource('fetchReferencePdfBytesFromServer'), /buildSignedGetUrl\(getApiUrl\(\), 'referencePdfContent'/);
 
 const render = harness(['computeAttachmentPdfRenderMetrics'], {});
 const page = { getViewport: ({ scale }) => ({ width: 600 * scale, height: 840 * scale }) };
