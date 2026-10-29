@@ -1196,9 +1196,11 @@ button { -webkit-tap-highlight-color: transparent; }
   border-radius: 10px;
 }
 #referencePdfQualityBtn { min-width: 0; padding-left: 7px; padding-right: 7px; white-space: nowrap; }
-.reference-pdf-vector-canvas { display: none; }
-.reference-pdf-vector-canvas.is-rendered { display: block; }
-.reference-pdf-preview-image.pdf-replaced { display: none; }
+/* Override the shared .reference-pdf-page-image display:block rule below:
+   before the first PDF.js frame, the hidden canvas must occupy no flex width. */
+.reference-pdf-page-image.reference-pdf-vector-canvas { display: none; }
+.reference-pdf-page-image.reference-pdf-vector-canvas.is-rendered { display: block; }
+.reference-pdf-page-image.reference-pdf-preview-image.pdf-replaced { display: none; }
 .reference-pdf-pan-scroller {
   position: absolute;
   inset: 0;
@@ -4271,7 +4273,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.17-pdf-vector-sharp-zoom';
+const APP_VERSION = '4.6.18-pdf-fit-drive403-guard';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -9683,7 +9685,9 @@ function annotationPageIcons(key) {
 
 function annotationStudySurface(context) {
   let media = null;
-  if (context === 'reference-pdf') media = els.referencePdfFrameWrap?.querySelector('.reference-pdf-page-image');
+  if (context === 'reference-pdf') media = els.referencePdfFrameWrap?.querySelector(
+    activeReferencePdfVectorReady ? '.reference-pdf-vector-canvas.is-rendered' : '.reference-pdf-preview-image'
+  );
   else if (context === 'attachment-pdf') media = els.mediaViewerBody?.querySelector('.attachment-pdf-canvas');
   else if (context === 'attachment-image') media = activeImageFigure?.querySelector('.media-viewer-image');
   return media ? annotationSurfaceByMedia.get(media) || null : null;
@@ -13195,10 +13199,11 @@ function renderActiveReferencePdfImage({ preserveCenter = true, scheduleRender =
   requestAnimationFrame(() => {
     if (!media.isConnected) return;
     syncAnnotationSurface(media);
-    if (preserveCenter) {
+    if (preserveCenter && activeReferencePdfZoomFactor > 1.001) {
       scroller.scrollLeft = Math.max(0, centerXRatio * scroller.scrollWidth - scroller.clientWidth / 2);
       scroller.scrollTop = Math.max(0, centerYRatio * scroller.scrollHeight - scroller.clientHeight / 2);
     } else {
+      // 100%/fit must never inherit pan from the previous high-zoom page.
       scroller.scrollLeft = Math.max(0, (scroller.scrollWidth - scroller.clientWidth) / 2);
       scroller.scrollTop = 0;
     }
