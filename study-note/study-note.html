@@ -4373,6 +4373,8 @@ let activeAttachmentPdfPageCount = 0;
 let activeAttachmentPdfFitScale = 1;
 let activeAttachmentPdfZoomFactor = 1;
 let activeAttachmentPdfRenderTask = null;
+let attachmentPdfRenderTimer = null;
+let attachmentPdfRenderSerial = 0;
 let pdfViewerResizeRaf = 0;
 let pdfJsLoadPromise = null;
 const ATTACHMENT_PDF_ZOOM_MIN = 0.5;
@@ -13598,6 +13600,8 @@ function closeMediaViewer() {
 function cleanupMediaViewerObjects() {
   cancelImageViewerPendingLoads();
   attachmentPdfLoadSerial++;
+  clearTimeout(attachmentPdfRenderTimer);
+  attachmentPdfRenderSerial++;
   if (activeAttachmentPdfRenderTask) {
     try { activeAttachmentPdfRenderTask.cancel(); } catch (error) { /* noop */ }
   }
@@ -14024,20 +14028,7 @@ async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSer
     const baseViewport = page.getViewport({ scale: 1 });
     const availableWidth = Math.max(1, scroller.clientWidth - 28);
     activeAttachmentPdfFitScale = Math.max(0.01, availableWidth / Math.max(1, baseViewport.width));
-    const longEdge = Math.max(baseViewport.width, baseViewport.height);
-    const targetLongEdge = Math.min(4096, Math.max(2200, Math.round(longEdge * activeAttachmentPdfFitScale * 4)));
-    const renderScale = targetLongEdge / longEdge;
-    const viewport = page.getViewport({ scale: renderScale });
-    const canvas = wrap.querySelector('.attachment-pdf-canvas');
-    const context = canvas.getContext('2d', { alpha: false });
-    canvas.width = Math.max(1, Math.ceil(viewport.width));
-    canvas.height = Math.max(1, Math.ceil(viewport.height));
-    if (activeAttachmentPdfRenderTask) {
-      try { activeAttachmentPdfRenderTask.cancel(); } catch (error) { /* noop */ }
-    }
-    activeAttachmentPdfRenderTask = page.render({ canvasContext: context, viewport });
-    await activeAttachmentPdfRenderTask.promise;
-    activeAttachmentPdfRenderTask = null;
+    await repaintAttachmentPdfAtZoom({ immediate: true, loadSerial: serial });
     if (serial !== attachmentPdfLoadSerial || bounded !== activeAttachmentPdfPageNumber) return;
     wrap.querySelector('.attachment-pdf-loading')?.remove();
     renderActiveAttachmentPdfCanvas({ preserveCenter: false });
@@ -14048,6 +14039,54 @@ async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSer
     if (serial !== attachmentPdfLoadSerial) return;
     wrap.innerHTML = `<div class="media-placeholder">PDF 페이지 렌더링 실패 · ${escapeHtml(error.message || String(error))}</div>`;
   }
+}
+
+function computeAttachmentPdfRenderMetrics(page, fitScale, zoom, pixelRatio = 1) {
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.max(0.01, fitScale * zoom) * Math.min(2, Math.max(1, pixelRatio));
+  const width = base.width * scale, height = base.height * scale;
+  const bound = Math.min(1, 8192 / Math.max(width, height), Math.sqrt((20 * 1024 * 1024) / (width * height)));
+  const renderScale = scale * bound;
+  return { renderScale, width: Math.max(1, Math.floor(base.width * renderScale)),
+    height: Math.max(1, Math.floor(base.height * renderScale)) };
+}
+async function repaintAttachmentPdfAtZoom({ immediate = false, loadSerial = attachmentPdfLoadSerial } = {}) {
+  clearTimeout(attachmentPdfRenderTimer);
+  const paintSerial = ++attachmentPdfRenderSerial;
+  const paint = async () => {
+    const page = activeAttachmentPdfPage;
+    const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
+    const canvas = wrap?.querySelector('.attachment-pdf-canvas');
+    if (!page || !canvas || loadSerial !== attachmentPdfLoadSerial || paintSerial !== attachmentPdfRenderSerial) return;
+    const base = page.getViewport({ scale: 1 });
+    const scroller = wrap.querySelector('.attachment-pdf-pan-scroller');
+    if (!scroller) return;
+    const fit = Math.max(0.01, Math.max(1, scroller.clientWidth - 28) / Math.max(1, base.width));
+    const metrics = computeAttachmentPdfRenderMetrics(page, fit, activeAttachmentPdfZoomFactor, window.devicePixelRatio || 1);
+    if (activeAttachmentPdfRenderTask) {
+      try { activeAttachmentPdfRenderTask.cancel(); } catch (_) {}
+      try { await activeAttachmentPdfRenderTask.promise; } catch (_) {}
+    }
+    if (paintSerial !== attachmentPdfRenderSerial || loadSerial !== attachmentPdfLoadSerial) return;
+    const buffer = document.createElement('canvas');
+    buffer.width = metrics.width; buffer.height = metrics.height;
+    const context = buffer.getContext('2d', { alpha: false });
+    if (!context) return;
+    const task = page.render({ canvasContext: context, viewport: page.getViewport({ scale: metrics.renderScale }) });
+    activeAttachmentPdfRenderTask = task;
+    try {
+      await task.promise;
+      if (paintSerial !== attachmentPdfRenderSerial || loadSerial !== attachmentPdfLoadSerial || !canvas.isConnected) return;
+      canvas.width = buffer.width; canvas.height = buffer.height;
+      canvas.getContext('2d', { alpha: false }).drawImage(buffer, 0, 0);
+    } catch (error) {
+      if (error?.name !== 'RenderingCancelledException') console.error('PDF 고화질 렌더링 실패:', error);
+    } finally {
+      if (activeAttachmentPdfRenderTask === task) activeAttachmentPdfRenderTask = null;
+    }
+  };
+  if (immediate) await paint();
+  else attachmentPdfRenderTimer = setTimeout(() => { paint().catch(console.error); }, 180);
 }
 
 function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
@@ -14071,6 +14110,7 @@ function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
   stage.style.width = `${Math.max(scroller.clientWidth, displayWidth + stagePadding)}px`;
   stage.style.height = `${Math.max(scroller.clientHeight, displayHeight + stagePadding)}px`;
   updateAttachmentPdfViewerUi();
+  repaintAttachmentPdfAtZoom();
   const activeAttachment = activePdfAttachments[activePdfIndex];
   ensureAnnotationSurface({
     host: stage,
