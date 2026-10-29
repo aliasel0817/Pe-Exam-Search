@@ -4341,6 +4341,7 @@ let referencePdfQualityPending = false;
 // Short-lived OAuth access token stays in memory. Never persist tokens in storage.
 let referencePdfDriveToken = '';
 let referencePdfDriveTokenExpiry = 0;
+let referencePdfDriveAutoBlocked = false; // Stop repeating API errors on every page after one rejected read.
 const REFERENCE_PDF_ZOOM_MIN = 0.5;
 const REFERENCE_PDF_ZOOM_MAX = 10;
 const REFERENCE_PDF_ZOOM_STEP = 0.25;
@@ -13228,7 +13229,7 @@ function resetReferencePdfHighQualityRenderer() {
 }
 
 function hasReferencePdfDriveToken() {
-  return Boolean(referencePdfDriveToken && referencePdfDriveTokenExpiry > Date.now() + 30000);
+  return Boolean(!referencePdfDriveAutoBlocked && referencePdfDriveToken && referencePdfDriveTokenExpiry > Date.now() + 30000);
 }
 
 function requestReferencePdfDriveToken() {
@@ -13311,6 +13312,31 @@ async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = refer
   else referencePdfRenderTimer = setTimeout(() => { paint().catch(console.warn); }, 180);
 }
 
+async function describeReferencePdfDriveError(response) {
+  let reason = '';
+  let detail = '';
+  try {
+    const body = await response.json();
+    reason = String(body?.error?.errors?.[0]?.reason || body?.error?.details?.[0]?.reason || body?.error?.status || '');
+    detail = String(body?.error?.message || '').slice(0, 240);
+  } catch (_) { /* Google API may return a non-JSON error. */ }
+  // Keep diagnostic context in developer tools, never log the OAuth token or full PDF URL.
+  console.warn('PDF 원본 Google API 응답:', response.status, reason, detail);
+  if (response.status === 401) return new Error('원본 PDF 인증이 만료되었습니다(401). 고화질을 다시 눌러 로그인하세요.');
+  if (response.status === 403) {
+    if (/accessNotConfigured|SERVICE_DISABLED|API_DISABLED/i.test(reason + detail)) {
+      return new Error('Google Drive API가 비활성화되어 PDF 원본을 읽지 못했습니다(403).');
+    }
+    if (/insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientFilePermissions/i.test(reason + detail)) {
+      return new Error('현재 Google 계정 또는 OAuth 권한으로 PDF 원본에 접근할 수 없습니다(403).');
+    }
+    return new Error('원본 PDF 접근 거부(403). Drive API 사용 설정 및 승인한 Google 계정을 확인하세요.');
+  }
+  if (response.status === 404) return new Error('원본 PDF에 접근할 수 없습니다(404). 파일 연결과 공유 설정을 확인하세요.');
+  if (response.status === 429) return new Error('Google Drive 조회 한도를 초과했습니다(429). 잠시 후 다시 시도하세요.');
+  return new Error('Google Drive 원본 PDF 조회 실패 (HTTP ' + response.status + ')');
+}
+
 async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
   if (!page || !hasReferencePdfDriveToken() || loadSerial !== referencePdfLoadSerial) return;
   referencePdfQualityPending = true;
@@ -13326,8 +13352,11 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
         }),
     ]);
     if (!response.ok) {
-      if (response.status === 401) { referencePdfDriveToken = ''; referencePdfDriveTokenExpiry = 0; }
-      throw new Error('Google Drive 원본 PDF 조회 실패 (HTTP ' + response.status + ')');
+      // A denied API call must not be retried automatically on every next/previous page.
+      referencePdfDriveAutoBlocked = true;
+      referencePdfDriveToken = '';
+      referencePdfDriveTokenExpiry = 0;
+      throw await describeReferencePdfDriveError(response);
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
@@ -13341,6 +13370,7 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
     }
     activeReferencePdfDocument = doc;
     activeReferencePdfPage = await doc.getPage(1); // Each registered source page is a one-page PDF.
+    referencePdfDriveAutoBlocked = false;
     if (loadSerial !== referencePdfLoadSerial) return;
     await repaintReferencePdfAtZoom({ immediate: true, loadSerial });
     if (!activeReferencePdfVectorReady && loadSerial === referencePdfLoadSerial) {
@@ -13367,6 +13397,8 @@ async function enableReferencePdfHighQuality() {
   referencePdfQualityPending = true;
   updateReferencePdfZoomUi();
   try {
+    // Explicit click permits retry after a failure; never retry automatically without it.
+    referencePdfDriveAutoBlocked = false;
     await requestReferencePdfDriveToken();
     if (serial === referencePdfLoadSerial) await loadReferencePdfHighQuality(page, serial);
   } catch (error) {
