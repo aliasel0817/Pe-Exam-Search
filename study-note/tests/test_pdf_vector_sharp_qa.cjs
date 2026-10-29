@@ -40,6 +40,9 @@ assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\.is-
 assert.match(functionSource('renderActiveReferencePdfImage'), /activeReferencePdfZoomFactor > 1\.001/);
 assert.match(functionSource('annotationStudySurface'), /activeReferencePdfVectorReady/);
 assert.match(functionSource('enableReferencePdfHighQuality'), /requestReferencePdfDriveToken\(\)/);
+assert.match(functionSource('loadReferencePdfHighQuality'), /referencePdfBackendSourceReady/);
+assert.match(functionSource('refreshReferencePdfBackendSourceCapability'), /health\.referencePdfContentReady === true/);
+assert.match(functionSource('fetchReferencePdfBytesFromServer'), /buildSignedGetUrl\(getApiUrl\(\), 'referencePdfContent'/);
 
 const render = harness(['computeAttachmentPdfRenderMetrics'], {});
 const page = { getViewport: ({ scale }) => ({ width: 600 * scale, height: 840 * scale }) };
@@ -91,6 +94,7 @@ async function testRealPdfBytesReachPdfJs() {
     referencePdfDriveToken: 'test-bearer',
     referencePdfDriveTokenExpiry: Date.now() + 3600000,
     referencePdfDriveAutoBlocked: false,
+    referencePdfBackendSourceReady: false,
     referencePdfQualityPending: false,
     referencePdfLoadSerial: 4,
     activeReferencePdfVectorReady: false,
@@ -110,7 +114,7 @@ async function testRealPdfBytesReachPdfJs() {
       return { ok: true, arrayBuffer: async () => Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 52]).buffer };
     },
   };
-  const h = harness(['loadReferencePdfHighQuality'], ctx);
+  const h = harness(['fetchReferencePdfBytesFromDrive', 'describeReferencePdfDriveError', 'loadReferencePdfHighQuality'], ctx);
   await h.loadReferencePdfHighQuality({ driveFileId: 'verified-file-id' }, 4);
   assert.match(url, /www\.googleapis\.com\/drive\/v3\/files\/verified-file-id\?alt=media/);
   assert.equal(authorization, 'Bearer test-bearer');
@@ -183,6 +187,7 @@ async function testForbiddenDriveDoesNotSpamNextPages() {
     referencePdfDriveToken: 'temporary-token',
     referencePdfDriveTokenExpiry: Date.now() + 3600000,
     referencePdfDriveAutoBlocked: false,
+    referencePdfBackendSourceReady: false,
     referencePdfQualityPending: false,
     referencePdfLoadSerial: 4,
     activeReferencePdfVectorReady: false,
@@ -199,7 +204,8 @@ async function testForbiddenDriveDoesNotSpamNextPages() {
       json: async () => ({ error: { status: 'PERMISSION_DENIED', errors: [{ reason: 'insufficientPermissions' }] } }),
     }),
   };
-  const h = harness(['hasReferencePdfDriveToken', 'describeReferencePdfDriveError', 'loadReferencePdfHighQuality'], ctx);
+  const h = harness(['hasReferencePdfDriveToken', 'describeReferencePdfDriveError',
+    'fetchReferencePdfBytesFromDrive', 'loadReferencePdfHighQuality'], ctx);
   assert.equal(h.hasReferencePdfDriveToken(), true);
   await h.loadReferencePdfHighQuality({ driveFileId: 'synthetic-id' }, 4);
   assert.equal(ctx.referencePdfDriveAutoBlocked, true, '403 must disable automatic retries');
