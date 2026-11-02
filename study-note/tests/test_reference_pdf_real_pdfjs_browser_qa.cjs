@@ -53,7 +53,8 @@ const optionalDirectory = process.env.PDF_QA_FIXTURES_DIR;
 if (optionalDirectory) {
   for (const [key, name, sourceType, pageToken] of [
     ['textbook', 'MG_0187.pdf', '교재', 'MG:187'],
-    ['subnote', 'SW_0010.pdf', '서브노트', 'SW:10']
+    ['subnote', 'SW_0010.pdf', '서브노트', 'SW:10'],
+    ['subnote-sw12', 'SW_0012.pdf', '서브노트', 'SW:12']
   ]) {
     const file = path.join(optionalDirectory, name);
     assert(fs.existsSync(file), 'Private PDF fixture missing: ' + name);
@@ -152,6 +153,7 @@ async function verify(browser, fixture, device) {
           vectorVisible: getComputedStyle(canvas).display === 'block',
           previewHidden: getComputedStyle(image).display === 'none',
           vectorReady: activeReferencePdfVectorReady,
+          sourceStatus: document.getElementById('referencePdfSourceStatus')?.textContent,
         };
       };
       try {
@@ -189,6 +191,7 @@ async function verify(browser, fixture, device) {
     const label = fixture.key + '/' + device.label;
     const { first, at275, at400, back } = result;
     assert(first.vectorReady && first.vectorVisible && first.previewHidden, label + ' first paint missing');
+    assert.equal(first.sourceStatus, '원본 PDF.js', label + ' status falsely claims a preview');
     assert(first.renderWidth >= first.scrollerWidth - 40, label + ' not sharp at width-fit');
     assert(Math.abs(first.displayWidth - first.scrollerWidth) < 40, label + ' not width-fit');
     assert(first.mediaLeft >= first.viewportLeft - 4 && first.mediaRight <= first.viewportRight + 4,
@@ -334,7 +337,8 @@ async function verifyAttachment(browser, fixture, device) {
     const tablet = { label: 'tablet', width: 820, height: 1024, dpr: 2 };
     const phone = { label: 'phone', width: 390, height: 844, dpr: 2 };
     for (const fixture of fixtures) {
-      const devices = fixture.key === 'synthetic' ? [desktop, tablet, phone] : [desktop];
+      const devices = fixture.key === 'synthetic' ? [desktop, tablet, phone]
+        : fixture.key === 'subnote-sw12' ? [desktop, tablet] : [desktop];
       for (const device of devices) await verify(browser, fixture, device);
       // This exercises the separate attachment-PDF viewer with the same real
       // PDF.js engine and local bytes, without using the production media API.
