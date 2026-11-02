@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko" data-local-mode="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>PDF 암호 및 편집 제한 해제 | 로컬 브라우저 도구</title>
+<style>
+  :root { --ink:#18263b;--muted:#66788a;--navy:#18355b;--blue:#3466dd;--blue2:#eaf0ff;--stroke:#dde5ef;--page:#f4f7fb;--good:#16714e;--danger:#b33936;--surface:#fff; }
+  *{box-sizing:border-box} html{scroll-behavior:smooth} body{font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;margin:0;color:var(--ink);background:var(--page);line-height:1.58;-webkit-font-smoothing:antialiased}
+  button,input{font:inherit} button{cursor:pointer} button:disabled{cursor:not-allowed;opacity:.5} a{color:var(--blue)}
+  .top{background:linear-gradient(126deg,#18375b 0%,#244d7d 70%,#34619b 100%);padding:35px 25px 62px;color:#fff}
+  .wrap{max-width:870px;margin:0 auto}.topline{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:27px;flex-wrap:wrap}
+  .brand{font-weight:750;letter-spacing:-.03em;display:flex;align-items:center;gap:10px;font-size:15px}.brand-icon{width:35px;height:35px;border-radius:10px;display:grid;place-items:center;background:#fff2;color:#fff}
+  .mini-pill{border:1px solid #ffffff65;background:#ffffff16;border-radius:99px;padding:5px 11px;font-size:12px;color:#edf4ff}
+  .top h1{font-size:clamp(26px,5vw,36px);line-height:1.28;letter-spacing:-.045em;margin:0 0 13px;font-weight:800}
+  .lead{font-size:15px;max-width:650px;color:#e0eafa;margin:0;line-height:1.8}
+  .stack{max-width:870px;margin:-35px auto 50px;padding:0 20px}
+  .panel{background:var(--surface);border:1px solid var(--stroke);border-radius:19px;box-shadow:0 12px 40px #2036510e;padding:30px;margin-bottom:17px}
+  .section{display:flex;align-items:center;gap:11px;margin:0 0 17px}.num{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--blue2);color:var(--blue);font-weight:800;font-size:14px;flex:none}.section h2{font-size:18px;letter-spacing:-.03em;margin:0;font-weight:750}
+  .drop{border:2px dashed #b7c9e4;background:#f8fbff;border-radius:14px;padding:32px 18px;text-align:center;transition:.2s ease;outline:none}
+  .drop:hover,.drop:focus-visible,.drop.drag{background:#edf4ff;border-color:var(--blue)} .drop svg{display:block;margin:0 auto 10px;color:#4b75c6}.drop b{display:block;font-size:15px;margin-bottom:3px}.hint{font-size:13px;color:var(--muted);line-height:1.7;margin:8px 0 0}
+  .choose{border:1px solid #c8d7f2;color:#24529b;background:#fff;border-radius:9px;min-height:37px;padding:6px 15px;font-size:13px;font-weight:700;margin-top:15px}
+  .file-row{margin-top:13px;display:none;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border:1px solid #d4dff0;background:#f7faff;border-radius:12px;flex-wrap:wrap}
+  .file-row.show{display:flex} .file-row .name{font-weight:700;font-size:14px;overflow-wrap:anywhere;min-width:0}.file-row small{display:block;color:var(--muted);font-weight:400}.file-row button{border:0;background:none;color:#44608a;font-weight:700;padding:6px 7px}
+  .field{display:block;font-size:13px;font-weight:760;margin-bottom:9px}.input-row{display:flex;gap:9px;align-items:center}.input-row input{flex:1;min-width:0;height:48px;border:1px solid #c8d4e4;border-radius:10px;padding:0 15px;background:#fff;font-size:16px;color:var(--ink)}.input-row input:focus{outline:3px solid #dce8ff;border-color:var(--blue)}
+  .eye{height:48px;padding:0 15px;background:#fff;border:1px solid #c8d4e4;border-radius:10px;white-space:nowrap;color:#35567e;font-size:13px;font-weight:700}
+  .check-note{margin-top:16px;padding:12px 14px;background:#f4f8fd;border-radius:10px;font-size:12px;color:#52667f}
+  .run{width:100%;min-height:53px;background:#3065d5;color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:750;margin-top:20px;box-shadow:0 5px 12px #2d5dc820}
+  .run:not(:disabled):hover{background:#244faa}.status{margin-top:15px;border-radius:12px;padding:13px 15px;font-size:13px;display:none;line-height:1.7;overflow-wrap:anywhere}.status.show{display:block}.status.info{background:#edf4ff;color:#28589b}.status.error{background:#fff0ee;color:#9c322c}.status.success{background:#e8f7f0;color:#116141}
+  .progress{height:6px;border-radius:20px;background:#dce5f2;overflow:hidden;margin-top:10px;display:none}.progress.show{display:block}.progress span{display:block;height:100%;width:30%;background:#3466dd;border-radius:20px;animation:slide 1.2s linear infinite}@keyframes slide{from{transform:translateX(-110%)}to{transform:translateX(400%)}}
+  .success-result{display:none;margin-top:22px;border-top:1px solid #e8eef5;padding-top:22px}.success-result.show{display:block}.success-title{font-size:18px;font-weight:800;color:#126345;margin-bottom:8px}.result-list{font-size:13px;color:#415671;line-height:1.9;margin:9px 0 16px;padding-left:21px}
+  .download{width:100%;min-height:52px;background:#15845c;color:#fff;font-size:15px;font-weight:800;border:none;border-radius:12px}.download:hover{background:#106d4b}
+  .subtle{margin-top:12px;text-align:center;font-size:12px;color:var(--muted)} .banner{display:flex;align-items:start;gap:12px;background:#eaf3f1;border:1px solid #d5e8e3;padding:17px 19px;border-radius:14px;font-size:13px;color:#2c6156;margin-bottom:18px}.banner svg{flex:none;margin-top:2px}
+  .guide{background:#fff;border:1px solid var(--stroke);border-radius:17px;padding:23px 28px}.guide h2{font-size:17px;margin:0 0 10px}.guide ol{padding-left:21px;margin:0;color:#415368;font-size:13px;line-height:2.1}.guide p{font-size:12px;color:#627387;margin:11px 0 0}.footer{font-size:11px;color:#8390a1;text-align:center;margin:26px auto 0;line-height:1.9}.footer a{color:#4e6d95}
+  @media(max-width:540px){.top{padding:22px 22px 62px}.topline{margin-bottom:20px}.top h1{font-size:27px}.stack{padding:0 12px}.panel{padding:21px 17px;border-radius:15px}.drop{padding:24px 10px}.guide{padding:20px 18px}.banner{padding:15px 14px}}
+  @media(prefers-reduced-motion:reduce){.progress span{animation:none;width:100%}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="topline"><div class="brand"><span class="brand-icon" aria-hidden="true">▣</span> PDF 문서 도구</div><div class="mini-pill">한글 웹 프로그램 · v1.0</div></div>
+  <h1>PDF 암호 및<br>편집 제한 해제</h1>
+  <p class="lead">알고 있는 <strong>문서 열기 암호</strong>만 입력하세요. 문서 열기 암호와 편집 제한을 모두 제거한 새 PDF 파일을 다운로드할 수 있습니다.</p>
+</div></header>
+<main class="stack">
+  <div class="banner"><svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/></svg><div><strong>파일 및 암호는 외부 서버에 업로드하지 않습니다.</strong><br>PDF는 기본적으로 브라우저에서 처리합니다. HTML만 실행하는 경우 PDF 처리 라이브러리를 불러오기 위한 <strong>인터넷 연결이 필요</strong>합니다. 보조 실행 방식에서는 PC 내부의 로컬 서버에서 처리합니다.</div></div>
+  <div class="panel">
+    <div class="section"><span class="num">1</span><h2>암호가 걸린 PDF 파일 선택</h2></div>
+    <input id="pdfInput" type="file" accept=".pdf,application/pdf" hidden />
+    <div id="dropzone" class="drop" role="button" tabindex="0" aria-label="PDF 파일 선택 또는 끌어다 놓기">
+      <svg width="38" height="38" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>
+      <b>PDF 파일을 이곳에 끌어다 놓으세요</b>
+      <div class="hint">또는 아래 버튼으로 파일을 선택하세요.</div>
+      <button type="button" id="choose" class="choose">PDF 파일 찾아보기</button>
+    </div>
+    <div id="fileRow" class="file-row" aria-live="polite"><div style="flex:1;min-width:0"><div id="fileName" class="name"></div><small id="fileSize"></small></div><button type="button" id="removeFile">선택 취소</button></div>
+  </div>
+  <div class="panel">
+    <div class="section"><span class="num">2</span><h2>문서 열기 암호 입력</h2></div>
+    <label class="field" for="password">현재 PDF를 열 때 사용하는 암호</label>
+    <div class="input-row"><input id="password" type="password" placeholder="문서 열기 암호를 입력하세요" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go"/><button id="togglePw" class="eye" type="button" aria-label="암호 표시">암호 표시</button></div>
+    <div class="check-note">편집 암호를 몰라도 됩니다. 암호를 검색하거나 추측하지 않고, 이미 알고 있는 문서 열기 암호로 새 사본을 만듭니다.</div>
+    <button class="run" type="button" id="start" disabled>암호 및 편집 제한 해제하기</button>
+    <div id="progress" class="progress" aria-hidden="true"><span></span></div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <div id="result" class="success-result" aria-live="polite">
+      <div class="success-title">✓ 편집용 PDF 생성이 완료되었습니다.</div>
+      <ul class="result-list"><li>문서 열기 암호 제거</li><li>PDF 편집 제한 제거</li><li>원본 PDF는 변경되지 않음</li></ul>
+      <button type="button" class="download" id="download">새 PDF 다운로드</button>
+      <div class="subtle" id="outputName"></div>
+    </div>
+  </div>
+  <section class="guide" aria-label="사용 방법"><h2>처음 사용하시나요?</h2><ol><li><b>PDF 파일 찾아보기</b>로 원본을 선택합니다.</li><li><b>문서 열기 암호</b>를 입력합니다.</li><li><b>암호 및 편집 제한 해제하기</b>를 누릅니다.</li><li><b>새 PDF 다운로드</b>를 눌러 편집용 파일을 저장합니다.</li></ol><p>새 파일은 암호 없이 열립니다. 서명·일부 양식·첨부 파일 등 특수 PDF 기능은 변환 과정에서 달라질 수 있으므로 결과를 확인하세요. 저작권자이거나 편집 권한이 있는 문서에 사용하세요.</p></section>
+  <footer class="footer">HTML + WebAssembly · PDF 처리 엔진: <a href="https://github.com/fayazara/pdfstudio" target="_blank" rel="noopener noreferrer">pdfstudio (qpdf)</a> · 원본 유지 · 암호 저장 없음</footer>
+</main>
+<script type="module">
+  const $ = id => document.getElementById(id);
+  const MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfstudio@0.4.0/dist/index.js';
+  const WASM_URL = 'https://cdn.jsdelivr.net/npm/pdfstudio@0.4.0/dist/wasm/qpdf.wasm';
+  let selectedFile = null;
+  let output = null;
+  let enginePromise = null;
+  let busy = false;
+  const IS_LOCAL = document.documentElement.dataset.localMode === 'yes' && location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost');
+  const LOCAL_TOKEN = '__LOCAL_TOKEN__';
+  const dropzone = $('dropzone');
+  function safeName(name) { return name.replace(/\.pdf$/i,'').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'_').slice(0,140) + '_편집가능.pdf'; }
+  function infoFileSize(bytes) { return bytes >= 1024*1024 ? `${(bytes/(1024*1024)).toFixed(2)} MB` : `${Math.max(1,Math.ceil(bytes/1024))} KB`; }
+  function setStatus(message, type='info') { const el=$('status'); el.textContent=message;el.className='status show '+type; }
+  function clearStatus(){ $('status').textContent='';$('status').className='status'; }
+  function clearOutput(){output=null;$('result').classList.remove('show');$('outputName').textContent='';}
+  function setBusy(value){busy=value;$('start').disabled = value || !selectedFile || !$('password').value;$('pdfInput').disabled=value;$('password').disabled=value;$('choose').disabled=value;$('removeFile').disabled=value;$('progress').classList.toggle('show',value);}
+  function chooseFile(file){if(busy) return; clearOutput();clearStatus(); if(!file){selectedFile=null;$('fileRow').classList.remove('show');$('start').disabled=true;return;}
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {setStatus('PDF 형식의 파일만 선택해주세요.','error');return;}
+    selectedFile=file;$('fileName').textContent=file.name;$('fileSize').textContent=infoFileSize(file.size);$('fileRow').classList.add('show');$('start').disabled=!$('password').value;
+    if(file.size>100*1024*1024) setStatus('파일이 큽니다. 브라우저 메모리에 따라 처리에 시간이 걸리거나 실패할 수 있습니다.','info');
+  }
+  dropzone.addEventListener('click',event=>{if(event.target.id!=='choose')$('pdfInput').click();});
+  dropzone.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();$('pdfInput').click();}});
+  $('choose').addEventListener('click',event=>{event.stopPropagation();$('pdfInput').click();});
+  $('pdfInput').addEventListener('change',event=>chooseFile(event.target.files?.[0]));
+  $('removeFile').addEventListener('click',()=>{chooseFile(null);$('pdfInput').value='';$('password').value='';});
+  ['dragenter','dragover'].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.add('drag');}));
+  ['dragleave','dragend','drop'].forEach(ev=>dropzone.addEventListener(ev,e=>{e.preventDefault();dropzone.classList.remove('drag');}));
+  dropzone.addEventListener('drop',e=>{const file=e.dataTransfer?.files?.[0];if(file)chooseFile(file);});
+  $('password').addEventListener('input',()=>{$('start').disabled=busy||!selectedFile||!$('password').value;clearOutput();if($('status').classList.contains('error'))clearStatus();});
+  $('password').addEventListener('keydown',e=>{if(e.key==='Enter'&&!$('start').disabled)$('start').click();});
+  $('togglePw').addEventListener('click',()=>{const show=$('password').type==='password';$('password').type=show?'text':'password';$('togglePw').textContent=show?'암호 숨기기':'암호 표시';$('togglePw').setAttribute('aria-label',show?'암호 숨기기':'암호 표시');});
+  async function loadEngine(){
+    if (!enginePromise){
+      enginePromise=import(MODULE_URL).then(mod=>mod.createPdfToolkit({wasmUrl:WASM_URL})).catch(e=>{enginePromise=null;throw new Error('PDF 처리 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침해 주세요. ('+(e?.message||'연결 실패')+')');});
+    }
+    return enginePromise;
+  }
+  async function run(){if(busy||!selectedFile) return;const password=$('password').value;if(!password){setStatus('문서 열기 암호를 입력해주세요.','error');return;}
+    clearOutput();setBusy(true);setStatus(IS_LOCAL?'PC 내부의 로컬 PDF 처리 엔진을 준비합니다.':'PDF 처리 엔진을 준비하고 있습니다. 인터넷 연결이 필요합니다.');
+    try{
+      const file=selectedFile;
+      const head=new Uint8Array(await file.slice(0,1024).arrayBuffer());
+      const header=String.fromCharCode(...head);
+      if(!header.includes('%PDF-'))throw new Error('파일에서 정상적인 PDF 형식을 확인하지 못했습니다. PDF 파일인지 확인해주세요.');
+      let bytes;
+      if (IS_LOCAL) {
+        setStatus('내 PC의 로컬 처리 엔진에서 암호를 확인하고 편집 제한을 제거하고 있습니다.');
+        const form = new FormData();
+        form.append('file', file, file.name);
+        form.append('password', password);
+        const response = await fetch('/api/unlock', { method: 'POST', body: form, headers: {'X-Local-Token': LOCAL_TOKEN}, cache: 'no-store' });
+        if (!response.ok) {
+          let errorMsg = 'PDF를 처리하지 못했습니다.';
+          try { errorMsg = (await response.json()).error || errorMsg; } catch {}
+          throw new Error(errorMsg);
+        }
+        bytes = new Uint8Array(await response.arrayBuffer());
+      } else {
+        const pdf = await loadEngine();
+        setStatus('문서 열기 암호를 확인하고, 열기 암호와 편집 제한을 제거하고 있습니다.');
+        // pdfstudio delegates password verification and decryption to qpdf WebAssembly.
+        bytes = await pdf.unlock(file, {password});
+        if (await pdf.isEncrypted(bytes)) throw new Error('결과 PDF에 암호화 정보가 남아 있어 저장을 중단했습니다.');
+      }
+      if(!(bytes instanceof Uint8Array)||bytes.byteLength<10)throw new Error('PDF 출력 파일을 생성하지 못했습니다.');
+      if (String.fromCharCode(...bytes.slice(0,8)).indexOf('%PDF-') !== 0) throw new Error('결과가 정상적인 PDF 파일이 아닙니다.');
+      output={bytes:bytes.slice(),name:safeName(file.name)};
+      $('password').value='';
+      $('start').disabled=true;
+      $('outputName').textContent=`다운로드 파일명: ${output.name} (${infoFileSize(output.bytes.length)})`;
+      $('result').classList.add('show');
+      setStatus('완료되었습니다. 아래의 새 PDF 다운로드 버튼을 눌러 파일을 저장해주세요.','success');
+    } catch(err){
+      const message=String(err?.message||'');
+      const passwordError=err?.name==='PdfPasswordError'|| /invalid password|incorrect password|wrong password|password supplied is incorrect|invalid_password|password is incorrect|supplied password/i.test(message);
+      setStatus(passwordError?'문서 열기 암호가 일치하지 않습니다. 입력한 암호를 확인하고 다시 시도해주세요.':message||'PDF 처리 중 오류가 발생했습니다. 다른 브라우저에서 시도해주세요.','error');
+    } finally {setBusy(false);if(output)$('start').disabled=true;}
+  }
+  if (IS_LOCAL) { const banner=document.querySelector('.banner div'); banner.innerHTML='<strong>PC 내부에서만 PDF를 처리합니다.</strong><br>로컬 서버 방식으로 실행 중입니다. 문서와 암호는 외부 네트워크로 전송되지 않으며, PDF 처리를 위한 인터넷 연결도 필요하지 않습니다.'; }
+  $('start').addEventListener('click',run);
+  $('download').addEventListener('click',()=>{if(!output)return;const blob=new Blob([output.bytes],{type:'application/pdf'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=output.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);});
+</script>
+</body>
+</html>
