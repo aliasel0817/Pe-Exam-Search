@@ -1,0 +1,27 @@
+diff --git a/Code.js b/Code.js
+--- a/Code.js
++++ b/Code.js
+@@ -432,7 +432,14 @@ function doGet(e) {
+       const verified = validateSignedGet_(params, ['ACTIVE']);
+       return jsonOutput_(buildReferencePdfRegistrationPlan_(verified.data));
+     }
+-    if (action === 'referencepdfcontent') return jsonOutput_(buildReferencePdfContentPayload_(params.sourceType, params.pageToken));
++    if (action === 'referencepdfcontent') {
++      const verified = validateSignedGet_(params, ['ACTIVE']);
++      const { ss } = getStudySheet_();
++      const pageFilesSheet = ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_FILE_SHEET_NAME);
++      return jsonOutput_(readReferencePdfPageForSignedGet_(
++        { authenticated: true, status: verified.status }, pageFilesSheet, verified.data
++      ));
++    }
+     if (action === 'mediacontent') return jsonOutput_(buildMediaContentPayload_(params.attachmentId));
+     if (action === 'learningstates') {
+       validateSignedGet_(params, ['ACTIVE']);
+@@ -536,6 +543,7 @@ function buildHealth_() {
+     pdfPageLinkCount: sheetDataRowCount_(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_LINK_SHEET_NAME)),
+     pdfPageFileSheetReady: Boolean(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_FILE_SHEET_NAME)),
+     pdfPageFileCount: sheetDataRowCount_(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_FILE_SHEET_NAME)),
++    referencePdfContentReady: Boolean(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_FILE_SHEET_NAME) && typeof readReferencePdfPageForSignedGet_ === 'function'),
+     pdfPageKeySheetReady: Boolean(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_KEY_SHEET_NAME)),
+     pdfPageKeyCount: sheetDataRowCount_(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_KEY_SHEET_NAME)),
+     pdfPageRelationSheetReady: Boolean(ss.getSheetByName(STUDY_NOTE_CONFIG.PDF_PAGE_RELATION_SHEET_NAME)),
