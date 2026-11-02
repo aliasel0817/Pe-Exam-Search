@@ -156,6 +156,7 @@ async function check(browser, width, height, label) {
           imageDisplay: getComputedStyle(fallbackImage).display,
           vectorDisplay: getComputedStyle(wrap.querySelector('.reference-pdf-vector-canvas')).display,
           sourceReady: referencePdfBackendSourceReady,
+          sourceStatus: document.getElementById('referencePdfSourceStatus')?.textContent,
           notes: notices.length,
           fileToken: activeReferencePdfCurrentPage.pageToken,
         };
@@ -189,7 +190,9 @@ async function check(browser, width, height, label) {
     assert.equal(Math.round(result.fitAgain.scrollLeft), 0);
     assert.equal(result.fallback.imageDisplay, 'block', label + ': fallback thumbnail must remain');
     assert.equal(result.fallback.vectorDisplay, 'none', label + ': failed PDF.js canvas should stay hidden');
-    assert.equal(result.fallback.sourceReady, false, label + ': broken server should not be automatically retried');
+    assert.equal(result.fallback.sourceReady, true, label + ': one failed page must not disable future signed PDF reads');
+    assert.equal(result.fallback.sourceStatus, '미리보기 · 원본 조회 실패',
+      label + ': original failure must be labeled rather than silently showing a thumbnail');
     assert(result.fallback.notes >= 1, label + ': load failure should be reported once');
     assert.equal(result.sourceReads, 2, label + ': expected one success and one explicit failure read');
     assert.deepEqual(errors, [], label + ': uncaught page errors');
