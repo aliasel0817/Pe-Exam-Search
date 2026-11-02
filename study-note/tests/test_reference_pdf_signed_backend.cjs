@@ -179,6 +179,8 @@ async function testFrontendCapabilityAndRead() {
     referencePdfBackendSourceCheckPromise: null,
     navigator: { onLine: true },
     hasActiveSecuritySession: () => true,
+    getSecuritySession: () => null,
+    refreshSecurityState: async () => false,
     getApiUrl: () => api,
     fetchHealth: async () => ({ok:true, referencePdfContentReady:false}),
     Date, console,
@@ -191,6 +193,16 @@ async function testFrontendCapabilityAndRead() {
   assert.equal(context.referencePdfBackendSourceReady, true);
   context.hasActiveSecuritySession = () => false;
   assert.equal(await sandbox.refreshReferencePdfBackendSourceCapability({force:true}), false);
+  let resumedSession = 0;
+  context.getSecuritySession = () => ({deviceId:'saved-test-device', sessionToken:'test-only'});
+  context.refreshSecurityState = async () => {
+    resumedSession++;
+    context.hasActiveSecuritySession = () => true;
+    return true;
+  };
+  assert.equal(await sandbox.refreshReferencePdfBackendSourceCapability({force:true}), true,
+    'A saved ACTIVE session must be refreshed before falling back to a thumbnail');
+  assert.equal(resumedSession, 1);
 
   const binary = Uint8Array.from([37,80,68,70,45,49,46,52]);
   const data = {sourceType:'교재',pageToken:'MG:187',driveFileId:'ignoredClientId'};
@@ -264,6 +276,7 @@ async function testPDFJsUsesServerWithoutDriveOAuth() {
     }),
     repaintReferencePdfAtZoom:async()=>{repainted++;ctx.activeReferencePdfVectorReady=true;},
     resetReferencePdfHighQualityRenderer:()=>{},
+    setReferencePdfSourceStatus:()=>{},
     showToast:message=>errors.push(message),
     els:{referencePdfViewerModal:{classList:{contains:()=>false}}},
     Date,

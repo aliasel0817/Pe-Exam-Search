@@ -1283,6 +1283,10 @@ button { -webkit-tap-highlight-color: transparent; }
   font-size: 1.1rem;
 }
 .reference-pdf-bottom-zoom .pdf-tool-fit { min-width: 48px; }
+.reference-pdf-source-status { max-width: 190px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .71rem; font-weight: 750; color: #475467; }
+.reference-pdf-source-status[data-mode="original"] { color: #146c43; }
+.reference-pdf-source-status[data-mode="preview"] { color: #9a4f12; }
+@media (max-width: 600px) { .reference-pdf-source-status { max-width: 98px; font-size: .65rem; } }
 .reference-pdf-bottom-actions > .btn.primary { grid-area: close; justify-self: end; }
 .reference-pdf-load-error {
   min-height: 100%;
@@ -2872,6 +2876,7 @@ button { -webkit-tap-highlight-color: transparent; }
           <span id="referencePdfZoomLabel" class="pdf-tool-zoom">100%</span>
           <button id="referencePdfZoomInBtn" class="btn pdf-zoom-step" type="button" aria-label="PDF 확대">＋</button>
           <button id="referencePdfZoomFitBtn" class="btn pdf-tool-fit" type="button">맞춤</button>
+          <span id="referencePdfSourceStatus" class="reference-pdf-source-status" data-mode="preview" role="status" aria-live="polite">미리보기</span>
         </div>
         <button id="closeReferencePdfViewerBottomBtn" class="btn primary" type="button">닫기</button>
       </div>
@@ -4270,7 +4275,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.20-pdf-auto-only';
+const APP_VERSION = '4.6.21-pdf-source-clarity';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -8957,10 +8962,20 @@ async function openReferencePdfViewer(sourceType) {
   // Once a compatible Apps Script deployment is present, automatically render the
   // actual one-page PDF in the existing viewer. Existing servers still use thumbnail.
   refreshReferencePdfBackendSourceCapability().then(ready => {
-    if (!ready || referencePdfQualityPending || activeReferencePdfVectorReady) return;
     if (els.referencePdfViewerModal.classList.contains('hidden')) return;
+    if (!ready) {
+      setReferencePdfSourceStatus('preview',
+        hasActiveSecuritySession() ? '미리보기 · 원본 서버 확인 필요' : '미리보기 · 신뢰기기 인증 필요',
+        hasActiveSecuritySession() ? '원본 PDF 서버 지원 여부를 확인할 수 없습니다.' :
+          '고화질 원본은 ACTIVE 신뢰기기 인증 후 자동 표시됩니다. 설정에서 신뢰기기를 확인해 주세요.');
+      return;
+    }
+    if (referencePdfQualityPending || activeReferencePdfVectorReady) return;
     if (activeReferencePdfCurrentPage) void loadReferencePdfHighQuality(activeReferencePdfCurrentPage, referencePdfLoadSerial);
-  }).catch(error => console.warn('PDF 서버 기능 확인 실패:', error));
+  }).catch(error => {
+    console.warn('PDF 서버 기능 확인 실패:', error);
+    setReferencePdfSourceStatus('preview', '미리보기 · 원본 확인 실패', error?.message || String(error));
+  });
 }
 
 function renderReferencePdfRegisteredOptions() {
@@ -13234,8 +13249,23 @@ function resetReferencePdfHighQualityRenderer() {
   referencePdfQualityPending = false;
 }
 
+function setReferencePdfSourceStatus(mode, label, detail = '') {
+  const indicator = document.getElementById('referencePdfSourceStatus');
+  if (!indicator) return;
+  indicator.dataset.mode = mode;
+  indicator.textContent = label;
+  indicator.title = detail || label;
+}
+
 async function refreshReferencePdfBackendSourceCapability({ force = false } = {}) {
-  if (!navigator.onLine || !hasActiveSecuritySession()) {
+  if (!navigator.onLine) {
+    referencePdfBackendSourceReady = false;
+    return false;
+  }
+  // A valid saved session may still be restoring when the viewer opens.
+  // Resolve it once before deciding that only the thumbnail is available.
+  if (!hasActiveSecuritySession() && getSecuritySession()) await refreshSecurityState();
+  if (!hasActiveSecuritySession()) {
     referencePdfBackendSourceReady = false;
     return false;
   }
@@ -13340,6 +13370,8 @@ async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = refer
           activeReferencePdfZoomFactor, window.devicePixelRatio || 1);
         if (Math.abs(current.renderScale - metrics.renderScale) > 0.001) repaintReferencePdfAtZoom();
       }
+      setReferencePdfSourceStatus('original', '원본 PDF.js',
+        '실제 PDF 원본 렌더링 · ' + canvas.width + '×' + canvas.height + 'px');
     } catch (error) {
       if (error?.name !== 'RenderingCancelledException') console.warn('서브노트 고화질 재렌더링 오류:', error);
     } finally {
@@ -13355,6 +13387,7 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
   // Never initiate separate Google Drive OAuth or request the disabled Drive API.
   if (!page || !referencePdfBackendSourceReady || loadSerial !== referencePdfLoadSerial) return;
   referencePdfQualityPending = true;
+  setReferencePdfSourceStatus('loading', '원본 PDF 불러오는 중');
   try {
     const [pdfjsLib, bytes] = await Promise.all([
       ensurePdfJsLoaded(),
@@ -13379,10 +13412,12 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
   } catch (error) {
     if (loadSerial === referencePdfLoadSerial) {
       console.warn('서브노트 원본 PDF 자동 렌더링 실패:', error);
-      referencePdfBackendSourceReady = false;
-      referencePdfBackendSourceCheckedAt = Date.now();
+      // A failed page must not disable every subsequent PDF for two minutes.
+      // Keep the backend capability; each new page gets a fresh signed request.
       if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
-      showToast(error?.message || 'PDF 고화질 자동 렌더링에 실패했습니다. 미리보기로 표시합니다.');
+      setReferencePdfSourceStatus('preview', '미리보기 · 원본 조회 실패',
+        error?.message || '등록된 원본 PDF를 불러오지 못했습니다.');
+      showToast(error?.message || 'PDF 원본 렌더링에 실패했습니다. 미리보기로 표시합니다.');
     }
   } finally {
     if (loadSerial === referencePdfLoadSerial) {
@@ -13418,6 +13453,7 @@ function bindReferencePdfViewerControls() {
 
 function renderReferencePdfFallback(page) {
   // Never leave the study-note viewer or reopen the obsolete embedded Drive UI.
+  if (!activeReferencePdfVectorReady) setReferencePdfSourceStatus('preview', '미리보기 · 이미지 연결 실패');
   const loading = els.referencePdfFrameWrap.querySelector('.reference-pdf-image-loading');
   if (loading) {
     loading.textContent = '페이지 미리보기를 불러오지 못했습니다. 연결 상태를 확인한 뒤 페이지를 다시 열어 주세요.';
@@ -13453,6 +13489,8 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   updateReferencePdfZoomUi();
   destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
   els.referencePdfFrameWrap.innerHTML = referencePdfViewerMarkup(page);
+  setReferencePdfSourceStatus(getSecuritySession() ? 'loading' : 'preview',
+    getSecuritySession() ? '원본 PDF 확인 중' : '미리보기 · 신뢰기기 인증 필요');
   bindReferencePdfViewerControls();
 
   const image = els.referencePdfFrameWrap.querySelector('.reference-pdf-preview-image');

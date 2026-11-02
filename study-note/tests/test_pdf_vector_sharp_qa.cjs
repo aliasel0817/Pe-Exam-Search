@@ -59,7 +59,7 @@ assert(capped.width * capped.height <= 20 * 1024 * 1024, 'Pixel cap exceeded');
 assert(Math.abs(b.width / b.height - 600 / 840) < .002, 'PDF aspect ratio changed');
 
 async function testNativeRepaintStaysInViewer() {
-  let renderWidth = 0, draws = 0, removed = 0, destroyed = 0, synced = 0, hiddenThumb = 0;
+  let renderWidth = 0, draws = 0, removed = 0, destroyed = 0, synced = 0, hiddenThumb = 0, sourceMode = '';
   const visible = {
     isConnected: true, width: 0, height: 0,
     classList: { add: name => assert.equal(name, 'is-rendered') },
@@ -98,6 +98,7 @@ async function testNativeRepaintStaysInViewer() {
     } },
     flushPendingAnnotationSaves: () => {},
     destroyAnnotationSurfacesWithin: target => { assert.equal(target, stage); destroyed++; },
+    setReferencePdfSourceStatus: mode => { sourceMode = mode; },
     renderActiveReferencePdfImage: ({ scheduleRender }) => {
       assert.equal(scheduleRender, false);
       synced++;
@@ -110,6 +111,7 @@ async function testNativeRepaintStaysInViewer() {
   assert.equal(draws, 1, 'Rendered vector bitmap must be copied to visible canvas');
   assert.equal(removed, 1, 'Thumbnail loading mask must disappear');
   assert.equal(hiddenThumb, 1, 'Thumbnail must be hidden after native render');
+  assert.equal(sourceMode, 'original', 'Actual PDF.js render must report original source');
   assert.equal(destroyed, 1, 'Old thumbnail annotation surface must be replaced');
   assert.equal(synced, 1, 'Annotation alignment must be restored on native canvas');
 }
