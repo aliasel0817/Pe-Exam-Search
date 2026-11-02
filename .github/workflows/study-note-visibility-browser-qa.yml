@@ -29,6 +29,17 @@ jobs:
           fc-match -f '%{family}\n' 'Noto Sans CJK KR'
       - name: Install temporary browser driver (no repository lockfile change)
         run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
+      - name: Fetch pinned PDF.js 3.11.174 for real canvas rendering QA
+        run: |
+          mkdir -p .qa-browser/pdfjs
+          curl --fail --location --silent --show-error --retry 3 \
+            https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js \
+            -o .qa-browser/pdfjs/pdf.min.js
+          curl --fail --location --silent --show-error --retry 3 \
+            https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js \
+            -o .qa-browser/pdfjs/pdf.worker.min.js
+          echo '5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946  .qa-browser/pdfjs/pdf.min.js' | sha256sum -c -
+          echo 'feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b  .qa-browser/pdfjs/pdf.worker.min.js' | sha256sum -c -
       - name: Run full-PWA DOM and responsive screen QA against synthetic topics
         env:
           CHROME_BIN: /usr/bin/google-chrome
@@ -44,6 +55,7 @@ jobs:
           node study-note/tests/test_image_upload_webp98_browser.cjs
           node study-note/tests/test_pdf_reference_fit_browser_qa.cjs
           node study-note/tests/test_reference_pdf_auto_backend_browser_qa.cjs
+          node study-note/tests/test_reference_pdf_real_pdfjs_browser_qa.cjs
       - name: Verify production read-only image mapping and media bytes (canary)
         run: node study-note/tests/test_live_image_readback_canary.cjs
           node study-note/tests/test_pdf_mobile_touch_pinch.cjs
