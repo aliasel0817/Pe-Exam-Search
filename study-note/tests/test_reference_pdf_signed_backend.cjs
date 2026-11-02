@@ -7,8 +7,10 @@ const assert = require('node:assert/strict');
 const backendText = fs.readFileSync(path.resolve(__dirname, '../backend/referencePdfContent.addon.gs'), 'utf8');
 new vm.Script(backendText, { filename: 'referencePdfContent.addon.gs' });
 const html = fs.readFileSync(path.resolve(__dirname, '../study-note.html'), 'utf8');
+assert(!html.includes('아래 [고화질]로 원본 PDF를 직접 불러올 수 있습니다.'),
+  'Removed manual high-quality button must never be suggested by preview fallback.');
 const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(v => v[1]).filter(Boolean);
-const code = scripts.join('\n');
+const code = scripts.join('\n').replace(/\r\n/g, '\n'); // Match function ends on Windows CRLF too.
 for (const s of scripts) new vm.Script(s);
 function extractFunction(name) {
   const match = new RegExp('^(?:async )?function ' + name + '\\(', 'm').exec(code);
