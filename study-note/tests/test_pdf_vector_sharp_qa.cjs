@@ -10,7 +10,7 @@ const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
   .map(match => match[1]).filter(code => code.trim());
 assert(scripts.length, 'Application inline script missing');
 scripts.forEach((s, i) => new vm.Script(s, { filename: 'study-note-inline-' + i + '.js' }));
-const source = scripts.join('\n');
+const source = scripts.join('\n').replace(/\r\n/g, '\n'); // Normalize Windows line endings for function extraction.
 function functionSource(name) {
   const re = new RegExp('^(?:async )?function ' + name + '\\(', 'm');
   const match = re.exec(source);
