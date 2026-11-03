@@ -13361,7 +13361,7 @@ async function fetchReferencePdfBytesFromServer(page) {
 }
 
 async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = referencePdfLoadSerial } = {}) {
-  if (M4_REFERENCE_DEV_ENABLED && m4ReferenceDocument) {
+  if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED && m4ReferenceDocument) {
     return m4RepaintReferencePdf({ immediate, loadSerial });
   }
   clearTimeout(referencePdfRenderTimer);
@@ -13419,7 +13419,9 @@ async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = refer
 }
 
 async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
-  if (M4_REFERENCE_DEV_ENABLED) return m4LoadReferencePdfHighQuality(page, loadSerial);
+  if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED) {
+    return m4LoadReferencePdfHighQuality(page, loadSerial);
+  }
   // Automatic source: only the existing ACTIVE-device signed Apps Script backend.
   // Never initiate separate Google Drive OAuth or request the disabled Drive API.
   if (!page || !referencePdfBackendSourceReady || loadSerial !== referencePdfLoadSerial) return;

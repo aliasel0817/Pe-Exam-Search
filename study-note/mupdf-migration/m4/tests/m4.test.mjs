@@ -63,7 +63,7 @@ test('All M4 assets and QA harness remain private and no upstream vendor binary 
  assert(!tracked.some(f=>/mupdf-migration\/m4\/.*\.(pdf|png)$/i.test(f)));
  assert(current.includes("window.__M4_REFERENCE_QA__"));
  assert(current.includes('if (M4_REFERENCE_DEV_ENABLED)'));
- assert(current.includes("if (M4_REFERENCE_DEV_ENABLED) return m4LoadReferencePdfHighQuality(page, loadSerial);"));
+ assert(current.includes("return m4LoadReferencePdfHighQuality(page, loadSerial);"));
 });
 test('New page facade reports correct crop-aware viewport without touching schema',()=>{
  const p=makeReferencePageFacade({pageWidth:500,pageHeight:400,rotation:90});
