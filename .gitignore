@@ -24,3 +24,6 @@ study-note/mupdf-migration/m2/dist/
 
 # M5 loopback-only synthetic QA outputs. Never commit screenshots or private data.
 **/.m5-private/
+
+# M6 local synthetic browser output; never publish private session artifacts.
+**/.m6-private/

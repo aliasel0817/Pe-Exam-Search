@@ -4420,6 +4420,9 @@ let attachmentPdfRenderSerial = 0;
 const M5_ATTACHMENT_DEV_ENABLED = typeof M4_REFERENCE_DEV_ENABLED !== 'undefined'
   && M4_REFERENCE_DEV_ENABLED
   && new URLSearchParams(window.location.search).get('m5-local') === '1';
+// M6 is opt-in only after both private M4/M5 renderers are enabled.
+const M6_DEV_ENABLED = M5_ATTACHMENT_DEV_ENABLED
+  && new URLSearchParams(window.location.search).get('m6-local') === '1';
 let m5AttachmentRuntimePromise = null;
 let m5AttachmentModule = null;
 let m5AttachmentDocument = null;
@@ -11513,6 +11516,7 @@ function noteAnnotationPenPointer(event) {
 
 function isLikelyAnnotationPalmContact(event) {
   if (event?.pointerType !== 'touch') return false;
+  if (M6_DEV_ENABLED && window.__M6_PERF__?.palmNearPen(event, annotationDigitalPenActive())) return true;
   const width = Number(event.width);
   const height = Number(event.height);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return false;
@@ -11559,6 +11563,8 @@ function installAnnotationInputHandlers(surface) {
     // draw, erase, select, or edit annotations on a phone.
     if (isPhoneGestureOnlyPdfSurface(surface)) return;
     noteAnnotationPenPointer(event);
+    // M6: ignore spurious stylus hover-generated pointerdown without contact.
+    if (M6_DEV_ENABLED && window.__M6_PERF__?.accidentalPenDown(event)) return;
     if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     // Touch and S Pen are independent inputs; reject broad hand-edge contacts
@@ -12937,6 +12943,15 @@ function referencePdfViewerMarkup(page) {
     `;
 }
 
+// Preserve the content point beneath the two fingers across DPR, crop and
+// screen rotation; this is a display-only operation, not an ink-data change.
+function m6ZoomAtFingerCenter(scroller, x, y, setZoom, factor) {
+  if (M6_DEV_ENABLED && window.__M6_PERF__) {
+    return window.__M6_PERF__.zoomAt(scroller, x, y, () => setZoom?.(factor));
+  }
+  return setZoom?.(factor);
+}
+
 function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5, maxZoom = 10 } = {}) {
   const pointers = new Map();
   const rejectedPalmPointers = new Set();
@@ -13089,7 +13104,10 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
         resetTouchBaseline(touches);
       }
       const ratio = touchDistance(touches) / Math.max(1, touchStartDistance);
-      setZoom?.(Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio)));
+      const nextZoom = Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio));
+      const focalX = (touches[0].clientX + touches[1].clientX) / 2;
+      const focalY = (touches[0].clientY + touches[1].clientY) / 2;
+      m6ZoomAtFingerCenter(scroller, focalX, focalY, setZoom, nextZoom);
     } else {
       if (touchMode !== 'pan') resetTouchBaseline(touches);
       scroller.scrollLeft = touchScrollLeft - (touches[0].clientX - touchStartX);
@@ -13160,7 +13178,9 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
       if (mode !== 'pinch') beginPinch();
       const ratio = pointDistance() / Math.max(1, pinchStartDistance);
       const nextZoom = Math.max(minZoom, Math.min(maxZoom, pinchStartZoom * ratio));
-      setZoom?.(nextZoom);
+      const positions = [...pointers.values()];
+      m6ZoomAtFingerCenter(scroller, (positions[0].x + positions[1].x) / 2,
+        (positions[0].y + positions[1].y) / 2, setZoom, nextZoom);
       event.preventDefault();
       return;
     }
@@ -13270,7 +13290,11 @@ function renderActiveReferencePdfImage({ preserveCenter = true, scheduleRender =
     }
   });
   if (vector && scheduleRender) repaintReferencePdfAtZoom();
-  if (vector && M4_REFERENCE_DEV_ENABLED && m4ReferenceDocument) m4ScheduleVisibleDetail();
+  if (vector && M4_REFERENCE_DEV_ENABLED && m4ReferenceDocument) {
+    if (M6_DEV_ENABLED && window.__M6_PERF__) {
+      window.__M6_PERF__.scheduleTile('reference', () => m4ScheduleVisibleDetail());
+    } else m4ScheduleVisibleDetail();
+  }
 }
 
 function resetReferencePdfHighQualityRenderer() {
@@ -13577,16 +13601,24 @@ async function m4RepaintReferencePdf({ immediate = false, loadSerial = reference
     if (!base) return;
     const fit = Math.max(0.01, Math.max(1, scroller.clientWidth - 28) / Math.max(1, base.width));
     const buffer = document.createElement('canvas');
+    const m6Plan = M6_DEV_ENABLED ? window.__M6_PERF__?.profile({zoom:activeReferencePdfZoomFactor}) : null;
+    const m6Start = M6_DEV_ENABLED ? performance.now() : 0;
     try {
       const result = await painter.renderInto(buffer,{
         pageNumber:1,fitScale:fit,zoom:activeReferencePdfZoomFactor,
-        dpr:Math.min(3,Math.max(1,window.devicePixelRatio || 1)),signal:abort.signal
+        dpr:m6Plan ? m6Plan.effectiveDpr(window.devicePixelRatio||1) : Math.min(3,Math.max(1,window.devicePixelRatio||1)),
+        signal:abort.signal,budget:m6Plan?.baseBudget
       });
       if (abort.signal.aborted || painter !== m4ReferenceDocument || loadSerial !== referencePdfLoadSerial
           || paintSerial !== referencePdfRenderSerial || !canvas.isConnected) return;
       canvas.width = buffer.width;
       canvas.height = buffer.height;
       canvas.getContext('2d', { alpha:false }).drawImage(buffer,0,0);
+      if (m6Plan) window.__M6_PERF__?.recordRender('reference',{
+        elapsedMs:performance.now()-m6Start,bytes:result.rgbaBytes,
+        pixelWidth:result.width,pixelHeight:result.height,
+        engine:painter.engine,budgetLimited:result.budgetLimited,zoom:activeReferencePdfZoomFactor,region:false,
+      });
       const firstPaint = !activeReferencePdfVectorReady;
       if (firstPaint) {
         flushPendingAnnotationSaves();
@@ -13649,17 +13681,26 @@ function m4ScheduleVisibleDetail() {
     const fit = Math.max(0.01, Math.max(1,scroller.clientWidth - 28) / Math.max(1,page.width));
     const abort = new AbortController();
     m4ReferenceTileAbort = abort;
+    const m6Plan = M6_DEV_ENABLED ? window.__M6_PERF__?.profile({zoom:activeReferencePdfZoomFactor}) : null;
+    const m6Started = M6_DEV_ENABLED ? performance.now() : 0;
     try {
       const tile = await painter.renderVisibleRegion({
         canvas,scroller,stage,pageNumber:1,fitScale:fit,
         zoom:activeReferencePdfZoomFactor,
-        dpr:Math.min(3,Math.max(1,window.devicePixelRatio||1)),signal:abort.signal
+        dpr:m6Plan ? m6Plan.effectiveDpr(window.devicePixelRatio||1) : Math.min(3,Math.max(1,window.devicePixelRatio||1)),
+        signal:abort.signal,budget:m6Plan?.tileBudget
       });
       if (!tile || abort.signal.aborted || serial !== m4ReferenceTileSerial
           || loadSerial !== referencePdfLoadSerial || painter !== m4ReferenceDocument) return;
       m4ReferenceModule.attachVisibleTile(stage,tile.tile);
       stage.dataset.m4TileEngine=tile.engine;
       stage.dataset.m4TileBytes=String(tile.output.rgbaBytes);
+      if(m6Plan)stage.dataset.m6TileZoom=String(activeReferencePdfZoomFactor);
+      if (m6Plan) window.__M6_PERF__?.recordRender('reference',{
+        elapsedMs:performance.now()-m6Started,bytes:tile.output.rgbaBytes,
+        pixelWidth:tile.output.width,pixelHeight:tile.output.height,engine:painter.engine,
+        budgetLimited:tile.budgetLimited,zoom:activeReferencePdfZoomFactor,region:true,
+      });
     } catch (error) {
       if (!abort.signal.aborted && error?.code !== 'ABORTED')
         console.warn('M4 가시 영역 타일 재렌더링 오류:',error);
@@ -13739,7 +13780,11 @@ function bindReferencePdfViewerControls() {
   const scroller = els.referencePdfFrameWrap.querySelector('.reference-pdf-pan-scroller');
   if (scroller) {
     installReferencePdfPanHandlers(scroller);
-    if (M4_REFERENCE_DEV_ENABLED) scroller.addEventListener('scroll', () => m4ScheduleVisibleDetail(), { passive: true });
+    if (M4_REFERENCE_DEV_ENABLED) scroller.addEventListener('scroll', () => {
+      if (M6_DEV_ENABLED && window.__M6_PERF__) {
+        window.__M6_PERF__.scheduleTile('reference', () => m4ScheduleVisibleDetail());
+      } else m4ScheduleVisibleDetail();
+    }, { passive: true });
   }
   updateReferencePdfZoomUi();
 }
@@ -15115,6 +15160,11 @@ if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLE
   const privateM5Script = document.createElement('script');
   privateM5Script.src = './mupdf-migration/m5/m5-attachment-ui.js';
   document.body.appendChild(privateM5Script);
+}
+if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
+  const privateM6Script = document.createElement('script');
+  privateM6Script.src = './mupdf-migration/m6/m6-runtime.js';
+  document.body.appendChild(privateM6Script);
 }
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>

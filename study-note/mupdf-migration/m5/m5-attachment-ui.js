@@ -129,7 +129,11 @@ async function m5LoadAttachmentPdfPage(pageNumber,{serial=attachmentPdfLoadSeria
     setZoom: value => setAttachmentPdfZoomFactor(value),
     minZoom:ATTACHMENT_PDF_ZOOM_MIN, maxZoom:ATTACHMENT_PDF_ZOOM_MAX,
   });
-  scroller.addEventListener('scroll',() => m5ScheduleAttachmentTile(),{passive:true});
+  scroller.addEventListener('scroll',() => {
+    if (M6_DEV_ENABLED && window.__M6_PERF__) {
+      window.__M6_PERF__.scheduleTile('attachment',()=>m5ScheduleAttachmentTile());
+    } else m5ScheduleAttachmentTile();
+  },{passive:true});
   try {
     const view = await doc.getPageView(bounded);
     if (!m5IsCurrent(serial,pageSerial) || doc !== m5AttachmentDocument) return;
@@ -208,12 +212,14 @@ async function m5RepaintAttachment({immediate=false,
     const base = page.getViewport({scale:1});
     const fit = Math.max(.01,Math.max(1,scroller.clientWidth-28)/Math.max(1,base.width));
     const buffer = document.createElement('canvas');
+    const m6Plan = M6_DEV_ENABLED ? window.__M6_PERF__?.profile({zoom:activeAttachmentPdfZoomFactor}) : null;
+    const m6Started = M6_DEV_ENABLED ? performance.now() : 0;
     try {
       const result = await doc.renderPage(buffer,{
         pageNumber:activeAttachmentPdfPageNumber,fitScale:fit,
         zoom:activeAttachmentPdfZoomFactor,
-        dpr:Math.min(3,Math.max(1,window.devicePixelRatio||1)),
-        signal:controller.signal,
+        dpr:m6Plan ? m6Plan.effectiveDpr(window.devicePixelRatio||1) : Math.min(3,Math.max(1,window.devicePixelRatio||1)),
+        signal:controller.signal,budget:m6Plan?.baseBudget,
       });
       if (controller.signal.aborted || !m5IsCurrent(loadSerial,pageSerial)
         || paintSerial!==attachmentPdfRenderSerial || doc!==m5AttachmentDocument
@@ -222,6 +228,11 @@ async function m5RepaintAttachment({immediate=false,
       const ctx = canvas.getContext('2d',{alpha:false});
       if (!ctx) throw new Error('첨부 PDF 출력 캔버스를 생성할 수 없습니다.');
       ctx.drawImage(buffer,0,0);
+      if (m6Plan) window.__M6_PERF__?.recordRender('attachment',{
+        elapsedMs:performance.now()-m6Started,bytes:result.rgbaBytes,
+        pixelWidth:result.width,pixelHeight:result.height,
+        engine:doc.engine,budgetLimited:result.budgetLimited,zoom:activeAttachmentPdfZoomFactor,region:false,
+      });
       m5AttachmentVectorReady = true;
       wrap.querySelector('.attachment-pdf-loading')?.remove();
       const label = doc.engine==='pdfjs'?'PDF.js 안전 복구':'MuPDF.js 고화질';
@@ -268,17 +279,26 @@ function m5ScheduleAttachmentTile() {
     const fit=Math.max(.01,Math.max(1,scroller.clientWidth-28)/Math.max(1,base.width));
     const controller=new AbortController();
     m5AttachmentTileAbort=controller;
+    const m6Plan=M6_DEV_ENABLED ? window.__M6_PERF__?.profile({zoom:activeAttachmentPdfZoomFactor}) : null;
+    const m6Started=M6_DEV_ENABLED ? performance.now() : 0;
     try {
       const tile=await doc.renderVisibleRegion({
         canvas,scroller,stage,pageNumber:activeAttachmentPdfPageNumber,fitScale:fit,
-        zoom:activeAttachmentPdfZoomFactor,dpr:Math.min(3,Math.max(1,window.devicePixelRatio||1)),
-        signal:controller.signal,
+        zoom:activeAttachmentPdfZoomFactor,
+        dpr:m6Plan ? m6Plan.effectiveDpr(window.devicePixelRatio||1) : Math.min(3,Math.max(1,window.devicePixelRatio||1)),
+        signal:controller.signal,budget:m6Plan?.tileBudget,
       });
       if (!tile || controller.signal.aborted || doc!==m5AttachmentDocument
           || !m5IsCurrent(loadSerial,pageSerial)||tileSerial!==m5AttachmentTileSerial) return;
       m5AttachmentModule.showVisibleTile(stage,tile.tile);
       stage.dataset.m5TileBytes=String(tile.output.rgbaBytes);
       stage.dataset.m5TilePage=String(activeAttachmentPdfPageNumber);
+      if(m6Plan)stage.dataset.m6TileZoom=String(activeAttachmentPdfZoomFactor);
+      if(m6Plan)window.__M6_PERF__?.recordRender('attachment',{
+        elapsedMs:performance.now()-m6Started,bytes:tile.output.rgbaBytes,
+        pixelWidth:tile.output.width,pixelHeight:tile.output.height,
+        engine:doc.engine,budgetLimited:tile.budgetLimited,zoom:activeAttachmentPdfZoomFactor,region:true,
+      });
     } catch(e) {
       if (!controller.signal.aborted && !m5PageAbort(e))
         console.warn('M5 가시 영역 타일 오류:',e?.code||e?.name||'TILE_ERROR');
