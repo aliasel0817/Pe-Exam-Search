@@ -1,0 +1,77 @@
+# M4 private reference viewer checks only; no deployment, artifacts, Apps Script writes or MuPDF distribution.
+name: MuPDF M4 reference PDF viewer checks
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/m1/**'
+      - 'study-note/mupdf-migration/m2/**'
+      - 'study-note/mupdf-migration/m3/**'
+      - 'study-note/mupdf-migration/m4/**'
+      - '.gitignore'
+      - '.github/workflows/mupdf-m4-reference-viewers.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  m4-local-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Configure Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install and verify pinned M2 MuPDF assets in private staging only
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node m2-stage-assets.cjs
+          node m2-verify-assets.cjs
+          node --test m2.test.cjs
+
+      - name: Install pinned M3 renderer/fallback dependencies
+        working-directory: study-note/mupdf-migration/m3
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: M4 signed GET / annotation preservation / private gate tests
+        working-directory: study-note/mupdf-migration/m4
+        run: node --test tests/m4.test.mjs
+
+      - name: M3 real MuPDF and PDF.js Node raster regression
+        working-directory: study-note/mupdf-migration/m3
+        run: node --test tests/*.test.mjs
+
+      - name: M1 auth / secret scan regression
+        working-directory: study-note/mupdf-migration/m1
+        run: node --test m1-audit.test.cjs
+
+      - name: M3 runtime dependency audit
+        working-directory: study-note/mupdf-migration/m3
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: No public MuPDF, private preview or synthetic PDF artifacts
+        run: |
+          if git ls-files | grep -E '\.wasm$|(^|/)\.m2-private/|(^|/)\.m3-private/|(^|/)\.m4-private/|study-note/mupdf-migration/m4/.+\.(pdf|png)$'; then
+            echo "Private binary/test artifact unexpectedly tracked"; exit 1
+          fi
+
+      - name: Review source for credential patterns without exposing values
+        run: node study-note/mupdf-migration/m1/m1-secret-scan.cjs --root .
+
+      - name: Preserve legal publication block
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          node -e "const p=require('./m2-release-gate.cjs').stateCheck();if(p.assetBinaryReleasePermitted||p.productionDeployPermitted)process.exit(1)"
+
+# Real browser smoke is performed separately on an authorized Windows Chrome
+# at loopback 127.0.0.1 with in-memory generated synthetic PDFs, and not published.
