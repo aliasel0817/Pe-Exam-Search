@@ -1054,6 +1054,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .attachment-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
 .attachment-pdf-stage { position: relative; box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
 .attachment-pdf-canvas { display: block; max-width: none; max-height: none; width: auto; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); user-select: none; }
+/* M5 private-only viewport detail tile stays BELOW existing ink (z-index 3). */
+.m5-attachment-detail-tile { position: absolute; z-index: 2; pointer-events: none; display: block; margin: 0; padding: 0; box-shadow: none; background: transparent; }
+.m5-attachment-engine-status { position: absolute; z-index: 4; right: 10px; bottom: 9px; border-radius: 6px; padding: 4px 8px; color: #fff; background: #1e293bdc; font-size: 11px; font-weight: 600; pointer-events: none; }
 .attachment-pdf-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; color: #d1d5db; text-align: center; background: #27272a; pointer-events: none; }
 .attachment-pdf-footer {
   flex: 0 0 auto;
@@ -4412,6 +4415,21 @@ let activeAttachmentPdfZoomFactor = 1;
 let activeAttachmentPdfRenderTask = null;
 let attachmentPdfRenderTimer = null;
 let attachmentPdfRenderSerial = 0;
+// M5 is intentionally OFF in production and additionally gated by M4's loopback
+// opt-in. No public MuPDF JS/WASM, no server/annotation schema changes.
+const M5_ATTACHMENT_DEV_ENABLED = typeof M4_REFERENCE_DEV_ENABLED !== 'undefined'
+  && M4_REFERENCE_DEV_ENABLED
+  && new URLSearchParams(window.location.search).get('m5-local') === '1';
+let m5AttachmentRuntimePromise = null;
+let m5AttachmentModule = null;
+let m5AttachmentDocument = null;
+let m5AttachmentLoadAbort = null;
+let m5AttachmentBaseAbort = null;
+let m5AttachmentTileAbort = null;
+let m5AttachmentTileTimer = null;
+let m5AttachmentPageSerial = 0;
+let m5AttachmentTileSerial = 0;
+let m5AttachmentVectorReady = false;
 let pdfViewerResizeRaf = 0;
 let pdfJsLoadPromise = null;
 const ATTACHMENT_PDF_ZOOM_MIN = 0.5;
@@ -14086,6 +14104,7 @@ function closeMediaViewer() {
 }
 
 function cleanupMediaViewerObjects() {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) m5DisposeAttachmentViewer();
   cancelImageViewerPendingLoads();
   attachmentPdfLoadSerial++;
   clearTimeout(attachmentPdfRenderTimer);
@@ -14443,6 +14462,9 @@ function updateAttachmentPdfViewerUi() {
 }
 
 async function loadPdfAtIndex(index) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5LoadPdfAtIndex(index);
+  }
   if (!activePdfAttachments.length) return;
   activePdfIndex = Math.max(0, Math.min(index, activePdfAttachments.length - 1));
   const item = activePdfAttachments[activePdfIndex];
@@ -14489,6 +14511,9 @@ async function loadPdfAtIndex(index) {
 }
 
 async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSerial } = {}) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5LoadAttachmentPdfPage(pageNumber,{serial});
+  }
   if (!activeAttachmentPdfDocument || !activeAttachmentPdfPageCount) return;
   const bounded = Math.max(1, Math.min(Number(pageNumber) || 1, activeAttachmentPdfPageCount));
   activeAttachmentPdfPageNumber = bounded;
@@ -14539,6 +14564,9 @@ function computeAttachmentPdfRenderMetrics(page, fitScale, zoom, pixelRatio = 1)
     height: Math.max(1, Math.floor(base.height * renderScale)) };
 }
 async function repaintAttachmentPdfAtZoom({ immediate = false, loadSerial = attachmentPdfLoadSerial } = {}) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5RepaintAttachment({immediate,loadSerial});
+  }
   clearTimeout(attachmentPdfRenderTimer);
   const paintSerial = ++attachmentPdfRenderSerial;
   const paint = async () => {
@@ -14578,6 +14606,9 @@ async function repaintAttachmentPdfAtZoom({ immediate = false, loadSerial = atta
 }
 
 function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5LayoutAttachment({preserveCenter});
+  }
   const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
   const scroller = wrap?.querySelector('.attachment-pdf-pan-scroller');
   const stage = wrap?.querySelector('.attachment-pdf-stage');
@@ -15077,6 +15108,14 @@ window.peStudyNoteTtsBridge = {
   filteredTopicIds: () => filteredTopics.map(t => t.topicId),
   selectTopic: id => showTopicById(id)
 };
+</script>
+<!-- M5 browser integration script is never requested by a non-loopback/opt-out viewer. -->
+<script>
+if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+  const privateM5Script = document.createElement('script');
+  privateM5Script.src = './mupdf-migration/m5/m5-attachment-ui.js';
+  document.body.appendChild(privateM5Script);
+}
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
 <script src="./study-planner.js?v=20261023-4-compact-help"></script>

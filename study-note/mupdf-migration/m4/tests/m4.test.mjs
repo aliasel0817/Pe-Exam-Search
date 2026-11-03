@@ -49,10 +49,18 @@ test('Annotation schema, coordinate and persistence functions remain unchanged',
  assert(current.includes("coordinateSpace: 'normalized-0-1'"));
  assert(current.includes('z-index: 3;')&&current.includes('.m4-reference-detail-tile'));
 });
-test('Existing attachment viewer and mutation paths are not modified by M4',()=>{
+test('M4 legacy attachment viewer remains identical beneath explicit M5 local dispatch',()=>{
  const a='async function loadAttachmentPdfPage(';
  const b='function computeAttachmentPdfRenderMetrics(';
- assert.equal(between(current,a,b),between(baseline,a,b));
+ // M5 is allowed to add only its local-only dispatch at function entry.
+ // Continue to compare the entire original attachment-PDF.js function byte-for-byte.
+ const m5Dispatch = "  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {\n"
+   + "    return m5LoadAttachmentPdfPage(pageNumber,{serial});\n"
+   + "  }\n";
+ const currentBody=between(current,a,b);
+ const normalized=currentBody.includes(m5Dispatch)
+   ? currentBody.replace(m5Dispatch,'') : currentBody;
+ assert.equal(normalized,between(baseline,a,b));
  assert(current.includes("sendMutation(getApiUrl()"));
  assert(!between(current,'async function m4LoadReferencePdfHighQuality(', 'async function m4RepaintReferencePdf(').includes('sendMutation'));
 });
