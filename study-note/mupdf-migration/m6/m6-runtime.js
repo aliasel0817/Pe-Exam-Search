@@ -56,6 +56,7 @@
       gate.schedule(fn);
     },
     flushTile(kind){gates.get(kind)?.flush();},
+    cancelTile(kind){gates.get(kind)?.cancel();},
     tileStats(kind){return gates.get(kind)?.stats();},
     zoomAt(scroller,clientX,clientY,fn){
       zoom.zoomAt(scroller,mediaFor(scroller),clientX,clientY,fn);

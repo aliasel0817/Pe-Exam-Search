@@ -79,6 +79,10 @@ export function createM6ScrollCoalescer({setTimer=setTimeout,clearTimer=clearTim
       timer=setTimer(flush,Math.min(delayMs,remaining));
     },
     flush,
+    cancel(){
+      if(timer!==null)clearTimer(timer);
+      timer=null;latest=null;firstAt=0;
+    },
     close(){
       if(timer!==null)clearTimer(timer);
       timer=null;closed=true;latest=null;firstAt=0;

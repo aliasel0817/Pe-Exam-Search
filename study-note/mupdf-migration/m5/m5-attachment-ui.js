@@ -17,6 +17,10 @@ function m5IsCurrent(loadSerial=attachmentPdfLoadSerial,pageSerial=m5AttachmentP
     && !els.mediaViewerModal.classList.contains('hidden');
 }
 function m5StopPageRendering() {
+  if (M6_DEV_ENABLED) {
+    window.__M6_PERF__?.cancelTile('attachment');
+    window.__M6_PERF__?.forgetZoom(els.mediaViewerBody?.querySelector('.attachment-pdf-pan-scroller'));
+  }
   ++m5AttachmentPageSerial;
   clearTimeout(attachmentPdfRenderTimer);
   ++attachmentPdfRenderSerial;
