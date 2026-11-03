@@ -1,0 +1,30 @@
+{
+  "schema": "mupdf-m2-runtime-paths-v1",
+  "version": "1.28.1",
+  "deploymentStatus": "NOT_DEPLOYED",
+  "plannedBaseUrl": "/Pe-Exam-Search/study-note/vendor/mupdf/1.28.1/",
+  "moduleEntrypoint": "mupdf.js",
+  "imports": [
+    "./mupdf-wasm.js"
+  ],
+  "wasmUrlRelativeToWasmModule": "./mupdf-wasm.wasm",
+  "staticMimes": {
+    "mupdf.js": "text/javascript; charset=utf-8",
+    "mupdf-wasm.js": "text/javascript; charset=utf-8",
+    "mupdf-wasm.wasm": "application/wasm"
+  },
+  "worker": {
+    "mode": "module",
+    "file": "M3_TO_IMPLEMENT",
+    "fallback": "M3_TO_DESIGN",
+    "sameOriginOnly": true
+  },
+  "serviceWorker": {
+    "newCachePrefix": "mupdf-v1.28.1",
+    "cacheOnlyVersionedStaticAssets": true,
+    "doNotCacheAuthData": true,
+    "neverCacheSignedUrls": true,
+    "requiresSourceChangesLater": true
+  },
+  "releaseGate": "BLOCKED_PENDING_ARTIFEX_LEGAL_REVIEW"
+}

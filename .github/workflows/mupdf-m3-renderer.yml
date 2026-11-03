@@ -1,0 +1,74 @@
+# M3 isolated renderer check; never uploads WASM, artifacts, deploys or invokes Apps Script.
+name: MuPDF M3 isolated renderer checks
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/mupdf-migration/m1/**'
+      - 'study-note/mupdf-migration/m2/**'
+      - 'study-note/mupdf-migration/m3/**'
+      - '.github/workflows/mupdf-m3-renderer.yml'
+      - '.gitignore'
+
+permissions:
+  contents: read
+
+jobs:
+  renderer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Node 22 for local-only tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install M2 MuPDF 1.28.1
+        working-directory: study-note/mupdf-migration/m2
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Private stage and verify exact JS/WASM checksums
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          node m2-stage-assets.cjs
+          node m2-verify-assets.cjs
+          node m2-esm-smoke.mjs
+          node --test m2.test.cjs
+
+      - name: Install PDF.js fallback and synthetic fixture dependencies
+        working-directory: study-note/mupdf-migration/m3
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: M3 Node unit and real PDF raster tests
+        working-directory: study-note/mupdf-migration/m3
+        run: node --test tests/*.test.mjs
+
+      - name: M1 security regression
+        working-directory: study-note/mupdf-migration/m1
+        run: node --test m1-audit.test.cjs
+
+      - name: Check dependency vulnerabilities in M3 runtime
+        working-directory: study-note/mupdf-migration/m3
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Ensure no rendered/user PDF/WASM or local binary is tracked
+        run: |
+          if git ls-files | grep -E '\.wasm$|(^|/)\.m3-private/|(^|/)\.m2-private/|study-note/mupdf-migration/m3/node_modules/|study-note/mupdf-migration/m3/.+\.png$'; then
+            echo "Unsafe private runtime or render output tracked"; exit 1
+          fi
+
+      - name: Secret pattern scan (does not include any actual secret)
+        run: node study-note/mupdf-migration/m1/m1-secret-scan.cjs --root .
+
+      - name: Keep AGPL source-publication gate blocked
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          node -e "const p=require('./m2-release-gate.cjs').stateCheck();if(p.assetBinaryReleasePermitted||p.productionDeployPermitted)process.exit(1)"
+
+# Browser Chrome test requires an authorized interactive Windows machine and remains separate.
+# Intentionally no artifacts, no Pages, no Script Properties and no production privileges.
