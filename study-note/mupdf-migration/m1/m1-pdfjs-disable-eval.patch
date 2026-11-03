@@ -1,0 +1,21 @@
+diff --git a/study-note/study-note.html b/study-note/study-note.html
+--- a/study-note/study-note.html
++++ b/study-note/study-note.html
+@@ -13397,7 +13397,7 @@
+       throw new Error('원본 파일에서 올바른 PDF 데이터를 받지 못했습니다.');
+     }
+     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
+-    const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
++    const doc = await pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) {
+       try { await doc.destroy(); } catch (_) { /* no-op */ }
+       return;
+@@ -14195,7 +14195,7 @@
+       ensurePdfJsLoaded(),
+     ]);
+     if (serial !== attachmentPdfLoadSerial || els.mediaViewerModal.classList.contains('hidden') || item.attachmentId !== activePdfAttachments[activePdfIndex]?.attachmentId) return;
+-    const loadingTask = pdfjsLib.getDocument({ data: base64ToUint8Array(payload.base64) });
++    const loadingTask = pdfjsLib.getDocument({ data: base64ToUint8Array(payload.base64), isEvalSupported: false });
+     const pdfDocument = await loadingTask.promise;
+     if (serial !== attachmentPdfLoadSerial || els.mediaViewerModal.classList.contains('hidden')) {
+       try { pdfDocument.destroy(); } catch (error) { /* noop */ }
