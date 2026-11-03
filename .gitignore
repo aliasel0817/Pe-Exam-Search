@@ -15,3 +15,6 @@
 **/node_modules/
 study-note/mupdf-migration/m2/dist/
 **/m2-private-output/
+
+# M3 isolated browser render screenshot/synthetic fixtures only
+**/.m3-private/

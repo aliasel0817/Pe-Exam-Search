@@ -31,7 +31,10 @@ test('stage is repeatable and copy checksum verification passes',()=>{
 test('license file copied from official npm package unchanged',()=>{
  const a=fs.readFileSync(path.join(__dirname,'licenses','AGPL-3.0.txt'));
  const b=fs.readFileSync(path.join(__dirname,'node_modules','mupdf','LICENSE'));
- assert.equal(sha256(a),sha256(b));
+ // Git for Windows may checkout tracked text with CRLF while npm keeps LF.
+ // Compare the complete license contents after newline normalization only.
+ const normalizeLicense=x=>x.toString('utf8').replace(/\r\n/g,'\n');
+ assert.equal(normalizeLicense(a),normalizeLicense(b));
  assert(a.includes(Buffer.from('GNU AFFERO GENERAL PUBLIC LICENSE')));
 });
 test('reproduction never stages tracked public assets or secrets',()=>{
