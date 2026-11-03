@@ -35,7 +35,7 @@ function trackedAndUntracked(root) {
   } catch (_) { return fromWalk(root); }
 }
 function isRiskFile(file) {
-  const base=path.basename(file).toLowerCase();
+  const base=path.posix.basename(file.replace(/\\/g,'/')).toLowerCase();
   return /(^|\/)\.clasp\.json$/.test(file.replace(/\\/g,'/').toLowerCase()) ||
     /^\.env(?:\.|$)/.test(base) && !/\.example$|\.sample$/.test(base) ||
     /(?:id_rsa|id_ed25519|service-account.*\.json|credentials.*\.json)$/.test(base) ||
