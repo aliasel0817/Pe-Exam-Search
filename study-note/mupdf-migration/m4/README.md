@@ -30,6 +30,7 @@
 - Real Chrome v156.0.8078.49: sourceType 서브노트 page 1 & 2 `2008×2678px`; 교재 rotated/CropBox page `2008×1607px`; primary `mupdf-worker`.
 - At 3x zoom: base pixels `2510×2008`, CSS display `3012×2410`, one new visible-region tile; overlay normalized coordinate roundtrip exact; annotation schema 3 retained.
 - Forced PDF.js fallback shows `PDF.js 안전 복구` and renders sample successfully.
+- Actual Chrome PC mouse drag to pan: scroll X 1003→1148 and Y 638→733, PASS.
 - Emulated Chrome `TouchEvent` 2-finger pinch zoom reaches `1.75`; **NOT real Galaxy Tab S11 or iPhone hardware test**.
 - Loopback feature gate test on `?m4-local=0` leaves M4 unavailable.
 - No JavaScript/page console errors in synthetic browser run; M4 Node tests 7/7 passed.

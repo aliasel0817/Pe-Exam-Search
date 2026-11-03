@@ -108,6 +108,22 @@ try{
  await page.waitForTimeout(400);
  const afterScroll=await page.evaluate(()=>window.__M4_REFERENCE_QA__.getState());
  if(!afterScroll.tile)throw Error('Tile did not survive scroll update');
+ const beforeMouse=await page.evaluate(()=>{
+   const s=document.querySelector('#referencePdfFrameWrap .reference-pdf-pan-scroller');
+   return {x:s.scrollLeft,y:s.scrollTop};
+ });
+ const panRect=await page.locator('#referencePdfFrameWrap .reference-pdf-pan-scroller').boundingBox();
+ await page.mouse.move(panRect.x+panRect.width*.56,panRect.y+panRect.height*.55);
+ await page.mouse.down();
+ await page.mouse.move(panRect.x+panRect.width*.56-145,panRect.y+panRect.height*.55-95,{steps:6});
+ await page.mouse.up();
+ const afterMouse=await page.evaluate(()=>{
+   const s=document.querySelector('#referencePdfFrameWrap .reference-pdf-pan-scroller');
+   return {x:s.scrollLeft,y:s.scrollTop};
+ });
+ if(Math.abs(afterMouse.x-beforeMouse.x)<20&&Math.abs(afterMouse.y-beforeMouse.y)<20)
+   throw Error('Existing mouse drag-to-pan gesture did not scroll');
+
  // Force PDF.js 6.5.438 fallback only in isolated QA; production secure renderer remains unchanged.
  await page.evaluate(()=>window.__M4_REFERENCE_QA__.usePdfjsFallbackForNextFixture());
  const fallback=await page.evaluate(async()=>{
@@ -159,6 +175,7 @@ try{
  const report={status:'PASS',browser:browser.version(),inactiveGate:disabled,
    sources:states.map(x=>({source:x.sourceType,token:x.pageToken,engine:x.engine,px:[x.width,x.height]})),
    zoomState,afterScroll:{tile:afterScroll.tile,engine:afterScroll.engine},
+   mousePan:{before:beforeMouse,after:afterMouse},
    fallback:{engine:fallback.engine,status:fallback.status},closed,
    touchEmulated:{pinchZoom:pinch,vectorReady:touchRender.vectorReady,realDevice:false},
    runtimeErrors,consoleErrors,syntheticOnly:true,operatingBackendTouched:false,screenshotPrivate:true};
