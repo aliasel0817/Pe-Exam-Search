@@ -18,3 +18,6 @@ study-note/mupdf-migration/m2/dist/
 
 # M3 isolated browser render screenshot/synthetic fixtures only
 **/.m3-private/
+
+# M4 loopback-only QA outputs and synthetic screenshot; never publish.
+**/.m4-private/
