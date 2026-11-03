@@ -1,0 +1,20 @@
+# M1 and later migration private workspaces (does not remove already tracked files)
+**/.m1-private/
+**/.clasp.json
+**/.env
+**/.env.*
+!**/.env.example
+**/*credentials.private.json
+**/service-account*.json
+**/*.private.pem
+**/*.private.key
+**/mupdf-migration-private-fixtures/
+
+# M2: generated AGPL build assets are private until legal release gate clears
+**/.m2-private/
+**/node_modules/
+study-note/mupdf-migration/m2/dist/
+**/m2-private-output/
+
+# M3 isolated browser render screenshot/synthetic fixtures only
+**/.m3-private/
