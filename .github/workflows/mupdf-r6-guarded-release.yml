@@ -1,0 +1,54 @@
+name: MuPDF R6 guarded release integration (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mupdf-r6-guarded-release.yml'
+      - '.gitattributes'
+      - '.gitignore'
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/**'
+permissions:
+  contents: read
+jobs:
+  r6-private-only-route:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exactly pinned development-only renderer dependencies
+        run: |
+          npm --prefix study-note/mupdf-migration/m2 ci --ignore-scripts --no-audit --no-fund
+          npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+      - name: R6 release policy and unchanged legacy PDF/auth/ink regression
+        run: |
+          node --test \
+            study-note/mupdf-migration/m2/m2.test.cjs \
+            study-note/mupdf-migration/m3/tests/renderer.test.mjs \
+            study-note/mupdf-migration/m3/tests/routing-worker.test.mjs \
+            study-note/mupdf-migration/m4/tests/m4.test.mjs \
+            study-note/mupdf-migration/m5/tests/m5.test.mjs \
+            study-note/mupdf-migration/m6/tests/m6.test.mjs \
+            study-note/mupdf-migration/m7/tests/m7.test.mjs \
+            study-note/mupdf-migration/r0/tests/r0.test.cjs \
+            study-note/mupdf-migration/r1/tests/r1.test.mjs \
+            study-note/mupdf-migration/r2/tests/r2.test.mjs \
+            study-note/mupdf-migration/r3/tests/r3.test.mjs \
+            study-note/mupdf-migration/r4/tests/r4.test.mjs \
+            study-note/mupdf-migration/r5/tests/r5.test.mjs \
+            study-note/mupdf-migration/r6/tests/r6-release.test.cjs
+      - name: Verify pinned official source and safe private vendor packaging
+        run: |
+          R6_ACK_PRIVATE_STAGE=YES node study-note/mupdf-migration/r6/r6-private-package.cjs --stage-private
+          test -f .r6-private/source-inputs-manifest.json
+          git check-ignore -q .r6-private/site/study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm
+          test "$(git ls-files '*.wasm' | wc -l)" = "0"
+          test "$(git status --porcelain | wc -l)" = "0"
+      - name: Confirm release is still NO-GO and source files are pinned
+        run: |
+          node study-note/mupdf-migration/r6/r6-release-preflight.cjs
+      # No public binary upload, deploy-pages, artifact upload, clasp, or credentials.

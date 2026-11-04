@@ -1,0 +1,11 @@
+{
+  "schema": "mupdf-m2-publication-gate-v1",
+  "gate": "BLOCKED_PENDING_ARTIFEX_LEGAL_REVIEW",
+  "legalReviewRequired": true,
+  "operatorApprovalRequired": true,
+  "appsScriptCouplingOpinion": "UNRESOLVED",
+  "correspondingSourceCompleteness": "UNVERIFIED",
+  "productionDeploymentAllowed": false,
+  "publicMuPdfBinaryDistributionAllowed": false,
+  "notes": "M2 tool stages binaries only in ignored local .m2-private; no public source offer is activated."
+}
