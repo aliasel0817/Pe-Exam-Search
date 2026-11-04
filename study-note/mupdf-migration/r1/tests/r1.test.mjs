@@ -82,7 +82,7 @@ test('R1 changes do not alter annotation schema, persistence, signed GET or M2 r
  const gate=JSON.parse(fs.readFileSync(path.join(migration,'m2','m2-publication-gate.json'),'utf8'));
  assert.match(html,/const ANNOTATION_SCHEMA_VERSION = 3;/);
  assert.match(html,/coordinateSpace:\s*'normalized-0-1'/);
- assert.match(html,/async function fetchReferencePdfBytesFromServer\(page\)/);
+ assert.match(html,/async function fetchReferencePdfBytesFromServer\(page,\s*\{\s*signal\s*\}\s*=\s*\{\}\)/);
  assert.match(html,/async function fetchMediaContent\(apiUrl, attachmentId/);
  assert.match(html,/function scheduleAnnotationPersist\(documentData/);
  assert.equal(gate.productionDeploymentAllowed,false);
