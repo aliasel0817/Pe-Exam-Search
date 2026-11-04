@@ -1,0 +1,49 @@
+name: MuPDF R8 AGPL source notices and gate (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mupdf-r8-agpl-source-closure.yml'
+      - '.gitattributes'
+      - '.gitignore'
+      - 'study-note/LICENSE'
+      - 'study-note/THIRD_PARTY_NOTICES.md'
+      - 'study-note/mupdf-migration/r4/r4-license-notice.js'
+      - 'study-note/mupdf-migration/r6/r6-release-policy.js'
+      - 'study-note/mupdf-migration/r8/**'
+permissions:
+  contents: read
+jobs:
+  r8-notices-source-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install immutable JS/WASM and fallback development inputs
+        run: |
+          npm --prefix study-note/mupdf-migration/m2 ci --ignore-scripts --no-audit --no-fund
+          npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+      - name: R8 source provenance, 18 submodules, 20 licences, backend SHA and gate unit tests
+        run: |
+          node --test study-note/mupdf-migration/r8/tests/*.test.cjs
+          node --test study-note/mupdf-migration/r6/tests/r6-release.test.cjs
+          node --test study-note/mupdf-migration/r7/tests/r7-security-ink.test.cjs
+      - name: Check both historically deployed v21 and patched R7 candidate source for known secrets
+        run: |
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r5/source/Code.js
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r7/source/Code.js
+      - name: Private-only reproducible release pack, NEVER publish a binary
+        env:
+          R8_ACK_PRIVATE_BUILD: 'YES'
+        run: |
+          node study-note/mupdf-migration/r8/r8-build-release-assets.cjs
+          test -f .r8-private/r8-offline-site/R8-PRIVATE-PACKAGE-MANIFEST.json
+          grep -q '"enabled": false' .r8-private/r8-offline-site/study-note/mupdf-migration/r6/r6-release-config.js
+          git check-ignore -q .r8-private/r8-offline-site/study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm
+          node study-note/mupdf-migration/r9/r9-audit-public-binaries.cjs
+          test -z "$(git status --porcelain)"
+      # No deploy-pages, no clasp, no upload-artifact, no secrets.

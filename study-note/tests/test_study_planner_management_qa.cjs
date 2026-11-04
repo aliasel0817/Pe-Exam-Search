@@ -29,19 +29,49 @@ async function downloaded(dir,name){
   await page.goto(origin+"/study-note.html",{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>!!window.StudyPlanner&&!!document.getElementById('plannerManage'),{timeout:15000});
   await page.evaluate(()=>document.getElementById('learningBtn').click());
-  await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('137'),{timeout:10000});
+  // R9: the real 100-day source has date-dependent topic counts.
+  // Use the displayed date's authoritative fixture rather than a fixed 137.
+  await page.waitForFunction(()=>{
+    const value=document.getElementById('plannerStats')?.textContent||'';
+    return value.includes('계획 ') && value.includes('개 / 완료');
+  },{timeout:10000});
+  const displayedPlan=await page.$eval('#plannerStats',element=>{
+    const segments=(element.textContent||'').split('·').map(x=>x.trim());
+    const date=segments.find(x=>x.length===10 && x[4]==='-' && x[7]==='-')||'';
+    const segment=segments.find(x=>x.startsWith('계획 '))||'';
+    return {date,total:Number(segment.split('계획 ')[1]?.split('개')[0]||0)};
+  });
+  const officialPlan=JSON.parse(fs.readFileSync(path.join(root,'study-plans','pe141-100days.json'),'utf8'));
+  const selectedDay=officialPlan.days.find(day=>day.date===displayedPlan.date);
+  assert(selectedDay,'Displayed planner date must exist in the source fixture');
+  assert.equal(displayedPlan.total,selectedDay.ids.length,
+    'Planner UI must show exactly the scheduled IDs for the displayed date');
   assert.equal(await page.$eval('#plannerPageSize',e=>e.value),"10");
   assert.equal(await page.$eval('#plannerGroup',e=>e.value),"all");
   const groupOptions=await page.$$eval('#plannerGroup option',xs=>xs.map(x=>({value:x.value,name:x.textContent})));
-  assert.equal(groupOptions.length,5);
-  await page.select("#plannerGroup","G24");
-  await page.waitForFunction(()=>document.getElementById('plannerTotalPages').textContent==='4');
+  const expectedGroupCounts=selectedDay.groups.reduce((map,g)=>(map[g]=(map[g]||0)+1,map),{});
+  assert.equal(groupOptions.length,Object.keys(expectedGroupCounts).length+1);
+  const eligibleGroup=Object.entries(expectedGroupCounts).find(([g,count])=>count>10);
+  assert(eligibleGroup,'This day must contain a test group spanning two pages');
+  const [testGroup,groupCount]=eligibleGroup;
+  assert(groupOptions.some(option=>option.value===testGroup));
+  await page.select("#plannerGroup",testGroup);
+  await page.waitForFunction(expected=>Number(document.getElementById('plannerTotalPages').textContent)===expected,
+    {},Math.ceil(groupCount/10));
   assert.equal(await page.evaluate(()=>document.querySelectorAll('.planner-topic').length),10);
-  assert.equal(await page.$eval('#plannerPageRange',e=>e.textContent),'1–10 / 34개');
+  const displayedGroupCount=await page.$eval('#plannerPageRange',e=>{
+    const text=e.textContent||'';
+    const after=text.split('/')[1]||'';
+    return Number(after.split('개')[0].trim());
+  });
+  assert.equal(displayedGroupCount,groupCount,'Group count must follow the current date fixture');
   await page.click('#plannerNextPage');
   await page.waitForFunction(()=>document.getElementById('plannerPageInput').value==='2');
   await page.select("#plannerGroup","all");
-  await page.waitForFunction(()=>document.getElementById('plannerPageInput').value==='1'&&document.getElementById('plannerTotalPages').textContent==='14');
+  await page.waitForFunction(expected=>
+    document.getElementById('plannerPageInput').value==='1'
+      && Number(document.getElementById('plannerTotalPages').textContent)===expected,
+    {},Math.ceil(selectedDay.ids.length/10));
   const statsStyles=await page.evaluate(()=>({stats:getComputedStyle(document.getElementById('plannerStats')).fontSize,hint:getComputedStyle(document.querySelector('.planner-local-info')).fontSize}));
   assert.equal(statsStyles.stats,statsStyles.hint);
   const compactClosed=await page.evaluate(()=>{
@@ -109,9 +139,9 @@ async function downloaded(dir,name){
   await page.waitForFunction(()=>document.getElementById('plannerNotice').textContent.includes('통합ID'),{timeout:10000});
   assert.equal(await page.evaluate(()=>document.querySelectorAll('#plannerSelect option').length),3);
   await page.select('#plannerSelect','pe141-100d-2026');
-  await page.waitForFunction(()=>document.getElementById('plannerStats').textContent.includes('계획 137개'));
+  await page.waitForFunction(expected=>(document.getElementById('plannerStats')?.textContent||'').includes('계획 '+expected+'개'),{},selectedDay.ids.length);
   assert.equal(await page.$eval('#plannerGroup',e=>e.value),'all');
-  await page.evaluate(async()=>{await StudyPlanner.record('T0692','암기')});
+  await page.evaluate(async id=>{await StudyPlanner.record(id,'암기')},selectedDay.ids[0]);
   await page.click('#plannerExport');
   const backupFile=await downloaded(dir,'study-plan-progress-backup.json');
   const backup=JSON.parse(fs.readFileSync(backupFile,'utf8'));
@@ -127,7 +157,7 @@ async function downloaded(dir,name){
   await page.waitForFunction(()=>document.getElementById('plannerNotice').textContent.includes('진도 1건을 복원했습니다'),{timeout:10000});
   assert((await page.$eval('#plannerStats',e=>e.textContent)).includes('완료 1개'));
   // Existing local progress requires explicit overwrite confirmation.
-  await page.evaluate(async()=>{await StudyPlanner.record('T0692','미암기')});
+  await page.evaluate(async id=>{await StudyPlanner.record(id,'미암기')},selectedDay.ids[0]);
   let confirmed=0;
   page.on('dialog',async dialog=>{confirmed++;assert(dialog.message().includes('덮어쓸까요'));await dialog.accept()});
   await (await page.$('#plannerRestore')).uploadFile(backupFile);

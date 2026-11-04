@@ -1,0 +1,70 @@
+# M2-only CI: no Pages, GAS, deployment, artifact upload or write permissions.
+name: MuPDF M2 non-production checks
+
+on:
+  pull_request:
+    branches:
+      - integration/mupdf-migration
+    paths:
+      - 'study-note/mupdf-migration/m1/**'
+      - 'study-note/mupdf-migration/m2/**'
+      - '.github/workflows/mupdf-m2-audit.yml'
+      - '.gitignore'
+
+permissions:
+  contents: read
+
+jobs:
+  package-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install exact npm lock
+        working-directory: study-note/mupdf-migration/m2
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Stage official assets privately and verify SHA-256
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          node m2-stage-assets.cjs
+          node m2-verify-assets.cjs
+
+      - name: ESM/WASM initialization smoke without opening PDFs
+        working-directory: study-note/mupdf-migration/m2
+        run: node m2-esm-smoke.mjs
+
+      - name: M2 package tests
+        working-directory: study-note/mupdf-migration/m2
+        run: node --test m2.test.cjs
+
+      - name: M1 security tests
+        working-directory: study-note/mupdf-migration/m1
+        run: node --test m1-audit.test.cjs
+
+      - name: Check tracked files contain no MuPDF runtime binary
+        run: |
+          if git ls-files | grep -E '^study-note/mupdf-migration/m2/(dist|node_modules)/'; then
+            echo 'Unsafe public binary found in tracked files'
+            exit 1
+          fi
+
+      - name: Secret pattern check in repository
+        run: |
+          node study-note/mupdf-migration/m1/m1-secret-scan.cjs --root .
+
+      - name: Confirm publication gate remains closed
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          node -e "const x=require('./m2-release-gate.cjs').stateCheck();if(x.assetBinaryReleasePermitted||x.productionDeployPermitted)process.exit(1)"
+
+# No upload-artifact, publish-pages, deployment, secrets, Apps Script or main write.

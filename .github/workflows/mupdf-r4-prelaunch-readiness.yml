@@ -1,0 +1,44 @@
+# R4 private prelaunch legal notice/readiness checks. No build, deploy or artifact upload.
+name: MuPDF R4 prelaunch notice and release gate
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/mupdf-migration/r4/**'
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/m7/tests/m7.test.mjs'
+      - '.github/workflows/mupdf-r4-prelaunch-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  notice-source-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: R4 focused notice/legal/source guard tests and M7 preserved behavior
+        run: |
+          node --test study-note/mupdf-migration/r4/tests/r4.test.mjs study-note/mupdf-migration/m7/tests/m7.test.mjs
+          node --check study-note/mupdf-migration/r4/tests/browser-smoke.mjs
+          node --check study-note/mupdf-migration/r4/r4-source-catalog.cjs
+          node --check study-note/mupdf-migration/r4/r4-release-readiness.cjs
+      - name: Enforce release gate and verified AGPL license copy (never deploy)
+        run: |
+          node study-note/mupdf-migration/r4/r4-release-readiness.cjs
+          node -e "const x=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(x.status!=='BLOCKED'||x.productionDeployPermitted||x.assetBinaryReleasePermitted)process.exit(1)"
+      - name: Reject private secrets, customer PDFs and MuPDF binary in tracked source
+        run: |
+          if git ls-files | grep -Ei '\.r4-private/|\.r3-private/|\.r2-private/|\.m2-private/|(^|/)\.clasp\.json$|(^|/)\.env$'; then
+            echo 'Private source, secret or WASM unexpectedly tracked'; exit 1
+          fi
+# Real physical Windows Chrome QA is done independently on the authorized PC.
+# The workflow contains no release, artifact upload, GitHub Pages or Apps Script action.

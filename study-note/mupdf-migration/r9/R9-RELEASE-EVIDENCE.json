@@ -1,0 +1,55 @@
+{
+  "schema": "pe-study-note-r9-release-evidence-v1",
+  "releaseTag": "pe-study-note-mupdf-1.28.1-r8-20261104",
+  "licenseChoice": "AGPL-3.0-or-later",
+  "operatorConsent": {
+    "publishProjectOwnedSource": true,
+    "publishMuPDFJSWasmUnderAGPL": true,
+    "mergeReviewedReleaseToMain": true,
+    "githubPagesDeployment": true,
+    "appsScriptDeploymentRequestedOnlyIfNecessary": true
+  },
+  "rights": {
+    "projectOwnedSourcePublishConsent": true,
+    "officialArtifexAGPLLicenseIncluded": true,
+    "officialMuPDFCoreAnd18SubmodulesPinned": true,
+    "thirdPartyOriginalLicensesAndNoticesIncluded": true,
+    "applicationAndDeployedBackendSourceProvided": true,
+    "legacyBackendV21Match": true
+  },
+  "security": {
+    "isolatedGoogleCloudInkTestUserWitnessed": true,
+    "userScreenshotDateKST": "2026-11-04 21:26",
+    "isolatedScript": true,
+    "saveReadback": true,
+    "versionConflictProtected": true,
+    "backupChecksumVerified": true,
+    "actualDestructiveBackupRestoreTested": false,
+    "productionSheetWritten": false,
+    "productionScriptWritten": false,
+    "existingSignedGETAndUserOriginalPDFTested": true,
+    "userReportSubnoteTextbookZoomPage": "PASS",
+    "backendDeploymentVersion": 21,
+    "backendSourceSHA256": "e2867b4859a861c835541f6fb4a5196374c97035ca6edeaf6b696ad3289d3f3f"
+  },
+  "devices": {
+    "windowsChrome156SyntheticMuPDFFallbackPASS": true,
+    "physicalTabS11Executed": false,
+    "physicalIPhone16ProExecuted": false,
+    "physicalDeviceRiskDelegatedAndAcceptedByUser": true,
+    "physicalDevicePASSClaimed": false
+  },
+  "source": {
+    "archiveSHA256": "328c12b65cbdfffc2ad803bd14d9fb526496937575c14fac4634d9968461de15",
+    "archiveBytes": 93863687,
+    "parts": 3,
+    "r8AssetAndNoticeChecks": "PASS",
+    "immutableTagPublishesAfterCommit": true
+  },
+  "rollback": {
+    "priorMainSHA": "e758fc3145add56f151ec4231927001c28a142b6",
+    "userPdfInkNotModified": true,
+    "backendV21SourceBackedUp": true,
+    "baselineMainGitBranchBackupRequiredBeforeMerge": true
+  }
+}

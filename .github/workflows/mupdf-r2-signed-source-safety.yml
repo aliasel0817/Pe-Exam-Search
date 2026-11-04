@@ -1,0 +1,44 @@
+# R2 source-auth safety verification only. NEVER deploy, call a real signed GET,
+# fetch owner credentials, upload user PDF bytes, or publish MuPDF JS/WASM.
+name: MuPDF R2 private signed PDF source safety
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/r2/**'
+      - 'study-note/mupdf-migration/m4/tests/m4.test.mjs'
+      - 'study-note/mupdf-migration/m7/tests/m7.test.mjs'
+      - '.github/workflows/mupdf-r2-signed-source-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-r2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: R2 signed PDF synthetic unit tests
+        run: node --test study-note/mupdf-migration/r2/tests/r2.test.mjs
+      - name: R2 source parser and prior baseline boundaries
+        run: |
+          node --check study-note/mupdf-migration/r2/tests/browser-smoke.mjs
+          node --check study-note/mupdf-migration/r2/r2-private-backend-audit.cjs
+          node --test study-note/mupdf-migration/r0/tests/r0.test.cjs study-note/mupdf-migration/m7/tests/m7.test.mjs
+      - name: Preserve M2 release gate and prohibit private assets in Git
+        run: |
+          node -e "const s=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(s.productionDeployPermitted||s.assetBinaryReleasePermitted||s.status!=='BLOCKED')process.exit(1)"
+          if git ls-files | grep -E '(^|/)\.r2-private/|(^|/)\.m2-private/|study-note/mupdf-migration/r2/.+\.(pdf|png|jpg|jpeg)$'; then
+            echo 'Unapproved private PDF/WASM/source asset tracked'; exit 1
+          fi
+# Actual Chrome on authorized Windows PC is a separate local acceptance result.
+# The private Apps Script Code.js/version21 snapshots are deliberately NOT part of Git or CI.

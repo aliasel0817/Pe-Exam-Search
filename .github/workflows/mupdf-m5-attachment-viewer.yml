@@ -1,0 +1,81 @@
+# M5 synthetic attachment PDF checks only. No operating deployment or public WASM artifacts.
+name: MuPDF M5 attachment PDF viewer checks
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/m1/**'
+      - 'study-note/mupdf-migration/m2/**'
+      - 'study-note/mupdf-migration/m3/**'
+      - 'study-note/mupdf-migration/m4/**'
+      - 'study-note/mupdf-migration/m5/**'
+      - '.gitignore'
+      - '.github/workflows/mupdf-m5-attachment-viewer.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  m5-private-unit-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pinned MuPDF, verify checksums and release gate
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node m2-stage-assets.cjs
+          node m2-verify-assets.cjs
+          node --test m2.test.cjs
+          node -e "const gate=require('./m2-release-gate.cjs').stateCheck();if(gate.assetBinaryReleasePermitted||gate.productionDeployPermitted)process.exit(1)"
+
+      - name: Install pinned M3 renderer dependencies
+        working-directory: study-note/mupdf-migration/m3
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Check M5 UI syntax and source/auth/annotation preservation
+        working-directory: study-note/mupdf-migration/m5
+        run: |
+          node --check m5-attachment-ui.js
+          node --check m5-attachment-adapter.mjs
+          node --test tests/m5.test.mjs
+
+      - name: M4 reference PDF regression
+        working-directory: study-note/mupdf-migration/m4
+        run: node --test tests/m4.test.mjs
+
+      - name: M3 renderer regression
+        working-directory: study-note/mupdf-migration/m3
+        run: node --test tests/*.test.mjs
+
+      - name: M1 security regression
+        working-directory: study-note/mupdf-migration/m1
+        run: node --test m1-audit.test.cjs
+
+      - name: Existing PDF.js study-note renderer test
+        run: node study-note/tests/test_pdf_vector_sharp_qa.cjs
+
+      - name: Runtime dependency audit
+        working-directory: study-note/mupdf-migration/m3
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Block vendor binaries, synthetic data and private QA outputs
+        run: |
+          if git ls-files | grep -E '(^|/)\.m[2-5]-private/|study-note/mupdf-migration/m[4-5]/.+\.(pdf|png|jpg)$'; then
+            echo "Unapproved binary or synthetic QA artifact tracked"; exit 1
+          fi
+
+      - name: Credential pattern screening (never emit matching values)
+        run: node study-note/mupdf-migration/m1/m1-secret-scan.cjs --root .
+
+# Actual Chrome/S Pen/iPhone full-system tests are not asserted by this Linux job.

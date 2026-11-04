@@ -1,0 +1,47 @@
+{
+  "schema": "r9-mupdf-public-vendor-v1",
+  "mupdfCoreCommit": "20061bd45183f5a2bff8f43675e4da91e5ac2901",
+  "mupdfVersion": "1.28.1",
+  "pdfjsVersion": "6.5.438",
+  "sourceArchiveSha256": "328c12b65cbdfffc2ad803bd14d9fb526496937575c14fac4634d9968461de15",
+  "assets": [
+    {
+      "path": "study-note/vendor/mupdf/1.28.1/mupdf.js",
+      "size": 103250,
+      "sha256": "5d237eadcb9640584e0050f6f958e547887b7a54d80a04043e12be9420931076"
+    },
+    {
+      "path": "study-note/vendor/mupdf/1.28.1/mupdf-wasm.js",
+      "size": 28861,
+      "sha256": "25382abbfbf5c52191e5ac59e1412a0da88647fecfab0c1d797bb5948443eea4"
+    },
+    {
+      "path": "study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm",
+      "size": 10409826,
+      "sha256": "5a30ef7b027f541ea8fc54e7c73f16414b0b59940741a12efe5e55f1fd0a99d7"
+    },
+    {
+      "path": "study-note/vendor/mupdf/1.28.1/LICENSE",
+      "size": 34520,
+      "sha256": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6"
+    },
+    {
+      "path": "study-note/vendor/pdfjs/6.5.438/pdf.mjs",
+      "size": 891540,
+      "sha256": "cbabeebf4df66f3fe736f2fa2792d332e019a878b0aa88d5e2be17d439079de4"
+    },
+    {
+      "path": "study-note/vendor/pdfjs/6.5.438/pdf.worker.mjs",
+      "size": 2248830,
+      "sha256": "43710009ea26bfbcb615524946e46e3aaf8ad927514f5e465e8ff6d18044ffe9"
+    },
+    {
+      "path": "study-note/vendor/pdfjs/6.5.438/LICENSE",
+      "size": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    }
+  ],
+  "releaseTag": "pe-study-note-mupdf-1.28.1-r8-20261104",
+  "userDocumentDataBundled": false,
+  "buildSourceIncludedInSameCommit": true
+}
