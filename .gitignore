@@ -27,3 +27,6 @@ study-note/mupdf-migration/m2/dist/
 
 # M6 local synthetic browser output; never publish private session artifacts.
 **/.m6-private/
+
+# R5 independent C source / Emsdk / any build output, never publish
+**/.r5-private/

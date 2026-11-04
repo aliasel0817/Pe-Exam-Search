@@ -1,0 +1,78 @@
+# Public-source preparation and full Linux WASM build evidence. NO release or deployment.
+name: MuPDF R5 AGPL source and private WASM rebuild
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/mupdf-migration/r5/**'
+      - '.gitignore'
+      - '.github/workflows/mupdf-r5-agpl-source.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify published application source snapshot contains no recognized literal secrets
+        run: |
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r5/source/Code.js
+          node --check study-note/mupdf-migration/r5/source/Code.js
+      - name: Run R5 focused source and safe-release tests
+        run: |
+          node --test study-note/mupdf-migration/r5/tests/r5.test.mjs
+          node --check study-note/mupdf-migration/r5/r5-verify-built.cjs
+          node --check study-note/mupdf-migration/r5/r5-private-source-scan.cjs
+          bash -n study-note/mupdf-migration/r5/r5-build-from-source.sh
+      - name: Confirm M2 and R4 blocking gates remain closed until real release authorization
+        run: |
+          node study-note/mupdf-migration/r4/r4-release-readiness.cjs
+          node -e "const x=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(x.status!=='BLOCKED'||x.productionDeployPermitted||x.assetBinaryReleasePermitted)process.exit(1)"
+      - name: Ensure no private binaries, user data or deployment keys enter the Git index
+        shell: bash
+        run: |
+          if git ls-files | grep -Ei '\.wasm$|(^|/)\.clasp\.json$|(^|/)\.env$|(^|/)\.r[0-9]+-private/|(^|/)\.m[0-9]+-private/'; then
+            echo 'Private source/binary/credentials unexpectedly tracked'; exit 1
+          fi
+
+  c-to-wasm-build:
+    needs: source-and-security
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install official Emscripten SDK 4.0.8 into runner temporary directory
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 4.0.8
+          "$RUNNER_TEMP/emsdk/emsdk" activate 4.0.8
+      - name: Rebuild exact MuPDF 1.28.1 with 18 pinned submodules and npm locked dev dependencies
+        shell: bash
+        env:
+          R5_ACK_PRIVATE_BUILD: YES
+        run: |
+          R5_PRIVATE_ROOT="$RUNNER_TEMP/r5-private" \
+          R5_EMSDK="$RUNNER_TEMP/emsdk" \
+          bash study-note/mupdf-migration/r5/r5-build-from-source.sh --build
+      - name: Assert no public asset release and no artifact upload
+        run: |
+          test ! -d study-note/mupdf-migration/m2/dist
+          node -e "const g=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(g.productionDeployPermitted)process.exit(1)"
+# Intentionally no actions/upload-artifact, no pages, no deployments and no Apps Script credentials.
