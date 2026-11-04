@@ -33,25 +33,36 @@ async function run(){
    {width:375,height:667,label:'small iPhone viewport simulation'},
    {width:320,height:740,label:'320px accessibility viewport'}]){
    const page=await context.newPage();await page.setViewportSize(viewport);
+   // Reproduce the actual user's missing controls: a legacy saved collapsed flag.
+   await page.addInitScript(()=>localStorage.setItem('peStudyNote.bottomNavCollapsed.v1','1'));
    const errors=[];page.on('pageerror',e=>errors.push(e.message.slice(0,130)));
    const response=await page.goto(base+'study-note.html',{waitUntil:'domcontentloaded',timeout:45000});
    assert.equal(response.status(),200);
    await page.waitForSelector('#r4-private-notice',{state:'attached',timeout:22000});
    const measure=await page.evaluate(ids=>{
-    document.getElementById('bottomNav').classList.remove('hidden','nav-collapsed');
+    const bar=document.getElementById('bottomNav');
+    // Only synthetic test data requires making the bar visible; never silently
+    // clear the collapsed state as that masked the real production defect.
+    bar.classList.remove('hidden');
     const data=ids.map(id=>{
      const el=document.querySelector(id),r=el?.getBoundingClientRect();
      return {id,visible:!!el&&getComputedStyle(el).display!=='none',x:r?.x,y:r?.y,
       right:r?.right,bottom:r?.bottom,width:r?.width,height:r?.height};
     });
     const notice=document.getElementById('r4-private-notice');
-    return {data,parent:notice?.parentElement?.id,
+    return {data,navCollapsed:bar.classList.contains('nav-collapsed'),
+      navToggleExpanded:document.getElementById('navToggleBtn').getAttribute('aria-expanded'),
+      legacySavedValue:localStorage.getItem('peStudyNote.bottomNavCollapsed.v1'),
+      parent:notice?.parentElement?.id,
       duplicateFixed:document.querySelectorAll('body > #r4-private-notice').length,
       caption:notice?.querySelector('summary')?.textContent,
       source:document.getElementById('r4-source-offer-link')?.href,
       popoverPosition:getComputedStyle(notice.querySelector('.r4-notice-popover')).position};
    },selectors);
    assert.equal(measure.parent,'bottomNavActions');assert.equal(measure.duplicateFixed,0);
+   assert.equal(measure.legacySavedValue,'1');
+   assert.equal(measure.navCollapsed,false,'old saved preference must not hide the five controls');
+   assert.equal(measure.navToggleExpanded,'true');
    assert.equal(measure.caption,'ⓘ 고지');
    assert.match(measure.source,/pe-study-note-mupdf-1.28.1-r8-20261104/);
    assert.equal(measure.popoverPosition,'absolute');
@@ -87,6 +98,10 @@ async function run(){
    assert(collapsedRect.x>=-1 && collapsedRect.x+collapsedRect.width<=viewport.width+1,
      viewport.label+' collapsed-source notice clipped horizontally');
    await page.keyboard.press('Escape');
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForSelector('#r4-private-notice',{state:'attached',timeout:22000});
+   assert.equal(await page.locator('#bottomNav').evaluate(e=>e.classList.contains('nav-collapsed')),false,
+     viewport.label+' source/previous/list/next/top/bottom must reappear after refresh');
    await page.close();
    report.push({viewport:viewport.label,width:viewport.width,sixButtonsNoOverlap:true,
     sourcePopover:'PASS',sourceVisibleAfterCollapse:true,pageErrors:errors.length});

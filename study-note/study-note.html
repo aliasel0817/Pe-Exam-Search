@@ -4605,7 +4605,9 @@ let recallMode = false;
 let learningView = 'plan';
 let learningPage = 1;
 const BOTTOM_NAV_COLLAPSE_KEY = 'peStudyNote.bottomNavCollapsed.v1';
-let bottomNavCollapsed = localStorage.getItem(BOTTOM_NAV_COLLAPSE_KEY) === '1';
+// R11: never restore an old collapsed state on first load. This previously
+// made all five topic navigation actions disappear behind a separate notice.
+let bottomNavCollapsed = false;
 
 const els = {};
 // Read-only UI cache. Switching the device-list filter never calls revoke/approve APIs.
@@ -5070,8 +5072,10 @@ function bindEvents() {
   els.listBtn.addEventListener('click', openSidebar);
   els.jumpTopBtn.addEventListener('click', () => jumpToPageEdge('top'));
   els.jumpBottomBtn.addEventListener('click', () => jumpToPageEdge('bottom'));
-  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed));
-  setBottomNavCollapsed(bottomNavCollapsed, { persist: false });
+  // Collapse remains a session-only user action; refreshing the page always
+  // shows the five topic controls and the directly visible AGPL source offer.
+  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed, { persist: false }));
+  setBottomNavCollapsed(false, { persist: false });
   els.openSidebarBtn.addEventListener('click', openSidebar);
   els.closeSidebarBtn.addEventListener('click', closeSidebar);
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
@@ -6808,6 +6812,9 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   els.emptyState.classList.add('hidden');
   els.topicDetail.classList.remove('hidden');
   els.bottomNav.classList.remove('hidden');
+  // Every selected topic must expose its navigation actions. Do not inherit
+  // a previously hidden bar when moving from another topic or search result.
+  setBottomNavCollapsed(false, { persist: false });
 
   setText('detailTopicId', topic.topicId);
   setText('detailDomain', `${topic.domain} · ${topic.domainName}`);
