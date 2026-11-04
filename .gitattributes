@@ -1,0 +1,5 @@
+# R5: Preserve byte-for-byte v21 Apps Script Code.js snapshot (including CRLF).
+# This is required for verifiable correspondence with the read-only deployed source hash.
+study-note/mupdf-migration/r5/source/Code.js -text
+study-note/mupdf-migration/r5/source/referencePdfContent.js -text
+study-note/mupdf-migration/r5/source/appsscript.json -text

@@ -1,0 +1,20 @@
+{
+  "schema": "mupdf-migration-config-example-v1",
+  "comment": "Template only, never paste actual credentials or Script Properties into this file",
+  "pdf": {
+    "primaryEngine": "mupdf",
+    "fallbackEngine": "pdfjs",
+    "packageVersion": "1.28.1",
+    "migrationEnabled": false
+  },
+  "rights": {
+    "publicReadRoutesPreserved": true,
+    "ownerOnlyMutations": true,
+    "signedOriginalPdfAccessPreserved": true
+  },
+  "sourceOffer": {
+    "enabled": false,
+    "publicSourceUrl": "https://github.com/OWNER/REPOSITORY/tree/DEPLOYED-TAG"
+  },
+  "privateSettings": "Inject from existing server-side Script Properties; never bundle into client JS"
+}

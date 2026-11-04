@@ -37,7 +37,7 @@ assert.match(functionSource('repaintReferencePdfAtZoom'), /computeAttachmentPdfR
 assert.match(functionSource('fetchReferencePdfBytesFromServer'), /buildSignedGetUrl\(getApiUrl\(\), 'referencePdfContent'/);
 assert.match(functionSource('openReferencePdfViewer'), /refreshReferencePdfBackendSourceCapability\(\)/);
 assert.match(functionSource('loadReferencePdfPage'), /referencePdfBackendSourceReady/);
-assert.match(functionSource('loadReferencePdfHighQuality'), /fetchReferencePdfBytesFromServer\(page\)/);
+assert.match(functionSource('loadReferencePdfHighQuality'), /fetchReferencePdfBytesFromServer\(page,\s*\{signal:\s*sourceAbort\.signal\}\)/);
 assert.doesNotMatch(html, /id="referencePdfQualityBtn"/);
 assert.doesNotMatch(source, /drive\.readonly|www\.googleapis\.com\/drive\/v3\/files|requestReferencePdfDriveToken|enableReferencePdfHighQuality/);
 assert.match(html, /\.reference-pdf-page-image\.reference-pdf-vector-canvas\s*\{\s*display:\s*none;/);

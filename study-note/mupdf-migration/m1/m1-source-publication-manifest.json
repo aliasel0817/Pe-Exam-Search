@@ -1,0 +1,32 @@
+{
+  "schema": "mupdf-m1-source-boundary-v1",
+  "phase": "M1-planning-only",
+  "package": {
+    "name": "mupdf",
+    "version": "1.28.1",
+    "license": "AGPL-3.0-or-later",
+    "state": "not-integrated"
+  },
+  "plannedPublicSource": [
+    "study-note/study-note.html",
+    "study-note/service-worker.js",
+    "study-note/mupdf-migration/**",
+    "study-note/tests/**",
+    "build scripts and lockfiles added in M2",
+    "MuPDF JS/WASM corresponding upstream sources and modifications"
+  ],
+  "prohibitedFromPublicArtifacts": [
+    "Google Apps Script Script Properties and runtime credentials",
+    "actual *.env files, .clasp.json, OAuth client secrets, HMAC and session secrets",
+    "LIVE MASTER source rows",
+    "Drive PDF, image and attachment binary copies",
+    "saved user annotations, device registers and private test fixtures"
+  ],
+  "pendingDecisions": [
+    "Artifex/qualified counsel opinion on Apps Script coupling to AGPL app",
+    "exact source/notice obligations for installed dependencies",
+    "license notice presentation and corresponding-source download method",
+    "deterministic published JS/WASM checksum linked to source revision"
+  ],
+  "status": "LEGAL_REVIEW_REQUIRED_NO_DEPLOY"
+}

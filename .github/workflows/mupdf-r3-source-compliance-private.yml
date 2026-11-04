@@ -1,0 +1,42 @@
+# R3 source/compliance evidence CI: no source packaging, WASM compilation, artifacts,
+# token requests, Apps Script API mutation, Pages publication, or deployment.
+name: MuPDF R3 private source compliance
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/mupdf-migration/r3/**'
+      - '.github/workflows/mupdf-r3-source-compliance-private.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-provenance-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Only changed R3 security/packaging contracts (synthetic)
+        run: node --test study-note/mupdf-migration/r3/tests/r3.test.mjs
+      - name: Validate operator-only private Linux build script syntax (never execute)
+        run: bash -n study-note/mupdf-migration/r3/r3-build-linux-private.sh
+      - name: Keep M2 legal release gate CLOSED
+        run: |
+          node -e "const x=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(x.status!=='BLOCKED'||x.assetBinaryReleasePermitted||x.productionDeployPermitted)process.exit(1)"
+          node -e "const m=require('./study-note/mupdf-migration/r3/r3-draft-source-manifest.json');if(m.deployAllowed||m.publicBinaryReleaseAllowed||m.mupdf.actualWasmRebuildCompleted)process.exit(1)"
+      - name: Reject accidentally tracked private checkout, credentials or WASM
+        run: |
+          if git ls-files | grep -Ei '(^|/)\.r3-private/|(^|/)\.m2-private/|(^|/)\.r2-private/|\.wasm$|(^|/)\.clasp\.json$|(^|/)\.env$'; then
+            echo 'Private source, credentials or WASM unexpectedly tracked'
+            exit 1
+          fi
+# Verification of actual upstream private sources and tarball SHA occurs on the
+# authorized PC only; sensitive/local source content is never uploaded to CI.
