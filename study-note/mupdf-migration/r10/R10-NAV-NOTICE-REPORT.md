@@ -50,12 +50,25 @@ are untouched.
 
 ## Executed verification
 
-- R4 existing + R10 static: **11/11 PASS**.
+- R4 + M7 + R10 static: **15/15 PASS**. The prior M7 strict HTML
+  byte-equivalence guard is retained; it removes only the precisely marked
+  R10 navigation CSS and `목록` visibility change before comparing all other
+  bytes to the original reference.
 - Real **Windows Chrome 156.0.8078.49**: all six visible without
   intersection, notice open/close, official source/AGPL/notices links,
-  escape-close, and source visibility even when nav collapsed: **PASS**
-  at all five viewport sizes. Mobile sizes are **emulations**, not physical
-  Galaxy Tab S11 / iPhone Safari.
+  escape-close, and source visibility and panel bounds even when nav collapsed:
+  **PASS** at all five viewport sizes. Mobile sizes are **emulations**, not
+  physical Galaxy Tab S11 / iPhone Safari.
+- Original bottom navigation scroll/collapse regression: **PASS** at
+  320/390/820/1280px, with previous/next, list drawer, top/bottom and
+  saved collapse state preserved. The one historical expectation that the
+  entire actions container becomes `display:none` is updated: R10 keeps
+  the container visible to keep the AGPL link prominent while hiding only
+  the five topic actions in collapsed mode.
+- Full synthetic topic-visibility browser regression: **56/56 viewport/topic
+  scenarios PASS**, including 150/200/250% font sizes and iPhone safe-area
+  simulation. At <=350px, the original flex navigation behavior is preserved
+  with wrapping and an extra bottom reading margin to avoid text overlap.
 - Real backend requests intercepted/blocked; application data writes **zero**.
 - No LIVE MASTER, Apps Script, source PDFs/images/annotations/keys changed.
 

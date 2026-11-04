@@ -110,8 +110,24 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
    assert.match(s,runtime);s=s.replace(runtime,'');
    return s;
  };
- assert.equal(maskR2(stripR6(removed)),maskR2(old),
-   'R6/M7/R2 must preserve all unrelated HTML bytes');
+ // R10 intentionally changes ONLY five-button navigation visibility and the
+ // documented docked notice CSS. Strip these exact public UI changes before
+ // retaining the original M7 strict byte-for-byte protection elsewhere.
+ const stripR10=input=>{
+   let s=input;
+   const start='\n/* R10: all five navigation actions';
+   const end='/* R10_NAV_NOTICE_CSS_END */\n';
+   assert.equal(s.split(start).length,2,'R10 style start must be unique');
+   assert.equal(s.split(end).length,2,'R10 style end must be unique');
+   const from=s.indexOf(start),to=s.indexOf(end,from);
+   assert(from>=0&&to>from,'R10 documented CSS range must exist');
+   s=s.slice(0,from)+s.slice(to+end.length);
+   const changed='<button id="listBtn" class="nav-btn" type="button">';
+   assert.equal(s.split(changed).length,2,'R10 list visibility change must be unique');
+   return s.replace(changed,'<button id="listBtn" class="nav-btn mobile-only" type="button">');
+ };
+ assert.equal(maskR2(stripR6(stripR10(removed))),maskR2(old),
+   'R6/M7/R2/R10 must preserve all unrelated HTML bytes');
  assert.match(now,/const ANNOTATION_SCHEMA_VERSION = 3;/);
  assert.match(now,/coordinateSpace: 'normalized-0-1'/);
  assert.match(m5,/fetchMediaContent\(getApiUrl\(\), item\.attachmentId/);

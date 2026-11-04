@@ -82,6 +82,11 @@ async function run(){
    await page.locator('#navToggleBtn').click();
    assert(await page.locator('#r4-private-notice summary').isVisible(),
      viewport.label+' source offer missing in user-collapsed navigation');
+   await page.locator('#r4-private-notice summary').click();
+   const collapsedRect=await page.locator('.r4-notice-popover').boundingBox();
+   assert(collapsedRect.x>=-1 && collapsedRect.x+collapsedRect.width<=viewport.width+1,
+     viewport.label+' collapsed-source notice clipped horizontally');
+   await page.keyboard.press('Escape');
    await page.close();
    report.push({viewport:viewport.label,width:viewport.width,sixButtonsNoOverlap:true,
     sourcePopover:'PASS',sourceVisibleAfterCollapse:true,pageErrors:errors.length});

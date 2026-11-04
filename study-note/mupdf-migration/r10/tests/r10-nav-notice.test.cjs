@@ -50,7 +50,7 @@ test('original R4 standalone notice behavior stays usable for earlier local test
 test('collapsing nav does not conceal source offer and narrow mobile uses two-row layout',()=>{
  assert(html.includes('.bottom-nav.nav-collapsed .r4-notice-docked{display:block;}'));
  assert(html.includes('@media(max-width:350px)'));
- assert(html.includes('grid-template-columns:repeat(3,minmax(0,1fr))'));
+ assert(html.includes('flex-wrap:wrap;align-items:stretch;gap:3px;'));
  assert(html.includes('env(safe-area-inset-bottom)'));
  assert(html.includes('.r4-notice-popover{right:-32px;}'));
 });

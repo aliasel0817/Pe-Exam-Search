@@ -88,7 +88,9 @@ async function measure(page){
    await page.click("#navToggleBtn");
    const collapsed=await measure(page);
    assert.equal(collapsed.collapsed,true);
-   assert.equal(collapsed.actionsDisplay,"none");
+   // R10 keeps the AGPL source offer accessible even when the five topic actions collapse.
+   // The actions container stays present, but those five controls are CSS-hidden.
+   assert.equal(collapsed.actionsDisplay,"flex");
    assert.equal(collapsed.toggleExpanded,"false");
    assert(collapsed.dockWidth<=52,"Collapsed dock should leave a tiny handle: "+JSON.stringify(collapsed));
    assert(collapsed.scrollWidth<=collapsed.viewport+2,"Horizontal overflow collapsed: "+JSON.stringify(collapsed));
