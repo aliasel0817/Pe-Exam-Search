@@ -1,0 +1,1337 @@
+{
+  "schema": "r4-sanitized-source-catalog-v1",
+  "purpose": "PRIVATE_RELEASE_PLANNING_ONLY",
+  "isCompleteCorrespondingSource": false,
+  "sourceOfferPubliclyAccessible": false,
+  "appsScriptLiveCodeIncluded": false,
+  "mupdfCoreCSourceIncluded": false,
+  "publicBinaryReleaseAllowed": false,
+  "notes": "Catalog is only a list of existing tracked files and checksums, not a legal licence or source offer.",
+  "entryCount": 218,
+  "categories": {
+    "BUILD_CI_SCRIPTS": 15,
+    "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW": 48,
+    "OTHER_FRONTEND_SOURCE_REVIEW": 34,
+    "BACKEND_ADDON_TRACKED_NOT_DEPLOYED_CODE": 4,
+    "MUPDF_ADAPTER_AND_REVIEW_SOURCE": 116,
+    "FRONTEND_INTEGRATION_SOURCE": 1
+  },
+  "unresolved": [
+    "Artifex written decision on Apps Script coupling and rights of third-party materials",
+    "Backend deployed Code.js not automatically included and not copied",
+    "Exact MuPDF C source and 18 gitlink modules held ONLY in private R3 checkout",
+    "Complete third-party licenses, font/CMap notices and build/install instructions",
+    "No public source URL published or approved"
+  ],
+  "risks": [],
+  "entries": [
+    {
+      "path": ".github/workflows/mupdf-m2-audit.yml",
+      "sha256": "5fda486a0b9e2e034fcf606c2b4c01253b1e66be75ca4ffe85593eb288c75a69",
+      "bytes": 2337,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-m3-renderer.yml",
+      "sha256": "134de3eddc8289a714466c293fc9dc5a239f01218bdd8b2bfd6d9e84921242f1",
+      "bytes": 2853,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-m4-reference-viewers.yml",
+      "sha256": "513180ccd3d0315d2e7ce3305bc16a2e7c09afb0bd9c51ef5b420ba52d81f587",
+      "bytes": 2993,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-m5-attachment-viewer.yml",
+      "sha256": "b58a12cd9cf4905e2372b7ccd4f4bafab17bbc12a1c258d9c9bd11ad5e15c671",
+      "bytes": 3094,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-m6-ink-gesture-performance.yml",
+      "sha256": "b406e89f7ae23c8da945a0d59f4bee25589af62f878960b900cae0fe5111479f",
+      "bytes": 3475,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-m7-final-stabilization.yml",
+      "sha256": "aba029802be2471bb53c6794187958d488f405fe348772cdf19cb096f409c54b",
+      "bytes": 3030,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-r0-release-readiness.yml",
+      "sha256": "8e3d991bf386a70cfbb2ceb5e2e512886d1e0faa126914d4e569fe49c6c380e4",
+      "bytes": 1548,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-r1-functional-stabilization.yml",
+      "sha256": "624bba2cf88d32b00f913017226f9710f32a98ba5e3ecd6b28ca772db1c2ac29",
+      "bytes": 2347,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-r2-signed-source-safety.yml",
+      "sha256": "69974a2a64c0b54ab3b92027dbde208956bf90931095cfab842c0b40026ce9fe",
+      "bytes": 2060,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-r3-source-compliance-private.yml",
+      "sha256": "c706f4571c84889c5aa0e663b79fac68de332cfb3b46f4345b5ed977bc9a96a8",
+      "bytes": 2030,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/mupdf-r4-prelaunch-readiness.yml",
+      "sha256": "eb4943aee6e90856c45a0cec532ea6c5fc70e9334917302af04e67f45c8d47e9",
+      "bytes": 2044,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/study-note-pdf-upload.yml",
+      "sha256": "799381e4ba094e5895babe0354b945ace765fc6f6e8770ffbd75747f66da0bb6",
+      "bytes": 1968,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/study-note-visibility-browser-qa.yml",
+      "sha256": "1140e19f9f024d74c7890c4d5540b160935dba72056b1d75207d5ef73473f926",
+      "bytes": 3339,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/study-note-visibility-webkit-qa.yml",
+      "sha256": "691a73d9bb042e5f59c87de3c6d0311ccfc0347fad9426dd4f551f6af9613d13",
+      "bytes": 2607,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".github/workflows/study-note-visibility-windows-cache-qa.yml",
+      "sha256": "16d65eb7977ba30179eedfad702fbf0d4a6bfbc9199da372d7fc6acb815f3523",
+      "bytes": 2808,
+      "classification": "BUILD_CI_SCRIPTS"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "7f8461472ee15b298982ad89894b9b99705b8b84b02288a3b0d53fe627990f9c",
+      "bytes": 838,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": ".nojekyll",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "bytes": 2,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "ModifyPDF.html",
+      "sha256": "a064179c1610770fdb87a0db32d82ce949d35e5f1c5bdc6cef1dc4fb883fa82f",
+      "bytes": 19737,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "README.md",
+      "sha256": "75591081104e13e1fcca20bb0e555936bfa95adcd64e3e0a4663fce254a44979",
+      "bytes": 653,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "Topic_list.xlsx",
+      "sha256": "ab3fdf3e420b16a65e191bd4f5c12286921706b479e8c1be6f1b094ca21f80c7",
+      "bytes": 661804,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "flashcard.html",
+      "sha256": "edd868ff5e667b378d288bc1eb44474f9ca1853e758525395845ec0396b4aef9",
+      "bytes": 21281,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "index.html",
+      "sha256": "8e15b2075d6c7bb14eaac7d802dfc934b2498d5dbe30c0e16ef294d26dee22fa",
+      "bytes": 25184,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "list.xlsx",
+      "sha256": "05310c4925e6da97ee57fbef1ce067daa1ddda71edcd7398e324eee9fdc851ed",
+      "bytes": 2068615,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "memo.html",
+      "sha256": "239b243ef26fa9f39d9c7a676bf3a8256ee937b4537a83fb06974a9e66150427",
+      "bytes": 10651,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "memory.html",
+      "sha256": "1668b56da355a9f53847f885935c4f1a973088cb650a90c6079b90385076cbe2",
+      "bytes": 36027,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE10-FULL-PWA-CHROME-QA-20261015-KO.md",
+      "sha256": "c4e528b3a46e1f710e08a82f2992644d5e38dbfd4143d44cb6fd2df79ecc9811",
+      "bytes": 6868,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE11-BOTTOM-NAV-SAFEAREA-QA-20261015-KO.md",
+      "sha256": "a4166b83a4dcad94133282deb77b8b4f2e0d72f772165c116e5fbff2249e12d3",
+      "bytes": 6198,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE12-ORIENTATION-X-BILINGUAL-PRESERVATION-QA-20261015-KO.md",
+      "sha256": "de88b353f911f76c8e502463188c32a29c7fe4ddce6a5d5986060d38526497cb",
+      "bytes": 7395,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE13-WEBKIT-QA-20261015-KO.md",
+      "sha256": "c9f42cc290d153b81cf9636fe6ec8fc5a009ba1e631be25c96f6c0a74d5d01d9",
+      "bytes": 4649,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE14-WINDOWS-CHROME-REMOTE-QA-20261015-KO.md",
+      "sha256": "5299a47903822531668dec9c30f9493c07e2a2f460174fcf9fa6414f4f63eedf",
+      "bytes": 3659,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE15-NUMERIC-PREFIX-LOSSLESS-QA-20261015-KO.md",
+      "sha256": "a601ca240f6188c8019b9ac8a2dfd5bbc690fd01837fb1d3492462e0021ff649",
+      "bytes": 6975,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE16-MOBILE-ZOOM-LIVE-SAMPLE-QA-20261015-KO.md",
+      "sha256": "93ca8a0620a069422ea249913cae60c21d907b92d284c80e82b5d250d781e14b",
+      "bytes": 7788,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE17-ISOLATED-PREVIEW-READINESS-20261015-KO.md",
+      "sha256": "c9398f5a161413e1592e7dd7cad36b1bb7435ef0e2851e273e2d5a82481fcff6",
+      "bytes": 6862,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE18-HOME-PC-VERIFICATION-WAIVER-20261016-KO.md",
+      "sha256": "c55bd9b4642bf4e1ed5a8cdf1f0d91c6e490416def7c840368e0237cd1f94a06",
+      "bytes": 2633,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE18-WINDOWS-PREVIEW-CACHE-AND-AUTH-GATE-QA-20261016-KO.md",
+      "sha256": "931b289b553481e21348c9a1a36e7fdfe577d5385193642931265b00b60ed787",
+      "bytes": 6508,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE19-SPACED-EQUATION-DOT-PRESERVATION-QA-20261016-KO.md",
+      "sha256": "1b84b525234493181320b713bc0ff543bd2d57957c5613be39c4d5f380483922",
+      "bytes": 6276,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE20-PREDEPLOY-SCOPE-LIVE-RECHECK-20261016-KO.md",
+      "sha256": "a9a02eb2ab91e219e110e55a78abe8f08612cfacccd3b7e94604f7d5225892fb",
+      "bytes": 7627,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE21-INLINE-MIDDOT-FIDELITY-QA-20261016-KO.md",
+      "sha256": "66156cb4d4865ea92f74141137398a823226975418a298f08564b8bee00ce8bb",
+      "bytes": 6202,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE22-NEW-T4039-AUTHORED-HIERARCHY-QA-20261016-KO.md",
+      "sha256": "360b8812e1cab05d768393befe84f9005bd9ae609b6f0f81aa6e492fa048e774",
+      "bytes": 7268,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE8-KOREAN-FIRST-CHECKPOINT-20261014-KO.md",
+      "sha256": "47cae45b01163a16b8c0cf8d3ce10310492cc4373f039bd7a7d4cc2fbf804e7f",
+      "bytes": 6899,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MASTER-DISPLAY-VISIBILITY-PHASE9-COMMA-CHROMIUM-QA-20261015-KO.md",
+      "sha256": "a32f5b9aa2793244940f6683b1f965794addedc0f18d6048874fceceb0c43a73",
+      "bytes": 6969,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MULTIPAGE-ORIGINAL-PDF-UPLOAD-INTERRUPT-CHECKPOINT-20261012-KO.md",
+      "sha256": "fcead27d4d7bd032dab15cc46d66c859895942e24de72386f25414c68d9266ce",
+      "bytes": 5240,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MULTIPAGE-PDF-ALL-MATERIALS-CHECKPOINT-20261012-KO.md",
+      "sha256": "970bed53583335fce5ef00c82f98bde568563cfec50385a7b623d51df443338d",
+      "bytes": 10888,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/MULTIPAGE-PDF-PRODUCTION-RELEASE-CHECKPOINT-20261012-KO.md",
+      "sha256": "65e54a319025a7a552c0a94a72af2b9e306811c65e9ef80c68580946c11a258b",
+      "bytes": 5287,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-PHASE2-RELOAD-AND-FAILURE-REGRESSION-20261013-KO.md",
+      "sha256": "0bbe794c7d3c743d52176554c8868f29879c64cc4e3f455d3d7bff15d607b75a",
+      "bytes": 5464,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-PHASE4-BASE-KEY-METADATA-CHECKPOINT-20261013-KO.md",
+      "sha256": "e74fde9747e8075be1c17f888527c7b05ec2e5ca025e2dce0b25225b52be88a1",
+      "bytes": 3996,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-PHASE5-LOCAL-CATALOG-TYPES-CHECKPOINT-20261013-KO.md",
+      "sha256": "b08e458987e9c05e99349b1b4893dc8ba9201bba8b44bc28d61c8a8e5c153002",
+      "bytes": 3475,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-PHASE6-RELATION-READBACK-CHECKPOINT-20261013-KO.md",
+      "sha256": "2dc163f8d58f0f35cb61821357eff0f92035a292822ed59fbbb9f2873d0bd938",
+      "bytes": 4707,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-PHASE7-READBACK-IDENTITY-CHECKPOINT-20261013-KO.md",
+      "sha256": "e8f7bf41b74813ceba6c9b1c74904f6a30f386046da3e81118407ff023485c66",
+      "bytes": 1927,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-PHASE8-ALL-BATCH-READBACK-CHECKPOINT-20261013-KO.md",
+      "sha256": "b4a78cfed0df4135cc547c709e145af3153b06a82e4546a46920dc2df64227c4",
+      "bytes": 4413,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/PDF-MULTIPAGE-T4036-LIVE-QA-20261013-KO.md",
+      "sha256": "98c0183fae08f36a962cbb16846f3c8730377f42b1d67f8dedab28758a5cc974",
+      "bytes": 7202,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/SECURITY-DEVICE-LIST-FILTER-20261023.md",
+      "sha256": "9a58f793ba24d74d60608ddcbab664565e053c6b9c8ce5c59e2be5ab593b483f",
+      "bytes": 2830,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/STUDY-NOTE-USER-MANUAL-KO.md",
+      "sha256": "2502e20282f2a2825b30eb7fe72f2e086e36742153761ef050c7a416388a5527",
+      "bytes": 61123,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/STUDY-PLANNER-REVIEW.md",
+      "sha256": "d829f859d6ad7292591d2d0b0e1fe6e1b5ffb67d17ca045be16a0d833c599809",
+      "bytes": 5927,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/TECHNICAL-READABILITY-PHASE-4-CHECKPOINT-20261011-KO.md",
+      "sha256": "d397e656e2e3ac52bbd52cada83eb2c2d3fcf8c7f7112dda2171a804510eee25",
+      "bytes": 3635,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/TECHNICAL-READABILITY-PHASE-5-CHECKPOINT-20261012-KO.md",
+      "sha256": "0fb247d8fc0d60a77d8e8bbc96dbd9a70aef8a4128139526c4eb91e7de708218",
+      "bytes": 3798,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/TECHNICAL-READABILITY-PHASE-6-SHORT-DESCRIPTION-CHECKPOINT-20261012-KO.md",
+      "sha256": "24acefc623b9a2bde16738b563cf1aa0d3ae9f79e8f37e50b0c9a34e503535cc",
+      "bytes": 3802,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/actual-annotation-touch-qa.html",
+      "sha256": "274b1977cffe6476bc2ac16b2da6d140cf7c60292f677890916f619530df3000",
+      "bytes": 13149,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/backend/README-issue45-production-hook.md",
+      "sha256": "931f25ed0dc034a57ab3bee062d52f8064e910b6e3a07a056f9611f53bd86243",
+      "bytes": 4180,
+      "classification": "BACKEND_ADDON_TRACKED_NOT_DEPLOYED_CODE"
+    },
+    {
+      "path": "study-note/backend/README-reference-pdf-content.md",
+      "sha256": "37a636521129c92aed4f9a81bd9cdafd706747cc2ff138b85935d01743c8b5e3",
+      "bytes": 7976,
+      "classification": "BACKEND_ADDON_TRACKED_NOT_DEPLOYED_CODE"
+    },
+    {
+      "path": "study-note/backend/issue45-referencepdf-content-deployed-v20.patch",
+      "sha256": "d2db7784e701e028f06f6786554ba27de49803b393277569d3dffca1db0416c1",
+      "bytes": 1841,
+      "classification": "BACKEND_ADDON_TRACKED_NOT_DEPLOYED_CODE"
+    },
+    {
+      "path": "study-note/backend/referencePdfContent.addon.gs",
+      "sha256": "0ff6da5c6a3635b0fb83429ade3386ba50c195d2fbe24b5a4ea0e6a3022dafed",
+      "bytes": 6266,
+      "classification": "BACKEND_ADDON_TRACKED_NOT_DEPLOYED_CODE"
+    },
+    {
+      "path": "study-note/image-upload-optimizer.js",
+      "sha256": "199ab76cb846a180e2a9cd4911888713bedb4518486083aba8f1f09501dc638e",
+      "bytes": 7594,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/manifest.webmanifest",
+      "sha256": "2a2d28a2c3490e7b633fb188c8ba621b9bacdaf861a3dc5dbccd756e8888898b",
+      "bytes": 1345,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/M1-REPORT-20261103.md",
+      "sha256": "93e98e6bdb17f5b430d0a7abc0fd705ed200c3dea73e4125c27076ae9cbee943",
+      "bytes": 8641,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/M2-HANDOFF-20261103.md",
+      "sha256": "46f260a6e651eeff3d325db9f1eb55d66fd439eaf02c58845e879606d4680261",
+      "bytes": 7889,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-api-audit.cjs",
+      "sha256": "dd524f7d2c6df8f39ff2f5bbf91b8971b4908cdcce9c25eaa6569af67e506ac9",
+      "bytes": 5288,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-audit.test.cjs",
+      "sha256": "29c26fa194e3e05cf76a3f9e487dc6b996dbaea6e2e3fd58b21ef6a27c53ee69",
+      "bytes": 6586,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-clasp-readonly.cjs",
+      "sha256": "490e5ccde09f9c35481d2b98dbb5e74657cb3148189ca730a814cdd5fc9b6ce1",
+      "bytes": 1616,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-config.public.example.json",
+      "sha256": "bbd12dd62ecb34a332664bd4cc29fb7a8cca8523cd99620c379401d8ac938fef",
+      "bytes": 673,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-history-diff-scan.cjs",
+      "sha256": "a79c58cd899a6b6fefae1a8d261931380cfb68f344a97062763720aea1fa838e",
+      "bytes": 1750,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-license-inventory.cjs",
+      "sha256": "7b8309ae330477d98366108d13746b260e10889cbb421007445872f38fd43464",
+      "bytes": 1811,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-live-health-smoke.cjs",
+      "sha256": "e2e1a4ca4f20a3805616d61e06131c28fbf9dc159234bd18eb4c2c3c38a20cac",
+      "bytes": 1542,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-owner-guard-candidate.gs",
+      "sha256": "065e8dfa34f753f6554d7fe176a7f66d24ed1b58126f7bcc8f91bf83e6e90482",
+      "bytes": 1248,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-pdfjs-disable-eval.patch",
+      "sha256": "2ccd7b14bae2ce127c67b33a7875742aadaf67d0b087e1fa7267c003d1ee0483",
+      "bytes": 1424,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-secret-scan.cjs",
+      "sha256": "c653d14f678e4465bc29b83ba3cbd18f6eb6c1bdc47ae71490388dc2f51274c9",
+      "bytes": 4878,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-source-compare.cjs",
+      "sha256": "f4ddac162cca74e4ea64f1a9e29a2852c43b60ef0c6e6daba5f4e11211716f83",
+      "bytes": 1076,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m1/m1-source-publication-manifest.json",
+      "sha256": "e9989ec40a9a48eb0ea2d3e76eb971969c1a38ed908ec47ae850e6fba7e8444b",
+      "bytes": 1245,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/M2-REPORT-20261103.md",
+      "sha256": "e3b05d057e0ac825e931f947baa1368629e9db816f8185fe6b756a69e42a2b0d",
+      "bytes": 6159,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/M2-SOURCE-OFFER-DRAFT.md",
+      "sha256": "d233a57df16f5f7cd074f50e9146dc436d06cee9e2574ae0cddca91d97edfde6",
+      "bytes": 1239,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/M3-HANDOFF-20261103.md",
+      "sha256": "79b255802bd3092db10634a83dde294ab3e2c275c4804fd6194699666ef87834",
+      "bytes": 7286,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/README.md",
+      "sha256": "008e67cfe266459e94afc37138d25353779e9cd550ce316d82da70e90ea217ca",
+      "bytes": 1574,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/THIRD-PARTY-NOTICES.md",
+      "sha256": "6448ed69862e4a220a75f83a207c1f348101dac41effa06446299cfd4abe3419",
+      "bytes": 1277,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/licenses/AGPL-3.0.txt",
+      "sha256": "282751b8c98ee9e445346eb57a992c9ecbe25ed8dd554df046777313e19b10f9",
+      "bytes": 35181,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-asset-lock.json",
+      "sha256": "7ff427fc833847f242915096c494ad0b511f880cd193e3bfafe4d77ffa281122",
+      "bytes": 1354,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-esm-smoke.mjs",
+      "sha256": "511256cf1dbfb4d66ae761aaa82578e898b2f5a8b610376b7950d45345464853",
+      "bytes": 1006,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-local-http-contract.cjs",
+      "sha256": "15b8579e004bedbbd46cd8e7a8d72ca2f95bef087eaad3272b8cc9184dcbc268",
+      "bytes": 1858,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-publication-gate.json",
+      "sha256": "afee8e2a4eaf3bf1f31135e8313f0a3d5e84c27554cedbc292ef2755c1a3d806",
+      "bytes": 470,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-release-gate.cjs",
+      "sha256": "b2bd8b99733180de607191ba13bd1d850845d7f56744f6e77753d48fb12463da",
+      "bytes": 721,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-runtime-paths.json",
+      "sha256": "9b4d6b4fa33369c6f64c05b6097f7bbda0a5e1b94c54a3918156d47844c79522",
+      "bytes": 909,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-source-offer-ui.template.html",
+      "sha256": "128d9360d7d74ef1db283b2e2d255fca843edb6bb38b3009d68a4c8d06756648",
+      "bytes": 565,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-stage-assets.cjs",
+      "sha256": "f20c440e7336e6d35a693270c1ab697028fc6947edcf5fdfeac464e5b48044e5",
+      "bytes": 3832,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2-verify-assets.cjs",
+      "sha256": "0cf8165e1aaa9c7f7a8816b98fcb3a7fbda5818c81ec3a8564d82e84891c67c9",
+      "bytes": 1194,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/m2.test.cjs",
+      "sha256": "c122bcb529a93b6cbec60cdb45af3ced039a251102ef0cbbca4fc71e88e2e584",
+      "bytes": 4888,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/package-lock.json",
+      "sha256": "478981ee8e510d70403d5dcd1201b51309dfab485cadab1b5cc61cf07c9d917a",
+      "bytes": 647,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m2/package.json",
+      "sha256": "76af39bdc9b992050267a3b4f2a6dc42bfbc00e3b39b7e1276c34bc782c6d063",
+      "bytes": 547,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/M3-REPORT-20261103.md",
+      "sha256": "14d45eb9e3ef1b32825161c4a09ca310e59b7c2f1fcc1c725c36836884dc956b",
+      "bytes": 7724,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/M4-HANDOFF-20261103.md",
+      "sha256": "8e5e24d18b6ef8250240221ad029fb3c063c4cfc495c9857078fa5d2a2865a0b",
+      "bytes": 11903,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/README.md",
+      "sha256": "f2a8c29058ef7115911e0ffc5a88f54fedee7bdfda2f0ccfe0ec1142e06e4abd",
+      "bytes": 4176,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/m3-common.mjs",
+      "sha256": "267e366de129bb93e01d351e1fb8ce428ddb299df1ffe34efecf90950b77d080",
+      "bytes": 6421,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/m3-engine.mjs",
+      "sha256": "92623946628d4b4d9a02cd33e98cf2895a1e23c96da60a3031b67e1399c5a6c9",
+      "bytes": 2588,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/m3-mupdf.mjs",
+      "sha256": "2b0e3044b5857d4624b8b93e65632330e7ab5215e154abe4c96aafadd21ee9aa",
+      "bytes": 6155,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/m3-pdfjs.mjs",
+      "sha256": "89c4fd4d10ee72d5dcee9950154e8c74147fce3b84e96dad69c8766204bea506",
+      "bytes": 5508,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/m3-worker-client.mjs",
+      "sha256": "891ece123a6a6f6fa01865cd2c484ffabe18f2be12bcbe21b97febc20d8bf306",
+      "bytes": 4021,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/m3-worker.mjs",
+      "sha256": "2a8e7bd662fbb4335cf413defb1e4ad2b8c93849fa73e9c07926c2e63cc4d909",
+      "bytes": 1434,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/package-lock.json",
+      "sha256": "e7f27d885929e2d85b6aaac9fd4a6f3ef9ef3814721fde19aad3c47f01317aaf",
+      "bytes": 12088,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/package.json",
+      "sha256": "4520876d22ec49bd4d4d939f187e833012180f71e32fbc5d27675bde84704920",
+      "bytes": 555,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/benchmark.mjs",
+      "sha256": "39f007bddce2a54ee735ec294d43e33f081485fb5d3b028f94734eed2f8e2577",
+      "bytes": 1364,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/browser-smoke.mjs",
+      "sha256": "bb246ca81f8679d16e6402b81a5da27cb92995a5287a3d57276ffbe87d1b6e02",
+      "bytes": 3513,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/fixtures.mjs",
+      "sha256": "488077d072e4d2b10eb681a1b04d6336066da3c1d88652cbb5c5c267ef89cd6d",
+      "bytes": 984,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/harness.html",
+      "sha256": "bb9785aaacff138acd3bf136fa0e1fb36e3e0c47243cc4aa7fcf91d6c095e943",
+      "bytes": 4033,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/inspect-geometry.mjs",
+      "sha256": "d3e0a1d6b5292ccf7d7819e1c9b74022d1880ef25998bb4856601f0b8958813c",
+      "bytes": 1037,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/renderer.test.mjs",
+      "sha256": "9a393bd448d4758730a7c078dbd95f9ee0466e3cf8d6888478702271e5e057c5",
+      "bytes": 6839,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m3/tests/routing-worker.test.mjs",
+      "sha256": "49174b1f1e2a18df629cd89fbadbac3e20ccc382cccccf019f7e59ba48ad6b97",
+      "bytes": 3997,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m4/M4-REPORT-20261103.md",
+      "sha256": "d2fc341b77489781ae79cb426e28984854e4468bcd85695635cdf2df62863c16",
+      "bytes": 7210,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m4/M5-HANDOFF-20261103.md",
+      "sha256": "6ca275536efbe16239c71fc99dd4879e9556960bf3a971e5c58f8d1abe843c40",
+      "bytes": 12090,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m4/README.md",
+      "sha256": "fcaa637b28afa9a2b15776ea4c61612cafb782abf50214813fa925eb8d7b8df1",
+      "bytes": 5157,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m4/m4-reference-adapter.mjs",
+      "sha256": "b7f33a8d9791256be873819c80f12b0780b4e9bab6e8b80846c2f3bcc5dfd639",
+      "bytes": 7695,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m4/tests/browser-smoke.mjs",
+      "sha256": "18160ab271180e5efd5b041c0f027f736c93b652bc91fa0947ca2deaa46fd1d2",
+      "bytes": 12562,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m4/tests/m4.test.mjs",
+      "sha256": "49f1fc492442009554e7cc7cd488282712e56759a722124d78f8d913c9d46101",
+      "bytes": 5851,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/M5-REPORT-20261103.md",
+      "sha256": "33e1cb4a348c7317d49bf9e61caa32b8d37d4fbeafc1a3cb88d2b6a0cf25ce9b",
+      "bytes": 8025,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/M6-HANDOFF-20261103.md",
+      "sha256": "00e4f403e7ce8676080f0fa1f3030dca8d9d9ac8f212fa6ecbd780260d6cf2fa",
+      "bytes": 15266,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/README.md",
+      "sha256": "e9fb41bb23cadca53a1f986b751ad0905969bfc048c31a92bbfaffc66d3a132d",
+      "bytes": 6553,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/m5-attachment-adapter.mjs",
+      "sha256": "e6fa468e7e0194ddddeaa1e7069606703955145971982989e654d74a8a29ad67",
+      "bytes": 4356,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/m5-attachment-ui.js",
+      "sha256": "1130b34df1206b07e2c0626048607b1e23175d1fd44c51b041a512ab6b6d7a7f",
+      "bytes": 20573,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/tests/browser-smoke.mjs",
+      "sha256": "4df548520caeb6b296c40655c070fb46a5231d34453fe7445bdc267ee338cb1f",
+      "bytes": 14335,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m5/tests/m5.test.mjs",
+      "sha256": "d3acce2b40e169dc294cf5da07549562522d2bb57f361ed8879fa62143a1cd1c",
+      "bytes": 6976,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/M6-REPORT-20261103.md",
+      "sha256": "5e74b28114c48ad1feb00b32eb0ab04e549574d037510248d9c189c2223ec21c",
+      "bytes": 8901,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/M7-HANDOFF-20261103.md",
+      "sha256": "649404fc922a117276958a7e0d3f2b6c13135065001c886e3f2e2484fa58f6c5",
+      "bytes": 20730,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/README.md",
+      "sha256": "7450e5a9b14753a8d9dd6bc8b3734d83ec4b21a7efe5451a3b30f6a6e5177531",
+      "bytes": 5987,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/m6-interaction-policy.mjs",
+      "sha256": "ce8e4eafc78ae095bacf02d16aab8de3a422e1e8decb3ceba6da83a74804400e",
+      "bytes": 6794,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/m6-runtime.js",
+      "sha256": "a093f6f56524165960639e07d05beab14a1d052cf4539795b46799dcfeb396cd",
+      "bytes": 4976,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/tests/browser-smoke.mjs",
+      "sha256": "12403941155958f52c3bbc9ad0def1d04943349311877f069e48fa021a0aeb77",
+      "bytes": 25422,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m6/tests/m6.test.mjs",
+      "sha256": "c2428a28d2f4e8464dcb7f614c03f8c47863e66188afe8b987a0cc927148d316",
+      "bytes": 9374,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m7/M7-OPERATING-APPROVAL-CHECKLIST-20261104.md",
+      "sha256": "9b2c0f8e61fce2e1776dbe844c6dc241f56a78369cbe2157fa3c0ff4f2995427",
+      "bytes": 3037,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m7/M7-REPORT-20261104.md",
+      "sha256": "a39fafdfbacc46391cb80c03e095d059ace8582c0b479cf35f84947dd0dfc8c9",
+      "bytes": 8249,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/m7/tests/m7.test.mjs",
+      "sha256": "8164caa845c1d2244f69f836d8486305b1693f30f8b0edbd406eb6c24c22e069",
+      "bytes": 5697,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r0/R0-REPORT-20261104.md",
+      "sha256": "981c8115bc647d3735c4976afbdddb484ee03610c6119829b7766ebb349c03c5",
+      "bytes": 9133,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r0/R0-UPSTREAM-PROVENANCE.json",
+      "sha256": "435abd288d6b23b8585e554ede43c167d367329220f2c9015ecfa79f4597618f",
+      "bytes": 1080,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r0/R1-HANDOFF-20261104.md",
+      "sha256": "e13e84b4f6d0d555c36f56edfdc1f83c78a2209698bbf081d69b904ffbbe5007",
+      "bytes": 12105,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r0/r0-readiness-audit.cjs",
+      "sha256": "d270b78a02119734c6e28eaa9defba6ef66d94cac65cb321b9279a004890f8d5",
+      "bytes": 3566,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r0/tests/r0.test.cjs",
+      "sha256": "0b8be5188158589b0c607afa1b8541dbd6fc83be4d7775ab68172d719019da30",
+      "bytes": 2055,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r1/R1-REPORT-20261104.md",
+      "sha256": "0ac509e2608af6230fbe069a8a7e071b8d1778eac4e32a22d0dd8cabd62de49a",
+      "bytes": 8637,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r1/R2-HANDOFF-20261104.md",
+      "sha256": "cd7e9a7b58651a2b1ae2b17d487e72ff2ce35e156a5a6b8bfdad767844477edc",
+      "bytes": 16444,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r1/tests/r1.test.mjs",
+      "sha256": "caeb041dbfacfa3d4511cce5e011d8626e8a808224c0eabde092d075bf919946",
+      "bytes": 4085,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r2/R2-REPORT-20261104.md",
+      "sha256": "1eefaf8536832a5425cc77309e2b8060425ee6e18a9859064c8b83dc51c1f47b",
+      "bytes": 9830,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r2/R3-HANDOFF-20261104.md",
+      "sha256": "15911a76bea87779a5dc2b7fd3b2f38d0c84717157805dc5dc49372d273b4afe",
+      "bytes": 15483,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r2/r2-private-backend-audit.cjs",
+      "sha256": "193241b4644f8771900c352e5344201dce62e57da0a785c8c12fcb8e39c70c9d",
+      "bytes": 3121,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r2/tests/browser-smoke.mjs",
+      "sha256": "b755030d7f6a4215eae740a210f0749119799abd5c65d0fa5b5605e882d97615",
+      "bytes": 4588,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r2/tests/r2.test.mjs",
+      "sha256": "54c31009ae8ded6d3d69b18cd048a5c9aff3adee62538192eaa2ceadf5c5f5be",
+      "bytes": 5967,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/R3-LEGAL-QUESTIONS-20261104.md",
+      "sha256": "37a4237800ebc7139f06c0d3bf66997df0508cd562eaf56f98ca8f6073ccffe1",
+      "bytes": 6440,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/R3-OPERATING-APPROVAL-GATES.md",
+      "sha256": "4b5061207a471ef63ff3c923e7acf074a4c63ad3f04660844cf78b265cfbd0f4",
+      "bytes": 3755,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/R3-REPORT-20261104.md",
+      "sha256": "a338f4eae48a09d3d4ee36c74d08543d331b8cfc5ae10a332766f8477dd1b37f",
+      "bytes": 10042,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/R3-SECURITY-CANDIDATE-20261104.md",
+      "sha256": "a04152d9df16ca84358923e26151339a2597e1a973317a7965ec13f8573950a3",
+      "bytes": 4833,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/R4-HANDOFF-20261104.md",
+      "sha256": "82e47f55a79048eb329e115dbaa5491bd6ec5accc98e8be885ea7a5b46d5f20a",
+      "bytes": 14334,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/README.md",
+      "sha256": "c5abacccf07393f5641421d2bc8a8bb9d00948adc5142e8b454a9d9f8b3b5004",
+      "bytes": 4642,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-build-linux-private.sh",
+      "sha256": "b10dd39e20761497c34d0b9b08d212bdd5cffdfccb580178be2213f6aa0f42b6",
+      "bytes": 2173,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-compare-built.cjs",
+      "sha256": "4d3121bc6cdeab18f01e0868b8c0ba1bbdbda04365d0214c9e0346a92b79f4a6",
+      "bytes": 1695,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-config.public.example.json",
+      "sha256": "dde8e0dd60af0579457a8a1c3bd7f0dc42e58ccc9d99dbf35853f5d4ce0d85fb",
+      "bytes": 849,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-draft-manifest.cjs",
+      "sha256": "1d3fcac0c2b917e63ffd320fde8021df5ae0201544f16b4e7f74debe5aaf6323",
+      "bytes": 3940,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-draft-source-manifest.json",
+      "sha256": "949e20705ab35c7319a41629ed2257b8a639116d4da9dea94eef249658d4d45a",
+      "bytes": 5801,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-source-export-audit.cjs",
+      "sha256": "fa6b3cdbbe4e89f3c7ce96f1092eb16eb00fece961d1b7dedace3e5ef49bec84",
+      "bytes": 3736,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-thirdparty-license-inventory.cjs",
+      "sha256": "d6feacca879f51d16a85d34c398d2d7e02d36abf62f6ab736146f314477c203c",
+      "bytes": 1622,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-thirdparty-notices.draft.json",
+      "sha256": "af0d2a21279811c4ff71bf65ef92c0c347a166828bf9b1f977766cded553938c",
+      "bytes": 4129,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-upstream-provenance.cjs",
+      "sha256": "e7a02f573c0035696dae2925451464704e7bc0e946eb19924091d2733d428f08",
+      "bytes": 7201,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/r3-verified-idempotency-candidate.mjs",
+      "sha256": "be8120c7de5095df36b2a212d0437e623f3ad5c5277a00d4d0505fb9eb79a322",
+      "bytes": 3384,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r3/tests/r3.test.mjs",
+      "sha256": "f6751a074bed12301cf018617d30f654e66701115862914797a0eb6eb2abd618",
+      "bytes": 7552,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/R4-AGPL-LEGAL-ASSESSMENT-20261104.md",
+      "sha256": "ee975b72036f84003bc17eaea70b34b7fecccb033f9ade044c82770c37f79787",
+      "bytes": 8100,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/R4-PREDEPLOY-RUNBOOK-20261104.md",
+      "sha256": "9b2c0e5d923143dc189841c693d22cef18d64c31a8fcd4e9f68a7a5f1777e1d1",
+      "bytes": 6988,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/R4-REPORT-20261104.md",
+      "sha256": "7733472f615aa5e65ec26a6b80d14d8e7142e5ff50750c510b18e98fa2261c3d",
+      "bytes": 10188,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/R4-THIRD-PARTY-NOTICES-DRAFT.md",
+      "sha256": "d9fd08545a43f1d8c9c03439ad4ae4ed7dbb121fa29cc803cb7310c5447240b1",
+      "bytes": 3788,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/R4-USER-ACCEPTANCE-CHECKLIST-20261104.md",
+      "sha256": "8f296470ff3173a31451e94363d687b5c85302ffd158dc53715437afe381bab2",
+      "bytes": 4256,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/R5-HANDOFF-20261104.md",
+      "sha256": "3e2c2a8de6aa5eb5f45c24fc17795f19c2cdb5171e192fe334531a2f1c138a5f",
+      "bytes": 8402,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/licenses/AGPL-3.0.txt",
+      "sha256": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6",
+      "bytes": 34520,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/r4-approval-state.json",
+      "sha256": "c9542eb589ad9378bc322bd3d8e45e85afedee708657ce597ae8307d21f0b1d7",
+      "bytes": 1521,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/r4-license-notice.js",
+      "sha256": "7391a1284a20e9d8d49b8186c0c44de199e7780e179d6f62a01767ad8073844c",
+      "bytes": 3754,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/r4-release-readiness.cjs",
+      "sha256": "03457dc03f736e75bcb11178a560ef883f37188eb06e4d238984ab33179d636a",
+      "bytes": 4670,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/r4-source-catalog.cjs",
+      "sha256": "33b8e287bf0334a9c8511e5415afdcfeec782b59475e46f57d1a5a01464089d3",
+      "bytes": 3293,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/tests/browser-smoke.mjs",
+      "sha256": "a9254fbbd270aa28f935601efed33237ec6450e3e152bb4030390b4f5db601c7",
+      "bytes": 4661,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/mupdf-migration/r4/tests/r4.test.mjs",
+      "sha256": "0f6d5ee03235e5b4a0bceff9d9fbcb3d7a0552b796f81dd809a33ca0a153c383",
+      "bytes": 5154,
+      "classification": "MUPDF_ADAPTER_AND_REVIEW_SOURCE"
+    },
+    {
+      "path": "study-note/pen-touch-test.html",
+      "sha256": "6b3960c7031d1e5ab6aa8d996e93aff8d1ae68e2456f96ccff47cd87ca444cb4",
+      "bytes": 23107,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/service-worker.js",
+      "sha256": "df5a2cc4cbe9f543a7139c959229fcafbfc62312019078d9dd6e912007369fca",
+      "bytes": 2424,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/study-note.html",
+      "sha256": "7dabd0b39357ce045ed04838964908590abf714bfbd95db0b8dd97312bc13ee4",
+      "bytes": 743085,
+      "classification": "FRONTEND_INTEGRATION_SOURCE"
+    },
+    {
+      "path": "study-note/study-planner.js",
+      "sha256": "e022355ff69bf93c485b61438ee3c1eabc154d7136258497f8fdffd548d0dafe",
+      "bytes": 31193,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/study-plans/pe141-100days.json",
+      "sha256": "6ea9435833a55fe977fe6739b898e3dae1ee6602498972d528d12d87851e2898",
+      "bytes": 274552,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/test.txt",
+      "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+      "bytes": 2,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/tests/README-issue45-real-pdfjs-qa.md",
+      "sha256": "42cb021b51e0ce3280947a60ed7a4ab64745594da150c7a0e923d22214e7bbdd",
+      "bytes": 3082,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_annotation_pointer_split.cjs",
+      "sha256": "e6fe6ee7de8508c96a15ed93e0c142ebabca728b85539302cc762f938f21bcfe",
+      "bytes": 27885,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_bottom_nav_scroll_collapse.cjs",
+      "sha256": "f7561cc0744cfb880439f166cf0710a513d31607cd87d22733224d9e7d6201a4",
+      "bytes": 8359,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_image_upload_webp98.cjs",
+      "sha256": "6ae439901984044ed31b4f5fda628fe8ca49c25084ec4932ffdc15eb52260f06",
+      "bytes": 2701,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_image_upload_webp98_browser.cjs",
+      "sha256": "6f361b1fc5e37ab614fc23f5ff3903326f55595e3157dd1144ecbb3e05c73322",
+      "bytes": 4070,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_image_viewer_loading.cjs",
+      "sha256": "19cb3e0efd764140e10d42734d4b1a9fc7ed9d01e4346d308be614966ee7eec0",
+      "bytes": 16278,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_live_image_readback_canary.cjs",
+      "sha256": "b2c84bfdbcf14f037936cc213b6c97785d97ab88a4c986ab7c7b5bc5283bd8c0",
+      "bytes": 3989,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_page_reference_collapse.cjs",
+      "sha256": "c19db6303a5d92bb9e923a1d843c4731af39cafd73c6dc7a3e8faea2de034a15",
+      "bytes": 2653,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_pdf_device_input_qa.cjs",
+      "sha256": "9cee67546ef05eea3dcb26c4f0eb83cdb6ca0bc08aba0cf41ed012207f56fed1",
+      "bytes": 18253,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_pdf_mobile_touch_pinch.cjs",
+      "sha256": "63cdce346561f12f739417fa5654e1f4d342b431885b330bc6cebf234fbac1a3",
+      "bytes": 7235,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_pdf_reference_fit_browser_qa.cjs",
+      "sha256": "52a5f3d096519c6ae6e4a6abcd4b95d35a22be9536bf3e0a5705b331bbd47a2f",
+      "bytes": 7955,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_pdf_touch_webkit_qa.cjs",
+      "sha256": "be6b497cd4332ca1db9aed885a8dbd2f6ccbadc1f686bdde58a70a4ed5b664a0",
+      "bytes": 5642,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_pdf_vector_sharp_qa.cjs",
+      "sha256": "90a368c58f5389f3c2158ccd47f700c70c7a72541a24a442ef18940b708ee548",
+      "bytes": 7722,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_reference_pdf_auto_backend_browser_qa.cjs",
+      "sha256": "682448cc7478436e0f411785550b26234a780b6ebf85e60fcb7efbef9e14970f",
+      "bytes": 11479,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_reference_pdf_multipage.cjs",
+      "sha256": "293c3fc1e980d03c355479a0b5104c92aed5042661c085db2a6a4d582184ef9b",
+      "bytes": 69962,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_reference_pdf_real_pdfjs_browser_qa.cjs",
+      "sha256": "9e8cac6ddd5d298ddead6b19c7e1303042b2394036d70acaac7f6ed359d2c9dd",
+      "bytes": 18262,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_reference_pdf_signed_backend.cjs",
+      "sha256": "c395d4d97ccb63c19979cf280d1e712451ef86332889fe66368ab695bb66aa2a",
+      "bytes": 15497,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_security_device_filter.cjs",
+      "sha256": "19f00c4f8365b65458a2830edafb26f86fefd134abc8c20c1b2fc57c31bd3629",
+      "bytes": 8565,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_security_device_filter_webkit.cjs",
+      "sha256": "7002f61c8d066f0879ebbfaae1c13c9f9af89b43b51169f7c74fc87bd3a99360",
+      "bytes": 3639,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_study_planner_browser.cjs",
+      "sha256": "595135bfe051c72f2bbc725bbcb90ccfb5852b2fcc079adf17165390a20400dd",
+      "bytes": 12528,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_study_planner_management_qa.cjs",
+      "sha256": "a41fae2320ef2640a8102b3f5b750d24842793743f839f4ae2f1e86f8e54ef06",
+      "bytes": 11347,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_technical_readability.cjs",
+      "sha256": "262dfc1a53fc496a2a6c1471ccc7e7af286c3511d1f25939087d63043fd3f348",
+      "bytes": 32383,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_visibility_browser_qa.cjs",
+      "sha256": "9d06da4486a17d3574d44998db877256684540c43a34c547c7cafd1e9fcf9cf9",
+      "bytes": 33417,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_visibility_webkit_qa.cjs",
+      "sha256": "ab5cc2b555ed520bd34bc59950a7c69a6904d3012570c12496e8662f02d11495",
+      "bytes": 11734,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/test_visibility_windows_cache_qa.cjs",
+      "sha256": "c0db7f2a324096a93c03a2dbaefe38c0d219038d12738287afdb39a6223795e6",
+      "bytes": 15743,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tests/visibility_authored_hierarchy_fixture.cjs",
+      "sha256": "d6256d9385a9c78e77d9f1819407364926476954f36d297c04e434bfd115d40e",
+      "bytes": 1473,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tts/cloud-config.json",
+      "sha256": "960dac9aa3aca968b075c6989d0ba238453eefeb099525507d0cfba675ae2d5b",
+      "bytes": 555,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    },
+    {
+      "path": "study-note/tts/natural-tts.js",
+      "sha256": "ab2fa10b9a3e3e0a678db32dc2a82785dbae2406aa15b228a71d98f61e8c9db7",
+      "bytes": 50308,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tts/stage4_browser_audio_pilot.html",
+      "sha256": "dbfa6f3eae22b2734d6a6c744a0260a039f3b6c977e6a0c65d9f14ee1d210c4a",
+      "bytes": 2912,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tts/stage5_browser_audio_pilot.html",
+      "sha256": "5f8fd10e76724490890eeda31380979ee62f4bb1da1dfdc11e80e35646e0f221",
+      "bytes": 3833,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "study-note/tts/stage5_pwa_trial.html",
+      "sha256": "05707ab86a8b97613ab09152a117fecd2f87bf9ab250a0171b891bb50e778ca0",
+      "bytes": 15276,
+      "classification": "OTHER_FRONTEND_SOURCE_REVIEW"
+    },
+    {
+      "path": "tts-auth-check.html",
+      "sha256": "25689551b8a7bdf0cba6996c7787a55911c02c4846876d8408e52590bfcbbbb2",
+      "bytes": 6991,
+      "classification": "OTHER_SOURCE_OR_ASSET_REQUIRES_MANUAL_REVIEW"
+    }
+  ]
+}

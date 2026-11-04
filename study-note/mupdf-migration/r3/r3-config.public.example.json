@@ -1,0 +1,20 @@
+{
+  "schema": "r3-redacted-public-config-template-v1",
+  "purpose": "DOCUMENTATION_ONLY_NOT_DEPLOYED",
+  "publicSettings": {
+    "appBaseUrl": "REPLACE_WITH_PUBLIC_SITE_URL_AFTER_LEGAL_APPROVAL",
+    "appsScriptApiUrl": "REPLACE_WITH_APPROVED_PUBLIC_ENDPOINT",
+    "mupdfVersion": "1.28.1",
+    "highQualityViewerDefault": false,
+    "distributionAllowed": false
+  },
+  "configurationThatMustRemainPrivate": [
+    "Apps Script Script Properties",
+    "Google OAuth client secret and active session keys",
+    "HMAC signing/session/nonce secrets",
+    "Google Sheets LIVE MASTER content",
+    "Drive PDF, images, attachments and ink documents",
+    "User/device registries and backups"
+  ],
+  "note": "Placeholders only; never copy real credentials or operating backend URLs to a public source package without specific review."
+}

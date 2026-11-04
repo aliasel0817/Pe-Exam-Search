@@ -1,0 +1,88 @@
+# M6 local-only compatibility/quality checks. No release/deploy/write job.
+name: MuPDF M6 private ink gesture and high zoom checks
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/m1/**'
+      - 'study-note/mupdf-migration/m2/**'
+      - 'study-note/mupdf-migration/m3/**'
+      - 'study-note/mupdf-migration/m4/**'
+      - 'study-note/mupdf-migration/m5/**'
+      - 'study-note/mupdf-migration/m6/**'
+      - '.github/workflows/mupdf-m6-ink-gesture-performance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-m6-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Stage immutable MuPDF only in private M2 directory
+        working-directory: study-note/mupdf-migration/m2
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node m2-stage-assets.cjs
+          node m2-verify-assets.cjs
+          node --test m2.test.cjs
+          node -e "const g=require('./m2-release-gate.cjs').stateCheck();if(g.assetBinaryReleasePermitted||g.productionDeployPermitted)process.exit(1)"
+
+      - name: Install pinned renderer dependencies in private CI only
+        working-directory: study-note/mupdf-migration/m3
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: M6 syntax and 9 focused unit tests
+        working-directory: study-note/mupdf-migration/m6
+        run: |
+          node --check m6-runtime.js
+          node --check m6-interaction-policy.mjs
+          node --check tests/browser-smoke.mjs
+          node --test tests/m6.test.mjs
+
+      - name: M5 attachment regression
+        working-directory: study-note/mupdf-migration/m5
+        run: node --test tests/m5.test.mjs
+
+      - name: M4 reference viewer regression
+        working-directory: study-note/mupdf-migration/m4
+        run: node --test tests/m4.test.mjs
+
+      - name: M3 rasterization and worker regression
+        working-directory: study-note/mupdf-migration/m3
+        run: node --test tests/*.test.mjs
+
+      - name: M1 auth source and secret scan
+        working-directory: study-note/mupdf-migration/m1
+        run: node --test m1-audit.test.cjs
+
+      - name: Original study-note PDF.js fallback regression
+        run: node study-note/tests/test_pdf_vector_sharp_qa.cjs
+
+      - name: Runtime package vulnerability screening
+        working-directory: study-note/mupdf-migration/m3
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: No public MuPDF assets or synthetic/browser output
+        run: |
+          if git ls-files | grep -E '\.wasm$|(^|/)\.m[2-6]-private/|study-note/mupdf-migration/m[4-6]/.+\.(pdf|png|jpg|jpeg)$'; then
+            echo "Private vendor binary or QA artifact tracked"; exit 1
+          fi
+
+      - name: Sensitive data pattern scan with no raw values emitted
+        run: node study-note/mupdf-migration/m1/m1-secret-scan.cjs --root .
+
+# Real Windows Chrome smoke is run separately on an authorized isolated PC at
+# 127.0.0.1, using synthetic PDF bytes, intercepted GETs and blocked external traffic.
+# Touch/palm/iPhone are browser emulations, NOT physical S Pen/iOS Safari testing.

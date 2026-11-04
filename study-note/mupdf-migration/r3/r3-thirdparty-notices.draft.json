@@ -1,0 +1,149 @@
+{
+  "schema": "r3-thirdparty-notices-draft-v1",
+  "scope": "UPSTREAM_MUPDF_1_28_1_EXACT_GITLINKS_ONLY",
+  "copyrightAndTermsStillNeedManualReview": true,
+  "modules": [
+    {
+      "module": "thirdparty/brotli",
+      "commit": "2523f3314501aa5c90e561922b2e668b3ccee26e",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/cmark-gfm",
+      "commit": "74e0f5b6b62bbdd1e262c92f4bb2c6c871c6307e",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/curl",
+      "commit": "f43c6fbb2dbdf68dfdd0f0c3399e3711a621614a",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/extract",
+      "commit": "8750ac39c30a0d65119b426b5a491c5b8e8bf674",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/freeglut",
+      "commit": "d5e2256d571b3ef66fb60716c99e35e9d3e570a2",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/freetype",
+      "commit": "0a0221a1347e2f1e07c395263540026e9a0aa7c7",
+      "rootLicenseCandidates": [
+        "LICENSE.TXT"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/gumbo-parser",
+      "commit": "61bd4e736c3b342e592f65be0d65ec6a0acd8dcb",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/harfbuzz",
+      "commit": "c28ba35a1e6dc4b6b32e2b1d11fd2a408f6c86bb",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/jbig2dec",
+      "commit": "dc15c39bbbddc90f79c14563d2eb5a794106be8f",
+      "rootLicenseCandidates": [
+        "COPYING",
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/lcms2",
+      "commit": "d69c64417c4a33a4629957fc0e08f4f4c5abcc3d",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/leptonica",
+      "commit": "7fbe9ea76d1e0c48a02b2ed371d24f92c7bac40c",
+      "rootLicenseCandidates": [],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/libjpeg",
+      "commit": "627faae398468d5d11e3d694dc325432f734b5c4",
+      "rootLicenseCandidates": [],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/mujs",
+      "commit": "e892c9fdbbddba94e52f656ccb378ed4885e30cc",
+      "rootLicenseCandidates": [
+        "COPYING"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/openjpeg",
+      "commit": "957029eb875eee1118743f200cb86da9d8289de2",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/tesseract",
+      "commit": "ad0f76d971946512a62c933f490c8111877eddaa",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/zint",
+      "commit": "7a9fdd6cd00cd5bfd0082705d934c13ef84f25e1",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/zlib",
+      "commit": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    },
+    {
+      "module": "thirdparty/zxing-cpp",
+      "commit": "742aef959e12a41eda494df78fd567c2e715ff57",
+      "rootLicenseCandidates": [
+        "LICENSE"
+      ],
+      "manualLegalReviewRequired": true
+    }
+  ],
+  "sourceOfferApproved": false
+}
