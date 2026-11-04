@@ -1,0 +1,32 @@
+# M1 and later migration private workspaces (does not remove already tracked files)
+**/.m1-private/
+**/.clasp.json
+**/.env
+**/.env.*
+!**/.env.example
+**/*credentials.private.json
+**/service-account*.json
+**/*.private.pem
+**/*.private.key
+**/mupdf-migration-private-fixtures/
+
+# M2: generated AGPL build assets are private until legal release gate clears
+**/.m2-private/
+**/node_modules/
+study-note/mupdf-migration/m2/dist/
+**/m2-private-output/
+
+# M3 isolated browser render screenshot/synthetic fixtures only
+**/.m3-private/
+
+# M4 loopback-only QA outputs and synthetic screenshot; never publish.
+**/.m4-private/
+
+# M5 loopback-only synthetic QA outputs. Never commit screenshots or private data.
+**/.m5-private/
+
+# M6 local synthetic browser output; never publish private session artifacts.
+**/.m6-private/
+
+# R5 independent C source / Emsdk / any build output, never publish
+**/.r5-private/

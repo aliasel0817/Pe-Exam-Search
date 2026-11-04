@@ -1,0 +1,44 @@
+{
+  "schema": "mupdf-r4-prelaunch-approval-state-v1",
+  "classification": "REVIEW_DRAFT_NOT_APPROVAL",
+  "licenseChoice": "UNDECIDED",
+  "legal": {
+    "artifexWrittenPermission": false,
+    "commercialContractSigned": false,
+    "agplCorrespondingSourceScopeResolved": false,
+    "frontendAndAppsScriptRightsReviewed": false
+  },
+  "source": {
+    "actualCorrespondingSourceComplete": false,
+    "buildAndInstallScriptsComplete": false,
+    "thirdPartyNoticesReviewed": false,
+    "noSensitiveDataVerified": false,
+    "realPublicSourceOfferVerified": false
+  },
+  "build": {
+    "actualLinuxBuildCompleted": false,
+    "distributionBuildProvenanceVerified": false,
+    "byteIdenticalToNpm": false,
+    "byteIdentityRequiredByLicense": false
+  },
+  "security": {
+    "activeSignedGetAccepted": false,
+    "ownerOnlyPolicyAccepted": false,
+    "isolatedInkPersistenceAccepted": false
+  },
+  "devices": {
+    "windowsChromeRealAccepted": false,
+    "galaxyTabS11PhysicalAccepted": false,
+    "iPhone16ProSafariPhysicalAccepted": false
+  },
+  "operations": {
+    "rollbackPlanApproved": false,
+    "operatorMergeApproval": false,
+    "operatorAppsScriptApproval": false,
+    "operatorPagesApproval": false,
+    "operatorBinaryPublicationApproval": false
+  },
+  "productionReleasePermitted": false,
+  "publicMuPdfBinaryDistributionPermitted": false,
+  "notes": "No fields imply approval. R4 may not change M2 gate or deploy. Byte-for-byte output identity is engineering evidence, not a standalone AGPL legal requirement."
+}
