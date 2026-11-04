@@ -19,7 +19,7 @@ The R5 branch is a candidate. The final operating release MUST link an exact rel
 - Artifex official MuPDF Git: https://github.com/ArtifexSoftware/mupdf
 - Exact source tag: `1.28.1`
 - Immutable source commit: `20061bd45183f5a2bff8f43675e4da91e5ac2901`
-- All 18 third-party gitlinked submodules, each pinned in `../r3/r3-draft-source-manifest.json` (verified in previous R3 local private checkout).
+- All 18 third-party gitlinked submodules, each pinned in `../../r3/r3-draft-source-manifest.json` (verified in previous R3 local private checkout).
 - Original upstream build/installation scripts: `platform/wasm/tools/build.sh`, `tools/compress.sh`, `lib/mupdf.c`, `lib/mupdf.ts`.
 - Linux Emscripten SDK version `4.0.8` and Node.js `22`, as specified in the upstream `platform/wasm/BUILDING.md`.
 - Exact npm development dependencies: `source/mupdf-wasm-package-lock.json`, generated from the SHA-256-verified upstream package.json. This lock is a new R5 adjunct, not part of the upstream tag.
@@ -45,9 +45,9 @@ bash study-note/mupdf-migration/r5/r5-build-from-source.sh --build
 
 ## 4. Licenses and changes
 
-- Original MuPDF npm 1.28.1 LICENSE: `../r4/licenses/AGPL-3.0.txt`, SHA-256 `57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6`
+- Original MuPDF npm 1.28.1 LICENSE: `../../r4/licenses/AGPL-3.0.txt`, SHA-256 `57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6`
 - Application-owned code scope: `APPLICATION-LICENSE-SCOPE.md`.
-- Existing project notice inventories: `../m2/THIRD-PARTY-NOTICES.md` and `../r4/R4-THIRD-PARTY-NOTICES-DRAFT.md`.
+- Existing project notice inventories: `../../m2/THIRD-PARTY-NOTICES.md` and `../../r4/R4-THIRD-PARTY-NOTICES-DRAFT.md`.
 - All third-party copyright notices and exact license texts must be checked against included source files before the final operating release; do not override upstream copyright headers or treat a missing root LICENSE as permissive.
 - Byte-for-byte WASM hash equality is a useful reproducibility metric, **not** an independent AGPL obligation. The actual distribution must have complete corresponding source and scripts to build/use/modify it.
 - Source access and AGPL notice should remain visible in the application under a genuine release URL after approval. The R4 notice currently remains limited to localhost/private testing, intentionally.

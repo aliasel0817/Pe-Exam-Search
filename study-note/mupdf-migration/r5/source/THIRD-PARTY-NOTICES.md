@@ -26,7 +26,7 @@
 | thirdparty/zlib | `LICENSE` | Source document found |
 | thirdparty/zxing-cpp | `LICENSE` | Source document found |
 
-**Upstream provenance:** exact 18 paths and SHA-1 revisions in `../r3/r3-draft-source-manifest.json`; R3 verified checkout contains all 18. The above file names were verified by read-only directory traversal in the existing private R3 source on 2026-11-04. Their presence does **not** establish that legal conditions are fully satisfied, that all submodules actually compile into the minimal WASM, or that the runtime has no other third-party assets.
+**Upstream provenance:** exact 18 paths and SHA-1 revisions in `../../r3/r3-draft-source-manifest.json`; R3 verified checkout contains all 18. The above file names were verified by read-only directory traversal in the existing private R3 source on 2026-11-04. Their presence does **not** establish that legal conditions are fully satisfied, that all submodules actually compile into the minimal WASM, or that the runtime has no other third-party assets.
 
 ## Other app/runtime components
 

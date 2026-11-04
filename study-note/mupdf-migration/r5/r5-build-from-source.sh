@@ -53,7 +53,8 @@ cd "$SOURCE/platform/wasm"
 cp "$LOCK" package-lock.json
 npm ci --ignore-scripts --no-audit --no-fund
 export BUILD='small'
-export FEATURES='brotli=no mujs=no extract=no xps=no svg=no html=no'
+# Match official upstream tools/build.sh defaults: do not accidentally disable html.
+export FEATURES='brotli=no mujs=no extract=no xps=no svg=no'
 export DEFINES='-DTOFU -DTOFU_CJK_EXT -DFZ_ENABLE_HYPHEN=0'
 npm run prepack
 node "$HERE/r5-verify-built.cjs" "$SOURCE/platform/wasm/dist"

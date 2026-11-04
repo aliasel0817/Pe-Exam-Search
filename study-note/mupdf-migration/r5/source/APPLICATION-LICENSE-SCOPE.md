@@ -8,7 +8,7 @@ The project maintainer has selected the open-source AGPL compliance approach for
 
 Read the complete licence as shipped from the official MuPDF package at:
 
-`../r4/licenses/AGPL-3.0.txt`
+`../../r4/licenses/AGPL-3.0.txt`
 
 GitHub repository source: https://github.com/aliasel0817/Pe-Exam-Search
 

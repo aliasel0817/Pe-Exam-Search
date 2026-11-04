@@ -42,6 +42,8 @@ test('R5 npm resolution is locked to exact mupdf@1.28.1 platform WASM build proj
  assert(script.includes('npm ci --ignore-scripts --no-audit --no-fund'));
  assert(script.includes('npm run prepack'));
  assert(script.includes("grep -q '4.0.8'"));
+ assert(script.includes("export FEATURES='brotli=no mujs=no extract=no xps=no svg=no'"));
+ assert(!script.includes('svg=no html=no'),'R5 must not retain the extra R3 html=no feature exclusion');
 });
 test('R5 application rights notice and server source are published as candidates, not secret configuration',()=>{
  const docs=fs.readFileSync(path.join(r5,'source','APPLICATION-LICENSE-SCOPE.md'),'utf8');
@@ -72,6 +74,13 @@ test('R5 source packaging excludes user binaries and CI has no deployment/artifa
  assert(!/^\s*-\s+uses:\s+actions\/deploy-pages/m.test(workflow));
  assert(!/^\s*-\s+run:\s+(?:clasp|gh\s+release)/m.test(workflow));
  assert(fs.existsSync(path.join(migration,'r4','licenses','AGPL-3.0.txt')));
+});
+test('R5 relative license and source manifest pointers resolve from the published source folder',()=>{
+ const source=path.join(r5,'source');
+ for(const relative of ['../../r4/licenses/AGPL-3.0.txt','../../r3/r3-draft-source-manifest.json',
+  '../../m2/THIRD-PARTY-NOTICES.md','../../r4/R4-THIRD-PARTY-NOTICES-DRAFT.md']){
+  assert.equal(fs.existsSync(path.resolve(source,relative)),true,relative);
+ }
 });
 test('R5 source scanner rejects synthetic credentials without exposing values',()=>{
  const tmpDir=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'r5-audit-fixture-'));
