@@ -1,0 +1,23 @@
+{
+  "name": "pe-exam-search-mupdf-m3-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/browser-smoke.mjs",
+    "test:m2": "node --test ../m2/m2.test.cjs",
+    "build:private": "node ../m2/m2-stage-assets.cjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.5.438"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "1.1.0",
+    "pdf-lib": "1.17.1",
+    "playwright": "1.64.1"
+  }
+}

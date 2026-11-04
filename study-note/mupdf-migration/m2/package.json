@@ -1,0 +1,20 @@
+{
+  "name": "pe-exam-search-mupdf-m2-assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Non-production MuPDF.js packaging and AGPL source-offer preparation",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "m2:stage": "node m2-stage-assets.cjs",
+    "m2:verify": "node m2-verify-assets.cjs",
+    "m2:smoke": "node m2-esm-smoke.mjs",
+    "test": "node --test m2.test.cjs",
+    "test:m1": "node --test ../m1/m1-audit.test.cjs"
+  },
+  "dependencies": {
+    "mupdf": "1.28.1"
+  }
+}
