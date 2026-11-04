@@ -1,0 +1,154 @@
+{
+  "schema": "r3-corresponding-source-draft-v1",
+  "purpose": "PRIVATE_REVIEW_AND_COUNSEL_INPUT_ONLY",
+  "sourceOfferStatus": "NOT_OFFERED_NO_PUBLIC_RELEASE",
+  "legalReviewStatus": "ARTIFEX_OR_QUALIFIED_COUNSEL_WRITTEN_DECISION_REQUIRED",
+  "operatorApprovalStatus": "NOT_GRANTED",
+  "mupdf": {
+    "package": "mupdf@1.28.1",
+    "upstream": "https://github.com/ArtifexSoftware/mupdf",
+    "tag": "1.28.1",
+    "commit": "20061bd45183f5a2bff8f43675e4da91e5ac2901",
+    "license": "AGPL-3.0-or-later",
+    "recommendedSdk": "emsdk 4.0.8 on Linux",
+    "nodeLts": "22",
+    "buildCommand": "cd platform/wasm && npm run prepack",
+    "buildScriptSha256": "fafb35b9b3835c7c9f346ef1d498fe5b784479d59b1272ba9339c2e3bcfc8f6a",
+    "packageJsonSha256": "030d9fe67885a9642ccb86a4e981149acb6234f39bffa40a566c59010b75f770",
+    "featureSettings": "BUILD=small; SUFFIX empty; FEATURES=brotli=no mujs=no extract=no xps=no svg=no html=no; DEFINES=-DTOFU -DTOFU_CJK_EXT -DFZ_ENABLE_HYPHEN=0",
+    "submodules": [
+      {
+        "path": "thirdparty/brotli",
+        "commit": "2523f3314501aa5c90e561922b2e668b3ccee26e",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/cmark-gfm",
+        "commit": "74e0f5b6b62bbdd1e262c92f4bb2c6c871c6307e",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/curl",
+        "commit": "f43c6fbb2dbdf68dfdd0f0c3399e3711a621614a",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/extract",
+        "commit": "8750ac39c30a0d65119b426b5a491c5b8e8bf674",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/freeglut",
+        "commit": "d5e2256d571b3ef66fb60716c99e35e9d3e570a2",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/freetype",
+        "commit": "0a0221a1347e2f1e07c395263540026e9a0aa7c7",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/gumbo-parser",
+        "commit": "61bd4e736c3b342e592f65be0d65ec6a0acd8dcb",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/harfbuzz",
+        "commit": "c28ba35a1e6dc4b6b32e2b1d11fd2a408f6c86bb",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/jbig2dec",
+        "commit": "dc15c39bbbddc90f79c14563d2eb5a794106be8f",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/lcms2",
+        "commit": "d69c64417c4a33a4629957fc0e08f4f4c5abcc3d",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/leptonica",
+        "commit": "7fbe9ea76d1e0c48a02b2ed371d24f92c7bac40c",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/libjpeg",
+        "commit": "627faae398468d5d11e3d694dc325432f734b5c4",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/mujs",
+        "commit": "e892c9fdbbddba94e52f656ccb378ed4885e30cc",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/openjpeg",
+        "commit": "957029eb875eee1118743f200cb86da9d8289de2",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/tesseract",
+        "commit": "ad0f76d971946512a62c933f490c8111877eddaa",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/zint",
+        "commit": "7a9fdd6cd00cd5bfd0082705d934c13ef84f25e1",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/zlib",
+        "commit": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+        "privateCheckoutVerified": true
+      },
+      {
+        "path": "thirdparty/zxing-cpp",
+        "commit": "742aef959e12a41eda494df78fd567c2e715ff57",
+        "privateCheckoutVerified": true
+      }
+    ],
+    "initializedSubmoduleCount": 18,
+    "npmArtifactMatchingM2Lock": "PASS",
+    "actualWasmRebuildCompleted": false,
+    "actualWasmReproducible": false
+  },
+  "candidateCorrespondingSourceScopes": [
+    {
+      "item": "MuPDF C source, platform/wasm JS/TS/C sources, tools and exact submodules",
+      "scope": "IN_PRIVATE_CHECKOUT"
+    },
+    {
+      "item": "mupdf 1.28.1 dependency/source notices and build scripts",
+      "scope": "DRAFT_INVENTORY"
+    },
+    {
+      "item": "study-note HTML, service worker, PDF viewer adapters, annotation UI, tests",
+      "scope": "POTENTIAL_COVERED_APP_SOURCE_LEGAL_REVIEW"
+    },
+    {
+      "item": "Google Apps Script Code.js and referencePdfContent helper",
+      "scope": "LEGAL_COUPLING_SCOPE_UNRESOLVED"
+    },
+    {
+      "item": "Third-party licenses / fonts / fonts data / CJK maps / ICC profiles",
+      "scope": "INVENTORY_AND_NOTICE_REVIEW_REQUIRED"
+    }
+  ],
+  "neverPublish": [
+    "Script Properties, actual OAuth credentials, HMAC/session keys and signed URLs",
+    ".clasp.json, private .env, downloaded production Code.js snapshots, backup files",
+    "Google Sheets LIVE MASTER rows and device registry",
+    "Original Drive PDFs, images, attachments, personal annotations and user data",
+    "Private wasm build output or npm package until legal/approval gate is resolved"
+  ],
+  "requiredBeforeOffer": [
+    "Artifex or qualified counsel written determination of AGPL front-end and Apps Script coupling",
+    "Actual Linux emsdk 4.0.8 C-to-WASM build and provenance evidence",
+    "Complete dependency licenses and compliant source/notice mapping",
+    "Private data and credentials exclusion review",
+    "User explicit approval of publication and production deployment"
+  ],
+  "deployAllowed": false,
+  "publicBinaryReleaseAllowed": false
+}
