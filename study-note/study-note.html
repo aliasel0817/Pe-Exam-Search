@@ -2040,10 +2040,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .bottom-nav .r4-notice-popover a{
   display:block;margin:8px 0;color:#1d4ed8;text-decoration:underline;
 }
-/* Collapsing the legacy navigation must never hide the AGPL source offer. */
-.bottom-nav.nav-collapsed .bottom-nav-actions{display:flex;}
+/* R12: a collapsed dock hides ALL six controls including the source button.
+   The always-available Settings menu supplies the alternative prominent source offer. */
+.bottom-nav.nav-collapsed .bottom-nav-actions{display:none;}
 .bottom-nav.nav-collapsed .bottom-nav-actions>.nav-btn{display:none;}
-.bottom-nav.nav-collapsed .r4-notice-docked{display:block;}
+.bottom-nav.nav-collapsed .r4-notice-docked{display:none;}
 @media(max-width:760px){
   .bottom-nav{max-width:calc(100vw - 12px);gap:3px;}
   .bottom-nav-actions{gap:3px;}
@@ -2073,6 +2074,23 @@ button { -webkit-tap-highlight-color: transparent; }
      aligned with the viewport, including on 320px iPhone-width layouts. */
   .bottom-nav:not(.nav-collapsed) .r4-notice-popover{right:-68px;}
   .content{padding-bottom:calc(180px + env(safe-area-inset-bottom));}
+}
+/* R12: the always-reachable Settings legal-source menu is non-floating.
+   The direct source offer remains easy to discover without covering study text. */
+.settings-source-offer{
+  margin:10px 0 16px;border:1px solid #a8c6ff;border-radius:10px;
+  background:#f8fbff;color:var(--text);
+}
+.settings-source-offer > summary{
+  min-height:44px;display:list-item;cursor:pointer;
+  padding:11px 12px;font-weight:800;color:var(--primary-strong);
+}
+.settings-source-offer > summary:focus-visible{outline:3px solid var(--primary);outline-offset:2px;}
+.settings-source-content{padding:2px 14px 12px;font-size:.84rem;line-height:1.6;overflow-wrap:anywhere;}
+.settings-source-content p{margin:5px 0 10px;}
+.settings-source-content a{
+  display:block;margin:7px 0;min-height:32px;color:var(--primary-strong);
+  text-decoration:underline;text-underline-offset:2px;
 }
 /* R10_NAV_NOTICE_CSS_END */
 </style>
@@ -2381,6 +2399,18 @@ button { -webkit-tap-highlight-color: transparent; }
         </div>
         <button id="closeSettingsBtn" class="icon-btn" type="button" aria-label="설정 닫기">✕</button>
       </div>
+
+      <!-- R12_SETTINGS_SOURCE_START: available even while topic navigation is collapsed -->
+      <details id="settingsOpenSourceNotice" class="settings-source-offer">
+        <summary>ⓘ 오픈소스 고지 · 대응 소스</summary>
+        <div class="settings-source-content">
+          <p>GNU AGPLv3 · MuPDF.js 1.28.1 · 저작권 및 무보증 고지</p>
+          <a id="settingsCorrespondingSourceLink" href="https://github.com/aliasel0817/Pe-Exam-Search/tree/main/study-note" target="_blank" rel="noopener noreferrer">전체 대응 소스 보기 (운영 main)</a>
+          <a id="settingsAgplLicenseLink" href="./mupdf-migration/r4/licenses/AGPL-3.0.txt" target="_blank" rel="noopener noreferrer">GNU AGPLv3 라이선스 전문</a>
+          <a id="settingsThirdPartyNoticesLink" href="./THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener noreferrer">제3자 저작권 및 라이선스 고지</a>
+        </div>
+      </details>
+      <!-- R12_SETTINGS_SOURCE_END -->
 
       <label class="field-label" for="apiUrlInput">Google Apps Script Web App URL</label>
       <input id="apiUrlInput" name="studyNoteApiUrl" class="field" type="text" inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="https://script.google.com/macros/s/.../exec">
@@ -6883,6 +6913,12 @@ function jumpToPageEdge(edge) {
 function setBottomNavCollapsed(collapsed, { persist = true } = {}) {
   bottomNavCollapsed = Boolean(collapsed);
   els.bottomNav.classList.toggle('nav-collapsed', bottomNavCollapsed);
+  /* R12_NAV_NOTICE_COLLAPSE_START */
+  if (bottomNavCollapsed) {
+    const notice = document.getElementById('r4-private-notice');
+    if (notice) notice.open = false;
+  }
+  /* R12_NAV_NOTICE_COLLAPSE_END */
   els.navToggleBtn.setAttribute('aria-expanded', String(!bottomNavCollapsed));
   const label = bottomNavCollapsed ? '토픽 이동 버튼 펼치기' : '토픽 이동 버튼 숨기기';
   els.navToggleBtn.setAttribute('aria-label', label);

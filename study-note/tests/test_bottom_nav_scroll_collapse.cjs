@@ -88,9 +88,9 @@ async function measure(page){
    await page.click("#navToggleBtn");
    const collapsed=await measure(page);
    assert.equal(collapsed.collapsed,true);
-   // R10 keeps the AGPL source offer accessible even when the five topic actions collapse.
-   // The actions container stays present, but those five controls are CSS-hidden.
-   assert.equal(collapsed.actionsDisplay,"flex");
+   // R12 hides the ENTIRE docked action bar, including the open source button.
+   // Settings keeps an always-available corresponding-source menu item.
+   assert.equal(collapsed.actionsDisplay,"none");
    assert.equal(collapsed.toggleExpanded,"false");
    assert(collapsed.dockWidth<=52,"Collapsed dock should leave a tiny handle: "+JSON.stringify(collapsed));
    assert(collapsed.scrollWidth<=collapsed.viewport+2,"Horizontal overflow collapsed: "+JSON.stringify(collapsed));

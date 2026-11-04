@@ -157,7 +157,25 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
    }
    return s;
  };
- const restoredHtml=maskR2(stripR6(stripR10(stripR11(removed))));
+ // R12 changes only the setting-source disclosure and the session-only
+ // closing of the docked source panel when its entire navigation is hidden.
+ // The R12 CSS is already removed by stripR10's exact annotated CSS region.
+ const stripR12=input=>{
+   let s=input;
+   const removeExact=(start,end)=>{
+     assert.equal(s.split(start).length,2,'Expected unique R12 start: '+start);
+     assert.equal(s.split(end).length,2,'Expected unique R12 end: '+end);
+     const i=s.indexOf(start),j=s.indexOf(end,i+start.length);
+     assert(j>i,'R12 markers out of order');
+     s=s.slice(0,i)+s.slice(j+end.length);
+   };
+   removeExact('\n      <!-- R12_SETTINGS_SOURCE_START',
+     '      <!-- R12_SETTINGS_SOURCE_END -->\n');
+   removeExact('  /* R12_NAV_NOTICE_COLLAPSE_START */\n',
+     '  /* R12_NAV_NOTICE_COLLAPSE_END */\n');
+   return s;
+ };
+ const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(removed)))));
  const referenceHtml=maskR2(old);
  if(restoredHtml!==referenceHtml){
    let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;

@@ -47,8 +47,14 @@ test('original R4 standalone notice behavior stays usable for earlier local test
  assert.equal(root.style.cssText.includes('position:fixed'),true);
  assert.equal(root.children.some(x=>x.id==='r4-source-offer-link'),false);
 });
-test('collapsing nav does not conceal source offer and narrow mobile uses two-row layout',()=>{
- assert(html.includes('.bottom-nav.nav-collapsed .r4-notice-docked{display:block;}'));
+test('collapsing hides all six floating controls but source offer remains in Settings',()=>{
+ assert(html.includes('.bottom-nav.nav-collapsed .bottom-nav-actions{display:none;}'));
+ assert(html.includes('.bottom-nav.nav-collapsed .r4-notice-docked{display:none;}'));
+ assert(html.includes('id="settingsOpenSourceNotice"'));
+ assert(html.includes('id="settingsCorrespondingSourceLink"'));
+ assert(html.includes('id="settingsAgplLicenseLink"'));
+ assert(html.includes('id="settingsThirdPartyNoticesLink"'));
+ assert(html.includes('https://github.com/aliasel0817/Pe-Exam-Search/tree/main/study-note'));
  assert(html.includes('@media(max-width:350px)'));
  assert(html.includes('flex-wrap:wrap;align-items:stretch;gap:3px;'));
  assert(html.includes('env(safe-area-inset-bottom)'));
