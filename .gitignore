@@ -32,3 +32,5 @@ study-note/mupdf-migration/m2/dist/
 **/.r5-private/
 # R6: local-only verified public-release rehearsal assets; never track binaries.
 **/.r6-private/
+# R7: no licensed JS/WASM build output, test data or source staging in Git.
+**/.r7-private/

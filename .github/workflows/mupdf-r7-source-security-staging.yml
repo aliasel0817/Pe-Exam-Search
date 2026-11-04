@@ -1,0 +1,47 @@
+name: MuPDF R7 source, security and release staging (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mupdf-r7-source-security-staging.yml'
+      - '.gitignore'
+      - 'study-note/mupdf-migration/r7/**'
+      - 'study-note/mupdf-migration/r6/**'
+permissions:
+  contents: read
+jobs:
+  r7-security-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned private renderer npm dependencies
+        run: |
+          npm --prefix study-note/mupdf-migration/m2 ci --ignore-scripts --no-audit --no-fund
+          npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+      - name: R7 mocked ACTIVE, PENDING, REVOKED, HMAC, nonce, owner-only, ink backup tests
+        run: |
+          node --test study-note/mupdf-migration/r7/tests/*.test.cjs
+      - name: Ensure original v21 and R7 candidate are hash-pinned and safe
+        run: |
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r7/source/Code.js
+          node study-note/mupdf-migration/r7/r7-private-release-assemble.cjs
+      - name: Assemble privately without publishing MuPDF JS or WASM
+        env:
+          R7_ACK_PRIVATE_ASSEMBLY: 'YES'
+        run: |
+          node study-note/mupdf-migration/r7/r7-private-release-assemble.cjs --assemble-private
+          test -f .r7-private/PRIVATE-ASSEMBLY-MANIFEST.json
+          git check-ignore -q .r7-private/site/study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm
+          test -z "$(git ls-files '*.wasm')"
+          test -z "$(git status --porcelain)"
+      - name: Release remains blocked (technical checks do not waive rights)
+        run: |
+          node --test study-note/mupdf-migration/r6/tests/r6-release.test.cjs
+          node --test study-note/mupdf-migration/r5/tests/r5.test.mjs
+          test "$(node -p "require('./study-note/mupdf-migration/r4/r4-approval-state.json').productionReleasePermitted")" = 'false'
+      # No artifact upload, no deploy-pages, no Pages publish, no clasp push/deploy.

@@ -1,0 +1,366 @@
+{
+  "schema": "r7-third-party-provenance-readonly-v1",
+  "time": "2026-11-04T11:11:20.245Z",
+  "coreCommit": "20061bd45183f5a2bff8f43675e4da91e5ac2901",
+  "submodulesVerified": 18,
+  "thirdParty": [
+    {
+      "path": "thirdparty/brotli",
+      "sha": "2523f3314501aa5c90e561922b2e668b3ccee26e",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "60ae0f13e76cc2eaaa108677eefa4ce16b647f6bbe8cf0a1ac9429d82eca7248"
+        },
+        {
+          "file": "README",
+          "sha256": "7f68dee5a12aa9da53935f4df6e636d6064b14336480a323970b0bdc108278cb"
+        },
+        {
+          "file": "README.md",
+          "sha256": "e5247d1044cadb83e17af4ee99c6419169d7a5298653b658b146e6a2e23136e8"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/cmark-gfm",
+      "sha": "74e0f5b6b62bbdd1e262c92f4bb2c6c871c6307e",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "47b4663d595eeb98239946d9e964adba2660b0298c6699112100d34e6030dab3"
+        },
+        {
+          "file": "README.md",
+          "sha256": "e0b181dd5b8eb36fbf9e44a181db76e939761cfb002a6e6a89fd0451c3201f7c"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/curl",
+      "sha": "f43c6fbb2dbdf68dfdd0f0c3399e3711a621614a",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "fb1964bd05db9d5b501a738956d7434904003961d0c2d2f3d1cfbab68c65f995"
+        },
+        {
+          "file": "README",
+          "sha256": "36ad69c884cc6518dcd01df83842351f712e67ce4917647e747b891ac67cc365"
+        },
+        {
+          "file": "README.md",
+          "sha256": "93d6168fc3d847f3a3af060119468c449561887c4b42fbf01c117486a68fcc44"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/extract",
+      "sha": "8750ac39c30a0d65119b426b5a491c5b8e8bf674",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "282751b8c98ee9e445346eb57a992c9ecbe25ed8dd554df046777313e19b10f9"
+        },
+        {
+          "file": "README",
+          "sha256": "c8ae4759591c1403a25e8a7ae21a26d07ca8252e3e2bced8a2318e74fd8c1162"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/freeglut",
+      "sha": "d5e2256d571b3ef66fb60716c99e35e9d3e570a2",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "d4ff2334437455513889b16f1ba94165e4d32287841e6e1ee856442a155d9e99"
+        },
+        {
+          "file": "README",
+          "sha256": "eea6da58b9129f94437bfc4659b369de0c5bd54b2908bbcf04eac6e0e645fb9f"
+        },
+        {
+          "file": "README.android",
+          "sha256": "c3087d7399558e942f9843e2d3ad570d4bc456d46b25c6c5112308cccc1dd0fd"
+        },
+        {
+          "file": "README.blackberry",
+          "sha256": "55175c09e9b357e16e0ad489c548ab55bf0e686ccd5e44d5b2bbd1c9eb4df1f1"
+        },
+        {
+          "file": "README.cmake",
+          "sha256": "c264d5200e185d190bb8dbc64d1dd0be627921e059b38dea19c145a2e9e490c0"
+        },
+        {
+          "file": "README.cygwin_mingw",
+          "sha256": "aa08f0f3938f5049410b487fb0188f540300881690a4aad89cb58214dc0de270"
+        },
+        {
+          "file": "README.mingw_cross",
+          "sha256": "5c85931b9f3927b897c0b956ad5a0faad5cf0f95415ad90d354a6542976d5b3f"
+        },
+        {
+          "file": "README.win32",
+          "sha256": "dff4c795288c4da465d72e124c0790b8cd217ec0ebb93b301f4e2a42bbe7e770"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/freetype",
+      "sha": "0a0221a1347e2f1e07c395263540026e9a0aa7c7",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE.TXT",
+          "sha256": "84f47dc7f0887dd56b05f2f218060581c055e443bd7af18e46677bec3dcc2473"
+        },
+        {
+          "file": "README",
+          "sha256": "ae53df08c9ec35fe2683ff6908b9311cc9cefca6262310952b619854f9516522"
+        },
+        {
+          "file": "README.git",
+          "sha256": "cce2c094d2ab40d0bfa73dff90edaef5baf33f1a4de2cabebdb25900c5ac9151"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/gumbo-parser",
+      "sha": "61bd4e736c3b342e592f65be0d65ec6a0acd8dcb",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6"
+        },
+        {
+          "file": "README.md",
+          "sha256": "27117ad645d55f6aa40b9fa6cdc5434ba56c105bd58484f3df0d5acd1f101ea9"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/harfbuzz",
+      "sha": "c28ba35a1e6dc4b6b32e2b1d11fd2a408f6c86bb",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "bd836c0ddca8ea0bab54a03cd32b6ff7256cbb3840fca2edc1249a4ed92c5b02"
+        },
+        {
+          "file": "README.md",
+          "sha256": "e793738995c84b6d36e3665655b5d72e1026cbceb8a5743662178edb8b0df7de"
+        },
+        {
+          "file": "README.mingw.md",
+          "sha256": "a52f1f07e9c168c5c6f3c5751a4caea8f5899235c15950a30742a3860465159a"
+        },
+        {
+          "file": "README.python.md",
+          "sha256": "b6aed3782ffdb4fce03c5e3ad0b8fa9a86d70d4fd4c0ed4fee69394654684c2d"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/jbig2dec",
+      "sha": "dc15c39bbbddc90f79c14563d2eb5a794106be8f",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "282751b8c98ee9e445346eb57a992c9ecbe25ed8dd554df046777313e19b10f9"
+        },
+        {
+          "file": "LICENSE",
+          "sha256": "b298011193b146228942005e1f1e6c149efde8f18a2877d5ffd2a713e8a77b34"
+        },
+        {
+          "file": "README",
+          "sha256": "25d1cd93e22fc893bbbec50115ac814edd202ef10b4a27a60614ca30a0a98fea"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/lcms2",
+      "sha": "d69c64417c4a33a4629957fc0e08f4f4c5abcc3d",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "a4908740126bc4e9f33d82ce6df9d378a25bede72a0d6ff382a7904d67f01e9a"
+        },
+        {
+          "file": "README.md",
+          "sha256": "58b49302f9c31545b93186f05af44cb141da3ea9eaeb44fec037fb7694a3907a"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/leptonica",
+      "sha": "7fbe9ea76d1e0c48a02b2ed371d24f92c7bac40c",
+      "rootLicensingEvidence": [
+        {
+          "file": "README.html",
+          "sha256": "32172a331f42939075a99a8a6ae248943d9cfe8d4b1f886b4f2b2654930006fa"
+        },
+        {
+          "file": "README.md",
+          "sha256": "6d84107997dea6f34a3608b86c29878892dd80ba9481ea2450647dbf14873330"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/libjpeg",
+      "sha": "627faae398468d5d11e3d694dc325432f734b5c4",
+      "rootLicensingEvidence": [
+        {
+          "file": "README",
+          "sha256": "9558ec9e705f74c3e4c0bc0063effd9e1434ac33b6551602c5f1b8fbdb00fa49"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/mujs",
+      "sha": "e892c9fdbbddba94e52f656ccb378ed4885e30cc",
+      "rootLicensingEvidence": [
+        {
+          "file": "COPYING",
+          "sha256": "fa506412aad00179494129b1d3455475d35f64d76d4922a28b2ae7879f32d37d"
+        },
+        {
+          "file": "README",
+          "sha256": "d01620668da963b7c57c0cacdacceb0acdbe6ea0e6402a5d0971613024f08a48"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/openjpeg",
+      "sha": "957029eb875eee1118743f200cb86da9d8289de2",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "1203c08d905d7ea23de2efc40fbfb147d593c327cf72f0d55c1e13081798d48d"
+        },
+        {
+          "file": "README.md",
+          "sha256": "a82eefc115f4b6c2c3510651cc656f487f713edfca2be9332e5f55dc4017478b"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/tesseract",
+      "sha": "ad0f76d971946512a62c933f490c8111877eddaa",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5"
+        },
+        {
+          "file": "README.md",
+          "sha256": "e85a56b4db2e3dbd59a6490dd7b1f09a0277852c5ad3efcc68e55ea3b206ef83"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/zint",
+      "sha": "7a9fdd6cd00cd5bfd0082705d934c13ef84f25e1",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "788c35aae46e3563a9c498664a25df4319f35001d1a959d806278ca9e557c8b2"
+        },
+        {
+          "file": "README",
+          "sha256": "e9c69776f9ff43a17a6104ddbffea21ec29d0b38746133ba5d9d1b4f7df5e51a"
+        },
+        {
+          "file": "README.bsd",
+          "sha256": "80a0f4ad344baa1adf25cc7a355f4a893a5510876e8e4635b907082078fe6710"
+        },
+        {
+          "file": "README.clang-tidy",
+          "sha256": "2ad42c483d6c9cae470ae1eb053d6b1d137494eb076e84eecf2d65083d7b34fc"
+        },
+        {
+          "file": "README.linux",
+          "sha256": "5bd9e755deaa79554c77cae4002e82ae525ed85c0e56e5e9483586ec62829896"
+        },
+        {
+          "file": "README.macos",
+          "sha256": "e7a544cd4570987228793955e58eb64a3b35100f11cd8e55639089f6dceaba9e"
+        },
+        {
+          "file": "README.windows",
+          "sha256": "c636f543054d69bd89b73c476d8dd61aca636a4a57dd10747037afb527a32bb6"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/zlib",
+      "sha": "da607da739fa6047df13e66a2af6b8bec7c2a498",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "439c75ab12b340c5362b9d4b08ff05ec3a4d0eb7667a6fff49a9b16d8795c78e"
+        },
+        {
+          "file": "README",
+          "sha256": "37797df3d16eae42cd9c0d1d315b758e1b5deb573f60b471fc5da2c006c4ecd8"
+        },
+        {
+          "file": "README-cmake.md",
+          "sha256": "a70e5a7dee3e2f2921c7a5dea31be98918a489b6f9e277c3396ec607de214d25"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    },
+    {
+      "path": "thirdparty/zxing-cpp",
+      "sha": "742aef959e12a41eda494df78fd567c2e715ff57",
+      "rootLicensingEvidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "2e54cd84a645bea25943c75dd8ae67cb291e66a47a11578333c9b4b3b6b86c85"
+        },
+        {
+          "file": "README.md",
+          "sha256": "238ee6851b9b56c63708f6ac41c78c1cd18f47d666760fc5bef1b1a90c75cf03"
+        }
+      ],
+      "embeddedLicensingEvidence": [],
+      "manualFileByFileReviewNeeded": true
+    }
+  ],
+  "legalSignoff": false,
+  "licensesFromFilenamesNotLegalDetermination": true
+}
