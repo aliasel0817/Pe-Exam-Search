@@ -10,3 +10,7 @@ study-note/mupdf-migration/r4/licenses/AGPL-3.0.txt -text
 study-note/mupdf-migration/r7/source/Code.js -text
 study-note/mupdf-migration/r7/source/referencePdfContent.js -text
 study-note/mupdf-migration/r7/source/appsscript.json -text
+# R8 preserve the exact published original copyright/redistribution texts.
+study-note/LICENSE -text
+study-note/mupdf-migration/r8/third-party-licenses/** -text
+study-note/mupdf-migration/r8/licenses/** -text

@@ -34,3 +34,5 @@ study-note/mupdf-migration/m2/dist/
 **/.r6-private/
 # R7: no licensed JS/WASM build output, test data or source staging in Git.
 **/.r7-private/
+# R8: isolated read-only deployed Apps Script snapshots and signed release inputs.
+**/.r8-private/

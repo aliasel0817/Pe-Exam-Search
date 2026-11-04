@@ -3,6 +3,12 @@
   'use strict';
   const SCHEMA='pe-study-note-r6-mupdf-release-v1';
   const SHA=/^[0-9a-f]{40}$/;
+  // R8: tag resolves the exact release source TREE without embedding its own
+  // commit SHA (which is mathematically impossible in a checked-in config).
+  // The release procedure must record/pin the tag's commit and verify that its
+  // Git tree equals the actual deployed main tree. NEVER move a published tag.
+  const RELEASE_TAG='pe-study-note-mupdf-1.28.1-r8-20261104';
+  const isPinnedReleaseRef=value=>SHA.test(value||'')||value===RELEASE_TAG;
   const HOST='aliasel0817.github.io';
   const PREFIX='/Pe-Exam-Search/study-note/';
   const CORE='20061bd45183f5a2bff8f43675e4da91e5ac2901';
@@ -13,7 +19,7 @@
       if(u.protocol!=='https:'||u.hostname!==HOST||u.port||u.username||u.password
           ||!u.pathname.startsWith(PREFIX))return false;
       if(!config||config.schema!==SCHEMA||config.status!=='RELEASED'
-          ||config.enabled!==true||!SHA.test(config.releaseCommit||'')
+          ||config.enabled!==true||!isPinnedReleaseRef(config.releaseCommit)
           ||config.mupdfVersion!=='1.28.1'||config.mupdfCommit!==CORE
           ||config.wasmSha256!==WASM)return false;
       if(config.sourceUrl!=='https://github.com/aliasel0817/Pe-Exam-Search/tree/'
@@ -41,7 +47,7 @@
       sourceUrl:config.sourceUrl
     });
   }
-  const api=Object.freeze({SCHEMA,CORE,WASM,HOST,PREFIX,isProductionRelease,productionAssetUrls});
+  const api=Object.freeze({SCHEMA,CORE,WASM,HOST,PREFIX,RELEASE_TAG,isProductionRelease,productionAssetUrls});
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(root&&typeof root==='object')root.PE_R6_POLICY=api;
 })(typeof window!=='undefined'?window:null);

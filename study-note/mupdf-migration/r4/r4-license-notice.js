@@ -55,6 +55,15 @@
     license.rel='noopener noreferrer';
     license.target='_blank';
     root.appendChild(license);
+    // R8: the exact upstream attribution list and full third-party notices
+    // remain publicly readable regardless of the binary release decision.
+    const notices=doc.createElement('a');
+    notices.href='./THIRD_PARTY_NOTICES.md';
+    notices.textContent='제3자 라이선스 및 저작권 고지';
+    notices.rel='noopener noreferrer';
+    notices.target='_blank';
+    notices.style.marginLeft='12px';
+    root.appendChild(notices);
     const status=doc.createElement('p');
     status.id='r4-source-offer-status';
     status.textContent=data.sourceStatus;
