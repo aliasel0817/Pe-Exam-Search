@@ -47,7 +47,16 @@ test('M7 cancels both renderer tile queues before retaining new page/document st
  assert.match(html,/forgetZoom\(els\.referencePdfFrameWrap\?\.querySelector/);
 });
 test('legacy reference renderer and annotation schemas remain intact',()=>{
- const old=before.replace(/\r\n/g,'\n'),now=html.replace(/\r\n/g,'\n');
+ const old=before.replace(/\r\n/g,'\n');
+ const current=html.replace(/\r\n/g,'\n');
+ // R4 inserts ONLY one opt-in loopback license-notice loader near </body>.
+ // Remove exactly that documented block before testing all unrelated HTML bytes.
+ const noticeStart='<!-- R4_LICENSE_NOTICE_PRIVATE_START:';
+ const noticeEnd='<!-- R4_LICENSE_NOTICE_PRIVATE_END -->\n';
+ assert.equal(current.split(noticeStart).length,2,'R4 private notice loader is unique');
+ const begin=current.indexOf(noticeStart),after=current.indexOf(noticeEnd,begin);
+ assert(begin>=0&&after>begin,'R4 notice end marker required');
+ const now=current.slice(0,begin)+current.slice(after+noticeEnd.length);
  // R1 intentionally adds exactly one safe tile cleanup on repaint. Strip it
  // before asserting that all prior production HTML is byte-equivalent.
  const withoutR1=now.replace("  // Clear the old zoom's detail tile before painting a resized base page.\n"+
