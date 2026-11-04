@@ -59,10 +59,11 @@ export function inverseQuarterTurn(point,rotation) {
 export function createM6ScrollCoalescer({setTimer=setTimeout,clearTimer=clearTimeout,
   now=()=>Date.now(),delayMs=140,maxWaitMs=400}={}) {
   if(!(delayMs>=0&&maxWaitMs>=delayMs))throw Error('Bad tile throttle policy');
-  let timer=null,firstAt=0,latest=null,closed=false,schedules=0,coalesced=0,executions=0;
+  // Null rather than 0: a clock starting at 0 is a valid first event time.
+  let timer=null,firstAt=null,latest=null,closed=false,schedules=0,coalesced=0,executions=0;
   const flush=()=>{
     if(timer!==null){clearTimer(timer);timer=null;}
-    const fn=latest;latest=null;firstAt=0;
+    const fn=latest;latest=null;firstAt=null;
     if(closed||!fn)return;
     executions++;fn();
   };
@@ -73,7 +74,7 @@ export function createM6ScrollCoalescer({setTimer=setTimeout,clearTimer=clearTim
       schedules++;
       if(latest)coalesced++;
       latest=fn;
-      if(!firstAt)firstAt=now();
+      if(firstAt===null)firstAt=now();
       if(timer!==null)clearTimer(timer);
       const remaining=Math.max(0,maxWaitMs-(now()-firstAt));
       timer=setTimer(flush,Math.min(delayMs,remaining));
@@ -81,11 +82,11 @@ export function createM6ScrollCoalescer({setTimer=setTimeout,clearTimer=clearTim
     flush,
     cancel(){
       if(timer!==null)clearTimer(timer);
-      timer=null;latest=null;firstAt=0;
+      timer=null;latest=null;firstAt=null;
     },
     close(){
       if(timer!==null)clearTimer(timer);
-      timer=null;closed=true;latest=null;firstAt=0;
+      timer=null;closed=true;latest=null;firstAt=null;
     },
     stats(){return {schedules,coalesced,executions,pending:!!latest,closed};},
   });

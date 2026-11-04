@@ -9,7 +9,7 @@ export class MuPDFWorkerSession {
     this.bytes=asBytes(bytes);
     this.moduleURL=moduleURL;
     this.budget=budget;this.workerFactory=workerFactory;
-    this.worker=null;this.pending=new Map();this.seq=0;
+    this.worker=null;this.pending=new Map();this.seq=0;this.opening=null;
     this.countPages=0;this.closed=false;this.engine='mupdf-worker';
   }
   _ensureWorker(){
@@ -27,7 +27,7 @@ export class MuPDFWorkerSession {
     const worker=this.worker;this.worker=null;
     if(worker){worker.onmessage=null;worker.onerror=null;worker.terminate();}
     for(const item of this.pending.values())item.reject(error);
-    this.pending.clear();this.countPages=0;
+    this.pending.clear();this.countPages=0;this.opening=null;
   }
   _request(op,payload,signal){
     if(this.closed)throw new RendererError('DOCUMENT_CLOSED','Worker document has been closed');
@@ -43,9 +43,19 @@ export class MuPDFWorkerSession {
     });
   }
   async _open({signal}={}){
+    assertSignal(signal);
     if(this.countPages>0&&this.worker)return;
-    const result=await this._request('open',{bytes:this.bytes,moduleURL:this.moduleURL,budget:this.budget},signal);
-    this.countPages=result.pageCount;
+    // Share one in-flight open across bounds/render requests. Without this,
+    // concurrent callers post duplicate 'open' messages to the same Worker.
+    if(!this.opening){
+      this.opening=this._request('open',{
+        bytes:this.bytes,moduleURL:this.moduleURL,budget:this.budget
+      },signal).then(result=>{this.countPages=result.pageCount;});
+    }
+    const opening=this.opening;
+    try{await opening;}
+    finally{if(this.opening===opening)this.opening=null;}
+    assertSignal(signal);
   }
   async getPageBounds(pageNumber,{signal}={}){
     await this._open({signal});assertPageNumber(pageNumber,this.countPages);

@@ -179,6 +179,17 @@ try{
  });
  if(zoom.tileCount!==1||zoom.tileZ!=='2'||zoom.inkZ!=='3'||zoom.tileBytes>32*1024*1024)
   throw Error('High-zoom budget or overlay z-order invalid '+JSON.stringify(zoom));
+ // R1: a zoom repaint must remove the previous detail tile synchronously.
+ const staleAfterAttachmentZoom=await page.evaluate(()=>{
+  const qa=window.__M5_ATTACHMENT_QA__;
+  qa.zoom(3.2);
+  return qa.getState().tileCount;
+ });
+ if(staleAfterAttachmentZoom!==0)throw Error('R1 old attachment detail tile still covers resized page');
+ await page.waitForFunction(()=>{
+  const stage=document.querySelector('#pdfViewerFrameWrap .attachment-pdf-stage');
+  return window.__M5_ATTACHMENT_QA__.getState().tileCount===1&&stage?.dataset?.m6TileZoom==='3.2';
+ },null,{timeout:16000});
  // M6 focal zoom: keep the PDF point under the fingers in view after scaling.
  const focus=await page.evaluate(async()=>{
   const s=document.querySelector('#pdfViewerFrameWrap .attachment-pdf-pan-scroller');
@@ -306,6 +317,12 @@ try{
  });
  if(refHighZoom.history.some(h=>h.bytes>refHighZoom.maxTileBytes))
   throw Error('M6 M4 high zoom allocation exceeded budget '+JSON.stringify(refHighZoom));
+ // R1: discard the old reference tile before a newly scaled page is displayed.
+ const staleAfterReferenceZoom=await page.evaluate(()=>{
+  window.__M4_REFERENCE_QA__.zoom(9);
+  return !!document.querySelector('.reference-pdf-image-stage .m4-reference-detail-tile');
+ });
+ if(staleAfterReferenceZoom)throw Error('R1 old reference detail tile still covers resized page');
  await page.evaluate(()=>window.__M4_REFERENCE_QA__.close());
  // Emulate tablet two-finger Touch Events on actual study-note pan scroller.
  const mobile=await browser.newContext({serviceWorkers:'block',viewport:{width:820,height:1100},

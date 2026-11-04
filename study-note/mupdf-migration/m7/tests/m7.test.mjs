@@ -48,7 +48,11 @@ test('M7 cancels both renderer tile queues before retaining new page/document st
 });
 test('legacy reference renderer and annotation schemas remain intact',()=>{
  const old=before.replace(/\r\n/g,'\n'),now=html.replace(/\r\n/g,'\n');
- const removed=now.replace(/  if \(M6_DEV_ENABLED\) \{\n    window\.__M6_PERF__\?\.cancelTile\('reference'\);\n    window\.__M6_PERF__\?\.forgetZoom\(els\.referencePdfFrameWrap\?\.querySelector\('\.reference-pdf-pan-scroller'\)\);\n  \}\n(?=  if \(M4_REFERENCE_DEV_ENABLED\) \{)/,'');
+ // R1 intentionally adds exactly one safe tile cleanup on repaint. Strip it
+ // before asserting that all prior production HTML is byte-equivalent.
+ const withoutR1=now.replace("  // Clear the old zoom's detail tile before painting a resized base page.\n"+
+   "  m4ReferenceModule?.clearVisibleTile(els.referencePdfFrameWrap?.querySelector('.reference-pdf-image-stage'));\n",'');
+ const removed=withoutR1.replace(/  if \(M6_DEV_ENABLED\) \{\n    window\.__M6_PERF__\?\.cancelTile\('reference'\);\n    window\.__M6_PERF__\?\.forgetZoom\(els\.referencePdfFrameWrap\?\.querySelector\('\.reference-pdf-pan-scroller'\)\);\n  \}\n(?=  if \(M4_REFERENCE_DEV_ENABLED\) \{)/,'');
  assert.equal(removed,old,'M7 reference changes must only be cleanup hooks');
  assert.match(now,/const ANNOTATION_SCHEMA_VERSION = 3;/);
  assert.match(now,/coordinateSpace: 'normalized-0-1'/);

@@ -13590,6 +13590,8 @@ async function m4RepaintReferencePdf({ immediate = false, loadSerial = reference
   m4ReferenceTileSerial++;
   m4ReferenceTileAbort?.abort();
   m4ReferenceTileAbort = null;
+  // Clear the old zoom's detail tile before painting a resized base page.
+  m4ReferenceModule?.clearVisibleTile(els.referencePdfFrameWrap?.querySelector('.reference-pdf-image-stage'));
   m4ReferenceRenderAbort?.abort();
   const paintSerial = ++referencePdfRenderSerial;
   const painter = m4ReferenceDocument;

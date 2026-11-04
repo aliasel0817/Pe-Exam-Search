@@ -201,6 +201,9 @@ async function m5RepaintAttachment({immediate=false,
   ++m5AttachmentTileSerial;
   m5AttachmentTileAbort?.abort();
   m5AttachmentTileAbort = null;
+  // A tile from the previous zoom/fit must never cover a newly resized page.
+  m5AttachmentModule?.clearVisibleTile(
+    els.mediaViewerBody?.querySelector('#pdfViewerFrameWrap .attachment-pdf-stage'));
   m5AttachmentBaseAbort?.abort();
   const paintSerial = ++attachmentPdfRenderSerial;
   const doc = m5AttachmentDocument;
