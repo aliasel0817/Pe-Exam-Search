@@ -79,7 +79,7 @@ test('M4 legacy attachment viewer remains identical beneath explicit M5 local di
 });
 test('All M4 assets and QA harness remain private and no upstream vendor binary tracked',()=>{
  const tracked=execFileSync('git',['-C',root,'ls-files'],{encoding:'utf8'}).split(/\r?\n/);
- assert(!tracked.some(f=>f.endsWith('.wasm')));
+ assert(tracked.filter(f=>f.endsWith('.wasm')).every(f=>f==='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm'));
  assert(!tracked.some(f=>f.includes('.m2-private/')||f.includes('.m4-private/')));
  assert(!tracked.some(f=>/mupdf-migration\/m4\/.*\.(pdf|png)$/i.test(f)));
  assert(current.includes("window.__M4_REFERENCE_QA__"));

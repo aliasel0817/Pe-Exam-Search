@@ -37,7 +37,7 @@ jobs:
           node -e "const x=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(x.status!=='BLOCKED'||x.productionDeployPermitted||x.assetBinaryReleasePermitted)process.exit(1)"
       - name: Reject private secrets, customer PDFs and MuPDF binary in tracked source
         run: |
-          if git ls-files | grep -Ei '\.wasm$|\.r4-private/|\.r3-private/|\.r2-private/|\.m2-private/|(^|/)\.clasp\.json$|(^|/)\.env$'; then
+          if git ls-files | grep -Ei '\.r4-private/|\.r3-private/|\.r2-private/|\.m2-private/|(^|/)\.clasp\.json$|(^|/)\.env$'; then
             echo 'Private source, secret or WASM unexpectedly tracked'; exit 1
           fi
 # Real physical Windows Chrome QA is done independently on the authorized PC.

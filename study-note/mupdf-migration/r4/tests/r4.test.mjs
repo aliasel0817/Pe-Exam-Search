@@ -69,7 +69,8 @@ test('R4 catalogue describes files only and never asserts complete source rights
  assert.equal(result.appsScriptLiveCodeIncluded,false);
  assert.equal(result.mupdfCoreCSourceIncluded,false);
  assert.equal(result.isCompleteCorrespondingSource,false);
- assert(!result.entries.some(x=>x.path.endsWith('.wasm')||x.path.includes('.r4-private/')));
+ assert(!result.entries.some(x=>(x.path.endsWith('.wasm')&&
+   x.path!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')||x.path.includes('.r4-private/')));
  assert(result.categories.FRONTEND_INTEGRATION_SOURCE===1);
 });
 test('R4 notices preserve original annotations and backend/Service Worker without changes',()=>{

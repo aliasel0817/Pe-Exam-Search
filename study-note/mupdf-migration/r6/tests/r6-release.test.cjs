@@ -95,7 +95,7 @@ test('Unapproved release never reaches user content caches or tracked private bi
  const sw=fs.readFileSync(path.join(study,'service-worker.js'),'utf8');
  assert.doesNotMatch(sw,/mupdf-wasm\.wasm|referencePdfContent|authorization|signedUrl/i);
  const tracked=cp.execFileSync('git',['-C',root,'ls-files'],{encoding:'utf8'});
- assert(!tracked.split(/\r?\n/).some(p=>p.endsWith('.wasm')||p.includes('/.r6-private/')));
+ assert(!tracked.split(/\r?\n/).some(p=>(p.endsWith('.wasm')&&p!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')||p.includes('/.r6-private/')));
  const m2=JSON.parse(fs.readFileSync(path.join(migration,'m2','m2-publication-gate.json'),'utf8'));
  const r4=JSON.parse(fs.readFileSync(path.join(migration,'r4','r4-approval-state.json'),'utf8'));
  assert.equal(m2.publicMuPdfBinaryDistributionAllowed,false);

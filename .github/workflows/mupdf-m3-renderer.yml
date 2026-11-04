@@ -58,7 +58,7 @@ jobs:
 
       - name: Ensure no rendered/user PDF/WASM or local binary is tracked
         run: |
-          if git ls-files | grep -E '\.wasm$|(^|/)\.m3-private/|(^|/)\.m2-private/|study-note/mupdf-migration/m3/node_modules/|study-note/mupdf-migration/m3/.+\.png$'; then
+          if git ls-files | grep -E '(^|/)\.m3-private/|(^|/)\.m2-private/|study-note/mupdf-migration/m3/node_modules/|study-note/mupdf-migration/m3/.+\.png$'; then
             echo "Unsafe private runtime or render output tracked"; exit 1
           fi
 

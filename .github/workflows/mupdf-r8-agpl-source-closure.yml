@@ -44,6 +44,6 @@ jobs:
           test -f .r8-private/r8-offline-site/R8-PRIVATE-PACKAGE-MANIFEST.json
           grep -q '"enabled": false' .r8-private/r8-offline-site/study-note/mupdf-migration/r6/r6-release-config.js
           git check-ignore -q .r8-private/r8-offline-site/study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm
-          test -z "$(git ls-files '*.wasm')"
+          node study-note/mupdf-migration/r9/r9-audit-public-binaries.cjs
           test -z "$(git status --porcelain)"
       # No deploy-pages, no clasp, no upload-artifact, no secrets.

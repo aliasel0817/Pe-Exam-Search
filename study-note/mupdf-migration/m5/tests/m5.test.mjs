@@ -74,7 +74,7 @@ test('Existing schema 3, ink coordinate system and page keys remain unchanged',(
 });
 test('M5 never ships vendor JS/WASM, private data or screenshots',()=>{
  const tracked=execFileSync('git',['-C',root,'ls-files'],{encoding:'utf8'}).split(/\r?\n/);
- assert(!tracked.some(f=>f.endsWith('.wasm')));
+ assert(tracked.filter(f=>f.endsWith('.wasm')).every(f=>f==='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm'));
  assert(!tracked.some(f=>/\.(m2|m3|m4|m5)-private\//.test(f)));
  assert(!tracked.some(f=>/mupdf-migration\/m5\/.+\.(pdf|png|jpg)$/.test(f)));
  assert(html.includes("new URLSearchParams(window.location.search).get('m5-local') === '1'"));

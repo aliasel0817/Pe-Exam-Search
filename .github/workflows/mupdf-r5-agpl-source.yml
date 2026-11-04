@@ -44,7 +44,7 @@ jobs:
       - name: Ensure no private binaries, user data or deployment keys enter the Git index
         shell: bash
         run: |
-          if git ls-files | grep -Ei '\.wasm$|(^|/)\.clasp\.json$|(^|/)\.env$|(^|/)\.r[0-9]+-private/|(^|/)\.m[0-9]+-private/'; then
+          if git ls-files | grep -Ei '(^|/)\.clasp\.json$|(^|/)\.env$|(^|/)\.r[0-9]+-private/|(^|/)\.m[0-9]+-private/'; then
             echo 'Private source/binary/credentials unexpectedly tracked'; exit 1
           fi
 

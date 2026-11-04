@@ -72,7 +72,7 @@ test('Exact source release tag support is narrow and invalid servers/tags reject
 test('Publication cannot accidentally include source docs/user data as binary',()=>{
  const paths=cp.execFileSync('git',['-C',repo,'ls-files','--','study-note'],{encoding:'utf8'}).split(/\r?\n/);
  assert(!paths.some(p=>/\.pdf$/i.test(p)||/\.xlsx$/i.test(p)));
- assert(!paths.some(p=>/\.r8-private|\.clasprc|\.clasp\.json|\.wasm$/i.test(p)));
+ assert(!paths.some(p=>/\.r8-private|\.clasprc|\.clasp\.json/i.test(p)||(p.endsWith('.wasm')&&p!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')));
  const closure=read('R8-AGPL-CLOSURE-DECISION.md').toString('utf8');
  assert.match(closure,/no indefinite|No perpetual legal-review loop/i);
 });

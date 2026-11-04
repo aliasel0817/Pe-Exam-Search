@@ -61,7 +61,7 @@ jobs:
 
       - name: No public MuPDF, private preview or synthetic PDF artifacts
         run: |
-          if git ls-files | grep -E '\.wasm$|(^|/)\.m2-private/|(^|/)\.m3-private/|(^|/)\.m4-private/|study-note/mupdf-migration/m4/.+\.(pdf|png)$'; then
+          if git ls-files | grep -E '(^|/)\.m2-private/|(^|/)\.m3-private/|(^|/)\.m4-private/|study-note/mupdf-migration/m4/.+\.(pdf|png)$'; then
             echo "Private binary/test artifact unexpectedly tracked"; exit 1
           fi
 

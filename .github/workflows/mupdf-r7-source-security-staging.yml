@@ -37,7 +37,7 @@ jobs:
           node study-note/mupdf-migration/r7/r7-private-release-assemble.cjs --assemble-private
           test -f .r7-private/PRIVATE-ASSEMBLY-MANIFEST.json
           git check-ignore -q .r7-private/site/study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm
-          test -z "$(git ls-files '*.wasm')"
+          node study-note/mupdf-migration/r9/r9-audit-public-binaries.cjs
           test -z "$(git status --porcelain)"
       - name: Release remains blocked (technical checks do not waive rights)
         run: |

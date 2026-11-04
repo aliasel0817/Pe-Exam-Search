@@ -32,7 +32,7 @@ jobs:
           node -e "const s=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(s.productionDeployPermitted||s.assetBinaryReleasePermitted||s.status!=='BLOCKED')process.exit(1)"
       - name: No public proprietary/QA binaries
         run: |
-          if git ls-files | grep -E '\.wasm$|(^|/)\.m[2-7]-private/|study-note/mupdf-migration/r0/.+\.(pdf|png|jpg|jpeg)$'; then
+          if git ls-files | grep -E '(^|/)\.m[2-7]-private/|study-note/mupdf-migration/r0/.+\.(pdf|png|jpg|jpeg)$'; then
             echo 'Unexpected private asset tracked'; exit 1
           fi
 # No networking to operating Apps Script/Drive, no secrets, no physical-device claims.

@@ -118,7 +118,7 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
 });
 test('M7 remains private: no tracked wasm binaries, source paths and release controls retained',()=>{
  const tracked=execFileSync('git',['-C',root,'ls-files'],{encoding:'utf8'}).split(/\r?\n/);
- assert(!tracked.some(p=>p.endsWith('.wasm')||p.includes('.m2-private/')));
+ assert(!tracked.some(p=>(p.endsWith('.wasm')&&p!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')||p.includes('.m2-private/')));
  const gate=fs.readFileSync(path.join(migration,'m2','m2-release-gate.cjs'),'utf8');
  assert.match(gate,/AGPL|LICENSE|release|publish/i);
  assert.match(html,/get\('m6-local'\) === '1'/);

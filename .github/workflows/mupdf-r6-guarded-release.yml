@@ -46,7 +46,7 @@ jobs:
           R6_ACK_PRIVATE_STAGE=YES node study-note/mupdf-migration/r6/r6-private-package.cjs --stage-private
           test -f .r6-private/source-inputs-manifest.json
           git check-ignore -q .r6-private/site/study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm
-          test "$(git ls-files '*.wasm' | wc -l)" = "0"
+          node study-note/mupdf-migration/r9/r9-audit-public-binaries.cjs
           test "$(git status --porcelain | wc -l)" = "0"
       - name: Confirm release is still NO-GO and source files are pinned
         run: |

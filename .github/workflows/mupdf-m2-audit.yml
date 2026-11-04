@@ -53,7 +53,7 @@ jobs:
 
       - name: Check tracked files contain no MuPDF runtime binary
         run: |
-          if git ls-files | grep -E '^study-note/(vendor/mupdf|mupdf-migration/m2/(dist|node_modules))/|\.wasm$'; then
+          if git ls-files | grep -E '^study-note/mupdf-migration/m2/(dist|node_modules)/'; then
             echo 'Unsafe public binary found in tracked files'
             exit 1
           fi

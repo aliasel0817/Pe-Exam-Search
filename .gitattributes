@@ -14,3 +14,7 @@ study-note/mupdf-migration/r7/source/appsscript.json -text
 study-note/LICENSE -text
 study-note/mupdf-migration/r8/third-party-licenses/** -text
 study-note/mupdf-migration/r8/licenses/** -text
+# R9 immutable release binaries/source chunks must preserve exact SHA-256 bytes.
+study-note/vendor/mupdf/1.28.1/** -text
+study-note/vendor/pdfjs/6.5.438/** -text
+study-note/mupdf-migration/r9/source/*.part* -text

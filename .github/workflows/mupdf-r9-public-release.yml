@@ -1,0 +1,56 @@
+name: MuPDF R9 approved AGPL source + production viewer release gate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/mupdf-r9-public-release.yml'
+      - '.gitattributes'
+      - '.gitignore'
+      - 'study-note/study-note.html'
+      - 'study-note/LICENSE'
+      - 'study-note/THIRD_PARTY_NOTICES.md'
+      - 'study-note/vendor/**'
+      - 'study-note/mupdf-migration/**'
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  r9-supply-chain-and-legacy-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact locked MuPDF and fallback development packages
+        run: |
+          npm --prefix study-note/mupdf-migration/m2 ci --ignore-scripts --no-audit --no-fund
+          npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+      - name: Verify all seven published vendor assets with actual byte SHA and source archive
+        run: |
+          node study-note/mupdf-migration/r9/r9-audit-public-binaries.cjs
+          node study-note/mupdf-migration/r9/r9-source-bundle.cjs
+      - name: Verify licensed source and backend parity with no exposed credentials
+        run: |
+          node study-note/mupdf-migration/m1/m1-secret-scan.cjs --root .
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r5/source/Code.js
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r7/source/Code.js
+      - name: Full prior implementations + R9 authorization regression suite
+        run: |
+          mapfile -d '' -t test_files < <(find study-note/mupdf-migration -type f \
+            \( -name '*.test.cjs' -o -name '*.test.mjs' \) \
+            -not -path '*/node_modules/*' -print0)
+          node --test "${test_files[@]}"
+      - name: Confirm no private user data or test credentials were committed
+        run: |
+          if git ls-files | grep -Ei '(^|/)\.clasp\.json$|(^|/)\.env$|(^|/)\.r[0-9]+-private/|(^|/)\.m[0-9]+-private/'; then
+            echo 'PRIVATE_DATA_IN_GIT_REJECTED'; exit 1
+          fi
+          test "$(git ls-files '*.wasm' | wc -l)" = "1"
+          git diff --exit-code
+      # GitHub Pages remains configured in the existing repository settings.
+      # No GitHub Actions deploy, Apps Script modification, token or user data access.

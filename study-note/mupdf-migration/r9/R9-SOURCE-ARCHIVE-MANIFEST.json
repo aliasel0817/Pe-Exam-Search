@@ -1,0 +1,26 @@
+{
+  "schema": "mupdf-r9-immutable-corresponding-source-v1",
+  "upstreamCoreCommit": "20061bd45183f5a2bff8f43675e4da91e5ac2901",
+  "upstreamSubmodules": 18,
+  "archiveName": "mupdf-1.28.1-complete-source.tar.gz",
+  "archiveSha256": "328c12b65cbdfffc2ad803bd14d9fb526496937575c14fac4634d9968461de15",
+  "archiveBytes": 93863687,
+  "parts": [
+    {
+      "name": "mupdf-1.28.1-complete-source.tar.gz.part01",
+      "size": 33554432,
+      "sha256": "de905e795184922fc79483c292b8134b24c804c1b0f697534580483bcefec1ec"
+    },
+    {
+      "name": "mupdf-1.28.1-complete-source.tar.gz.part02",
+      "size": 33554432,
+      "sha256": "f2dfc5eb2e6d7975d72182b7eeaa4fc29133a218df9324d78e4dc8a133de1671"
+    },
+    {
+      "name": "mupdf-1.28.1-complete-source.tar.gz.part03",
+      "size": 26754823,
+      "sha256": "423de054353c32195f90fda8adb9ef712b3c23cd5a6772720b26362d2f70adf8"
+    }
+  ],
+  "note": "Git source includes all chunks and rebuild scripts; private original is NOT tracked."
+}

@@ -38,7 +38,7 @@ test('locked private build assets verify and new release can never publish by ac
  assert.equal(JSON.parse(fs.readFileSync(path.join(migration,'m2','m2-publication-gate.json')).toString()).publicMuPdfBinaryDistributionAllowed,false);
  assert.equal(JSON.parse(fs.readFileSync(path.join(migration,'r4','r4-approval-state.json')).toString()).productionReleasePermitted,false);
  const tracked=cp.execFileSync('git',['-C',repo,'ls-files'],{encoding:'utf8'});
- assert(!tracked.split(/\r?\n/).some(x=>/\.wasm$/.test(x)||x.includes('.r7-private')));
+ assert(!tracked.split(/\r?\n/).some(x=>(/\.wasm$/.test(x)&&x!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')||x.includes('.r7-private')));
  const ignore=fs.readFileSync(path.join(repo,'.gitignore'),'utf8');
  assert.match(ignore,/\*\*\/\.r7-private\//);
 });

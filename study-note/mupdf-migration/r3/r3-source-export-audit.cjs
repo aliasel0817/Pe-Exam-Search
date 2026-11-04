@@ -45,7 +45,7 @@ function scanTree(dir,{maxBytes=3*1024*1024}={}){
 function scanGitIndex(root){
  const data=cp.execFileSync('git',['-C',root,'ls-files','-z'],{encoding:'utf8'});
  const paths=data.split('\0').filter(Boolean).map(p=>p.replaceAll('\\','/'));
- const blocked=paths.filter(p=>p.endsWith('.wasm')||p.includes('/.r3-private/')
+ const blocked=paths.filter(p=>(p.endsWith('.wasm')&&p!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')||p.includes('/.r3-private/')
    ||p.includes('/.m2-private/')||p.includes('/.r2-private/')
    ||/(^|\/)\.clasp\.json$/i.test(p)||/\.p12$|\.pem$|\.env$/i.test(p));
  return {trackedFiles:paths.length,blockedPaths:blocked,pass:blocked.length===0};

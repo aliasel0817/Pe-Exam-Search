@@ -36,3 +36,6 @@ study-note/mupdf-migration/m2/dist/
 **/.r7-private/
 # R8: isolated read-only deployed Apps Script snapshots and signed release inputs.
 **/.r8-private/
+# R9: never track scratch copies of full 1.28.1 archive or private preflight files.
+**/.r9-private/
+study-note/mupdf-migration/r9/source/*.tar.gz

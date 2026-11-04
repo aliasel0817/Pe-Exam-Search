@@ -37,7 +37,7 @@ jobs:
       - name: Preserve M2 release gate and prohibit private assets in Git
         run: |
           node -e "const s=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(s.productionDeployPermitted||s.assetBinaryReleasePermitted||s.status!=='BLOCKED')process.exit(1)"
-          if git ls-files | grep -E '\.wasm$|(^|/)\.r2-private/|(^|/)\.m2-private/|study-note/mupdf-migration/r2/.+\.(pdf|png|jpg|jpeg)$'; then
+          if git ls-files | grep -E '(^|/)\.r2-private/|(^|/)\.m2-private/|study-note/mupdf-migration/r2/.+\.(pdf|png|jpg|jpeg)$'; then
             echo 'Unapproved private PDF/WASM/source asset tracked'; exit 1
           fi
 # Actual Chrome on authorized Windows PC is a separate local acceptance result.

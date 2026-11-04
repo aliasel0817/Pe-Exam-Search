@@ -47,6 +47,10 @@ try{
   let rel;
   try{rel=decodeURIComponent(new URL(url).pathname.slice('/Pe-Exam-Search/study-note/'.length));}
   catch{ return route.abort('blockedbyclient'); }
+  // R9: exercise R6 fail-closed behavior when the new release add-on
+  // is unavailable, then exercise the public release code on the next load.
+  if(rel==='mupdf-migration/r9/r9-release-config.js'&&!approvedMode)
+    return route.fulfill({status:200,contentType:'text/javascript; charset=utf-8',body:'/* R9 unavailable: fallback must remain blocked */'});
   if(rel==='mupdf-migration/r6/r6-release-config.js'&&approvedMode)
     return route.fulfill({status:200,contentType:'text/javascript; charset=utf-8',
       headers:{'cache-control':'no-store'},

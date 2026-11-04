@@ -30,7 +30,10 @@ function audit(){
    gate.correspondingSourceCompleteness==='UNVERIFIED',
   packagePinned:lock.package?.name==='mupdf'&&lock.package?.version==='1.28.1' &&
    lock.package?.license==='AGPL-3.0-or-later',
-  noPublicWasmTracked:!tracked.some(p=>/\.wasm$/i.test(p)||/(^|\/)\.m[2-7]-private\//.test(p)),
+  // R9 release transition: allow only the audited official 1.28.1 WASM;
+  // R0's historical legal decision remains an archival prelaunch snapshot.
+  noPublicWasmTracked:!tracked.some(p=>(/\.wasm$/i.test(p)&&
+   p!=='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm')||/(^|\/)\.m[2-7]-private\//.test(p)),
   serviceWorkerUnchanged:unchangedSinceM7('study-note/service-worker.js'),
   backendAddonUnchanged:unchangedSinceM7('study-note/backend/referencePdfContent.addon.gs'),
   serviceWorkerOnlyCachesShell:/!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isImageOptimizerAsset/.test(sw)

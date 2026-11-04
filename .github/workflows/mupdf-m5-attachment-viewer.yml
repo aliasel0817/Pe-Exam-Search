@@ -71,7 +71,7 @@ jobs:
 
       - name: Block vendor binaries, synthetic data and private QA outputs
         run: |
-          if git ls-files | grep -E '\.wasm$|(^|/)\.m[2-5]-private/|study-note/mupdf-migration/m[4-5]/.+\.(pdf|png|jpg)$'; then
+          if git ls-files | grep -E '(^|/)\.m[2-5]-private/|study-note/mupdf-migration/m[4-5]/.+\.(pdf|png|jpg)$'; then
             echo "Unapproved binary or synthetic QA artifact tracked"; exit 1
           fi
 

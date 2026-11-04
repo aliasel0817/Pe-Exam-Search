@@ -43,7 +43,7 @@ jobs:
           node -e "const s=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(s.productionDeployPermitted||s.assetBinaryReleasePermitted)process.exit(1)"
       - name: No public WASM or synthetic user data committed
         run: |
-          if git ls-files | grep -E '\.wasm$|(^|/)\.m[2-7]-private/|study-note/mupdf-migration/r1/.+\.(pdf|png|jpg|jpeg)$'; then
+          if git ls-files | grep -E '(^|/)\.m[2-7]-private/|study-note/mupdf-migration/r1/.+\.(pdf|png|jpg|jpeg)$'; then
             echo 'Unexpected binary or captured data'; exit 1
           fi
 

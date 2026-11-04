@@ -34,7 +34,7 @@ jobs:
           node -e "const m=require('./study-note/mupdf-migration/r3/r3-draft-source-manifest.json');if(m.deployAllowed||m.publicBinaryReleaseAllowed||m.mupdf.actualWasmRebuildCompleted)process.exit(1)"
       - name: Reject accidentally tracked private checkout, credentials or WASM
         run: |
-          if git ls-files | grep -Ei '(^|/)\.r3-private/|(^|/)\.m2-private/|(^|/)\.r2-private/|\.wasm$|(^|/)\.clasp\.json$|(^|/)\.env$'; then
+          if git ls-files | grep -Ei '(^|/)\.r3-private/|(^|/)\.m2-private/|(^|/)\.r2-private/|(^|/)\.clasp\.json$|(^|/)\.env$'; then
             echo 'Private source, credentials or WASM unexpectedly tracked'
             exit 1
           fi

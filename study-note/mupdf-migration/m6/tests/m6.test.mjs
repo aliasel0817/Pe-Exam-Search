@@ -152,7 +152,7 @@ test('Legacy production M5 renderer and PDF.js fallback paths remain beneath M6-
  assert(html.includes("privateM6Script.src = './mupdf-migration/m6/m6-runtime.js'"));
  // Build remains without committed WASM, raw PDF fixtures, or secrets.
  const tracked=execFileSync('git',['-C',root,'ls-files'],{encoding:'utf8'}).split(/\r?\n/);
- assert(!tracked.some(p=>p.endsWith('.wasm')));
+ assert(tracked.filter(p=>p.endsWith('.wasm')).every(p=>p==='study-note/vendor/mupdf/1.28.1/mupdf-wasm.wasm'));
  assert(!tracked.some(p=>/\/\.m6-private\//.test(p)));
 });
 test('M6 browser scripts and inline application JavaScript pass parsing',()=>{
