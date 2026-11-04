@@ -27,7 +27,10 @@ jobs:
       - name: Verify published application source snapshot contains no recognized literal secrets
         run: |
           node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r5/source/Code.js
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r5/source/referencePdfContent.js --nonentrypoint
+          node study-note/mupdf-migration/r5/r5-private-source-scan.cjs study-note/mupdf-migration/r5/source/appsscript.json --nonentrypoint
           node --check study-note/mupdf-migration/r5/source/Code.js
+          node --check study-note/mupdf-migration/r5/source/referencePdfContent.js
       - name: Run R5 focused source and safe-release tests
         run: |
           node --test study-note/mupdf-migration/r5/tests/r5.test.mjs

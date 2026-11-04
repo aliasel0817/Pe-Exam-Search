@@ -10,9 +10,9 @@ The R5 branch is a candidate. The final operating release MUST link an exact rel
 
 - Study-note front end: `study-note/study-note.html`, `study-note/service-worker.js`, `study-note/study-planner.js`, all auxiliary application and annotation/viewer code under `study-note/`.
 - MuPDF integration: `study-note/mupdf-migration/m3/`, `m4/`, `m5/`, `m6/`, `m7/`, `r0/`–`r5/` (source and tests).
-- **Apps Script server implementation:** `study-note/mupdf-migration/r5/source/Code.js` (R2 verified version21 read-only source snapshot). This is disclosed as application source, **not** as a call to edit or redeploy the operating Apps Script service.
+- **Apps Script server implementation:** `study-note/mupdf-migration/r5/source/Code.js` (R2 verified version21 read-only source snapshot), **`source/referencePdfContent.js`** (original signed PDF helper), and **`source/appsscript.json`** (manifest). These three exact source files, together with tracked backend addon/patch code, cover the R2 read-only Apps Script snapshot except private per-project deployment configuration. This is disclosed as application source, **not** as a call to edit or redeploy the operating Apps Script service.
 - Existing backend helper: `study-note/backend/referencePdfContent.addon.gs` and tracked backend patch/design docs.
-- Explicitly excluded: `Script Properties` values, OAuth/HMAC private keys, user files/PDFs/learning content/device registry, annotations and any `.r*-private` directory. The absence of these is an intended distinction between program source and operational/customer secrets, not a request to redact core program logic.
+- Explicitly excluded: actual `.clasp.json` containing operating Script ID, `Script Properties` values, OAuth/HMAC private keys, user files/PDFs/learning content/device registry, annotations and any `.r*-private` directory. The absence of these is an intended distinction between program source and operational/customer secrets, not a request to redact core program logic.
 
 ## 2. Exact MuPDF 1.28.1 source and build prerequisites
 

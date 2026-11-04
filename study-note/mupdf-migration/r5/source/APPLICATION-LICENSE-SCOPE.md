@@ -24,6 +24,6 @@ For a released binary, the exact checked-out commit and its `mupdf@1.28.1` sourc
 
 ## Included Apps Script source provenance
 
-`Code.js` is a **byte-equivalent source snapshot** (SHA-256 `e2867b4859a861c835541f6fb4a5196374c97035ca6edeaf6b696ad3289d3f3f`, 171107 bytes) of the R2 **read-only version21/HEAD** snapshots verified on 2026-11-04. This is a historical fact, NOT proof of the current Apps Script deployment version at the time of release. The actual deployed runtime source and version must be rechecked before operating deployment.
+`Code.js` and the accompanying `referencePdfContent.js` and `appsscript.json` are Apps Script server source snapshots; `Code.js` is a **byte-equivalent source snapshot** (SHA-256 `e2867b4859a861c835541f6fb4a5196374c97035ca6edeaf6b696ad3289d3f3f`, 171107 bytes) of the R2 **read-only version21/HEAD** snapshots verified on 2026-11-04. This is a historical fact, NOT proof of the current Apps Script deployment version at the time of release. The actual deployed runtime source and version must be rechecked before operating deployment.
 
 The associated configuration is supplied through Script Properties, NOT through hardcoded credentials. R5 heuristic scanners found no known literal credentials or ID patterns, but human security and license review remains required; the scanner's zero findings are not a complete guarantee.

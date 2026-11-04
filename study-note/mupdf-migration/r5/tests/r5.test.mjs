@@ -26,6 +26,20 @@ test('R5 server source snapshot matches verified v21 immutable SHA and has both 
  assert.equal(a.pass,true,JSON.stringify(a.findings));
  assert.equal(a.publicationAuthorized,false,'heuristics alone never authorize release');
 });
+test('R5 includes the complete R2 version21 source file set except private .clasp credentials',()=>{
+ const root=path.join(r5,'source');
+ for(const [file,hash] of [
+  ['referencePdfContent.js','0ff6da5c6a3635b0fb83429ade3386ba50c195d2fbe24b5a4ea0e6a3022dafed'],
+  ['appsscript.json','fd4aadebaeb248c3befaeab7de7470d48afd4f2cca3573eaf8358d1b7d391d6d']]){
+  const p=path.join(root,file);
+  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'),hash);
+  const result=scanner.audit(p,{allowExtension:path.extname(p),requireBackend:false});
+  assert.equal(result.pass,true,JSON.stringify(result.findings));
+ }
+ assert.equal(fs.existsSync(path.join(root,'.clasp.json')),false,'private deployment ID must not ship');
+ assert.equal(fs.existsSync(path.join(root,'clasp.example.json')),true);
+ assert.equal(fs.existsSync(path.join(root,'APPSSCRIPT-SETUP.md')),true);
+});
 test('R5 exact upstream source hash and all 18 gitlink SHA values pinned',()=>{
  assert.equal(r3.mupdf.commit,'20061bd45183f5a2bff8f43675e4da91e5ac2901');
  assert.equal(r3.mupdf.submodules.length,18);
