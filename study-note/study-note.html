@@ -2953,6 +2953,10 @@ button { -webkit-tap-highlight-color: transparent; }
 
   <div id="toast" class="toast hidden" role="status"></div>
   <script src="./image-upload-optimizer.js"></script>
+  <!-- R6_RELEASE_SCRIPTS_BEGIN: inert until a separately audited release -->
+  <script src="./mupdf-migration/r6/r6-release-config.js"></script>
+  <script src="./mupdf-migration/r6/r6-release-policy.js"></script>
+  <!-- R6_RELEASE_SCRIPTS_END -->
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
@@ -4353,9 +4357,13 @@ let activeReferencePdfRenderTask = null;
 let activeReferencePdfVectorReady = false;
 let referencePdfRenderTimer = null;
 let referencePdfRenderSerial = 0;
+// R6: retain the original loopback flag; only an independently reviewed release can opt in.
+const R6_PRODUCTION_RELEASE_ENABLED = window.PE_R6_POLICY?.isProductionRelease(
+  window.PE_R6_RELEASE, window.location.href) === true;
 // M4 private integration gate: NEVER ship MuPDF binaries to the public Pages site.
 const M4_REFERENCE_DEV_ENABLED = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(window.location.href)
-  && new URLSearchParams(window.location.search).get('m4-local') === '1';
+  && new URLSearchParams(window.location.search).get('m4-local') === '1'
+  || R6_PRODUCTION_RELEASE_ENABLED;
 let m4ReferenceEnginePromise = null;
 let m4ReferenceModule = null;
 let m4ReferenceDocument = null;
@@ -4421,10 +4429,12 @@ let attachmentPdfRenderSerial = 0;
 // opt-in. No public MuPDF JS/WASM, no server/annotation schema changes.
 const M5_ATTACHMENT_DEV_ENABLED = typeof M4_REFERENCE_DEV_ENABLED !== 'undefined'
   && M4_REFERENCE_DEV_ENABLED
-  && new URLSearchParams(window.location.search).get('m5-local') === '1';
+  && (new URLSearchParams(window.location.search).get('m5-local') === '1'
+      || R6_PRODUCTION_RELEASE_ENABLED);
 // M6 is opt-in only after both private M4/M5 renderers are enabled.
 const M6_DEV_ENABLED = M5_ATTACHMENT_DEV_ENABLED
-  && new URLSearchParams(window.location.search).get('m6-local') === '1';
+  && (new URLSearchParams(window.location.search).get('m6-local') === '1'
+      || R6_PRODUCTION_RELEASE_ENABLED);
 let m5AttachmentRuntimePromise = null;
 let m5AttachmentModule = null;
 let m5AttachmentDocument = null;
@@ -13540,6 +13550,16 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
 async function m4ReferenceRuntime() {
   if (!M4_REFERENCE_DEV_ENABLED) throw new Error('M4 MuPDF is not enabled outside loopback development');
   if (!m4ReferenceEnginePromise) {
+    // R6_RELEASE_RUNTIME_M4_BEGIN: separate public route; local M4 remains untouched.
+    if (R6_PRODUCTION_RELEASE_ENABLED) {
+      m4ReferenceEnginePromise = import('./mupdf-migration/r6/r6-production-renderer.mjs')
+        .then(async module => {
+          m4ReferenceModule = module;
+          return module.createR6ReferenceEngine(window.PE_R6_RELEASE);
+        }).catch(error => { m4ReferenceEnginePromise = null; throw error; });
+      return m4ReferenceEnginePromise;
+    }
+    // R6_RELEASE_RUNTIME_M4_END
     m4ReferenceEnginePromise = import('./mupdf-migration/m4/m4-reference-adapter.mjs')
       .then(async module => {
         m4ReferenceModule = module;
@@ -13749,7 +13769,7 @@ function m4ScheduleVisibleDetail() {
 
 // Explicit synthetic QA entry is available ONLY on loopback with ?m4-local=1.
 // It never calls a mutation endpoint or replaces production signed GET.
-if (M4_REFERENCE_DEV_ENABLED) {
+if (M4_REFERENCE_DEV_ENABLED && !R6_PRODUCTION_RELEASE_ENABLED) {
   window.__M4_REFERENCE_QA__ = Object.freeze({
     async openFixture({sourceType='서브노트',pageToken='M4-QA-1',bytes}={}) {
       if (!['서브노트','교재'].includes(sourceType) || !/^M4-QA-[a-z0-9-]+$/i.test(pageToken))
@@ -15211,6 +15231,13 @@ if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
 if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED) {
   const privateR4Notice = document.createElement('script');
   privateR4Notice.src = './mupdf-migration/r4/r4-license-notice.js';
+  if (R6_PRODUCTION_RELEASE_ENABLED) {
+    privateR4Notice.addEventListener('load', () => {
+      window.PE_R4_NOTICE?.mount(document, {
+        approved:true,gate:'OPEN',sourceUrl:window.PE_R6_RELEASE.sourceUrl,production:true
+      });
+    }, {once:true});
+  }
   document.body.appendChild(privateR4Notice);
 }
 </script>

@@ -30,3 +30,5 @@ study-note/mupdf-migration/m2/dist/
 
 # R5 independent C source / Emsdk / any build output, never publish
 **/.r5-private/
+# R6: local-only verified public-release rehearsal assets; never track binaries.
+**/.r6-private/

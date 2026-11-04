@@ -39,7 +39,7 @@
     root.setAttribute('lang','ko');
     root.style.cssText='position:fixed;z-index:9000;right:12px;bottom:12px;max-width:min(370px,calc(100vw - 24px));background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;box-shadow:0 4px 14px #0002;font:13px/1.5 system-ui,sans-serif';
     const summary=doc.createElement('summary');
-    summary.textContent='오픈소스 고지 (비운영 미리보기)';
+    summary.textContent=settings.production===true?'오픈소스 고지':'오픈소스 고지 (비운영 미리보기)';
     summary.style.cssText='cursor:pointer;font-weight:600';
     root.appendChild(summary);
     const h=doc.createElement('strong');h.textContent=data.title;root.appendChild(h);
@@ -72,6 +72,7 @@
     return root;
   }
   const api={isPrivateLoopback,safeSourceOffer,model,mount};
+  if(typeof window!=='undefined')window.PE_R4_NOTICE=api;
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(typeof window!=='undefined'&&typeof document!=='undefined' &&
     isPrivateLoopback(window.location.href)) {

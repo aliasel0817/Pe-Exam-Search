@@ -4,7 +4,9 @@
 (async()=>{
   if(typeof M6_DEV_ENABLED==='undefined'||!M6_DEV_ENABLED)return;
   const policy=await import('./m6-interaction-policy.mjs');
-  if(!policy.isM6LocalOptIn(window.location.href))throw Error('M6 private-only origin gate');
+  if(!policy.isM6LocalOptIn(window.location.href)
+    && !window.PE_R6_POLICY?.isProductionRelease(window.PE_R6_RELEASE,window.location.href))
+    throw Error('M6 renderer origin/release gate');
   const zoom=new policy.M6ZoomAnchor();
   const gates=new Map([
     ['reference',policy.createM6ScrollCoalescer({delayMs:125,maxWaitMs:360})],
@@ -89,7 +91,7 @@
     }
   });
   window.__M6_PERF__=api;
-  window.__M6_QA__=Object.freeze({
+  if(policy.isM6LocalOptIn(window.location.href))window.__M6_QA__=Object.freeze({
     getState:()=>api.stats(),
     zoomAt:api.zoomAt,
     currentProfile:factor=>{

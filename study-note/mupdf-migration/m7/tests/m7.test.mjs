@@ -81,7 +81,37 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
    }
    return s;
  };
- assert.equal(maskR2(removed),maskR2(old),'M7/R2 must preserve every unrelated HTML byte');
+ const stripR6 = input => {
+   // R6 is an additive, fail-closed release route. Strip exactly the audited
+   // changes, then retain M7's strict byte-equivalence for all unrelated HTML.
+   let s=input;
+   const block=/  <!-- R6_RELEASE_SCRIPTS_BEGIN:[^\n]*\n[\s\S]*?  <!-- R6_RELEASE_SCRIPTS_END -->\n/;
+   assert.match(s,block);
+   s=s.replace(block,'');
+   const gate="// R6: retain the original loopback flag; only an independently reviewed release can opt in.\n"
+     +"const R6_PRODUCTION_RELEASE_ENABLED = window.PE_R6_POLICY?.isProductionRelease(\n"
+     +"  window.PE_R6_RELEASE, window.location.href) === true;\n";
+   assert(s.includes(gate));
+   s=s.replace(gate,'');
+   for(const [now,was] of [
+     ["  && new URLSearchParams(window.location.search).get('m4-local') === '1'\n  || R6_PRODUCTION_RELEASE_ENABLED;",
+      "  && new URLSearchParams(window.location.search).get('m4-local') === '1';"],
+     ["  && (new URLSearchParams(window.location.search).get('m5-local') === '1'\n      || R6_PRODUCTION_RELEASE_ENABLED);",
+      "  && new URLSearchParams(window.location.search).get('m5-local') === '1';"],
+     ["  && (new URLSearchParams(window.location.search).get('m6-local') === '1'\n      || R6_PRODUCTION_RELEASE_ENABLED);",
+      "  && new URLSearchParams(window.location.search).get('m6-local') === '1';"],
+     ["if (M4_REFERENCE_DEV_ENABLED && !R6_PRODUCTION_RELEASE_ENABLED) {\n  window.__M4_REFERENCE_QA__",
+      "if (M4_REFERENCE_DEV_ENABLED) {\n  window.__M4_REFERENCE_QA__"]
+   ]) {
+     assert(s.includes(now),'Missing audited R6 replacement');
+     s=s.replace(now,was);
+   }
+   const runtime=/    \/\/ R6_RELEASE_RUNTIME_M4_BEGIN:[^\n]*\n[\s\S]*?    \/\/ R6_RELEASE_RUNTIME_M4_END\n/;
+   assert.match(s,runtime);s=s.replace(runtime,'');
+   return s;
+ };
+ assert.equal(maskR2(stripR6(removed)),maskR2(old),
+   'R6/M7/R2 must preserve all unrelated HTML bytes');
  assert.match(now,/const ANNOTATION_SCHEMA_VERSION = 3;/);
  assert.match(now,/coordinateSpace: 'normalized-0-1'/);
  assert.match(m5,/fetchMediaContent\(getApiUrl\(\), item\.attachmentId/);

@@ -3,6 +3,16 @@
 async function m5AttachmentRuntime() {
   if (!M5_ATTACHMENT_DEV_ENABLED) throw new Error('M5 requires loopback-only opt-in');
   if (!m5AttachmentRuntimePromise) {
+    // R6_RELEASE_RUNTIME_M5_BEGIN: production adapter reuses M5 geometry/ink.
+    if (typeof R6_PRODUCTION_RELEASE_ENABLED!=='undefined' && R6_PRODUCTION_RELEASE_ENABLED) {
+      m5AttachmentRuntimePromise = import('../r6/r6-production-renderer.mjs')
+        .then(async mod => {
+          m5AttachmentModule = mod;
+          return mod.createR6AttachmentEngine(window.PE_R6_RELEASE);
+        }).catch(e => { m5AttachmentRuntimePromise = null; throw e; });
+      return m5AttachmentRuntimePromise;
+    }
+    // R6_RELEASE_RUNTIME_M5_END
     m5AttachmentRuntimePromise = import('./m5-attachment-adapter.mjs')
       .then(async mod => {
         m5AttachmentModule = mod;
@@ -316,7 +326,7 @@ function m5ScheduleAttachmentTile() {
 }
 // The test hook uses the real renderPdfViewer() and real fetchMediaContent().
 // Its Playwright browser intercepts HTTP and supplies synthetic PDF bytes.
-if (M5_ATTACHMENT_DEV_ENABLED) {
+if (M5_ATTACHMENT_DEV_ENABLED && !R6_PRODUCTION_RELEASE_ENABLED) {
   window.__M5_ATTACHMENT_QA__=Object.freeze({
     openFixture(items) {
       if (!Array.isArray(items) || !items.length
