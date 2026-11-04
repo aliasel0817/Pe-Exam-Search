@@ -1,0 +1,38 @@
+# R0 source/AGPL gate audit only. Does not release, publish, deploy, or fetch private data.
+name: MuPDF R0 private release readiness audit
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/mupdf-migration/r0/**'
+      - '.github/workflows/mupdf-r0-release-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: R0 source preservation and closed release gate regression
+        run: node --test study-note/mupdf-migration/r0/tests/r0.test.cjs
+      - name: Read-only sanitized R0 decision matrix
+        run: node study-note/mupdf-migration/r0/r0-readiness-audit.cjs
+      - name: Explicit M2 block must remain
+        run: |
+          node -e "const s=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(s.productionDeployPermitted||s.assetBinaryReleasePermitted||s.status!=='BLOCKED')process.exit(1)"
+      - name: No public proprietary/QA binaries
+        run: |
+          if git ls-files | grep -E '\.wasm$|(^|/)\.m[2-7]-private/|study-note/mupdf-migration/r0/.+\.(pdf|png|jpg|jpeg)$'; then
+            echo 'Unexpected private asset tracked'; exit 1
+          fi
+# No networking to operating Apps Script/Drive, no secrets, no physical-device claims.

@@ -1,0 +1,51 @@
+# R1 private code-safety checks only. No deployment, Apps Script access, or PDF uploads.
+name: MuPDF R1 private functional stabilization
+
+on:
+  pull_request:
+    branches: [integration/mupdf-migration]
+    paths:
+      - 'study-note/mupdf-migration/r1/**'
+      - 'study-note/mupdf-migration/m3/m3-worker-client.mjs'
+      - 'study-note/mupdf-migration/m5/m5-attachment-ui.js'
+      - 'study-note/mupdf-migration/m6/m6-interaction-policy.mjs'
+      - 'study-note/mupdf-migration/m6/tests/browser-smoke.mjs'
+      - 'study-note/mupdf-migration/m7/tests/m7.test.mjs'
+      - 'study-note/study-note.html'
+      - '.github/workflows/mupdf-r1-functional-stabilization.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-r1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Focused R1 worker, tile, and throttle regressions
+        run: node --test study-note/mupdf-migration/r1/tests/r1.test.mjs
+      - name: Parser checks of modified runtime and browser smoke
+        run: |
+          node --check study-note/mupdf-migration/m3/m3-worker-client.mjs
+          node --check study-note/mupdf-migration/m5/m5-attachment-ui.js
+          node --check study-note/mupdf-migration/m6/m6-interaction-policy.mjs
+          node --check study-note/mupdf-migration/m6/tests/browser-smoke.mjs
+      - name: Original production APIs and private release block remain unchanged
+        run: |
+          node study-note/mupdf-migration/r0/r0-readiness-audit.cjs
+          node -e "const s=require('./study-note/mupdf-migration/m2/m2-release-gate.cjs').stateCheck();if(s.productionDeployPermitted||s.assetBinaryReleasePermitted)process.exit(1)"
+      - name: No public WASM or synthetic user data committed
+        run: |
+          if git ls-files | grep -E '\.wasm$|(^|/)\.m[2-7]-private/|study-note/mupdf-migration/r1/.+\.(pdf|png|jpg|jpeg)$'; then
+            echo 'Unexpected binary or captured data'; exit 1
+          fi
+
+# Actual Chrome 156 synthetic browser smoke is performed only on an isolated authorized PC.
+# Physical Galaxy Tab S11 S Pen and iPhone Safari remain distinct and NOT VERIFIED.
