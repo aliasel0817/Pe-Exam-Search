@@ -1,0 +1,8 @@
+{
+  "schema": "r7-appsscript-candidate-v1",
+  "from": "r5/source/Code.js",
+  "originalSha256": "e2867b4859a861c835541f6fb4a5196374c97035ca6edeaf6b696ad3289d3f3f",
+  "sha256": "0f523254e705063a791fb2a6665e717d3332a205dd2d0c48c95ad737c55e1c21",
+  "appScriptDeployed": false,
+  "change": "signed mutation cache/auth ordering with owner-only guard; registration verified before claim"
+}

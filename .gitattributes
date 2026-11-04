@@ -1,0 +1,12 @@
+# R5: Preserve byte-for-byte v21 Apps Script Code.js snapshot (including CRLF).
+# This is required for verifiable correspondence with the read-only deployed source hash.
+study-note/mupdf-migration/r5/source/Code.js -text
+study-note/mupdf-migration/r5/source/referencePdfContent.js -text
+study-note/mupdf-migration/r5/source/appsscript.json -text
+# R6: preserve both officially pinned AGPL license files byte-for-byte on Windows.
+study-note/mupdf-migration/m2/licenses/AGPL-3.0.txt -text
+study-note/mupdf-migration/r4/licenses/AGPL-3.0.txt -text
+# R7: preserve the exact audited Apps Script candidate bytes and unchanged helper snapshot.
+study-note/mupdf-migration/r7/source/Code.js -text
+study-note/mupdf-migration/r7/source/referencePdfContent.js -text
+study-note/mupdf-migration/r7/source/appsscript.json -text

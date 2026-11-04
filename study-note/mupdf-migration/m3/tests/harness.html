@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>M3 private renderer test</title>
+<style>body{background:#182333;color:#eef4fa;font:15px system-ui;padding:28px;margin:0}main{max-width:1140px;margin:auto}h1{font-size:25px}p{color:#b7cadb}section{display:flex;flex-wrap:wrap;gap:16px}.panel{width:320px;background:#293448;padding:12px;border-radius:12px}.panel h2{font-size:14px;margin:3px 0 12px}.panel canvas{background:white;width:100%;height:auto;display:block}#state{padding:12px 0}</style></head>
+<body><main><h1>MuPDF.js M3 — private browser renderer verification</h1><p>Local-only synthetic PDF, no user source PDFs or operating API.</p>
+<div id="state">Test running</div><section><div class="panel"><h2>MuPDF main thread</h2><canvas id="main"></canvas></div><div class="panel"><h2>MuPDF module Worker</h2><canvas id="worker"></canvas></div><div class="panel"><h2>PDF.js secure fallback</h2><canvas id="pdfjs"></canvas></div></section></main>
+<script type="module">
+import {createMuPDFEngine} from '/m3/m3-mupdf.mjs';
+import {createMuPDFWorkerEngine} from '/m3/m3-worker-client.mjs';
+import {createPdfJsEngine} from '/m3/m3-pdfjs.mjs';
+import {paintBitmapToCanvas,normalizedToPixel,pixelToNormalized} from '/m3/m3-common.mjs';
+window.__M3_DONE__=false;window.__M3_RESULT__={};
+async function run(){
+  const pdfBytes=new Uint8Array(await (await fetch('/sample.pdf',{cache:'no-store'})).arrayBuffer());
+  const started=performance.now(),opts={scale:0.75,dpr:1};
+  const mu=await createMuPDFEngine({moduleURL:'/vendor/mupdf/mupdf.js'}).openDocument(pdfBytes);
+  const main=await mu.renderPage(1,opts);
+  paintBitmapToCanvas(main,document.querySelector('#main'));
+  const cropped=await mu.renderPage(2,{scale:1,dpr:1,region:{x:0.2,y:0.2,width:0.6,height:0.6}});
+  const x=normalizedToPixel({x:0.4,y:0.6},cropped),p=pixelToNormalized(x,cropped);
+  if(Math.abs(p.x-0.4)>1e-9||Math.abs(p.y-0.6)>1e-9)throw Error('annotation transform mismatch');
+  await mu.close();
+  const worker=await createMuPDFWorkerEngine({moduleURL:'/vendor/mupdf/mupdf.js'}).openDocument(pdfBytes);
+  const workerImg=await worker.renderPage(1,opts);
+  paintBitmapToCanvas(workerImg,document.querySelector('#worker'));
+  const ctrl=new AbortController();
+  const cancelled=worker.renderPage(1,{scale:5,dpr:1,signal:ctrl.signal});
+  setTimeout(()=>ctrl.abort(),0);
+  let cancelCode='';try{await cancelled;}catch(e){cancelCode=e?.code||String(e);}
+  if(cancelCode!=='ABORTED')throw Error('Worker abort did not reject as ABORTED: '+cancelCode);
+  const recovered=await worker.renderPage(1,{scale:0.3,dpr:1});
+  if(recovered.width<100)throw Error('Worker failed to reopen after cancellation');
+  await worker.close();
+  const pdfjsLib=await import('/vendor/pdfjs/pdf.mjs');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/pdf.worker.mjs';
+  const fallback=await createPdfJsEngine({module:pdfjsLib}).openDocument(pdfBytes);
+  const fallbackImg=await fallback.renderPage(1,opts);
+  paintBitmapToCanvas(fallbackImg,document.querySelector('#pdfjs'));
+  await fallback.close();
+  window.__M3_RESULT__={status:'PASS',main:{w:main.width,h:main.height,bytes:main.pixels.byteLength},
+    worker:{w:workerImg.width,h:workerImg.height,bytes:workerImg.pixels.byteLength},
+    pdfjs:{w:fallbackImg.width,h:fallbackImg.height,bytes:fallbackImg.pixels.byteLength},
+    crop:{w:cropped.width,h:cropped.height,rotation:cropped.rotation},pageCount:2,
+    annotationsUnchanged:true,documentOpened:true,
+    elapsedMs:Math.round(performance.now()-started)};
+  document.querySelector('#state').textContent='PASS — MuPDF main, Worker, PDF.js fallback, CropBox';
+}
+run().catch(e=>{
+ window.__M3_RESULT__={status:'FAIL',message:String(e?.message||e),stack:String(e?.stack||'').slice(0,600)};
+ document.querySelector('#state').textContent='FAIL: '+String(e?.message||e);
+}).finally(()=>{window.__M3_DONE__=true;});
+</script></body></html>

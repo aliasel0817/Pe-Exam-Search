@@ -1054,6 +1054,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .attachment-pdf-pan-scroller.dragging { cursor: grabbing; user-select: none; }
 .attachment-pdf-stage { position: relative; box-sizing: border-box; min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 12px; }
 .attachment-pdf-canvas { display: block; max-width: none; max-height: none; width: auto; height: auto; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35); user-select: none; }
+/* M5 private-only viewport detail tile stays BELOW existing ink (z-index 3). */
+.m5-attachment-detail-tile { position: absolute; z-index: 2; pointer-events: none; display: block; margin: 0; padding: 0; box-shadow: none; background: transparent; }
+.m5-attachment-engine-status { position: absolute; z-index: 4; right: 10px; bottom: 9px; border-radius: 6px; padding: 4px 8px; color: #fff; background: #1e293bdc; font-size: 11px; font-weight: 600; pointer-events: none; }
 .attachment-pdf-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; color: #d1d5db; text-align: center; background: #27272a; pointer-events: none; }
 .attachment-pdf-footer {
   flex: 0 0 auto;
@@ -1199,6 +1202,17 @@ button { -webkit-tap-highlight-color: transparent; }
    before the first PDF.js frame, the hidden canvas must occupy no flex width. */
 .reference-pdf-page-image.reference-pdf-vector-canvas { display: none; }
 .reference-pdf-page-image.reference-pdf-vector-canvas.is-rendered { display: block; }
+/* M4 private visible-area sharpening layer; annotation overlay retains z-index:3. */
+.m4-reference-detail-tile {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+  display: block;
+  box-shadow: none;
+  background: transparent;
+}
 .reference-pdf-page-image.reference-pdf-preview-image.pdf-replaced { display: none; }
 .reference-pdf-pan-scroller {
   position: absolute;
@@ -2939,6 +2953,10 @@ button { -webkit-tap-highlight-color: transparent; }
 
   <div id="toast" class="toast hidden" role="status"></div>
   <script src="./image-upload-optimizer.js"></script>
+  <!-- R6_RELEASE_SCRIPTS_BEGIN: inert until a separately audited release -->
+  <script src="./mupdf-migration/r6/r6-release-config.js"></script>
+  <script src="./mupdf-migration/r6/r6-release-policy.js"></script>
+  <!-- R6_RELEASE_SCRIPTS_END -->
   <script>
 // IndexedDB
 const DB_NAME = 'pe-study-note-db';
@@ -4339,7 +4357,23 @@ let activeReferencePdfRenderTask = null;
 let activeReferencePdfVectorReady = false;
 let referencePdfRenderTimer = null;
 let referencePdfRenderSerial = 0;
+// R6: retain the original loopback flag; only an independently reviewed release can opt in.
+const R6_PRODUCTION_RELEASE_ENABLED = window.PE_R6_POLICY?.isProductionRelease(
+  window.PE_R6_RELEASE, window.location.href) === true;
+// M4 private integration gate: NEVER ship MuPDF binaries to the public Pages site.
+const M4_REFERENCE_DEV_ENABLED = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(window.location.href)
+  && new URLSearchParams(window.location.search).get('m4-local') === '1'
+  || R6_PRODUCTION_RELEASE_ENABLED;
+let m4ReferenceEnginePromise = null;
+let m4ReferenceModule = null;
+let m4ReferenceDocument = null;
+let m4ReferenceRenderAbort = null;
+let m4ReferenceTileAbort = null;
+let m4ReferenceTileTimer = null;
+let m4ReferenceTileSerial = 0;
 let referencePdfQualityPending = false;
+// R2: abort a superseded authenticated PDF GET before requesting another page.
+let referencePdfSourceAbort = null;
 let referencePdfBackendSourceReady = false; // Opt in only after server health explicitly declares support.
 let referencePdfBackendSourceCheckedAt = 0;
 let referencePdfBackendSourceUrl = '';
@@ -4391,6 +4425,26 @@ let activeAttachmentPdfZoomFactor = 1;
 let activeAttachmentPdfRenderTask = null;
 let attachmentPdfRenderTimer = null;
 let attachmentPdfRenderSerial = 0;
+// M5 is intentionally OFF in production and additionally gated by M4's loopback
+// opt-in. No public MuPDF JS/WASM, no server/annotation schema changes.
+const M5_ATTACHMENT_DEV_ENABLED = typeof M4_REFERENCE_DEV_ENABLED !== 'undefined'
+  && M4_REFERENCE_DEV_ENABLED
+  && (new URLSearchParams(window.location.search).get('m5-local') === '1'
+      || R6_PRODUCTION_RELEASE_ENABLED);
+// M6 is opt-in only after both private M4/M5 renderers are enabled.
+const M6_DEV_ENABLED = M5_ATTACHMENT_DEV_ENABLED
+  && (new URLSearchParams(window.location.search).get('m6-local') === '1'
+      || R6_PRODUCTION_RELEASE_ENABLED);
+let m5AttachmentRuntimePromise = null;
+let m5AttachmentModule = null;
+let m5AttachmentDocument = null;
+let m5AttachmentLoadAbort = null;
+let m5AttachmentBaseAbort = null;
+let m5AttachmentTileAbort = null;
+let m5AttachmentTileTimer = null;
+let m5AttachmentPageSerial = 0;
+let m5AttachmentTileSerial = 0;
+let m5AttachmentVectorReady = false;
 let pdfViewerResizeRaf = 0;
 let pdfJsLoadPromise = null;
 const ATTACHMENT_PDF_ZOOM_MIN = 0.5;
@@ -11474,6 +11528,7 @@ function noteAnnotationPenPointer(event) {
 
 function isLikelyAnnotationPalmContact(event) {
   if (event?.pointerType !== 'touch') return false;
+  if (M6_DEV_ENABLED && window.__M6_PERF__?.palmNearPen(event, annotationDigitalPenActive())) return true;
   const width = Number(event.width);
   const height = Number(event.height);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return false;
@@ -11520,6 +11575,8 @@ function installAnnotationInputHandlers(surface) {
     // draw, erase, select, or edit annotations on a phone.
     if (isPhoneGestureOnlyPdfSurface(surface)) return;
     noteAnnotationPenPointer(event);
+    // M6: ignore spurious stylus hover-generated pointerdown without contact.
+    if (M6_DEV_ENABLED && window.__M6_PERF__?.accidentalPenDown(event)) return;
     if (!['select', 'pen', 'highlighter', 'eraser', 'text', 'note', ...ANNOTATION_SHAPE_TOOLS].includes(annotationEditorState.tool)) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     // Touch and S Pen are independent inputs; reject broad hand-edge contacts
@@ -12898,6 +12955,15 @@ function referencePdfViewerMarkup(page) {
     `;
 }
 
+// Preserve the content point beneath the two fingers across DPR, crop and
+// screen rotation; this is a display-only operation, not an ink-data change.
+function m6ZoomAtFingerCenter(scroller, x, y, setZoom, factor) {
+  if (M6_DEV_ENABLED && window.__M6_PERF__) {
+    return window.__M6_PERF__.zoomAt(scroller, x, y, () => setZoom?.(factor));
+  }
+  return setZoom?.(factor);
+}
+
 function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5, maxZoom = 10 } = {}) {
   const pointers = new Map();
   const rejectedPalmPointers = new Set();
@@ -13050,7 +13116,10 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
         resetTouchBaseline(touches);
       }
       const ratio = touchDistance(touches) / Math.max(1, touchStartDistance);
-      setZoom?.(Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio)));
+      const nextZoom = Math.max(minZoom, Math.min(maxZoom, touchStartZoom * ratio));
+      const focalX = (touches[0].clientX + touches[1].clientX) / 2;
+      const focalY = (touches[0].clientY + touches[1].clientY) / 2;
+      m6ZoomAtFingerCenter(scroller, focalX, focalY, setZoom, nextZoom);
     } else {
       if (touchMode !== 'pan') resetTouchBaseline(touches);
       scroller.scrollLeft = touchScrollLeft - (touches[0].clientX - touchStartX);
@@ -13121,7 +13190,9 @@ function installPdfPanPinchHandlers(scroller, { getZoom, setZoom, minZoom = 0.5,
       if (mode !== 'pinch') beginPinch();
       const ratio = pointDistance() / Math.max(1, pinchStartDistance);
       const nextZoom = Math.max(minZoom, Math.min(maxZoom, pinchStartZoom * ratio));
-      setZoom?.(nextZoom);
+      const positions = [...pointers.values()];
+      m6ZoomAtFingerCenter(scroller, (positions[0].x + positions[1].x) / 2,
+        (positions[0].y + positions[1].y) / 2, setZoom, nextZoom);
       event.preventDefault();
       return;
     }
@@ -13231,9 +13302,31 @@ function renderActiveReferencePdfImage({ preserveCenter = true, scheduleRender =
     }
   });
   if (vector && scheduleRender) repaintReferencePdfAtZoom();
+  if (vector && M4_REFERENCE_DEV_ENABLED && m4ReferenceDocument) {
+    if (M6_DEV_ENABLED && window.__M6_PERF__) {
+      window.__M6_PERF__.scheduleTile('reference', () => m4ScheduleVisibleDetail());
+    } else m4ScheduleVisibleDetail();
+  }
 }
 
 function resetReferencePdfHighQualityRenderer() {
+  referencePdfSourceAbort?.abort();
+  referencePdfSourceAbort = null;
+  if (M6_DEV_ENABLED) {
+    window.__M6_PERF__?.cancelTile('reference');
+    window.__M6_PERF__?.forgetZoom(els.referencePdfFrameWrap?.querySelector('.reference-pdf-pan-scroller'));
+  }
+  if (M4_REFERENCE_DEV_ENABLED) {
+    clearTimeout(m4ReferenceTileTimer);
+    m4ReferenceTileSerial++;
+    m4ReferenceTileAbort?.abort();
+    m4ReferenceTileAbort = null;
+    m4ReferenceRenderAbort?.abort();
+    m4ReferenceRenderAbort = null;
+    const oldM4 = m4ReferenceDocument;
+    m4ReferenceDocument = null;
+    if (oldM4) void oldM4.close().catch(error => console.warn('M4 private document cleanup:', error));
+  }
   clearTimeout(referencePdfRenderTimer);
   referencePdfRenderSerial++;
   if (activeReferencePdfRenderTask) {
@@ -13297,7 +13390,7 @@ async function refreshReferencePdfBackendSourceCapability({ force = false } = {}
   finally { referencePdfBackendSourceCheckPromise = null; }
 }
 
-async function fetchReferencePdfBytesFromServer(page) {
+async function fetchReferencePdfBytesFromServer(page, { signal } = {}) {
   // This endpoint MUST be backed by the existing ACTIVE-device signed GET
   // validator; never send a bare Drive file ID or trust caller-supplied URLs.
   if (!referencePdfBackendSourceReady || !hasActiveSecuritySession()) {
@@ -13308,10 +13401,17 @@ async function fetchReferencePdfBytesFromServer(page) {
   if (!['서브노트', '교재'].includes(sourceType) || !pageToken || pageToken.length > 60) {
     throw new Error('원본 PDF의 등록 페이지 정보가 올바르지 않습니다.');
   }
+  if (signal?.aborted) throw new DOMException('원본 PDF 요청이 취소되었습니다.', 'AbortError');
   const url = await buildSignedGetUrl(getApiUrl(), 'referencePdfContent', { sourceType, pageToken });
-  const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
+  // Signing is asynchronous; a page change can cancel before the HTTP request.
+  if (signal?.aborted) throw new DOMException('원본 PDF 요청이 취소되었습니다.', 'AbortError');
+  const response = await fetch(url, {
+    method: 'GET', cache: 'no-store', redirect: 'follow',
+    referrerPolicy: 'no-referrer', signal,
+  });
   if (!response.ok) throw new Error('원본 PDF 서버 조회 실패 (HTTP ' + response.status + ')');
   const payload = await response.json();
+  if (signal?.aborted) throw new DOMException('원본 PDF 요청이 취소되었습니다.', 'AbortError');
   if (!payload || payload.ok !== true) throw new Error(payload?.message || '원본 PDF 서버 응답을 확인할 수 없습니다.');
   if (payload.sourceType !== sourceType || payload.pageToken !== pageToken || payload.mime !== 'application/pdf') {
     throw new Error('요청한 원본 PDF 페이지와 서버 응답이 일치하지 않습니다.');
@@ -13321,13 +13421,21 @@ async function fetchReferencePdfBytesFromServer(page) {
     throw new Error('원본 PDF가 비어 있거나 허용 크기를 초과했습니다.');
   }
   const bytes = base64ToUint8Array(base64);
+  if (signal?.aborted) throw new DOMException('원본 PDF 요청이 취소되었습니다.', 'AbortError');
   if (bytes.byteLength > MAX_REFERENCE_PAGE_BYTES || (Number(payload.size) && Number(payload.size) !== bytes.byteLength)) {
     throw new Error('원본 PDF 파일 크기가 올바르지 않습니다.');
+  }
+  // Reject a mislabeled response before it enters either PDF renderer.
+  if (bytes.byteLength < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
+    throw new Error('원본 PDF 응답의 파일 헤더가 올바르지 않습니다.');
   }
   return bytes;
 }
 
 async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = referencePdfLoadSerial } = {}) {
+  if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED && m4ReferenceDocument) {
+    return m4RepaintReferencePdf({ immediate, loadSerial });
+  }
   clearTimeout(referencePdfRenderTimer);
   const paintSerial = ++referencePdfRenderSerial;
   const paint = async () => {
@@ -13383,15 +13491,21 @@ async function repaintReferencePdfAtZoom({ immediate = false, loadSerial = refer
 }
 
 async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
+  if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED) {
+    return m4LoadReferencePdfHighQuality(page, loadSerial);
+  }
   // Automatic source: only the existing ACTIVE-device signed Apps Script backend.
   // Never initiate separate Google Drive OAuth or request the disabled Drive API.
   if (!page || !referencePdfBackendSourceReady || loadSerial !== referencePdfLoadSerial) return;
+  referencePdfSourceAbort?.abort();
+  const sourceAbort = new AbortController();
+  referencePdfSourceAbort = sourceAbort;
   referencePdfQualityPending = true;
   setReferencePdfSourceStatus('loading', '원본 PDF 불러오는 중');
   try {
     const [pdfjsLib, bytes] = await Promise.all([
       ensurePdfJsLoaded(),
-      fetchReferencePdfBytesFromServer(page),
+      fetchReferencePdfBytesFromServer(page, {signal: sourceAbort.signal}),
     ]);
     if (bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
       throw new Error('원본 파일에서 올바른 PDF 데이터를 받지 못했습니다.');
@@ -13410,8 +13524,9 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
       throw new Error('PDF 원본 렌더링을 완료하지 못했습니다.');
     }
   } catch (error) {
+    if (sourceAbort.signal.aborted || error?.name === 'AbortError') return;
     if (loadSerial === referencePdfLoadSerial) {
-      console.warn('서브노트 원본 PDF 자동 렌더링 실패:', error);
+      console.warn('서브노트 원본 PDF 자동 렌더링 실패:', error?.code || error?.name || 'PDF_ERROR');
       // A failed page must not disable every subsequent PDF for two minutes.
       // Keep the backend capability; each new page gets a fresh signed request.
       if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
@@ -13420,11 +13535,284 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
       showToast(error?.message || 'PDF 원본 렌더링에 실패했습니다. 미리보기로 표시합니다.');
     }
   } finally {
-    if (loadSerial === referencePdfLoadSerial) {
-      referencePdfQualityPending = false;
-      updateReferencePdfZoomUi();
+    if (referencePdfSourceAbort === sourceAbort) {
+      referencePdfSourceAbort = null;
+      if (loadSerial === referencePdfLoadSerial) {
+        referencePdfQualityPending = false;
+        updateReferencePdfZoomUi();
+      }
     }
   }
+}
+
+// M4 non-production integration. All live PDF reads still pass through the
+// existing ACTIVE-device signed referencePdfContent GET, unmodified.
+async function m4ReferenceRuntime() {
+  if (!M4_REFERENCE_DEV_ENABLED) throw new Error('M4 MuPDF is not enabled outside loopback development');
+  if (!m4ReferenceEnginePromise) {
+    // R6_RELEASE_RUNTIME_M4_BEGIN: separate public route; local M4 remains untouched.
+    if (R6_PRODUCTION_RELEASE_ENABLED) {
+      m4ReferenceEnginePromise = import('./mupdf-migration/r6/r6-production-renderer.mjs')
+        .then(async module => {
+          m4ReferenceModule = module;
+          return module.createR6ReferenceEngine(window.PE_R6_RELEASE);
+        }).catch(error => { m4ReferenceEnginePromise = null; throw error; });
+      return m4ReferenceEnginePromise;
+    }
+    // R6_RELEASE_RUNTIME_M4_END
+    m4ReferenceEnginePromise = import('./mupdf-migration/m4/m4-reference-adapter.mjs')
+      .then(async module => {
+        m4ReferenceModule = module;
+        return module.createM4ReferenceEngine();
+      }).catch(error => {
+        m4ReferenceEnginePromise = null;
+        throw error;
+      });
+  }
+  return m4ReferenceEnginePromise;
+}
+
+async function m4InstallReferenceFromBytes(page, bytes, loadSerial = referencePdfLoadSerial) {
+  if (!M4_REFERENCE_DEV_ENABLED) throw new Error('Private renderer disabled');
+  if (!(bytes instanceof Uint8Array) || bytes.length < 5
+      || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
+    throw new Error('올바른 원본 PDF 바이트가 아닙니다.');
+  }
+  const engine = await m4ReferenceRuntime();
+  if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
+  const next = await engine.openDocument(bytes);
+  if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) {
+    await next.close();
+    return;
+  }
+  let bounds;
+  try { bounds = await next.getPageBounds(1); }
+  catch (error) { await next.close(); throw error; }
+  if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) {
+    await next.close();
+    return;
+  }
+  const old = m4ReferenceDocument;
+  m4ReferenceDocument = next;
+  activeReferencePdfDocument = null; // Never call legacy PDF.js document.destroy on M4 session.
+  activeReferencePdfPage = m4ReferenceModule.makeReferencePageFacade(bounds);
+  if (old) await old.close();
+  await m4RepaintReferencePdf({ immediate: true, loadSerial });
+  if (!activeReferencePdfVectorReady && loadSerial === referencePdfLoadSerial) {
+    throw new Error('MuPDF 원본 페이지 렌더링을 완료하지 못했습니다.');
+  }
+}
+
+async function m4LoadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSerial) {
+  if (!page || !referencePdfBackendSourceReady || loadSerial !== referencePdfLoadSerial) return;
+  referencePdfSourceAbort?.abort();
+  const sourceAbort = new AbortController();
+  referencePdfSourceAbort = sourceAbort;
+  referencePdfQualityPending = true;
+  setReferencePdfSourceStatus('loading', 'MuPDF 원본 PDF 불러오는 중');
+  try {
+    // Explicitly reuse the existing signed GET path; no local authentication override.
+    const bytes = await fetchReferencePdfBytesFromServer(page, {signal: sourceAbort.signal});
+    if (sourceAbort.signal.aborted) return;
+    await m4InstallReferenceFromBytes(page, bytes, loadSerial);
+  } catch (error) {
+    if (sourceAbort.signal.aborted || error?.name === 'AbortError') return;
+    if (loadSerial === referencePdfLoadSerial) {
+      console.warn('M4 비운영 원본 PDF 렌더링 실패:', error?.code || error?.name || 'PDF_ERROR');
+      if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
+      setReferencePdfSourceStatus('preview', '미리보기 · 원본 조회 실패',
+        error?.message || '원본 PDF 렌더링에 실패했습니다.');
+      showToast(error?.message || '원본 PDF를 미리보기로 표시합니다.');
+    }
+  } finally {
+    if (referencePdfSourceAbort === sourceAbort) {
+      referencePdfSourceAbort = null;
+      if (loadSerial === referencePdfLoadSerial) {
+        referencePdfQualityPending = false;
+        updateReferencePdfZoomUi();
+      }
+    }
+  }
+}
+
+async function m4RepaintReferencePdf({ immediate = false, loadSerial = referencePdfLoadSerial } = {}) {
+  clearTimeout(referencePdfRenderTimer);
+  clearTimeout(m4ReferenceTileTimer);
+  m4ReferenceTileSerial++;
+  m4ReferenceTileAbort?.abort();
+  m4ReferenceTileAbort = null;
+  // Clear the old zoom's detail tile before painting a resized base page.
+  m4ReferenceModule?.clearVisibleTile(els.referencePdfFrameWrap?.querySelector('.reference-pdf-image-stage'));
+  m4ReferenceRenderAbort?.abort();
+  const paintSerial = ++referencePdfRenderSerial;
+  const painter = m4ReferenceDocument;
+  const abort = new AbortController();
+  m4ReferenceRenderAbort = abort;
+  const paint = async () => {
+    const wrap = els.referencePdfFrameWrap;
+    const scroller = wrap.querySelector('.reference-pdf-pan-scroller');
+    const canvas = wrap.querySelector('.reference-pdf-vector-canvas');
+    if (!painter || !scroller || !canvas || loadSerial !== referencePdfLoadSerial
+        || paintSerial !== referencePdfRenderSerial || abort.signal.aborted) return;
+    const base = activeReferencePdfPage?.getViewport({ scale: 1 });
+    if (!base) return;
+    const fit = Math.max(0.01, Math.max(1, scroller.clientWidth - 28) / Math.max(1, base.width));
+    const buffer = document.createElement('canvas');
+    const m6Plan = M6_DEV_ENABLED ? window.__M6_PERF__?.profile({zoom:activeReferencePdfZoomFactor}) : null;
+    const m6Start = M6_DEV_ENABLED ? performance.now() : 0;
+    try {
+      const result = await painter.renderInto(buffer,{
+        pageNumber:1,fitScale:fit,zoom:activeReferencePdfZoomFactor,
+        dpr:m6Plan ? m6Plan.effectiveDpr(window.devicePixelRatio||1) : Math.min(3,Math.max(1,window.devicePixelRatio||1)),
+        signal:abort.signal,budget:m6Plan?.baseBudget
+      });
+      if (abort.signal.aborted || painter !== m4ReferenceDocument || loadSerial !== referencePdfLoadSerial
+          || paintSerial !== referencePdfRenderSerial || !canvas.isConnected) return;
+      canvas.width = buffer.width;
+      canvas.height = buffer.height;
+      canvas.getContext('2d', { alpha:false }).drawImage(buffer,0,0);
+      if (m6Plan) window.__M6_PERF__?.recordRender('reference',{
+        elapsedMs:performance.now()-m6Start,bytes:result.rgbaBytes,
+        pixelWidth:result.width,pixelHeight:result.height,
+        engine:painter.engine,budgetLimited:result.budgetLimited,zoom:activeReferencePdfZoomFactor,region:false,
+      });
+      const firstPaint = !activeReferencePdfVectorReady;
+      if (firstPaint) {
+        flushPendingAnnotationSaves();
+        destroyAnnotationSurfacesWithin(wrap.querySelector('.reference-pdf-image-stage'));
+        wrap.querySelector('.reference-pdf-preview-image')?.classList.add('pdf-replaced');
+        canvas.classList.add('is-rendered');
+        activeReferencePdfVectorReady = true;
+        wrap.querySelector('.reference-pdf-image-loading')?.remove();
+        renderActiveReferencePdfImage({ preserveCenter:true, scheduleRender:false });
+      }
+      const name = painter.engine === 'pdfjs' ? 'PDF.js 안전 복구' : 'MuPDF.js 고화질';
+      setReferencePdfSourceStatus('original', name,
+        result.width+'×'+result.height+'px · '+(result.budgetLimited?'렌더링 예산 적용':'원본 PDF 렌더링'));
+      if (firstPaint && Math.abs(fit - activeReferencePdfFitScale) > 0.01) {
+        void m4RepaintReferencePdf({loadSerial});
+      } else {
+        m4ScheduleVisibleDetail();
+      }
+    } catch (error) {
+      if (!abort.signal.aborted && error?.code !== 'ABORTED') {
+        console.warn('M4 고화질 재렌더링 오류:', error);
+        if (!activeReferencePdfVectorReady) {
+          setReferencePdfSourceStatus('preview','원본 재렌더링 실패',error?.message||'');
+        }
+      }
+    } finally {
+      if (m4ReferenceRenderAbort === abort) m4ReferenceRenderAbort = null;
+    }
+  };
+  if (immediate) await paint();
+  else referencePdfRenderTimer = setTimeout(() => { void paint(); }, 130);
+}
+
+function m4ScheduleVisibleDetail() {
+  if (!M4_REFERENCE_DEV_ENABLED || !m4ReferenceDocument || !activeReferencePdfVectorReady) return;
+  clearTimeout(m4ReferenceTileTimer);
+  const serial = ++m4ReferenceTileSerial;
+  m4ReferenceTileAbort?.abort();
+  m4ReferenceTileAbort = null;
+  const stage = els.referencePdfFrameWrap.querySelector('.reference-pdf-image-stage');
+  if (activeReferencePdfZoomFactor < 1.12) {
+    m4ReferenceModule?.clearVisibleTile(stage);
+    return;
+  }
+  const loadSerial = referencePdfLoadSerial;
+  m4ReferenceTileTimer = setTimeout(async () => {
+    // Do not overlap a visible-region Worker render with an in-flight base render.
+    // Tile cancellation terminates its Worker and must not invalidate main painting.
+    if (m4ReferenceRenderAbort) {
+      m4ReferenceTileTimer = setTimeout(m4ScheduleVisibleDetail, 140);
+      return;
+    }
+    const painter = m4ReferenceDocument;
+    const wrap = els.referencePdfFrameWrap;
+    const scroller = wrap.querySelector('.reference-pdf-pan-scroller');
+    const canvas = wrap.querySelector('.reference-pdf-vector-canvas.is-rendered');
+    const page = activeReferencePdfPage?.getViewport({scale:1});
+    if (!painter || !canvas || !scroller || !stage || !page
+        || serial !== m4ReferenceTileSerial || loadSerial !== referencePdfLoadSerial) return;
+    const fit = Math.max(0.01, Math.max(1,scroller.clientWidth - 28) / Math.max(1,page.width));
+    const abort = new AbortController();
+    m4ReferenceTileAbort = abort;
+    const m6Plan = M6_DEV_ENABLED ? window.__M6_PERF__?.profile({zoom:activeReferencePdfZoomFactor}) : null;
+    const m6Started = M6_DEV_ENABLED ? performance.now() : 0;
+    try {
+      const tile = await painter.renderVisibleRegion({
+        canvas,scroller,stage,pageNumber:1,fitScale:fit,
+        zoom:activeReferencePdfZoomFactor,
+        dpr:m6Plan ? m6Plan.effectiveDpr(window.devicePixelRatio||1) : Math.min(3,Math.max(1,window.devicePixelRatio||1)),
+        signal:abort.signal,budget:m6Plan?.tileBudget
+      });
+      if (!tile || abort.signal.aborted || serial !== m4ReferenceTileSerial
+          || loadSerial !== referencePdfLoadSerial || painter !== m4ReferenceDocument) return;
+      m4ReferenceModule.attachVisibleTile(stage,tile.tile);
+      stage.dataset.m4TileEngine=tile.engine;
+      stage.dataset.m4TileBytes=String(tile.output.rgbaBytes);
+      if(m6Plan)stage.dataset.m6TileZoom=String(activeReferencePdfZoomFactor);
+      if (m6Plan) window.__M6_PERF__?.recordRender('reference',{
+        elapsedMs:performance.now()-m6Started,bytes:tile.output.rgbaBytes,
+        pixelWidth:tile.output.width,pixelHeight:tile.output.height,engine:painter.engine,
+        budgetLimited:tile.budgetLimited,zoom:activeReferencePdfZoomFactor,region:true,
+      });
+    } catch (error) {
+      if (!abort.signal.aborted && error?.code !== 'ABORTED')
+        console.warn('M4 가시 영역 타일 재렌더링 오류:',error);
+    } finally {
+      if (m4ReferenceTileAbort === abort) m4ReferenceTileAbort = null;
+    }
+  },105);
+}
+
+// Explicit synthetic QA entry is available ONLY on loopback with ?m4-local=1.
+// It never calls a mutation endpoint or replaces production signed GET.
+if (M4_REFERENCE_DEV_ENABLED && !R6_PRODUCTION_RELEASE_ENABLED) {
+  window.__M4_REFERENCE_QA__ = Object.freeze({
+    async openFixture({sourceType='서브노트',pageToken='M4-QA-1',bytes}={}) {
+      if (!['서브노트','교재'].includes(sourceType) || !/^M4-QA-[a-z0-9-]+$/i.test(pageToken))
+        throw new Error('Invalid isolated QA page');
+      const binary = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      const page={sourceType,pageToken,driveFileId:'M4-QA-LOCAL-ONLY',fileName:'Synthetic-M4.pdf'};
+      resetReferencePdfHighQualityRenderer();
+      activeReferencePdfSourceType = sourceType;
+      activeReferencePdfCurrentPage = page;
+      const serial = ++referencePdfLoadSerial;
+      activeReferencePdfZoomFactor = 1;
+      activeReferencePdfFitScale = 1;
+      els.referencePdfViewerModal.classList.remove('hidden');
+      els.referencePdfViewerTitle.textContent=sourceType+' 로컬 개발 PDF';
+      els.referencePdfViewerSubtitle.textContent='합성 PDF · 실제 서버/학습 데이터 사용 안 함';
+      els.referencePdfFrameWrap.innerHTML=referencePdfViewerMarkup(page);
+      bindReferencePdfViewerControls();
+      updateReferencePdfZoomUi();
+      await m4InstallReferenceFromBytes(page,binary,serial);
+      return this.getState();
+    },
+    getState() {
+      const canvas=els.referencePdfFrameWrap.querySelector('.reference-pdf-vector-canvas');
+      const tile=els.referencePdfFrameWrap.querySelector('.m4-reference-detail-tile');
+      return {sourceType:activeReferencePdfSourceType,pageToken:activeReferencePdfCurrentPage?.pageToken,
+        engine:m4ReferenceDocument?.engine||null,annotationSchema:ANNOTATION_SCHEMA_VERSION,
+        coordinateSpace:'normalized-0-1',vectorReady:activeReferencePdfVectorReady,
+        width:canvas?.width||0,height:canvas?.height||0,zoom:activeReferencePdfZoomFactor,
+        annotationKey:annotationSurfaceKey('reference-pdf',activeReferencePdfSourceType,activeReferencePdfCurrentPage?.pageToken||''),
+        tile:!!tile,tileBytes:Number(tile?.parentElement?.dataset?.m4TileBytes||0),
+        status:document.getElementById('referencePdfSourceStatus')?.textContent||''};
+    },
+    zoom(value){setReferencePdfZoomFactor(value);},
+    async usePdfjsFallbackForNextFixture() {
+      await m4ReferenceRuntime();
+      m4ReferenceEnginePromise = m4ReferenceModule.createM4ReferenceEngine({forcePdfjs:true});
+    },
+    async useDefaultEngineForNextFixture() {
+      await m4ReferenceRuntime();
+      m4ReferenceEnginePromise = m4ReferenceModule.createM4ReferenceEngine();
+    },
+    close(){closeReferencePdfViewer();}
+  });
 }
 
 function updateReferencePdfZoomUi() {
@@ -13447,7 +13835,14 @@ function setReferencePdfZoomFactor(nextFactor) {
 
 function bindReferencePdfViewerControls() {
   const scroller = els.referencePdfFrameWrap.querySelector('.reference-pdf-pan-scroller');
-  if (scroller) installReferencePdfPanHandlers(scroller);
+  if (scroller) {
+    installReferencePdfPanHandlers(scroller);
+    if (M4_REFERENCE_DEV_ENABLED) scroller.addEventListener('scroll', () => {
+      if (M6_DEV_ENABLED && window.__M6_PERF__) {
+        window.__M6_PERF__.scheduleTile('reference', () => m4ScheduleVisibleDetail());
+      } else m4ScheduleVisibleDetail();
+    }, { passive: true });
+  }
   updateReferencePdfZoomUi();
 }
 
@@ -13811,6 +14206,7 @@ function closeMediaViewer() {
 }
 
 function cleanupMediaViewerObjects() {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) m5DisposeAttachmentViewer();
   cancelImageViewerPendingLoads();
   attachmentPdfLoadSerial++;
   clearTimeout(attachmentPdfRenderTimer);
@@ -14168,6 +14564,9 @@ function updateAttachmentPdfViewerUi() {
 }
 
 async function loadPdfAtIndex(index) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5LoadPdfAtIndex(index);
+  }
   if (!activePdfAttachments.length) return;
   activePdfIndex = Math.max(0, Math.min(index, activePdfAttachments.length - 1));
   const item = activePdfAttachments[activePdfIndex];
@@ -14214,6 +14613,9 @@ async function loadPdfAtIndex(index) {
 }
 
 async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSerial } = {}) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5LoadAttachmentPdfPage(pageNumber,{serial});
+  }
   if (!activeAttachmentPdfDocument || !activeAttachmentPdfPageCount) return;
   const bounded = Math.max(1, Math.min(Number(pageNumber) || 1, activeAttachmentPdfPageCount));
   activeAttachmentPdfPageNumber = bounded;
@@ -14264,6 +14666,9 @@ function computeAttachmentPdfRenderMetrics(page, fitScale, zoom, pixelRatio = 1)
     height: Math.max(1, Math.floor(base.height * renderScale)) };
 }
 async function repaintAttachmentPdfAtZoom({ immediate = false, loadSerial = attachmentPdfLoadSerial } = {}) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5RepaintAttachment({immediate,loadSerial});
+  }
   clearTimeout(attachmentPdfRenderTimer);
   const paintSerial = ++attachmentPdfRenderSerial;
   const paint = async () => {
@@ -14303,6 +14708,9 @@ async function repaintAttachmentPdfAtZoom({ immediate = false, loadSerial = atta
 }
 
 function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
+  if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+    return m5LayoutAttachment({preserveCenter});
+  }
   const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
   const scroller = wrap?.querySelector('.attachment-pdf-pan-scroller');
   const stage = wrap?.querySelector('.attachment-pdf-stage');
@@ -14803,7 +15211,36 @@ window.peStudyNoteTtsBridge = {
   selectTopic: id => showTopicById(id)
 };
 </script>
+<!-- M5 browser integration script is never requested by a non-loopback/opt-out viewer. -->
+<script>
+if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
+  const privateM5Script = document.createElement('script');
+  privateM5Script.src = './mupdf-migration/m5/m5-attachment-ui.js';
+  document.body.appendChild(privateM5Script);
+}
+if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
+  const privateM6Script = document.createElement('script');
+  privateM6Script.src = './mupdf-migration/m6/m6-runtime.js';
+  document.body.appendChild(privateM6Script);
+}
+</script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
 <script src="./study-planner.js?v=20261023-4-compact-help"></script>
+<!-- R4_LICENSE_NOTICE_PRIVATE_START: local M4 only, never external deployment -->
+<script>
+if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED) {
+  const privateR4Notice = document.createElement('script');
+  privateR4Notice.src = './mupdf-migration/r4/r4-license-notice.js';
+  if (R6_PRODUCTION_RELEASE_ENABLED) {
+    privateR4Notice.addEventListener('load', () => {
+      window.PE_R4_NOTICE?.mount(document, {
+        approved:true,gate:'OPEN',sourceUrl:window.PE_R6_RELEASE.sourceUrl,production:true
+      });
+    }, {once:true});
+  }
+  document.body.appendChild(privateR4Notice);
+}
+</script>
+<!-- R4_LICENSE_NOTICE_PRIVATE_END -->
 </body>
 </html>

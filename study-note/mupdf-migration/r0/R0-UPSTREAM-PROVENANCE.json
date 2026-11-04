@@ -1,0 +1,22 @@
+{
+  "schema": "mupdf-r0-upstream-provenance-v1",
+  "observedOn": "2026-11-04",
+  "npmPackage": "mupdf",
+  "npmVersion": "1.28.1",
+  "npmLicense": "AGPL-3.0-or-later",
+  "npmGitHead": "20061bd45183f5a2bff8f43675e4da91e5ac2901",
+  "upstreamTagName": "1.28.1",
+  "upstreamTagCommit": "20061bd45183f5a2bff8f43675e4da91e5ac2901",
+  "evidenceMethods": [
+    "npm view mupdf@1.28.1 version license repository.url gitHead --json",
+    "git ls-remote --tags https://github.com/ArtifexSoftware/mupdf.git refs/tags/1.28.1"
+  ],
+  "upstreamBuildInstructions": "https://github.com/ArtifexSoftware/mupdf/blob/master/platform/wasm/BUILDING.md",
+  "buildReferenceCaveat": "BUILDING.md was read from upstream master, not proven identical to the exact release tag. Upstream docs state Linux Emscripten 4.0.8 and npm run prepack.",
+  "exactWasmRebuildVerified": false,
+  "sourceToArtifactBitwiseProven": false,
+  "fullThirdPartyLicenseAuditVerified": false,
+  "artifexLegalOpinionObtained": false,
+  "appsScriptCoveredWorkOpinion": "UNRESOLVED",
+  "releaseDecision": "NO_GO"
+}

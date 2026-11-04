@@ -1,0 +1,40 @@
+{
+  "schema": "mupdf-m2-asset-lock-v1",
+  "distribution": "LOCAL_STAGING_ONLY_NO_PUBLIC_BINARY",
+  "package": {
+    "name": "mupdf",
+    "version": "1.28.1",
+    "registryIntegrity": "sha512-Gi11Ow2G1SlrXKJNZBL1eAIGFVih5+4ZKqjptamTVaj/5hnlrcVrVbyb7lHE2lfFKdxZPyv9ZtfOOq7XgjzEig==",
+    "license": "AGPL-3.0-or-later"
+  },
+  "files": [
+    {
+      "name": "mupdf.js",
+      "source": "node_modules/mupdf/dist/mupdf.js",
+      "size": 103250,
+      "sha256": "5d237eadcb9640584e0050f6f958e547887b7a54d80a04043e12be9420931076",
+      "mime": "text/javascript; charset=utf-8"
+    },
+    {
+      "name": "mupdf-wasm.js",
+      "source": "node_modules/mupdf/dist/mupdf-wasm.js",
+      "size": 28861,
+      "sha256": "25382abbfbf5c52191e5ac59e1412a0da88647fecfab0c1d797bb5948443eea4",
+      "mime": "text/javascript; charset=utf-8"
+    },
+    {
+      "name": "mupdf-wasm.wasm",
+      "source": "node_modules/mupdf/dist/mupdf-wasm.wasm",
+      "size": 10409826,
+      "sha256": "5a30ef7b027f541ea8fc54e7c73f16414b0b59940741a12efe5e55f1fd0a99d7",
+      "mime": "application/wasm"
+    },
+    {
+      "name": "LICENSE",
+      "source": "node_modules/mupdf/LICENSE",
+      "size": 34520,
+      "sha256": "57c8ff33c9c0cfc3ef00e650a1cc910d7ee479a8bc509f6c9209a7c2a11399d6",
+      "mime": "text/plain; charset=utf-8"
+    }
+  ]
+}
