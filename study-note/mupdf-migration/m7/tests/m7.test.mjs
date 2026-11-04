@@ -53,7 +53,26 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
  const withoutR1=now.replace("  // Clear the old zoom's detail tile before painting a resized base page.\n"+
    "  m4ReferenceModule?.clearVisibleTile(els.referencePdfFrameWrap?.querySelector('.reference-pdf-image-stage'));\n",'');
  const removed=withoutR1.replace(/  if \(M6_DEV_ENABLED\) \{\n    window\.__M6_PERF__\?\.cancelTile\('reference'\);\n    window\.__M6_PERF__\?\.forgetZoom\(els\.referencePdfFrameWrap\?\.querySelector\('\.reference-pdf-pan-scroller'\)\);\n  \}\n(?=  if \(M4_REFERENCE_DEV_ENABLED\) \{)/,'');
- assert.equal(removed,old,'M7 reference changes must only be cleanup hooks');
+ // R2 changes only these four source-read/renderer lifecycle functions.
+ // Compare every unrelated byte with the M6 reference; the R2 focused tests
+ // separately exercise signed GET, cancellation and payload validation.
+ const maskR2=s=>{
+   s=s.replace('// R2: abort a superseded authenticated PDF GET before requesting another page.\n','');
+   s=s.replace('let referencePdfSourceAbort = null;\n','');
+   const ranges=[
+     ['function resetReferencePdfHighQualityRenderer()','function setReferencePdfSourceStatus('],
+     ['async function fetchReferencePdfBytesFromServer(','async function repaintReferencePdfAtZoom('],
+     ['async function loadReferencePdfHighQuality(','// M4 non-production integration.'],
+     ['async function m4LoadReferencePdfHighQuality(','async function m4RepaintReferencePdf('],
+   ];
+   for(let i=0;i<ranges.length;i++){
+     const [start,end]=ranges[i],a=s.indexOf(start),b=s.indexOf(end,a);
+     assert(a>=0&&b>a,'R2 compare markers must exist: '+start);
+     s=s.slice(0,a)+'[R2-FOCUSED-FUNCTION-'+i+']\n'+s.slice(b);
+   }
+   return s;
+ };
+ assert.equal(maskR2(removed),maskR2(old),'M7/R2 must preserve every unrelated HTML byte');
  assert.match(now,/const ANNOTATION_SCHEMA_VERSION = 3;/);
  assert.match(now,/coordinateSpace: 'normalized-0-1'/);
  assert.match(m5,/fetchMediaContent\(getApiUrl\(\), item\.attachmentId/);

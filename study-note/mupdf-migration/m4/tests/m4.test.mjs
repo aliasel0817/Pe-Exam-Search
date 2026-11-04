@@ -30,12 +30,25 @@ test('M4 private gate rejects public origins and non-opt-in loopback',()=>{
  ];
  for(const [url,expected]of cases)assert.equal(isM4LocalOptIn(url),expected,url);
 });
-test('Original signed GET and ACTIVE verification source is byte-equivalent to M3 baseline',()=>{
- const start='async function fetchReferencePdfBytesFromServer(page) {';
+test('M4 original signed GET and ACTIVE session checks survive R2 abort hardening',()=>{
+ const start='async function fetchReferencePdfBytesFromServer(page, { signal } = {}) {';
+ const oldStart='async function fetchReferencePdfBytesFromServer(page) {';
  const end='async function repaintReferencePdfAtZoom(';
- assert.equal(between(current,start,end),between(baseline,start,end));
- for(const s of ['buildSignedGetUrl','referencePdfContent','cache: \'no-store\'','hasActiveSecuritySession()'])
-   assert(between(current,start,end).includes(s));
+ const now=between(current,start,end),old=between(baseline,oldStart,end);
+ const required=[
+   "buildSignedGetUrl(getApiUrl(), 'referencePdfContent', { sourceType, pageToken })",
+   'hasActiveSecuritySession()',
+   "payload.mime !== 'application/pdf'",
+   'MAX_REFERENCE_PAGE_BYTES',
+   "cache: 'no-store'",
+ ];
+ for(const s of required){
+   assert(now.includes(s),'R2 lost original signed GET behavior: '+s);
+   assert(old.includes(s),'M3 baseline missing signed GET behavior: '+s);
+ }
+ assert.match(now,/signal\?\.aborted/);
+ assert.match(now,/referrerPolicy:\s*'no-referrer'/);
+ assert(!now.includes('sendMutation('),'Signed PDF read must never mutate data');
 });
 test('Annotation schema, coordinate and persistence functions remain unchanged',()=>{
  const segments=[
