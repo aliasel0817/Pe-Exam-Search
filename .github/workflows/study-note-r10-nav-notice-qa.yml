@@ -1,0 +1,31 @@
+name: Study Note R10 six visible buttons + AGPL notice (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/study-note-r10-nav-notice-qa.yml'
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/r4/r4-license-notice.js'
+      - 'study-note/mupdf-migration/r10/**'
+permissions:
+  contents: read
+jobs:
+  r10-windows-chrome:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked offline-browser QA dependencies
+        run: npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+      - name: Test the original R4 notice behavior and direct docked notice
+        run: node --test study-note/mupdf-migration/r4/tests/r4.test.mjs study-note/mupdf-migration/r10/tests/r10-nav-notice.test.cjs
+      - name: Real Chrome 5 viewport tests, all backend requests intercepted
+        run: node study-note/mupdf-migration/r10/tests/r10-nav-browser-smoke.cjs
+      - name: No backend, license, or user data mutation in this PR
+        shell: pwsh
+        run: |
+          git diff --exit-code
+          Write-Output 'R10 source-only navigation, AGPL notice, and tests. NO DEPLOY.'

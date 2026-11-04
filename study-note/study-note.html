@@ -2011,6 +2011,70 @@ button { -webkit-tap-highlight-color: transparent; }
   .bottom-nav .nav-jump-btn{min-width:32px;width:32px;padding:4px;}
   .bottom-nav .nav-toggle-btn{min-width:32px;width:32px;}
 }
+
+/* R10: all five navigation actions + the short direct "ⓘ 고지" control.
+   Source offer stays visible instead of being nested in an ambiguous "더보기". */
+.bottom-nav-actions{overflow:visible;}
+.bottom-nav .r4-notice-docked{
+  position:relative;display:block;flex:0 0 auto;min-width:0;align-self:center;
+}
+.bottom-nav .r4-notice-summary{
+  display:inline-flex;align-items:center;justify-content:center;list-style:none;
+  min-height:40px;min-width:65px;padding:6px 10px;
+  cursor:pointer;color:var(--primary-strong);background:#eff6ff;border-color:#a8c6ff;
+}
+.bottom-nav .r4-notice-summary::-webkit-details-marker{display:none;}
+.bottom-nav .r4-notice-summary:focus-visible{
+  outline:3px solid var(--primary);outline-offset:2px;
+}
+.bottom-nav .r4-notice-popover{
+  position:absolute;right:0;bottom:calc(100% + 12px);
+  width:min(380px,calc(100vw - 20px));max-height:min(65dvh,480px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:14px 15px;border:1px solid #cbd5e1;border-radius:14px;
+  background:#fff;color:#172033;box-shadow:0 8px 30px #0003;
+  font:13px/1.6 system-ui,sans-serif;white-space:normal;overflow-wrap:anywhere;
+}
+.bottom-nav .r4-notice-popover strong{display:block;margin-bottom:7px;font-size:14px;}
+.bottom-nav .r4-notice-popover p{margin:6px 0 9px;}
+.bottom-nav .r4-notice-popover a{
+  display:block;margin:8px 0;color:#1d4ed8;text-decoration:underline;
+}
+/* Collapsing the legacy navigation must never hide the AGPL source offer. */
+.bottom-nav.nav-collapsed .bottom-nav-actions{display:flex;}
+.bottom-nav.nav-collapsed .bottom-nav-actions>.nav-btn{display:none;}
+.bottom-nav.nav-collapsed .r4-notice-docked{display:block;}
+@media(max-width:760px){
+  .bottom-nav{max-width:calc(100vw - 12px);gap:3px;}
+  .bottom-nav-actions{gap:3px;}
+  .bottom-nav .nav-btn{min-width:45px;min-height:40px;padding:5px 6px;font-size:.76rem;}
+  .bottom-nav .nav-jump-btn{min-width:30px;width:30px;padding:4px;}
+  .bottom-nav .r4-notice-summary{min-width:52px;min-height:40px;padding:5px 6px;font-size:.76rem;}
+  /* Source panel is aligned with the whole dock, never clipped on iPhone. */
+  .bottom-nav .r4-notice-popover{right:-32px;}
+  .bottom-nav .nav-toggle-btn{min-width:30px;width:30px;min-height:40px;}
+}
+@media(max-width:350px){
+  /* Even 320px width: two rows rather than hide or clip important actions. */
+  .bottom-nav:not(.nav-collapsed){
+    left:6px;right:6px;width:auto;max-width:calc(100vw - 12px);
+  }
+  .bottom-nav:not(.nav-collapsed) .bottom-nav-actions{
+    flex:1;display:flex;flex-wrap:wrap;align-items:stretch;gap:3px;
+  }
+  .bottom-nav:not(.nav-collapsed) .bottom-nav-actions>.nav-btn,
+  .bottom-nav:not(.nav-collapsed) .r4-notice-docked{
+    flex:0 0 calc((100% - 6px)/3);min-width:0;width:auto;
+  }
+  .bottom-nav:not(.nav-collapsed) .r4-notice-summary{
+    min-width:0;width:100%;
+  }
+  /* Flex wrapping moves the final control to row two; keep its notice panel
+     aligned with the viewport, including on 320px iPhone-width layouts. */
+  .bottom-nav:not(.nav-collapsed) .r4-notice-popover{right:-68px;}
+  .content{padding-bottom:calc(180px + env(safe-area-inset-bottom));}
+}
+/* R10_NAV_NOTICE_CSS_END */
 </style>
 </head>
 <body>
@@ -2300,7 +2364,7 @@ button { -webkit-tap-highlight-color: transparent; }
       <div id="bottomNavActions" class="bottom-nav-actions">
         <button id="jumpTopBtn" class="nav-btn nav-jump-btn" type="button" aria-label="맨 위로 이동" title="맨 위로 이동">▲</button>
         <button id="prevBtn" class="nav-btn" type="button"><span class="nav-arrow" aria-hidden="true">←</span><span>이전</span></button>
-        <button id="listBtn" class="nav-btn mobile-only" type="button">☰ 목록</button>
+        <button id="listBtn" class="nav-btn" type="button">☰ 목록</button>
         <button id="nextBtn" class="nav-btn" type="button"><span>다음</span><span class="nav-arrow" aria-hidden="true">→</span></button>
         <button id="jumpBottomBtn" class="nav-btn nav-jump-btn" type="button" aria-label="맨 아래로 이동" title="맨 아래로 이동">▼</button>
       </div>
@@ -4541,7 +4605,9 @@ let recallMode = false;
 let learningView = 'plan';
 let learningPage = 1;
 const BOTTOM_NAV_COLLAPSE_KEY = 'peStudyNote.bottomNavCollapsed.v1';
-let bottomNavCollapsed = localStorage.getItem(BOTTOM_NAV_COLLAPSE_KEY) === '1';
+// R11: never restore an old collapsed state on first load. This previously
+// made all five topic navigation actions disappear behind a separate notice.
+let bottomNavCollapsed = false;
 
 const els = {};
 // Read-only UI cache. Switching the device-list filter never calls revoke/approve APIs.
@@ -5006,8 +5072,10 @@ function bindEvents() {
   els.listBtn.addEventListener('click', openSidebar);
   els.jumpTopBtn.addEventListener('click', () => jumpToPageEdge('top'));
   els.jumpBottomBtn.addEventListener('click', () => jumpToPageEdge('bottom'));
-  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed));
-  setBottomNavCollapsed(bottomNavCollapsed, { persist: false });
+  // Collapse remains a session-only user action; refreshing the page always
+  // shows the five topic controls and the directly visible AGPL source offer.
+  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed, { persist: false }));
+  setBottomNavCollapsed(false, { persist: false });
   els.openSidebarBtn.addEventListener('click', openSidebar);
   els.closeSidebarBtn.addEventListener('click', closeSidebar);
   els.sidebarBackdrop.addEventListener('click', closeSidebar);
@@ -6744,6 +6812,9 @@ function showTopicById(topicId, { scrollList = true } = {}) {
   els.emptyState.classList.add('hidden');
   els.topicDetail.classList.remove('hidden');
   els.bottomNav.classList.remove('hidden');
+  // Every selected topic must expose its navigation actions. Do not inherit
+  // a previously hidden bar when moving from another topic or search result.
+  setBottomNavCollapsed(false, { persist: false });
 
   setText('detailTopicId', topic.topicId);
   setText('detailDomain', `${topic.domain} · ${topic.domainName}`);
@@ -15236,7 +15307,8 @@ if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED)
   if (R6_PRODUCTION_RELEASE_ENABLED) {
     privateR4Notice.addEventListener('load', () => {
       window.PE_R4_NOTICE?.mount(document, {
-        approved:true,gate:'OPEN',sourceUrl:window.PE_R6_RELEASE.sourceUrl,production:true
+        approved:true,gate:'OPEN',sourceUrl:window.PE_R6_RELEASE.sourceUrl,production:true,
+        docked:true,host:document.getElementById('bottomNavActions')
       });
     }, {once:true});
   }

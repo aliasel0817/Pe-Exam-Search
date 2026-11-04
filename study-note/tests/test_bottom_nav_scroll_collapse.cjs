@@ -88,11 +88,14 @@ async function measure(page){
    await page.click("#navToggleBtn");
    const collapsed=await measure(page);
    assert.equal(collapsed.collapsed,true);
-   assert.equal(collapsed.actionsDisplay,"none");
+   // R10 keeps the AGPL source offer accessible even when the five topic actions collapse.
+   // The actions container stays present, but those five controls are CSS-hidden.
+   assert.equal(collapsed.actionsDisplay,"flex");
    assert.equal(collapsed.toggleExpanded,"false");
    assert(collapsed.dockWidth<=52,"Collapsed dock should leave a tiny handle: "+JSON.stringify(collapsed));
    assert(collapsed.scrollWidth<=collapsed.viewport+2,"Horizontal overflow collapsed: "+JSON.stringify(collapsed));
-   assert.equal(await page.evaluate(()=>localStorage.getItem("peStudyNote.bottomNavCollapsed.v1")),"1");
+   // Manual collapse remains session-local and must not recreate a persisted hidden bar.
+   assert.equal(await page.evaluate(()=>localStorage.getItem("peStudyNote.bottomNavCollapsed.v1")),"0");
    await page.click("#navToggleBtn");
    const reopened=await measure(page);
    assert.equal(reopened.collapsed,false);
@@ -116,7 +119,9 @@ async function measure(page){
    }
    matrix.push({width,opened,bottom,collapsed:{dockWidth:collapsed.dockWidth,actions:collapsed.actionsDisplay},reopened:reopened.dockWidth});
   }
-  // Collapsed preference survives page reload and selecting a different topic.
+  // The old persisted collapsed preference must NOT hide navigation on reload.
+  // A user may manually collapse within the current session, but the page
+  // always begins expanded so all six required actions can be found.
   await page.evaluate(()=>setBottomNavCollapsed(true));
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>typeof showTopicById==="function"&&!!document.getElementById("navToggleBtn"),{timeout:15000});
@@ -125,10 +130,14 @@ async function measure(page){
    filteredTopics=allTopics.slice();
    showTopicById("T0001",{scrollList:false});
   });
-  assert.equal(await page.$eval("#bottomNav",e=>e.classList.contains("nav-collapsed")),true);
-  assert.equal(await page.$eval("#navToggleBtn",e=>e.getAttribute("aria-expanded")),"false");
+  assert.equal(await page.$eval("#bottomNav",e=>e.classList.contains("nav-collapsed")),false);
+  assert.equal(await page.$eval("#navToggleBtn",e=>e.getAttribute("aria-expanded")),"true");
+  // This localhost test intentionally keeps the production R4 licence widget
+  // disabled. Real Pages-origin R10 Chrome QA separately checks the sixth item.
+  for(const id of ["jumpTopBtn","prevBtn","listBtn","nextBtn","jumpBottomBtn"])
+   assert.equal(await page.$eval("#"+id,e=>getComputedStyle(e).display==="none"),false,id);
   assert.deepEqual(errors,[]);
-  console.log("BOTTOM_NAV_QA_PASS",JSON.stringify({matrix:matrix.map(m=>({width:m.width,maxScroll:m.opened.maxY,dockWidth:m.opened.dockWidth,collapsedWidth:m.collapsed.dockWidth,noOverflow:true})),listOpens:true,topBottomNavigation:true,prefSurvivesReload:true,errors:0}));
+  console.log("BOTTOM_NAV_QA_PASS",JSON.stringify({matrix:matrix.map(m=>({width:m.width,maxScroll:m.opened.maxY,dockWidth:m.opened.dockWidth,collapsedWidth:m.collapsed.dockWidth,noOverflow:true})),listOpens:true,topBottomNavigation:true,staleCollapsedStateIgnoredOnReload:true,errors:0}));
  }finally{
   if(browser)await browser.close();
   await new Promise(ok=>server.close(ok));

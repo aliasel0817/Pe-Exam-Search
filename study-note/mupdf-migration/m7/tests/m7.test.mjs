@@ -110,8 +110,61 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
    assert.match(s,runtime);s=s.replace(runtime,'');
    return s;
  };
- assert.equal(maskR2(stripR6(removed)),maskR2(old),
-   'R6/M7/R2 must preserve all unrelated HTML bytes');
+ // R10 intentionally changes ONLY five-button navigation visibility and the
+ // documented docked notice CSS. Strip these exact public UI changes before
+ // retaining the original M7 strict byte-for-byte protection elsewhere.
+ const stripR10=input=>{
+   let s=input;
+   const start='\n/* R10: all five navigation actions';
+   const end='/* R10_NAV_NOTICE_CSS_END */\n';
+   assert.equal(s.split(start).length,2,'R10 style start must be unique');
+   assert.equal(s.split(end).length,2,'R10 style end must be unique');
+   const from=s.indexOf(start),to=s.indexOf(end,from);
+   assert(from>=0&&to>from,'R10 documented CSS range must exist');
+   s=s.slice(0,from)+s.slice(to+end.length);
+   const changed='<button id="listBtn" class="nav-btn" type="button">';
+   assert.equal(s.split(changed).length,2,'R10 list visibility change must be unique');
+   return s.replace(changed,'<button id="listBtn" class="nav-btn mobile-only" type="button">');
+ };
+ // R11 fixes the reported legacy localStorage bug without altering
+ // original learning content, authentication, annotation or other HTML.
+ const stripR11=input=>{
+   let s=input;
+   for(const [current,previous] of [
+     [
+       "// R11: never restore an old collapsed state on first load. This previously\n"+
+       "// made all five topic navigation actions disappear behind a separate notice.\n"+
+       "let bottomNavCollapsed = false;",
+       "let bottomNavCollapsed = localStorage.getItem(BOTTOM_NAV_COLLAPSE_KEY) === '1';"
+     ],
+     [
+       "  // Collapse remains a session-only user action; refreshing the page always\n"+
+       "  // shows the five topic controls and the directly visible AGPL source offer.\n"+
+       "  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed, { persist: false }));\n"+
+       "  setBottomNavCollapsed(false, { persist: false });",
+       "  els.navToggleBtn.addEventListener('click', () => setBottomNavCollapsed(!bottomNavCollapsed));\n"+
+       "  setBottomNavCollapsed(bottomNavCollapsed, { persist: false });"
+     ],
+     [
+       "\n  // Every selected topic must expose its navigation actions. Do not inherit\n"+
+       "  // a previously hidden bar when moving from another topic or search result.\n"+
+       "  setBottomNavCollapsed(false, { persist: false });",
+       ""
+     ]
+   ]){
+     assert.equal(s.split(current).length,2,'Expected exactly one R11 navigation restoration');
+     s=s.replace(current,previous);
+   }
+   return s;
+ };
+ const restoredHtml=maskR2(stripR6(stripR10(stripR11(removed))));
+ const referenceHtml=maskR2(old);
+ if(restoredHtml!==referenceHtml){
+   let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;
+   console.error('R11_STRICT_DIFF_POSITION',i,JSON.stringify(restoredHtml.slice(Math.max(0,i-100),i+140)),JSON.stringify(referenceHtml.slice(Math.max(0,i-100),i+140)));
+ }
+ assert.equal(restoredHtml,referenceHtml,
+   'R6/M7/R2/R10/R11 must preserve all unrelated HTML bytes');
  assert.match(now,/const ANNOTATION_SCHEMA_VERSION = 3;/);
  assert.match(now,/coordinateSpace: 'normalized-0-1'/);
  assert.match(m5,/fetchMediaContent\(getApiUrl\(\), item\.attachmentId/);

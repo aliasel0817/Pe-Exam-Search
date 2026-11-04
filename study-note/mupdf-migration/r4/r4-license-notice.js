@@ -33,28 +33,41 @@
     if (!doc?.body) throw new Error('R4_DOCUMENT_BODY_REQUIRED');
     if (doc.getElementById('r4-private-notice')) return doc.getElementById('r4-private-notice');
     const data=model(settings);
+    const docked=settings.docked===true;
+    const host=docked ? settings.host : doc.body;
+    if (!host || !host.appendChild) throw new Error('R10_DOCK_HOST_REQUIRED');
     const root=doc.createElement('details');
     root.id='r4-private-notice';
     root.setAttribute('role','note');
     root.setAttribute('lang','ko');
-    root.style.cssText='position:fixed;z-index:9000;right:12px;bottom:12px;max-width:min(370px,calc(100vw - 24px));background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;box-shadow:0 4px 14px #0002;font:13px/1.5 system-ui,sans-serif';
+    root.style.cssText=docked
+      ? 'position:relative;z-index:36;flex:0 0 auto;min-width:0'
+      : 'position:fixed;z-index:9000;right:12px;bottom:12px;max-width:min(370px,calc(100vw - 24px));background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:10px;padding:9px 12px;box-shadow:0 4px 14px #0002;font:13px/1.5 system-ui,sans-serif';
+    if (docked) root.className='r4-notice-docked';
     const summary=doc.createElement('summary');
-    summary.textContent=settings.production===true?'오픈소스 고지':'오픈소스 고지 (비운영 미리보기)';
-    summary.style.cssText='cursor:pointer;font-weight:600';
+    summary.textContent=docked?'ⓘ 고지':settings.production===true?'오픈소스 고지':'오픈소스 고지 (비운영 미리보기)';
+    summary.style.cssText=docked?'':'cursor:pointer;font-weight:600';
+    if(docked){
+      summary.className='nav-btn r4-notice-summary';
+      summary.setAttribute('aria-label','오픈소스 고지 및 전체 대응 소스 보기');
+      summary.title='오픈소스 고지 및 전체 대응 소스';
+    }
     root.appendChild(summary);
-    const h=doc.createElement('strong');h.textContent=data.title;root.appendChild(h);
+    const panel=docked?doc.createElement('div'):root;
+    if(docked)panel.className='r4-notice-popover';
+    const h=doc.createElement('strong');h.textContent=data.title;panel.appendChild(h);
     const info=doc.createElement('p');
     info.textContent=data.version+' | '+data.license+' | © '+data.author;
-    root.appendChild(info);
+    panel.appendChild(info);
     const warning=doc.createElement('p');
     warning.textContent=data.noWarranty;
-    root.appendChild(warning);
+    panel.appendChild(warning);
     const license=doc.createElement('a');
     license.href=LICENSE_PATH;
     license.textContent='GNU AGPLv3 전문';
     license.rel='noopener noreferrer';
     license.target='_blank';
-    root.appendChild(license);
+    panel.appendChild(license);
     // R8: the exact upstream attribution list and full third-party notices
     // remain publicly readable regardless of the binary release decision.
     const notices=doc.createElement('a');
@@ -63,11 +76,11 @@
     notices.rel='noopener noreferrer';
     notices.target='_blank';
     notices.style.marginLeft='12px';
-    root.appendChild(notices);
+    panel.appendChild(notices);
     const status=doc.createElement('p');
     status.id='r4-source-offer-status';
     status.textContent=data.sourceStatus;
-    root.appendChild(status);
+    panel.appendChild(status);
     if (data.sourceOffer) {
       const link=doc.createElement('a');
       link.id='r4-source-offer-link';
@@ -75,9 +88,23 @@
       link.textContent='완전한 대응 소스 확인';
       link.target='_blank';
       link.rel='noopener noreferrer';
-      root.appendChild(link);
+      panel.appendChild(link);
     }
-    doc.body.appendChild(root);
+    if(docked){
+      root.appendChild(panel);
+      if(doc.addEventListener){
+        doc.addEventListener('pointerdown',event=>{
+          if(root.open && !root.contains(event.target))root.open=false;
+        });
+        doc.addEventListener('keydown',event=>{
+          if(event.key==='Escape' && root.open){
+            root.open=false;
+            summary.focus();
+          }
+        });
+      }
+    }
+    host.appendChild(root);
     return root;
   }
   const api={isPrivateLoopback,safeSourceOffer,model,mount};
