@@ -357,28 +357,42 @@ button { -webkit-tap-highlight-color: transparent; }
 .manage-card {
   width: min(900px, 100%);
   max-height: min(90dvh, 920px);
-  overflow-y: auto;
+  /* R14_MANAGE_LAYOUT_START */
+  height: min(90dvh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* R14_MANAGE_LAYOUT_END */
   -webkit-overflow-scrolling: touch;
   /* R13_MANAGE_CARD_SCROLL_PADDING */
   scroll-padding-top: 56px;
 }
 /* R13_MANAGE_SCROLL_CSS_START */
-/* R13: two sticky, in-dialog scroll shortcuts; never float over the main page.
-   This toolbar stays reachable at either end of the independently scrolling card. */
+/* R14: split the dialog into a non-overlapping scroll body and bottom dock.
+   Cancel/Save remain inside the scroll body, the arrow row is below it. */
+.manage-scroll-body {
+  order: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 3px;
+}
 .manage-quick-scroll {
-  position: sticky;
-  top: 0;
-  z-index: 4;
+  order: 2;
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 6px;
-  min-height: 48px;
-  padding: 4px 0;
-  margin: 8px 0 2px;
+  min-height: 52px;
+  margin-top: 10px;
+  padding-top: 8px;
   background: #fff;
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
 }
+.manage-quick-arrows { display: flex; gap: 6px; align-items: center; }
 .manage-quick-scroll .btn {
   min-width: 44px;
   min-height: 44px;
@@ -386,6 +400,11 @@ button { -webkit-tap-highlight-color: transparent; }
   font-weight: 800;
   font-size: 1rem;
   white-space: nowrap;
+}
+.manage-quick-scroll .manage-quick-toggle {
+  border-radius: 999px;
+  color: var(--primary-strong);
+  background: #eff6ff;
 }
 .manage-quick-scroll .btn:focus-visible {
   outline: 3px solid var(--primary);
@@ -2536,12 +2555,20 @@ button { -webkit-tap-highlight-color: transparent; }
       </div>
 
       <!-- R13_MANAGE_SCROLL_HTML_START -->
-      <div class="manage-quick-scroll" role="group" aria-label="토픽 관리 팝업 빠른 스크롤">
-        <button id="manageJumpTopBtn" class="btn" type="button" aria-label="토픽 관리 맨 위로 이동" title="토픽 관리 맨 위">▲</button>
-        <button id="manageJumpBottomBtn" class="btn" type="button" aria-label="토픽 관리 맨 아래로 이동" title="토픽 관리 맨 아래">▼</button>
+      <div class="manage-quick-scroll" role="group" aria-label="토픽 관리 팝업 하단 빠른 스크롤">
+        <button id="manageQuickToggleBtn" class="btn manage-quick-toggle" type="button"
+          aria-controls="manageQuickArrows" aria-expanded="true"
+          aria-label="위·아래 이동 버튼 숨기기" title="위·아래 이동 버튼 숨기기">◀</button>
+        <div id="manageQuickArrows" class="manage-quick-arrows">
+          <button id="manageJumpTopBtn" class="btn" type="button" aria-label="토픽 관리 맨 위로 이동" title="토픽 관리 맨 위">▲</button>
+          <button id="manageJumpBottomBtn" class="btn" type="button" aria-label="토픽 관리 맨 아래로 이동" title="토픽 관리 맨 아래">▼</button>
+        </div>
       </div>
       <!-- R13_MANAGE_SCROLL_HTML_END -->
 
+      <!-- R14_MANAGE_BODY_OPEN_START -->
+      <div id="manageScrollBody" class="manage-scroll-body">
+      <!-- R14_MANAGE_BODY_OPEN_END -->
       <div class="manage-mode-row">
         <button id="editModeBtn" class="btn active" type="button">현재 토픽 수정</button>
         <button id="addModeBtn" class="btn" type="button">＋ 새 토픽</button>
@@ -2736,6 +2763,9 @@ button { -webkit-tap-highlight-color: transparent; }
           </div>
         </div>
       </form>
+      <!-- R14_MANAGE_BODY_CLOSE_START -->
+      </div>
+      <!-- R14_MANAGE_BODY_CLOSE_END -->
     </div>
   </div>
 
@@ -4804,7 +4834,7 @@ function bindElements() {
     'detailCategory','detailTitle','detailDomainName','detailConcept','detailBackground','detailNecessity','detailFeatures','detailTechnicalComponents','detailKeywords','detailMnemonic','detailRelated','detailReferencePdfStatus','detailSubnotePdfCount','detailTextbookPdfCount','openSubnotePdfBtn','openTextbookPdfBtn','detailImageCount','detailPdfCount','openImagesBtn','openPdfsBtn',
     'detailSubnotePages','detailTextbookPages','detailStatus','detailSourceDomain','detailExclusionReason','detailNotes',
     'settingsModal','closeSettingsBtn','apiUrlInput','settingsSecurityStatus','openSecurityBtn','settingsTopicCount','settingsLastSync','settingsAppVersion',
-    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceStatusFilter','securityDeviceList','manageModal','closeManageBtn',/* R13_MANAGE_SCROLL_IDS */'manageJumpTopBtn','manageJumpBottomBtn','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetFavoritesBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
+    'testApiBtn','saveSettingsBtn','securityModal','closeSecurityBtn','securityCloseBottomBtn','securityCurrentStatus','securityCurrentDevice','securitySessionExpires','securityRegistrationSection','securityDeviceNameInput','securityRecoveryPinInput','securityRegistrationHint','securityGoogleRegisterBtn','securityRecoveryBtn','securityCheckApprovalBtn','securityRegistrationMessage','securityDevicesSection','securityRefreshDevicesBtn','securityDeviceStatusFilter','securityDeviceList','manageModal','closeManageBtn',/* R13_MANAGE_SCROLL_IDS */'manageJumpTopBtn','manageJumpBottomBtn','manageQuickToggleBtn','manageQuickArrows','manageScrollBody','editModeBtn','addModeBtn','manageForm','manageTopicId','manageCategory','manageAddCategoryBtn','manageNewCategoryPanel','manageNewCategoryDomain','manageNewCategoryName','manageNewCategoryCodePreview','manageNewCategoryCancelBtn','manageNewCategoryApplyBtn','manageImportance','manageStudyTarget','manageTopicName','manageConcept','manageBackground','manageNecessity','manageFeatures','manageTechnicalComponents','manageKeywords','manageMnemonic','manageRelated','manageSubnotePages','manageTextbookPages','manageSubnotePageKey','manageSubnotePageNumbers','manageSubnotePageAddBtn','manageSubnotePageList','manageTextbookPageKey','manageTextbookPageNumbers','manageTextbookPageAddBtn','manageTextbookPageList','manageSubnoteNewMaterialPanel','manageSubnoteMaterialType','manageSubnoteMaterialBaseKey','manageSubnoteMaterialPageWrap','manageSubnoteMaterialPageLabel','manageSubnoteMaterialPageNumber','manageSubnoteMaterialPositionWrap','manageSubnoteMaterialPosition','manageSubnoteMaterialPageKeyOverride','manageSubnoteMaterialFile','manageSubnoteMaterialPlan','manageSubnoteMaterialPrepareBtn','manageTextbookNewMaterialPanel','manageTextbookMaterialType','manageTextbookMaterialBaseKey','manageTextbookMaterialPageWrap','manageTextbookMaterialPageLabel','manageTextbookMaterialPageNumber','manageTextbookMaterialPositionWrap','manageTextbookMaterialPosition','manageTextbookMaterialPageKeyOverride','manageTextbookMaterialFile','manageTextbookMaterialPlan','manageTextbookMaterialPrepareBtn','manageStatus','manageExclusionReason','manageNotes','manageImageFiles','managePdfFiles','manageImageAttachments','managePdfAttachments','manageAttachmentHint','manageCategoryHint','manageReferencePdfHint','deactivateTopicBtn','cancelManageBtn','saveTopicBtn','questionSearchModal','questionSearchTitle','questionSearchInput','questionSearchResults','questionSearchStatus','questionSearchCacheStatus','questionSearchPager','refreshQuestionListBtn','closeQuestionSearchBtn','imageViewerModal','imageViewerTitle','imageViewerTopicName','imageViewerSubtitle','imageViewerZoomOutBtn','imageViewerZoomLabel','imageViewerZoomInBtn','imageViewerZoomFitBtn','closeImageViewerBtn','closeImageViewerBottomBtn','imageViewerBody','mediaViewerModal','mediaViewerTitle','mediaViewerTopicName','mediaViewerSubtitle','pdfViewerCounter','pdfPageCounter','attachmentPdfCompactPrevBtn','attachmentPdfCompactNextBtn','closeMediaViewerBtn','closeMediaViewerBottomBtn','mediaViewerBody','referencePdfViewerModal','referencePdfViewerTitle','referencePdfViewerTopicName','referencePdfViewerSubtitle','closeReferencePdfViewerBtn','closeReferencePdfViewerBottomBtn','referencePdfPrevBtn','referencePdfNextBtn','referencePdfCompactPrevBtn','referencePdfCompactNextBtn','referencePdfPageSelect','referencePdfSequentialPrevBtn','referencePdfSequentialNextBtn','referencePdfSequentialLabel','referencePdfCounter','referencePdfOpenDriveLink','referencePdfFrameWrap','referencePdfZoomOutBtn','referencePdfZoomLabel','referencePdfZoomInBtn','referencePdfZoomFitBtn','favoriteBtn','rememberBtn','missBtn','recallToggleBtn','learningSummary','personalMemoInput','memoStatus','saveMemoBtn','learningModal','closeLearningBtn','resetCurrentLearningBtn','resetFavoritesBtn','resetAllLearningBtn','syncLearningBtn','statTarget','statStudied','statMemorized','statMissed','statFavorite','statToday','learningProgressFill','learningProgressLabel','learningList','learningPager','learningPrevPageBtn','learningNextPageBtn','learningPageInput','learningTotalPages','learningPageRange','learningSyncLabel','loadingOverlay','loadingMessage','toast'
   ];
   for (const id of ids) els[id] = document.getElementById(id);
 }
@@ -4970,6 +5000,8 @@ function bindEvents() {
   /* R13_MANAGE_SCROLL_EVENTS_START */
   els.manageJumpTopBtn.addEventListener('click', () => jumpManageToEdge('top'));
   els.manageJumpBottomBtn.addEventListener('click', () => jumpManageToEdge('bottom'));
+  els.manageQuickToggleBtn.addEventListener('click', () =>
+    setManageQuickArrowsVisible(els.manageQuickToggleBtn.getAttribute('aria-expanded') !== 'true'));
   /* R13_MANAGE_SCROLL_EVENTS_END */
 
   // 팝업 내부의 모든 키 입력은 팝업/편집 컨트롤에서 처리하고
@@ -7572,13 +7604,25 @@ function applyManageNewCategory() {
 }
 
 /* R13_MANAGE_SCROLL_FUNCTION_START */
-// R13: scroll only the independently overflowing topic-management card.
-// Never scroll the main learning page, input textareas or other modal cards.
+// R14: show/hide arrow controls independently of the Save/Cancel form actions.
+// Each freshly opened dialog starts with the arrows visible (session-only state).
+function setManageQuickArrowsVisible(visible) {
+  els.manageQuickArrows.classList.toggle('hidden', !visible);
+  const toggle = els.manageQuickToggleBtn;
+  toggle.setAttribute('aria-expanded', String(visible));
+  const label = visible ? '위·아래 이동 버튼 숨기기' : '위·아래 이동 버튼 표시';
+  toggle.setAttribute('aria-label', label);
+  toggle.title = label;
+  toggle.textContent = visible ? '◀' : '▶';
+}
+// R14: scroll only the independently overflowing topic-management *body*.
+// The top title and bottom arrows stay fixed inside the dialog, and the final
+// Save/Cancel controls remain above (never under) the separate footer.
 function jumpManageToEdge(edge) {
   if (els.manageModal.classList.contains('hidden')) return;
-  const card = els.manageModal.querySelector('.manage-card');
-  if (!card) return;
-  card.scrollTop = edge === 'bottom' ? Math.max(0, card.scrollHeight - card.clientHeight) : 0;
+  const body = els.manageScrollBody;
+  if (!body) return;
+  body.scrollTop = edge === 'bottom' ? Math.max(0, body.scrollHeight - body.clientHeight) : 0;
 }
 /* R13_MANAGE_SCROLL_FUNCTION_END */
 
@@ -7603,7 +7647,7 @@ async function openManage(mode = 'edit') {
     primeManageReferencePdfCatalogFromLocal();
     els.manageModal.classList.remove('hidden');
     switchManageMode(mode);
-    /* R13_MANAGE_SCROLL_INIT */ jumpManageToEdge('top');
+    /* R13_MANAGE_SCROLL_INIT */ setManageQuickArrowsVisible(true); jumpManageToEdge('top');
 
     // 관리창은 로컬 PDF 카탈로그로 즉시 표시하고, 서버 최신 목록은 렌더링 이후 백그라운드 갱신한다.
     // 네트워크/Apps Script 응답이 느려도 팝업 표시를 막지 않는다.
