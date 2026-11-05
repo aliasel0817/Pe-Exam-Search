@@ -59,13 +59,14 @@ async function main(){
     return {max:card.scrollHeight-card.clientHeight,
       toolbarStyle:getComputedStyle(toolbar).position,top:r.top,cardTop:c.top,
       btns:[...toolbar.querySelectorAll('button')].map(x=>({id:x.id,type:x.type,
-        aria:x.getAttribute('aria-label'),width:x.getBoundingClientRect().width})),
+        aria:x.getAttribute('aria-label'),icon:x.textContent.trim(),height:x.getBoundingClientRect().height,width:x.getBoundingClientRect().width})),
       bodyY:window.scrollY};
    });
    assert(initial.max>200,'topic manage dialog is not internally scrollable');
    assert.equal(initial.toolbarStyle,'sticky');
    assert.equal(initial.btns.length,2);
-   assert(initial.btns.every(b=>b.type==='button'&&b.width>=44&&b.aria));
+   assert(initial.btns.every(b=>b.type==='button'&&b.width>=44&&b.height>=44&&b.aria));
+   assert.deepEqual(initial.btns.map(b=>b.icon),['▲','▼'],'only arrows should be visible, no text');
    await page.locator('#manageJumpBottomBtn').click();
    const down=await page.evaluate(()=>{
     const card=document.querySelector('#manageModal .manage-card');

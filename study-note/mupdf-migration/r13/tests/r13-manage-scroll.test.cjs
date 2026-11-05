@@ -9,12 +9,16 @@ test('topic manage modal has exactly two accessible native quick-scroll buttons'
  assert.match(fragment,/<button id="manageJumpTopBtn"[^>]+type="button"/);
  assert.match(fragment,/<button id="manageJumpBottomBtn"[^>]+type="button"/);
  assert.match(fragment,/role="group" aria-label="토픽 관리 팝업 빠른 스크롤"/);
+ assert.match(fragment,/<button id="manageJumpTopBtn"[^>]*>▲<\/button>/);
+ assert.match(fragment,/<button id="manageJumpBottomBtn"[^>]*>▼<\/button>/);
+ assert.doesNotMatch(fragment,/>▲ 위<\/button>|>▼ 아래<\/button>/);
  assert(!fragment.includes('오픈소스 고지')&&!fragment.includes('id="prevBtn"')&&!fragment.includes('id="listBtn"'));
 });
 test('buttons are within the independent popup scroller, sticky and keyboard accessible',()=>{
  assert.match(html,/\.manage-card\s*\{[^}]*overflow-y: auto;/);
  assert.match(html,/\.manage-quick-scroll\s*\{[^}]*position: sticky;[^}]*top: 0;/);
- assert.match(html,/\.manage-quick-scroll \.btn\s*\{[^}]*min-height: 40px;/);
+ assert.match(html,/\.manage-quick-scroll \.btn\s*\{[^}]*min-height: 44px;/);
+ assert.match(html,/\.manage-quick-scroll \.btn\s*\{[^}]*min-width: 44px;/);
  assert.match(html,/manageJumpTopBtn[^\n]*aria-label="토픽 관리 맨 위로 이동"/);
  assert.match(html,/manageJumpBottomBtn[^\n]*aria-label="토픽 관리 맨 아래로 이동"/);
 });
