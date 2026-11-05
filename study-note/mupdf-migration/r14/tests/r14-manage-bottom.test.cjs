@@ -29,7 +29,7 @@ test('only two icon arrows and accessible hide/show toggle live in the footer',(
  assert(!modal.includes('id="prevBtn"')&&!modal.includes('id="nextBtn"'));
  assert.match(html,/function setManageQuickArrowsVisible\(visible\)/);
  assert.match(html,/toggle\.setAttribute\('aria-expanded', String\(visible\)\)/);
- assert.match(html,/toggle\.textContent = visible \? '◀' : '▶'/);
+ assert.match(html,/toggle\.textContent = visible \? '▶' : '◀'/);
 });
 test('only the topic form body scrolls and opening the modal restores arrows',()=>{
  const source=html.match(/\/\* R13_MANAGE_SCROLL_FUNCTION_START \*\/[\s\S]*?\/\* R13_MANAGE_SCROLL_FUNCTION_END \*\//)?.[0]||'';

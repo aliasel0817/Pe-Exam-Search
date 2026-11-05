@@ -28,7 +28,7 @@ test('R15 places two icon arrows and a collapse toggle in main navigation order'
 });
 test('R15 collapsed panel keeps only its small reopen control; form remains separate',()=>{
   assert(html.includes("els.manageQuickToggleBtn.closest('.manage-quick-scroll')?.classList.toggle('is-collapsed', !visible)"));
-  assert(html.includes('toggle.textContent = visible ? \'◀\' : \'▶\''));
+  assert(html.includes('toggle.textContent = visible ? \'▶\' : \'◀\''));
   const bodyStart=modal.indexOf('id="manageScrollBody"');
   const save=modal.indexOf('id="saveTopicBtn"');
   const cancel=modal.indexOf('id="cancelManageBtn"');

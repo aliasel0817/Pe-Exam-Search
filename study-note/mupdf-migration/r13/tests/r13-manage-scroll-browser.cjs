@@ -85,7 +85,7 @@ async function run(){
    assert(layout.dockShadow!=='none','no floating navigation shadow');
    assert.deepEqual(layout.arrowIcons,['▲','▼']);
    assert(layout.arrowRects.every(r=>r.width>=44&&r.height>=44),'too-small touch targets');
-   assert.equal(layout.toggleExpanded,'true');assert.equal(layout.toggleText,'◀');
+   assert.equal(layout.toggleExpanded,'true');assert.equal(layout.toggleText,'▶');
    assert.equal(layout.arrowContainerVisible,true);
    await page.locator('#manageJumpBottomBtn').click();
    const down=await page.evaluate(()=>{
@@ -135,7 +135,7 @@ async function run(){
       dockBackground:getComputedStyle(document.querySelector('#manageModal .manage-quick-scroll')).backgroundColor
    }));
    assert.equal(collapsed.display,'none');assert.equal(collapsed.expanded,'false');
-   assert.equal(collapsed.icon,'▶');assert(collapsed.name.includes('표시'));
+   assert.equal(collapsed.icon,'◀');assert(collapsed.name.includes('표시'));
    assert(collapsed.hasCollapsedClass,'pill did not collapse with arrow controls');
    assert(collapsed.dockWidth<=65,'collapsed navigation should be a single small toggle');
    assert(collapsed.formExists,'save form must remain intact');
@@ -143,6 +143,8 @@ async function run(){
    assert(await page.locator('#manageJumpTopBtn').isVisible());
    assert(await page.locator('#manageJumpBottomBtn').isVisible());
    assert.equal(await page.locator('#manageQuickToggleBtn').getAttribute('aria-expanded'),'true');
+   assert.equal((await page.locator('#manageQuickToggleBtn').textContent()).trim(),'▶',
+     'expanded arrows must show the right-pointing hide control');
    await page.locator('#closeManageBtn').click();
    assert(await page.locator('#manageModal').evaluate(el=>el.classList.contains('hidden')));
    assert.equal(errors.length,0,'page JavaScript errors: '+errors.join(' | '));

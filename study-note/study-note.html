@@ -2580,7 +2580,7 @@ button { -webkit-tap-highlight-color: transparent; }
         </div>
         <button id="manageQuickToggleBtn" class="btn manage-quick-toggle" type="button"
           aria-controls="manageQuickArrows" aria-expanded="true"
-          aria-label="위·아래 이동 버튼 숨기기" title="위·아래 이동 버튼 숨기기">◀</button>
+          aria-label="위·아래 이동 버튼 숨기기" title="위·아래 이동 버튼 숨기기">▶</button>
       </div>
       <!-- R13_MANAGE_SCROLL_HTML_END -->
 
@@ -7633,7 +7633,8 @@ function setManageQuickArrowsVisible(visible) {
   const label = visible ? '위·아래 이동 버튼 숨기기' : '위·아래 이동 버튼 표시';
   toggle.setAttribute('aria-label', label);
   toggle.title = label;
-  toggle.textContent = visible ? '◀' : '▶';
+  // R16: visible arrows collapse toward the right; one left-arrow reopens them.
+  toggle.textContent = visible ? '▶' : '◀';
 }
 // R14: scroll only the independently overflowing topic-management *body*.
 // The top title and bottom arrows stay fixed inside the dialog, and the final
