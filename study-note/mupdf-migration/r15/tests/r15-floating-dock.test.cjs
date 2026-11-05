@@ -26,16 +26,17 @@ test('R15 places two icon arrows and a collapse toggle in main navigation order'
   assert.match(dock,/aria-controls="manageQuickArrows" aria-expanded="true"/);
   assert.equal((dock.match(/type="button"/g)||[]).length,3);
 });
-test('R15 collapsed panel keeps only its small reopen control; form remains separate',()=>{
+test('R15 collapse stays compact while R17 restores a single scrollable form',()=>{
   assert(html.includes("els.manageQuickToggleBtn.closest('.manage-quick-scroll')?.classList.toggle('is-collapsed', !visible)"));
   assert(html.includes('toggle.textContent = visible ? \'▶\' : \'◀\''));
   const bodyStart=modal.indexOf('id="manageScrollBody"');
   const save=modal.indexOf('id="saveTopicBtn"');
   const cancel=modal.indexOf('id="cancelManageBtn"');
   const dock=modal.indexOf('class="manage-quick-scroll"');
-  assert(dock>0&&bodyStart>dock&&save>bodyStart&&cancel>bodyStart,'Save and Cancel must stay inside their original edit form');
-  assert.match(html,/\.manage-scroll-body\s*\{[^}]*order: 1;[^}]*overflow-y: auto;/);
-  assert.match(html,/\.manage-quick-scroll\s*\{[^}]*order: 2;/);
+  assert(dock>0&&dock>save&&dock>cancel&&save>bodyStart&&cancel>bodyStart,
+    'Save and Cancel must be inside the original single-scroll form before the overlay');
+  assert.match(html,/\.manage-shell \.manage-scroll-body\s*\{[^}]*display: contents;/);
+  assert.match(html,/\.manage-shell > \.manage-quick-scroll\s*\{[^}]*position: absolute;/);
 });
 test('R15 changes neither topic form data, PDF/ink rendering nor backend security source',()=>{
   for(const id of ['manageForm','saveTopicBtn','cancelManageBtn','deactivateTopicBtn','manageTopicName',

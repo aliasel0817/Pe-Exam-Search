@@ -1,4 +1,4 @@
-name: Study Note R15 topic manage floating-style scroll dock QA (NO DEPLOY)
+name: Study Note R17 single-scroll modal floating navigation QA (NO DEPLOY)
 on:
   pull_request:
     paths:
@@ -8,6 +8,7 @@ on:
       - 'study-note/mupdf-migration/r13/**'
       - 'study-note/mupdf-migration/r14/**'
       - 'study-note/mupdf-migration/r15/**'
+      - 'study-note/mupdf-migration/r17/**'
 permissions:
   contents: read
 jobs:
@@ -24,9 +25,9 @@ jobs:
           node-version: '22'
       - name: Restore existing locked browser development dependencies
         run: npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
-      - name: Verify R15 capsule UI, original dialog and M7 strict source protection
-        run: node --test study-note/mupdf-migration/m7/tests/m7.test.mjs study-note/mupdf-migration/r13/tests/r13-manage-scroll.test.cjs study-note/mupdf-migration/r14/tests/r14-manage-bottom.test.cjs study-note/mupdf-migration/r15/tests/r15-floating-dock.test.cjs
-      - name: Real Windows Chrome 4-viewport compact nav no-overlap checks
+      - name: Verify R17 single scroll, R16 arrow direction and M7 strict source protection
+        run: node --test study-note/mupdf-migration/m7/tests/m7.test.mjs study-note/mupdf-migration/r13/tests/r13-manage-scroll.test.cjs study-note/mupdf-migration/r14/tests/r14-manage-bottom.test.cjs study-note/mupdf-migration/r15/tests/r15-floating-dock.test.cjs study-note/mupdf-migration/r17/tests/r17-single-scroll-overlay.test.cjs
+      - name: Real Windows Chrome 4-viewports single-scroll overlay, Save/Cancel no-overlap and R16 arrow checks
         run: node study-note/mupdf-migration/r13/tests/r13-manage-scroll-browser.cjs
       - name: Verify source remains unchanged after tests
         run: git diff --exit-code

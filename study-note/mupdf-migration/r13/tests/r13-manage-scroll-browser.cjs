@@ -43,7 +43,7 @@ async function run(){
    await page.waitForSelector('#manageQuickToggleBtn',{state:'attached',timeout:12000});
    await page.evaluate(()=>{
     const modal=document.getElementById('manageModal');modal.classList.remove('hidden');
-    const body=document.getElementById('manageScrollBody');body.scrollTop=0;
+    const body=document.querySelector('#manageModal .manage-card');body.scrollTop=0;
     document.getElementById('manageTopicName').value='R14 KEEP INPUT';
     document.getElementById('manageConcept').value='R14 KEEP MULTILINE CONCEPT';
     window.__r14Submits=0;
@@ -53,7 +53,7 @@ async function run(){
    });
    const layout=await page.evaluate(()=>{
     const modal=document.getElementById('manageModal'),card=modal.querySelector('.manage-card');
-    const body=document.getElementById('manageScrollBody'),dock=modal.querySelector('.manage-quick-scroll');
+    const body=card,dock=modal.querySelector('.manage-quick-scroll');
     const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
     return {card:card.getBoundingClientRect().toJSON(),body:body.getBoundingClientRect().toJSON(),
       dock:dock.getBoundingClientRect().toJSON(),
@@ -61,7 +61,10 @@ async function run(){
       dockShadow:getComputedStyle(dock).boxShadow,
       dockBackground:getComputedStyle(dock).backgroundColor,
       bodyOverflow:getComputedStyle(body).overflowY,
-      dockOrder:getComputedStyle(dock).order,cardOverflow:getComputedStyle(card).overflow,
+      dockPosition:getComputedStyle(dock).position,cardOverflow:getComputedStyle(card).overflowY,
+      shell:modal.querySelector('.manage-shell').getBoundingClientRect().toJSON(),
+      bodyBoxCount:[card,document.getElementById('manageScrollBody')].filter(x=>getComputedStyle(x).display!=='contents' && getComputedStyle(x).overflowY==='auto').length,
+      wrapperDisplay:getComputedStyle(document.getElementById('manageScrollBody')).display,
       scrollMax:body.scrollHeight-body.clientHeight,bodyY:window.scrollY,
       toggleLabel:document.getElementById('manageQuickToggleBtn').getAttribute('aria-label'),
       toggleExpanded:document.getElementById('manageQuickToggleBtn').getAttribute('aria-expanded'),
@@ -72,10 +75,11 @@ async function run(){
       arrowContainerVisible:getComputedStyle(document.getElementById('manageQuickArrows')).display!=='none'};
    });
    assert(layout.scrollMax>400,'modal body must scroll for long form');
-   assert.equal(layout.bodyOverflow,'auto');assert.equal(layout.cardOverflow,'hidden');
-   assert.equal(layout.dockOrder,'2');
-   assert(layout.body.bottom<=layout.dock.top+1,'footer overlaps scrollable body');
-   assert(layout.dock.bottom<=layout.card.bottom+1,'footer outside dialog');
+   assert.equal(layout.bodyOverflow,'auto');assert.equal(layout.cardOverflow,'auto');
+   assert.equal(layout.bodyBoxCount,1,'nested scrolling region still exists');
+   assert.equal(layout.dockPosition,'absolute','navigation must overlay rather than reserve a row');
+   assert(Math.abs(layout.body.bottom-layout.shell.bottom)<=2,'root single scroller not full dialog height');
+   assert(layout.dock.bottom<=layout.card.bottom+1,'navigation beyond dialog bottom');
    assert(layout.dock.top>layout.card.top+layout.card.height*.55,'arrows not at dialog bottom');
    // R15: the nav is a compact floating-looking capsule, NOT a full-width footer.
    assert(layout.dock.width<=205,'scroll navigation is still a full-width bar');
@@ -89,7 +93,7 @@ async function run(){
    assert.equal(layout.arrowContainerVisible,true);
    await page.locator('#manageJumpBottomBtn').click();
    const down=await page.evaluate(()=>{
-    const body=document.getElementById('manageScrollBody');
+    const body=document.querySelector('#manageModal .manage-card');
     const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
     return {top:body.scrollTop,max:body.scrollHeight-body.clientHeight,
       save:rect('saveTopicBtn'),cancel:rect('cancelManageBtn'),
@@ -99,13 +103,13 @@ async function run(){
    });
    assert(Math.abs(down.top-down.max)<=3,'▼ did not reach bottom');
    for(const n of ['save','cancel','deactivate']){
-    assert(down[n].bottom<=down.body.bottom+1,n+' hidden beneath form viewport');
+    assert(down[n].bottom<=down.body.bottom+1,n+' hidden beneath root scroller');
     noOverlap(down[n],down.dock,n+' vs dock');
    }
    assert.equal(down.mainY,layout.bodyY,'page scrolled instead of topic dialog');
    await page.locator('#manageJumpTopBtn').click();
    const up=await page.evaluate(()=>({
-     position:document.getElementById('manageScrollBody').scrollTop,
+     position:document.querySelector('#manageModal .manage-card').scrollTop,
      topicName:document.getElementById('manageTopicName').value,
      concept:document.getElementById('manageConcept').value,
      writes:window.__r14Submits,mainY:window.scrollY
@@ -118,10 +122,10 @@ async function run(){
    // Native button keyboard operation and collapse/re-expand.
    await page.locator('#manageJumpBottomBtn').focus();
    await page.keyboard.press('Enter');
-   assert(await page.locator('#manageScrollBody').evaluate(el=>el.scrollTop>100));
+   assert(await page.locator('#manageModal .manage-card').evaluate(el=>el.scrollTop>100));
    await page.locator('#manageJumpTopBtn').focus();
    await page.keyboard.press('Space');
-   assert(await page.locator('#manageScrollBody').evaluate(el=>el.scrollTop<=2));
+   assert(await page.locator('#manageModal .manage-card').evaluate(el=>el.scrollTop<=2));
    await page.locator('#manageQuickToggleBtn').click();
    const collapsed=await page.evaluate(()=>({
       display:getComputedStyle(document.getElementById('manageQuickArrows')).display,
@@ -149,12 +153,12 @@ async function run(){
    assert(await page.locator('#manageModal').evaluate(el=>el.classList.contains('hidden')));
    assert.equal(errors.length,0,'page JavaScript errors: '+errors.join(' | '));
    report.push({viewport:viewport.label,width:viewport.width,
-     atBottom:true,cancelSaveDoNotOverlap:true,toggleHideShow:true,inputsPreserved:true,errors:0});
+     atBottom:true,cancelSaveDoNotOverlap:true,singleScrollRoot:true,zeroReservedFooter:true,toggleHideShow:true,inputsPreserved:true,errors:0});
    await page.close();
   }
   assert.equal(writes,0,'must never write to operating service');
-  console.log('R14_CHROME_PASS '+JSON.stringify({chrome:browser.version(),checks:report,
+  console.log('R17_CHROME_PASS '+JSON.stringify({chrome:browser.version(),checks:report,
     externalBlocked:blocked,operatingWrites:writes}));
  }finally{await ctx?.close();await browser.close();}
 }
-run().catch(e=>{console.error('R14_CHROME_FAIL '+e.stack);process.exitCode=1;});
+run().catch(e=>{console.error('R17_CHROME_FAIL '+e.stack);process.exitCode=1;});
