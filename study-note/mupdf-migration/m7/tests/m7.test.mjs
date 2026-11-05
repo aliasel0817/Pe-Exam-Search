@@ -175,7 +175,36 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
      '  /* R12_NAV_NOTICE_COLLAPSE_END */\n');
    return s;
  };
- const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(removed)))));
+ // R13 adds only an independent topic-management scroll toolbar. Remove
+ // exactly those marked UI/handler additions, then keep the original strict
+ // byte-equivalence test for every unrelated learning, PDF and auth field.
+ const stripR13=input=>{
+   let s=input;
+   const removeRange=(start,end)=>{
+     assert.equal(s.split(start).length,2,'R13 start marker must be unique: '+start);
+     assert.equal(s.split(end).length,2,'R13 end marker must be unique: '+end);
+     const i=s.indexOf(start),j=s.indexOf(end,i+start.length);
+     assert(j>i,'R13 markers out of order');
+     s=s.slice(0,i)+s.slice(j+end.length);
+   };
+   const removeOnce=text=>{
+     assert.equal(s.split(text).length,2,'R13 replacement must be unique: '+text);
+     s=s.replace(text,'');
+   };
+   removeOnce('  /* R13_MANAGE_CARD_SCROLL_PADDING */\n  scroll-padding-top: 56px;\n');
+   removeRange('/* R13_MANAGE_SCROLL_CSS_START */\n',
+     '/* R13_MANAGE_SCROLL_CSS_END */\n');
+   removeRange('\n      <!-- R13_MANAGE_SCROLL_HTML_START -->\n',
+     '      <!-- R13_MANAGE_SCROLL_HTML_END -->\n');
+   removeOnce("/* R13_MANAGE_SCROLL_IDS */'manageJumpTopBtn','manageJumpBottomBtn',");
+   removeRange('  /* R13_MANAGE_SCROLL_EVENTS_START */\n',
+     '  /* R13_MANAGE_SCROLL_EVENTS_END */\n');
+   removeRange('\n/* R13_MANAGE_SCROLL_FUNCTION_START */\n',
+     '/* R13_MANAGE_SCROLL_FUNCTION_END */\n');
+   removeOnce("    /* R13_MANAGE_SCROLL_INIT */ jumpManageToEdge('top');\n");
+   return s;
+ };
+ const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(stripR13(removed))))));
  const referenceHtml=maskR2(old);
  if(restoredHtml!==referenceHtml){
    let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;
