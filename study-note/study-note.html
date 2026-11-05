@@ -379,18 +379,32 @@ button { -webkit-tap-highlight-color: transparent; }
   -webkit-overflow-scrolling: touch;
   padding-right: 3px;
 }
+/* R15: a small floating-style pill, like the main topic navigation.
+   It owns a reserved flex row BELOW the form, never an overlay on Save/Cancel. */
 .manage-quick-scroll {
   order: 2;
   flex: 0 0 auto;
+  align-self: flex-end;
+  width: max-content;
+  max-width: calc(100% - 6px);
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 6px;
-  min-height: 52px;
-  margin-top: 10px;
-  padding-top: 8px;
-  background: #fff;
-  border-top: 1px solid var(--line);
+  min-height: 0;
+  margin: 8px 3px 2px 0;
+  padding: 5px 7px;
+  background: rgba(255,255,255,.97);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  box-shadow: 0 5px 20px rgba(15,23,42,.16);
+}
+.manage-quick-scroll.is-collapsed {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 0;
+  gap: 0;
 }
 .manage-quick-arrows { display: flex; gap: 6px; align-items: center; }
 .manage-quick-scroll .btn {
@@ -402,9 +416,13 @@ button { -webkit-tap-highlight-color: transparent; }
   white-space: nowrap;
 }
 .manage-quick-scroll .manage-quick-toggle {
-  border-radius: 999px;
+  border-radius: 12px;
   color: var(--primary-strong);
   background: #eff6ff;
+}
+.manage-quick-scroll.is-collapsed .manage-quick-toggle {
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(15,23,42,.16);
 }
 .manage-quick-scroll .btn:focus-visible {
   outline: 3px solid var(--primary);
@@ -2556,13 +2574,13 @@ button { -webkit-tap-highlight-color: transparent; }
 
       <!-- R13_MANAGE_SCROLL_HTML_START -->
       <div class="manage-quick-scroll" role="group" aria-label="토픽 관리 팝업 하단 빠른 스크롤">
-        <button id="manageQuickToggleBtn" class="btn manage-quick-toggle" type="button"
-          aria-controls="manageQuickArrows" aria-expanded="true"
-          aria-label="위·아래 이동 버튼 숨기기" title="위·아래 이동 버튼 숨기기">◀</button>
         <div id="manageQuickArrows" class="manage-quick-arrows">
           <button id="manageJumpTopBtn" class="btn" type="button" aria-label="토픽 관리 맨 위로 이동" title="토픽 관리 맨 위">▲</button>
           <button id="manageJumpBottomBtn" class="btn" type="button" aria-label="토픽 관리 맨 아래로 이동" title="토픽 관리 맨 아래">▼</button>
         </div>
+        <button id="manageQuickToggleBtn" class="btn manage-quick-toggle" type="button"
+          aria-controls="manageQuickArrows" aria-expanded="true"
+          aria-label="위·아래 이동 버튼 숨기기" title="위·아래 이동 버튼 숨기기">◀</button>
       </div>
       <!-- R13_MANAGE_SCROLL_HTML_END -->
 
@@ -7608,6 +7626,8 @@ function applyManageNewCategory() {
 // Each freshly opened dialog starts with the arrows visible (session-only state).
 function setManageQuickArrowsVisible(visible) {
   els.manageQuickArrows.classList.toggle('hidden', !visible);
+  // R15: shrink the entire navigation pill to a single re-open control.
+  els.manageQuickToggleBtn.closest('.manage-quick-scroll')?.classList.toggle('is-collapsed', !visible);
   const toggle = els.manageQuickToggleBtn;
   toggle.setAttribute('aria-expanded', String(visible));
   const label = visible ? '위·아래 이동 버튼 숨기기' : '위·아래 이동 버튼 표시';
