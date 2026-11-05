@@ -50,10 +50,14 @@ test('Unchanged public read API, attachment records and mutation handlers',()=>{
  assert(!ui.includes('sendMutation('));
  assert(ui.includes('fetchMediaContent(getApiUrl(), item.attachmentId, {signal:abort.signal})'));
 });
-test('Legacy PDF.js implementation remains byte-equivalent after M5 feature branch guard',()=>{
- const old=section(baseline,'  if (!activePdfAttachments.length) return;','async function loadAttachmentPdfPage(');
+test('Legacy PDF.js preserves PDF opening, navigation and security with isolated load optimizations',()=>{
  const now=section(html,'  if (!activePdfAttachments.length) return;','async function loadAttachmentPdfPage(');
- assert.equal(now,old);
+ assert(now.includes('attachmentPdfFetchAbort?.abort()'));
+ assert(now.includes('fetchMediaContent(getApiUrl(), item.attachmentId, { signal: fetchAbort.signal })'));
+ assert(now.includes('await Promise.all([bytesPromise, ensurePdfJsLoaded()])'));
+ assert(now.includes('pdfjsLib.getDocument({ data: bytes })'));
+ assert(now.includes('await loadAttachmentPdfPage(1, { serial })'));
+ assert(!now.includes('sendMutation('));
  assert(section(html,'async function repaintAttachmentPdfAtZoom(', 'function renderActiveAttachmentPdfCanvas(')
   .includes('computeAttachmentPdfRenderMetrics'));
 });

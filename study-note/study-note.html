@@ -4338,6 +4338,7 @@ function saveSecuritySession(value) {
 
 function clearSecuritySession() {
   clearCachedImageBlobs();
+  clearCachedAttachmentPdfBytes();
   cancelImageViewerPendingLoads();
   localStorage.removeItem(SECURITY_SESSION_KEY);
   clearSecurityValidationStamp();
@@ -4643,6 +4644,53 @@ let activePdfAttachments = [];
 let activePdfIndex = 0;
 let activePdfObjectUrl = '';
 let attachmentPdfLoadSerial = 0;
+// Session-only bounded PDF data cache; no persistent storage or Base64 copies.
+const ATTACHMENT_PDF_CACHE_MAX_BYTES = 48 * 1024 * 1024;
+const ATTACHMENT_PDF_CACHE_MAX_ITEMS = 3;
+const attachmentPdfBytesCache = new Map();
+let attachmentPdfBytesCacheTotal = 0;
+let attachmentPdfFetchAbort = null;
+let attachmentPdfCacheEpoch = 0;
+function clearCachedAttachmentPdfBytes() {
+  attachmentPdfCacheEpoch++;
+  attachmentPdfBytesCache.clear();
+  attachmentPdfBytesCacheTotal = 0;
+  attachmentPdfFetchAbort?.abort();
+  attachmentPdfFetchAbort = null;
+}
+function evictCachedAttachmentPdfBytes(attachmentId) {
+  const previous = attachmentPdfBytesCache.get(attachmentId);
+  if (!previous) return;
+  attachmentPdfBytesCache.delete(attachmentId);
+  attachmentPdfBytesCacheTotal -= previous.bytes.byteLength;
+}
+function getCachedAttachmentPdfBytes(item) {
+  const entry = attachmentPdfBytesCache.get(item.attachmentId);
+  if (!entry) return null;
+  if (entry.signature !== imageMediaSignature(item)) {
+    evictCachedAttachmentPdfBytes(item.attachmentId);
+    return null;
+  }
+  attachmentPdfBytesCache.delete(item.attachmentId);
+  attachmentPdfBytesCache.set(item.attachmentId, entry);
+  // PDF.js may transfer ownership/detach the source buffer: always return a copy.
+  return entry.bytes.slice();
+}
+function saveCachedAttachmentPdfBytes(item, bytes, epoch) {
+  if (epoch !== attachmentPdfCacheEpoch || !bytes?.byteLength
+      || bytes.byteLength > ATTACHMENT_PDF_CACHE_MAX_BYTES) return;
+  evictCachedAttachmentPdfBytes(item.attachmentId);
+  while (attachmentPdfBytesCache.size >= ATTACHMENT_PDF_CACHE_MAX_ITEMS
+      || attachmentPdfBytesCacheTotal + bytes.byteLength > ATTACHMENT_PDF_CACHE_MAX_BYTES) {
+    const firstId = attachmentPdfBytesCache.keys().next().value;
+    if (firstId === undefined) break;
+    evictCachedAttachmentPdfBytes(firstId);
+  }
+  // Store an independent copy, never the ArrayBuffer passed to PDF.js.
+  const copy = bytes.slice();
+  attachmentPdfBytesCache.set(item.attachmentId, { signature: imageMediaSignature(item), bytes: copy });
+  attachmentPdfBytesCacheTotal += copy.byteLength;
+}
 let activeAttachmentPdfDocument = null;
 let activeAttachmentPdfPage = null;
 let activeAttachmentPdfPageNumber = 1;
@@ -14345,6 +14393,7 @@ async function applyPendingAttachmentChanges(topicId) {
     allAttachments = allAttachments.filter(item => item.attachmentId !== attachmentId);
     await removeAttachment(db, attachmentId);
     evictCachedImageBlob(attachmentId);
+    evictCachedAttachmentPdfBytes(attachmentId);
     renderManageAttachments();
   }
 
@@ -14367,6 +14416,7 @@ async function applyPendingAttachmentChanges(topicId) {
       if (!attachment) throw new Error(`${file.name} 첨부정보를 확인할 수 없습니다.`);
       allAttachments = allAttachments.filter(item => item.attachmentId !== attachment.attachmentId);
       allAttachments.push(attachment);
+      evictCachedAttachmentPdfBytes(attachment.attachmentId);
       await putAttachment(db, attachment);
       pendingAttachmentFiles[type].shift();
       renderManageAttachments();
@@ -14509,6 +14559,8 @@ function cleanupMediaViewerObjects() {
   if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) m5DisposeAttachmentViewer();
   cancelImageViewerPendingLoads();
   attachmentPdfLoadSerial++;
+  attachmentPdfFetchAbort?.abort();
+  attachmentPdfFetchAbort = null;
   clearTimeout(attachmentPdfRenderTimer);
   attachmentPdfRenderSerial++;
   if (activeAttachmentPdfRenderTask) {
@@ -14873,6 +14925,8 @@ async function loadPdfAtIndex(index) {
   const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
   destroyAnnotationSurfacesWithin(wrap);
   const serial = ++attachmentPdfLoadSerial;
+  attachmentPdfFetchAbort?.abort();
+  attachmentPdfFetchAbort = null;
   if (activeAttachmentPdfRenderTask) {
     try { activeAttachmentPdfRenderTask.cancel(); } catch (error) { /* noop */ }
     activeAttachmentPdfRenderTask = null;
@@ -14888,13 +14942,24 @@ async function loadPdfAtIndex(index) {
   activeAttachmentPdfZoomFactor = ATTACHMENT_PDF_DEFAULT_ZOOM;
   updateAttachmentPdfViewerUi();
   wrap.innerHTML = '<div class="media-placeholder">앱 내부 PDF 뷰어 준비 중...</div>';
+  const cachedBytes = getCachedAttachmentPdfBytes(item);
+  const fetchAbort = cachedBytes ? null : new AbortController();
+  const epoch = attachmentPdfCacheEpoch;
+  if (fetchAbort) attachmentPdfFetchAbort = fetchAbort;
   try {
-    const [payload, pdfjsLib] = await Promise.all([
-      fetchMediaContent(getApiUrl(), item.attachmentId),
-      ensurePdfJsLoaded(),
-    ]);
+    const bytesPromise = cachedBytes ? Promise.resolve(cachedBytes)
+      : fetchMediaContent(getApiUrl(), item.attachmentId, { signal: fetchAbort.signal })
+        .then(payload => {
+          if (fetchAbort.signal.aborted) throw new DOMException('PDF 요청 취소', 'AbortError');
+          const bytes = base64ToUint8Array(payload.base64);
+          if (bytes.byteLength < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-')
+            throw new Error('첨부 PDF 헤더가 올바르지 않습니다.');
+          if (!fetchAbort.signal.aborted) saveCachedAttachmentPdfBytes(item, bytes, epoch);
+          return bytes;
+        });
+    const [bytes, pdfjsLib] = await Promise.all([bytesPromise, ensurePdfJsLoaded()]);
     if (serial !== attachmentPdfLoadSerial || els.mediaViewerModal.classList.contains('hidden') || item.attachmentId !== activePdfAttachments[activePdfIndex]?.attachmentId) return;
-    const loadingTask = pdfjsLib.getDocument({ data: base64ToUint8Array(payload.base64) });
+    const loadingTask = pdfjsLib.getDocument({ data: bytes });
     const pdfDocument = await loadingTask.promise;
     if (serial !== attachmentPdfLoadSerial || els.mediaViewerModal.classList.contains('hidden')) {
       try { pdfDocument.destroy(); } catch (error) { /* noop */ }
@@ -14906,9 +14971,11 @@ async function loadPdfAtIndex(index) {
     updateAttachmentPdfViewerUi();
     await loadAttachmentPdfPage(1, { serial });
   } catch (error) {
+    if (error?.name === 'AbortError' || serial !== attachmentPdfLoadSerial) return;
     console.error('첨부 PDF 앱 내부 렌더링 실패:', error);
-    if (serial !== attachmentPdfLoadSerial) return;
     wrap.innerHTML = `<div class="media-placeholder">PDF 불러오기 실패 · ${escapeHtml(error.message || String(error))}</div>`;
+  } finally {
+    if (attachmentPdfFetchAbort === fetchAbort) attachmentPdfFetchAbort = null;
   }
 }
 
@@ -14946,7 +15013,7 @@ async function loadAttachmentPdfPage(pageNumber, { serial = attachmentPdfLoadSer
     await repaintAttachmentPdfAtZoom({ immediate: true, loadSerial: serial });
     if (serial !== attachmentPdfLoadSerial || bounded !== activeAttachmentPdfPageNumber) return;
     wrap.querySelector('.attachment-pdf-loading')?.remove();
-    renderActiveAttachmentPdfCanvas({ preserveCenter: false });
+    renderActiveAttachmentPdfCanvas({ preserveCenter: false, scheduleRender: false });
     updateAttachmentPdfViewerUi();
   } catch (error) {
     if (error?.name === 'RenderingCancelledException') return;
@@ -15007,7 +15074,7 @@ async function repaintAttachmentPdfAtZoom({ immediate = false, loadSerial = atta
   else attachmentPdfRenderTimer = setTimeout(() => { paint().catch(console.error); }, 180);
 }
 
-function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
+function renderActiveAttachmentPdfCanvas({ preserveCenter = true, scheduleRender = true } = {}) {
   if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) {
     return m5LayoutAttachment({preserveCenter});
   }
@@ -15031,7 +15098,7 @@ function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {
   stage.style.width = `${Math.max(scroller.clientWidth, displayWidth + stagePadding)}px`;
   stage.style.height = `${Math.max(scroller.clientHeight, displayHeight + stagePadding)}px`;
   updateAttachmentPdfViewerUi();
-  repaintAttachmentPdfAtZoom();
+  if (scheduleRender) repaintAttachmentPdfAtZoom();
   const activeAttachment = activePdfAttachments[activePdfIndex];
   ensureAnnotationSurface({
     host: stage,

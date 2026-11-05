@@ -71,8 +71,11 @@ test('M4 legacy attachment viewer remains identical beneath explicit M5 local di
    + "    return m5LoadAttachmentPdfPage(pageNumber,{serial});\n"
    + "  }\n";
  const currentBody=between(current,a,b);
- const normalized=currentBody.includes(m5Dispatch)
-   ? currentBody.replace(m5Dispatch,'') : currentBody;
+ const normalized=(currentBody.includes(m5Dispatch)
+   ? currentBody.replace(m5Dispatch,'') : currentBody)
+   // Attachment performance fix prevents a redundant first-page repaint only.
+   .replace('renderActiveAttachmentPdfCanvas({ preserveCenter: false, scheduleRender: false });',
+     'renderActiveAttachmentPdfCanvas({ preserveCenter: false });');
  assert.equal(normalized,between(baseline,a,b));
  assert(current.includes("sendMutation(getApiUrl()"));
  assert(!between(current,'async function m4LoadReferencePdfHighQuality(', 'async function m4RepaintReferencePdf(').includes('sendMutation'));
