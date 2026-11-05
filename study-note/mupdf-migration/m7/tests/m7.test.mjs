@@ -232,7 +232,40 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
      '      <!-- R14_MANAGE_BODY_CLOSE_END -->\n');
    return s;
  };
- const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(stripR13(stripR14(removed)))))));
+ // R17 returns to the original single-scroll modal and adds only a
+ // floating overlay shell. Strip these exact annotated UI-only additions
+ // before retaining the strict M7 byte-for-byte check on all source content.
+ const stripR17=input=>{
+   let s=input;
+   const removeRange=(start,end)=>{
+     assert.equal(s.split(start).length,2,'R17 unique start required: '+start);
+     assert.equal(s.split(end).length,2,'R17 unique end required: '+end);
+     const i=s.indexOf(start),j=s.indexOf(end,i+start.length);
+     assert(j>i,'R17 marker order error');
+     s=s.slice(0,i)+s.slice(j+end.length);
+   };
+   removeRange('/* R17_SINGLE_SCROLL_OVERLAY_CSS_START */\n',
+     '/* R17_SINGLE_SCROLL_OVERLAY_CSS_END */\n');
+   removeRange('\n/* R17_MANAGE_OVERLAY_POSITION_START */\n',
+     '/* R17_MANAGE_OVERLAY_POSITION_END */\n');
+   removeRange('    <!-- R17_MANAGE_SHELL_OPEN_START -->\n',
+     '    <!-- R17_MANAGE_SHELL_OPEN_END -->\n');
+   removeRange('    <!-- R17_MANAGE_SHELL_CLOSE_START -->\n',
+     '    <!-- R17_MANAGE_SHELL_CLOSE_END -->\n');
+   // For strict comparison only, restore the pre-R17 *location* of the
+   // existing R13 button block. R13 itself then removes that exact UI block.
+   const dockStart='\n      <!-- R13_MANAGE_SCROLL_HTML_START -->';
+   const dockEnd='      <!-- R13_MANAGE_SCROLL_HTML_END -->\n';
+   assert.equal(s.split(dockStart).length,2,'R17 dock must be unique');
+   const from=s.indexOf(dockStart),to=s.indexOf(dockEnd,from)+dockEnd.length;
+   const dock=s.slice(from,to);
+   s=s.slice(0,from)+'\n'+s.slice(to);
+   const insert='\n\n      <!-- R14_MANAGE_BODY_OPEN_START -->';
+   assert.equal(s.split(insert).length,2,'R17 insertion marker must be unique');
+   s=s.replace(insert,'\n'+dock+'\n      <!-- R14_MANAGE_BODY_OPEN_START -->');
+   return s;
+ };
+ const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(stripR13(stripR14(stripR17(removed))))))));
  const referenceHtml=maskR2(old);
  if(restoredHtml!==referenceHtml){
    let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;
