@@ -17,7 +17,7 @@ test('bottom quick toolbar is outside the scroller and below Save/Cancel in visu
  assert(head>=0&&toolbar>head&&body>toolbar&&save>body&&cancel>body);
  assert.match(html,/\.manage-card\s*\{[^}]*display: flex;[^}]*flex-direction: column;[^}]*overflow: hidden;/);
  assert.match(html,/\.manage-scroll-body\s*\{[^}]*order: 1;[^}]*overflow-y: auto;/);
- assert.match(html,/\.manage-quick-scroll\s*\{[^}]*order: 2;[^}]*border-top: 1px solid var\(--line\);/);
+ assert.match(html,/\.manage-quick-scroll\s*\{[^}]*order: 2;[^}]*align-self: flex-end;[^}]*width: max-content;[^}]*border: 1px solid var\(--line\);[^}]*border-radius: 15px;[^}]*box-shadow:/);
 });
 test('only two icon arrows and accessible hide/show toggle live in the footer',()=>{
  assert.equal((modal.match(/id="manageJumpTopBtn"/g)||[]).length,1);

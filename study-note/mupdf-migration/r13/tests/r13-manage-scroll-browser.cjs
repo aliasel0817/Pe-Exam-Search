@@ -56,7 +56,11 @@ async function run(){
     const body=document.getElementById('manageScrollBody'),dock=modal.querySelector('.manage-quick-scroll');
     const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
     return {card:card.getBoundingClientRect().toJSON(),body:body.getBoundingClientRect().toJSON(),
-      dock:dock.getBoundingClientRect().toJSON(),bodyOverflow:getComputedStyle(body).overflowY,
+      dock:dock.getBoundingClientRect().toJSON(),
+      dockRadius:getComputedStyle(dock).borderTopLeftRadius,
+      dockShadow:getComputedStyle(dock).boxShadow,
+      dockBackground:getComputedStyle(dock).backgroundColor,
+      bodyOverflow:getComputedStyle(body).overflowY,
       dockOrder:getComputedStyle(dock).order,cardOverflow:getComputedStyle(card).overflow,
       scrollMax:body.scrollHeight-body.clientHeight,bodyY:window.scrollY,
       toggleLabel:document.getElementById('manageQuickToggleBtn').getAttribute('aria-label'),
@@ -73,6 +77,12 @@ async function run(){
    assert(layout.body.bottom<=layout.dock.top+1,'footer overlaps scrollable body');
    assert(layout.dock.bottom<=layout.card.bottom+1,'footer outside dialog');
    assert(layout.dock.top>layout.card.top+layout.card.height*.55,'arrows not at dialog bottom');
+   // R15: the nav is a compact floating-looking capsule, NOT a full-width footer.
+   assert(layout.dock.width<=205,'scroll navigation is still a full-width bar');
+   assert(layout.dock.right<=layout.card.right+1&&layout.dock.x>=layout.card.x-1,
+     'compact navigation extends outside management dialog');
+   assert(parseFloat(layout.dockRadius)>=12,'navigation is not rounded like main nav');
+   assert(layout.dockShadow!=='none','no floating navigation shadow');
    assert.deepEqual(layout.arrowIcons,['▲','▼']);
    assert(layout.arrowRects.every(r=>r.width>=44&&r.height>=44),'too-small touch targets');
    assert.equal(layout.toggleExpanded,'true');assert.equal(layout.toggleText,'◀');
@@ -119,10 +129,15 @@ async function run(){
       name:document.getElementById('manageQuickToggleBtn').getAttribute('aria-label'),
       icon:document.getElementById('manageQuickToggleBtn').textContent.trim(),
       saveVisible:document.getElementById('saveTopicBtn').getBoundingClientRect().width>0,
-      formExists:!!document.getElementById('manageForm')
+      formExists:!!document.getElementById('manageForm'),
+      dockWidth:document.querySelector('#manageModal .manage-quick-scroll').getBoundingClientRect().width,
+      hasCollapsedClass:document.querySelector('#manageModal .manage-quick-scroll').classList.contains('is-collapsed'),
+      dockBackground:getComputedStyle(document.querySelector('#manageModal .manage-quick-scroll')).backgroundColor
    }));
    assert.equal(collapsed.display,'none');assert.equal(collapsed.expanded,'false');
    assert.equal(collapsed.icon,'▶');assert(collapsed.name.includes('표시'));
+   assert(collapsed.hasCollapsedClass,'pill did not collapse with arrow controls');
+   assert(collapsed.dockWidth<=65,'collapsed navigation should be a single small toggle');
    assert(collapsed.formExists,'save form must remain intact');
    await page.locator('#manageQuickToggleBtn').click();
    assert(await page.locator('#manageJumpTopBtn').isVisible());

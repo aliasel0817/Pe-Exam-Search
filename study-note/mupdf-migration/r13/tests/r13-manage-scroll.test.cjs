@@ -20,7 +20,7 @@ test('topic manage modal has exactly two accessible native quick-scroll buttons'
 test('buttons sit in a separate bottom footer below the independently scrolling form',()=>{
  assert.match(html,/\.manage-card\s*\{[^}]*display: flex;[^}]*overflow: hidden;/);
  assert.match(html,/\.manage-scroll-body\s*\{[^}]*order: 1;[^}]*overflow-y: auto;/);
- assert.match(html,/\.manage-quick-scroll\s*\{[^}]*order: 2;[^}]*border-top: 1px solid var\(--line\);/);
+ assert.match(html,/\.manage-quick-scroll\s*\{[^}]*order: 2;[^}]*align-self: flex-end;[^}]*width: max-content;[^}]*border: 1px solid var\(--line\);[^}]*border-radius: 15px;[^}]*box-shadow:/);
  assert.match(html,/\.manage-quick-scroll \.btn\s*\{[^}]*min-height: 44px;/);
  assert.match(html,/\.manage-quick-scroll \.btn\s*\{[^}]*min-width: 44px;/);
  assert.match(html,/manageJumpTopBtn[^\n]*aria-label="토픽 관리 맨 위로 이동"/);
