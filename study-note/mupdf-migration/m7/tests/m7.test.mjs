@@ -265,8 +265,50 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
    s=s.replace(insert,'\n'+dock+'\n      <!-- R14_MANAGE_BODY_OPEN_START -->');
    return s;
  };
- const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(stripR13(stripR14(stripR17(removed))))))));
- const referenceHtml=maskR2(old);
+ // R18 adds session-only attachment PDF caching, cancellation and removes one
+ // redundant initial repaint. Remove the exact additions for M7's global
+ // source-fidelity check; targeted M4/M5/R18 tests cover the focused reader.
+ const stripAttachmentPdfPerf = input => {
+   let s=input;
+   const remove=literal=>{
+     assert.equal(s.split(literal).length,2,'R18 expected unique removal: '+literal.slice(0,50));
+     s=s.replace(literal,'');
+   };
+   const restore=(current,previous)=>{
+     assert.equal(s.split(current).length,2,'R18 expected unique replacement: '+current.slice(0,50));
+     s=s.replace(current,previous);
+   };
+   remove('  clearCachedAttachmentPdfBytes();\n');
+   const cacheStart='// Session-only bounded PDF data cache; no persistent storage or Base64 copies.\n';
+   const cacheEnd='let activeAttachmentPdfDocument = null;';
+   assert.equal(s.split(cacheStart).length,2,'R18 cache declaration must be unique');
+   const from=s.indexOf(cacheStart),to=s.indexOf(cacheEnd,from+cacheStart.length);
+   assert(to>from,'R18 cache end marker required');
+   s=s.slice(0,from)+s.slice(to);
+   remove('    evictCachedAttachmentPdfBytes(attachmentId);\n');
+   remove('      evictCachedAttachmentPdfBytes(attachment.attachmentId);\n');
+   restore('  attachmentPdfLoadSerial++;\n  attachmentPdfFetchAbort?.abort();\n  attachmentPdfFetchAbort = null;\n  clearTimeout(attachmentPdfRenderTimer);',
+     '  attachmentPdfLoadSerial++;\n  clearTimeout(attachmentPdfRenderTimer);');
+   restore('    renderActiveAttachmentPdfCanvas({ preserveCenter: false, scheduleRender: false });',
+     '    renderActiveAttachmentPdfCanvas({ preserveCenter: false });');
+   restore('function renderActiveAttachmentPdfCanvas({ preserveCenter = true, scheduleRender = true } = {}) {',
+     'function renderActiveAttachmentPdfCanvas({ preserveCenter = true } = {}) {');
+   restore('  if (scheduleRender) repaintAttachmentPdfAtZoom();\n',
+     '  repaintAttachmentPdfAtZoom();\n');
+   return s;
+ };
+ const maskAttachmentPdfLoad = input => {
+   const start='async function loadPdfAtIndex(index) {';
+   const end='async function loadAttachmentPdfPage(';
+   assert.equal(input.split(start).length,2,'R18 PDF load start unique');
+   const i=input.indexOf(start),j=input.indexOf(end,i+start.length);
+   assert(j>i,'R18 PDF load end required');
+   return input.slice(0,i)+'[R18-ATTACHMENT-PDF-LOAD-FOCUSED]\n'+input.slice(j);
+ };
+ let restoredHtml=removed;
+ for(const restore of [stripR17,stripR14,stripR13,stripR12,stripR11,stripR10,
+   stripAttachmentPdfPerf,stripR6,maskR2,maskAttachmentPdfLoad]) restoredHtml=restore(restoredHtml);
+ const referenceHtml=maskAttachmentPdfLoad(maskR2(old));
  if(restoredHtml!==referenceHtml){
    let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;
    console.error('R11_STRICT_DIFF_POSITION',i,JSON.stringify(restoredHtml.slice(Math.max(0,i-100),i+140)),JSON.stringify(referenceHtml.slice(Math.max(0,i-100),i+140)));
