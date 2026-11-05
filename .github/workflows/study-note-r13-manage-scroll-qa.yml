@@ -1,0 +1,31 @@
+name: Study Note R13 topic manage quick-scroll QA (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/study-note-r13-manage-scroll-qa.yml'
+      - 'study-note/study-note.html'
+      - 'study-note/mupdf-migration/m7/tests/m7.test.mjs'
+      - 'study-note/mupdf-migration/r13/**'
+permissions:
+  contents: read
+jobs:
+  r13-managed-dialog:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          # M7 source-preservation test reads a pinned historical commit.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore existing locked browser development dependencies
+        run: npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+      - name: Verify R13 dialog-only changes and M7 strict source protection
+        run: node --test study-note/mupdf-migration/m7/tests/m7.test.mjs study-note/mupdf-migration/r13/tests/r13-manage-scroll.test.cjs
+      - name: Real Windows Chrome 4 responsive viewport interaction checks
+        run: node study-note/mupdf-migration/r13/tests/r13-manage-scroll-browser.cjs
+      - name: Verify source remains unchanged after tests
+        run: git diff --exit-code
+      # This workflow cannot deploy to Pages or modify Apps Script, Sheet or user ink.
