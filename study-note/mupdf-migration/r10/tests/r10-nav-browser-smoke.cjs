@@ -90,21 +90,38 @@ async function run(){
    assert(pop.links.some(x=>x.includes('Pe-Exam-Search/tree/')));
    await page.keyboard.press('Escape');
    assert.equal(await page.locator('#r4-private-notice').evaluate(d=>d.open),false);
+   // R12: collapsed nav must hide the sixth button as well as original five.
+   // When the source notice was open immediately before collapse, close it
+   // so expanding navigation later does not overlay the study content.
+   await page.locator('#r4-private-notice summary').click();
+   assert.equal(await page.locator('#r4-private-notice').evaluate(d=>d.open),true);
+   await page.locator('#navToggleBtn').click();
+   assert.equal(await page.locator('#bottomNavActions').evaluate(el=>getComputedStyle(el).display),'none',
+     viewport.label+' bottom bar should hide all six buttons');
+   assert.equal(await page.locator('#r4-private-notice').evaluate(d=>d.open),false,
+     viewport.label+' source popover remains open on collapse');
+   assert.equal(await page.locator('#r4-private-notice summary').isVisible(),false,
+     viewport.label+' floating AGPL button must not obscure content');
+   // A separate prominent Settings entry retains legal source access.
+   await page.locator('#settingsBtn').click();
+   const settingsSource=page.locator('#settingsOpenSourceNotice summary');
+   assert(await settingsSource.isVisible(),viewport.label+' Settings source offer missing');
+   await settingsSource.click();
+   const legalLinks=await page.locator('#settingsOpenSourceNotice a').evaluateAll(xs=>xs.map(x=>x.href));
+   assert(legalLinks.some(url=>url.includes('/tree/main/study-note')));
+   assert(legalLinks.some(url=>url.includes('THIRD_PARTY_NOTICES.md')));
+   assert(legalLinks.some(url=>url.includes('AGPL-3.0.txt')));
+   await page.locator('#closeSettingsBtn').click();
    await page.locator('#navToggleBtn').click();
    assert(await page.locator('#r4-private-notice summary').isVisible(),
-     viewport.label+' source offer missing in user-collapsed navigation');
-   await page.locator('#r4-private-notice summary').click();
-   const collapsedRect=await page.locator('.r4-notice-popover').boundingBox();
-   assert(collapsedRect.x>=-1 && collapsedRect.x+collapsedRect.width<=viewport.width+1,
-     viewport.label+' collapsed-source notice clipped horizontally');
-   await page.keyboard.press('Escape');
+     viewport.label+' expansion must restore all six controls');
    await page.reload({waitUntil:'domcontentloaded'});
    await page.waitForSelector('#r4-private-notice',{state:'attached',timeout:22000});
    assert.equal(await page.locator('#bottomNav').evaluate(e=>e.classList.contains('nav-collapsed')),false,
      viewport.label+' source/previous/list/next/top/bottom must reappear after refresh');
    await page.close();
    report.push({viewport:viewport.label,width:viewport.width,sixButtonsNoOverlap:true,
-    sourcePopover:'PASS',sourceVisibleAfterCollapse:true,pageErrors:errors.length});
+    sourcePopover:'PASS',sourceHiddenWithNav:true,settingsSourceReachable:true,pageErrors:errors.length});
   }
   assert.equal(blocked.writes,0);
   console.log('R10_REAL_CHROME_NAV_QA '+JSON.stringify({status:'PASS',chrome:browser.version(),

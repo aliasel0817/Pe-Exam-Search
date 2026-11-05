@@ -20,7 +20,9 @@ permissions:
 
 jobs:
   visibility-webkit:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 WebKit is unsupported on ubuntu26.04; pin the
+    # documented Ubuntu 24.04 runner instead of following ubuntu-latest.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
