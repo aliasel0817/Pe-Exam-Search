@@ -1,123 +1,143 @@
 'use strict';
-// R13 real Windows Chrome UI smoke. Serve only the local checked-out assets
-// through a Pages-style origin; block external backend and ALL write requests.
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+// R14: real Windows Chrome, local-only assets at the Pages origin.
+// External backend requests and ALL writes are blocked; no real user data.
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.R13_PLAYWRIGHT_MODULE||
   path.resolve(__dirname,'../../m3/node_modules/playwright'));
 const repo=path.resolve(__dirname,'../../../..'),study=path.join(repo,'study-note');
 const base='https://aliasel0817.github.io/Pe-Exam-Search/study-note/';
-const contentType=file=>file.endsWith('.html')?'text/html; charset=utf-8':
- file.endsWith('.wasm')?'application/wasm':/\.(m?js)$/.test(file)?'text/javascript':
- file.endsWith('.json')?'application/json':file.endsWith('.css')?'text/css':
- 'application/octet-stream';
-async function main(){
- const browser=await chromium.launch({executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  headless:true,args:['--no-first-run','--no-default-browser-check']});
- const report=[];let externalBlocked=0,writeAttempts=0;
- let context;
+const contentType=f=>f.endsWith('.html')?'text/html; charset=utf-8':
+ f.endsWith('.wasm')?'application/wasm':/\.(m?js)$/.test(f)?'text/javascript':
+ f.endsWith('.json')?'application/json':f.endsWith('.css')?'text/css':'application/octet-stream';
+function noOverlap(a,b,label){
+ assert(a.bottom<=b.top+1||b.bottom<=a.top+1||
+  a.right<=b.left+1||b.right<=a.left+1,'overlap '+label+' '+JSON.stringify({a,b}));
+}
+async function run(){
+ const browser=await chromium.launch({headless:true,
+  executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  args:['--no-first-run','--no-default-browser-check']});
+ let ctx,blocked=0,writes=0;const report=[];
  try{
-  context=await browser.newContext({serviceWorkers:'block'});
-  await context.route('**/*',route=>{
-   const request=route.request(),url=request.url();
-   if(request.method()!=='GET'){writeAttempts++;return route.abort('blockedbyclient');}
-   if(!url.startsWith(base)){externalBlocked++;return route.abort('blockedbyclient');}
+  ctx=await browser.newContext({serviceWorkers:'block'});
+  await ctx.route('**/*',route=>{
+   const q=route.request(),url=q.url();
+   if(q.method()!=='GET'){writes++;return route.abort('blockedbyclient');}
+   if(!url.startsWith(base)){blocked++;return route.abort('blockedbyclient');}
    const rel=decodeURIComponent(url.slice(base.length).split('?')[0]);
    const full=path.resolve(study,rel);
    if(!full.startsWith(study+path.sep)||!fs.existsSync(full)||!fs.statSync(full).isFile())
-    return route.fulfill({status:404,body:'R13 local-only 404'});
+     return route.fulfill({status:404,body:'Not found'});
    return route.fulfill({status:200,contentType:contentType(full),body:fs.readFileSync(full)});
   });
-  for(const vp of [
-   {width:1440,height:900,label:'PC Chrome'},
-   {width:860,height:768,label:'User screenshot width'},
-   {width:402,height:874,label:'iPhone 16 Pro size (Chrome emulation)'},
-   {width:320,height:740,label:'320px accessibility'}
+  for(const viewport of [
+   {width:1440,height:900,label:'PC Windows Chrome'},
+   {width:860,height:768,label:'screenshot-sized Chrome'},
+   {width:402,height:874,label:'iPhone-size viewport simulation'},
+   {width:320,height:640,label:'320px narrow viewport'}
   ]){
-   const page=await context.newPage();
-   await page.setViewportSize(vp);
-   const errors=[];page.on('pageerror',e=>errors.push(e.message.slice(0,180)));
-   const response=await page.goto(base+'study-note.html?r13_local_test=1',
-     {waitUntil:'domcontentloaded',timeout:45000});
+   const page=await ctx.newPage();await page.setViewportSize(viewport);
+   const errors=[];page.on('pageerror',error=>errors.push(error.message.slice(0,160)));
+   const response=await page.goto(base+'study-note.html?r14_local=1',{waitUntil:'domcontentloaded',timeout:45000});
    assert.equal(response.status(),200);
-   await page.waitForSelector('#manageJumpTopBtn',{state:'attached',timeout:12000});
+   await page.waitForSelector('#manageQuickToggleBtn',{state:'attached',timeout:12000});
    await page.evaluate(()=>{
-    const modal=document.getElementById('manageModal');
-    modal.classList.remove('hidden');
-    const card=modal.querySelector('.manage-card');
-    card.scrollTop=0;
-    document.getElementById('manageTopicName').value='R13-PRESERVE-INPUT-EXACT';
-    document.getElementById('manageConcept').value='Input stays unchanged after fast scroll';
-    window.__r13Submitted=0;
-    document.getElementById('manageForm').addEventListener('submit',event=>{
-     window.__r13Submitted++;event.preventDefault();
+    const modal=document.getElementById('manageModal');modal.classList.remove('hidden');
+    const body=document.getElementById('manageScrollBody');body.scrollTop=0;
+    document.getElementById('manageTopicName').value='R14 KEEP INPUT';
+    document.getElementById('manageConcept').value='R14 KEEP MULTILINE CONCEPT';
+    window.__r14Submits=0;
+    document.getElementById('manageForm').addEventListener('submit',e=>{
+      window.__r14Submits++;e.preventDefault();
     },{capture:true});
    });
-   const initial=await page.evaluate(()=>{
-    const modal=document.getElementById('manageModal');
-    const card=modal.querySelector('.manage-card'),toolbar=modal.querySelector('.manage-quick-scroll');
-    const r=toolbar.getBoundingClientRect(),c=card.getBoundingClientRect();
-    return {max:card.scrollHeight-card.clientHeight,
-      toolbarStyle:getComputedStyle(toolbar).position,top:r.top,cardTop:c.top,
-      btns:[...toolbar.querySelectorAll('button')].map(x=>({id:x.id,type:x.type,
-        aria:x.getAttribute('aria-label'),icon:x.textContent.trim(),height:x.getBoundingClientRect().height,width:x.getBoundingClientRect().width})),
-      bodyY:window.scrollY};
+   const layout=await page.evaluate(()=>{
+    const modal=document.getElementById('manageModal'),card=modal.querySelector('.manage-card');
+    const body=document.getElementById('manageScrollBody'),dock=modal.querySelector('.manage-quick-scroll');
+    const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
+    return {card:card.getBoundingClientRect().toJSON(),body:body.getBoundingClientRect().toJSON(),
+      dock:dock.getBoundingClientRect().toJSON(),bodyOverflow:getComputedStyle(body).overflowY,
+      dockOrder:getComputedStyle(dock).order,cardOverflow:getComputedStyle(card).overflow,
+      scrollMax:body.scrollHeight-body.clientHeight,bodyY:window.scrollY,
+      toggleLabel:document.getElementById('manageQuickToggleBtn').getAttribute('aria-label'),
+      toggleExpanded:document.getElementById('manageQuickToggleBtn').getAttribute('aria-expanded'),
+      toggleText:document.getElementById('manageQuickToggleBtn').textContent.trim(),
+      arrowIcons:[document.getElementById('manageJumpTopBtn').textContent.trim(),
+        document.getElementById('manageJumpBottomBtn').textContent.trim()],
+      arrowRects:[rect('manageJumpTopBtn'),rect('manageJumpBottomBtn')],
+      arrowContainerVisible:getComputedStyle(document.getElementById('manageQuickArrows')).display!=='none'};
    });
-   assert(initial.max>200,'topic manage dialog is not internally scrollable');
-   assert.equal(initial.toolbarStyle,'sticky');
-   assert.equal(initial.btns.length,2);
-   assert(initial.btns.every(b=>b.type==='button'&&b.width>=44&&b.height>=44&&b.aria));
-   assert.deepEqual(initial.btns.map(b=>b.icon),['▲','▼'],'only arrows should be visible, no text');
+   assert(layout.scrollMax>400,'modal body must scroll for long form');
+   assert.equal(layout.bodyOverflow,'auto');assert.equal(layout.cardOverflow,'hidden');
+   assert.equal(layout.dockOrder,'2');
+   assert(layout.body.bottom<=layout.dock.top+1,'footer overlaps scrollable body');
+   assert(layout.dock.bottom<=layout.card.bottom+1,'footer outside dialog');
+   assert(layout.dock.top>layout.card.top+layout.card.height*.55,'arrows not at dialog bottom');
+   assert.deepEqual(layout.arrowIcons,['▲','▼']);
+   assert(layout.arrowRects.every(r=>r.width>=44&&r.height>=44),'too-small touch targets');
+   assert.equal(layout.toggleExpanded,'true');assert.equal(layout.toggleText,'◀');
+   assert.equal(layout.arrowContainerVisible,true);
    await page.locator('#manageJumpBottomBtn').click();
    const down=await page.evaluate(()=>{
-    const card=document.querySelector('#manageModal .manage-card');
-    return {top:card.scrollTop,max:card.scrollHeight-card.clientHeight,
-     toolbarTop:document.querySelector('.manage-quick-scroll').getBoundingClientRect().top,
-     cardTop:card.getBoundingClientRect().top,
-     visible:document.querySelector('.manage-quick-scroll').getBoundingClientRect().bottom>0};
+    const body=document.getElementById('manageScrollBody');
+    const rect=id=>document.getElementById(id).getBoundingClientRect().toJSON();
+    return {top:body.scrollTop,max:body.scrollHeight-body.clientHeight,
+      save:rect('saveTopicBtn'),cancel:rect('cancelManageBtn'),
+      deactivate:rect('deactivateTopicBtn'),
+      dock:document.querySelector('#manageModal .manage-quick-scroll').getBoundingClientRect().toJSON(),
+      body:body.getBoundingClientRect().toJSON(),mainY:window.scrollY};
    });
-   assert(Math.abs(down.top-down.max)<=2,'down button did not reach the modal bottom');
-   assert(down.visible && down.toolbarTop>=down.cardTop-2,
-     'quick controls not sticky when long form scrolled to bottom');
+   assert(Math.abs(down.top-down.max)<=3,'▼ did not reach bottom');
+   for(const n of ['save','cancel','deactivate']){
+    assert(down[n].bottom<=down.body.bottom+1,n+' hidden beneath form viewport');
+    noOverlap(down[n],down.dock,n+' vs dock');
+   }
+   assert.equal(down.mainY,layout.bodyY,'page scrolled instead of topic dialog');
    await page.locator('#manageJumpTopBtn').click();
-   const up=await page.evaluate(()=>{
-    const card=document.querySelector('#manageModal .manage-card');
-    return {top:card.scrollTop,bodyY:window.scrollY,
+   const up=await page.evaluate(()=>({
+     position:document.getElementById('manageScrollBody').scrollTop,
      topicName:document.getElementById('manageTopicName').value,
      concept:document.getElementById('manageConcept').value,
-     submitted:window.__r13Submitted};
-   });
-   assert(up.top<=2,'up button did not return to top');
-   assert.equal(up.bodyY,initial.bodyY,'scrolled main page instead of modal');
-   assert.equal(up.topicName,'R13-PRESERVE-INPUT-EXACT');
-   assert.equal(up.concept,'Input stays unchanged after fast scroll');
-   assert.equal(up.submitted,0,'scroll button submitted the topic edit form');
-   // Keyboard-only access: Enter and Space operate the two native buttons.
+     writes:window.__r14Submits,mainY:window.scrollY
+   }));
+   assert(up.position<=2,'▲ failed to return to first field');
+   assert.equal(up.topicName,'R14 KEEP INPUT');
+   assert.equal(up.concept,'R14 KEEP MULTILINE CONCEPT');
+   assert.equal(up.writes,0);
+   assert.equal(up.mainY,layout.bodyY);
+   // Native button keyboard operation and collapse/re-expand.
    await page.locator('#manageJumpBottomBtn').focus();
    await page.keyboard.press('Enter');
-   assert(await page.locator('#manageModal .manage-card').evaluate(el=>el.scrollTop>100));
+   assert(await page.locator('#manageScrollBody').evaluate(el=>el.scrollTop>100));
    await page.locator('#manageJumpTopBtn').focus();
    await page.keyboard.press('Space');
-   assert(await page.locator('#manageModal .manage-card').evaluate(el=>el.scrollTop<=2));
-   const rects=await page.evaluate(()=>{
-    const card=document.querySelector('#manageModal .manage-card'),c=card.getBoundingClientRect();
-    return [...document.querySelectorAll('#manageModal .manage-quick-scroll button')].map(b=>{
-      const x=b.getBoundingClientRect();return {x:x.x,right:x.right,width:x.width,
-        cardLeft:c.left,cardRight:c.right};
-    });
-   });
-   for(const box of rects)assert(box.x>=box.cardLeft-2&&box.right<=box.cardRight+2,
-      'quick-scroll button protrudes outside modal on '+vp.label);
+   assert(await page.locator('#manageScrollBody').evaluate(el=>el.scrollTop<=2));
+   await page.locator('#manageQuickToggleBtn').click();
+   const collapsed=await page.evaluate(()=>({
+      display:getComputedStyle(document.getElementById('manageQuickArrows')).display,
+      expanded:document.getElementById('manageQuickToggleBtn').getAttribute('aria-expanded'),
+      name:document.getElementById('manageQuickToggleBtn').getAttribute('aria-label'),
+      icon:document.getElementById('manageQuickToggleBtn').textContent.trim(),
+      saveVisible:document.getElementById('saveTopicBtn').getBoundingClientRect().width>0,
+      formExists:!!document.getElementById('manageForm')
+   }));
+   assert.equal(collapsed.display,'none');assert.equal(collapsed.expanded,'false');
+   assert.equal(collapsed.icon,'▶');assert(collapsed.name.includes('표시'));
+   assert(collapsed.formExists,'save form must remain intact');
+   await page.locator('#manageQuickToggleBtn').click();
+   assert(await page.locator('#manageJumpTopBtn').isVisible());
+   assert(await page.locator('#manageJumpBottomBtn').isVisible());
+   assert.equal(await page.locator('#manageQuickToggleBtn').getAttribute('aria-expanded'),'true');
    await page.locator('#closeManageBtn').click();
-   assert(await page.locator('#manageModal').evaluate(x=>x.classList.contains('hidden')),
-     'close behavior changed');
-   report.push({viewport:vp.label,width:vp.width,topBottom:true,
-     sticky:true,formUnchanged:true,keyboard:true,closeUnchanged:true,
-     pageErrors:errors.length});
+   assert(await page.locator('#manageModal').evaluate(el=>el.classList.contains('hidden')));
+   assert.equal(errors.length,0,'page JavaScript errors: '+errors.join(' | '));
+   report.push({viewport:viewport.label,width:viewport.width,
+     atBottom:true,cancelSaveDoNotOverlap:true,toggleHideShow:true,inputsPreserved:true,errors:0});
    await page.close();
   }
-  assert.equal(writeAttempts,0);
-  console.log('R13_CHROME_TOPIC_MANAGE_PASS '+JSON.stringify({chrome:browser.version(),
-   cases:report,thirdPartyRequestsBlocked:externalBlocked,writeAttempts}));
- }finally{await context?.close();await browser.close();}
+  assert.equal(writes,0,'must never write to operating service');
+  console.log('R14_CHROME_PASS '+JSON.stringify({chrome:browser.version(),checks:report,
+    externalBlocked:blocked,operatingWrites:writes}));
+ }finally{await ctx?.close();await browser.close();}
 }
-main().catch(e=>{console.error('R13_CHROME_TOPIC_MANAGE_FAIL '+e.stack);process.exitCode=1;});
+run().catch(e=>{console.error('R14_CHROME_FAIL '+e.stack);process.exitCode=1;});

@@ -196,15 +196,43 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
      '/* R13_MANAGE_SCROLL_CSS_END */\n');
    removeRange('\n      <!-- R13_MANAGE_SCROLL_HTML_START -->\n',
      '      <!-- R13_MANAGE_SCROLL_HTML_END -->\n');
-   removeOnce("/* R13_MANAGE_SCROLL_IDS */'manageJumpTopBtn','manageJumpBottomBtn',");
+   removeOnce("/* R13_MANAGE_SCROLL_IDS */'manageJumpTopBtn','manageJumpBottomBtn','manageQuickToggleBtn','manageQuickArrows','manageScrollBody',");
    removeRange('  /* R13_MANAGE_SCROLL_EVENTS_START */\n',
      '  /* R13_MANAGE_SCROLL_EVENTS_END */\n');
    removeRange('\n/* R13_MANAGE_SCROLL_FUNCTION_START */\n',
      '/* R13_MANAGE_SCROLL_FUNCTION_END */\n');
-   removeOnce("    /* R13_MANAGE_SCROLL_INIT */ jumpManageToEdge('top');\n");
+   removeOnce("    /* R13_MANAGE_SCROLL_INIT */ setManageQuickArrowsVisible(true); jumpManageToEdge('top');\n");
    return s;
  };
- const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(stripR13(removed))))));
+ // R14 only changes the topic-management card from one scrolling layer to
+ // a fixed header/scroll body/fixed bottom toolbar. Restore those three exact
+ // layout deltas before the existing M7/R13 byte-preservation comparison.
+ const stripR14=input=>{
+   let s=input;
+   const layout=[
+     '  /* R14_MANAGE_LAYOUT_START */',
+     '  height: min(90dvh, 920px);',
+     '  display: flex;',
+     '  flex-direction: column;',
+     '  overflow: hidden;',
+     '  /* R14_MANAGE_LAYOUT_END */'
+   ].join('\n')+'\n';
+   assert.equal(s.split(layout).length,2,'R14 layout change must be unique');
+   s=s.replace(layout,'  overflow-y: auto;\n');
+   const removeExact=(start,end)=>{
+     assert.equal(s.split(start).length,2,'R14 start marker must be unique: '+start);
+     assert.equal(s.split(end).length,2,'R14 end marker must be unique: '+end);
+     const from=s.indexOf(start),to=s.indexOf(end,from+start.length);
+     assert(to>from,'R14 structural markers out of order');
+     s=s.slice(0,from)+s.slice(to+end.length);
+   };
+   removeExact('      <!-- R14_MANAGE_BODY_OPEN_START -->\n',
+     '      <!-- R14_MANAGE_BODY_OPEN_END -->\n');
+   removeExact('      <!-- R14_MANAGE_BODY_CLOSE_START -->\n',
+     '      <!-- R14_MANAGE_BODY_CLOSE_END -->\n');
+   return s;
+ };
+ const restoredHtml=maskR2(stripR6(stripR10(stripR11(stripR12(stripR13(stripR14(removed)))))));
  const referenceHtml=maskR2(old);
  if(restoredHtml!==referenceHtml){
    let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;
