@@ -82,7 +82,31 @@
                 <input type="text" id="year_month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
             </div>
 
-            <div class="flex items-end space-x-2">
+
+            <div>
+                <label for="domain" class="block text-sm font-medium text-gray-700">도메인</label>
+                <select id="domain" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">전체</option>
+                    <option value="MG">MG</option>
+                    <option value="SW">SW</option>
+                    <option value="SV">SV</option>
+                    <option value="AI">AI</option>
+                    <option value="ST">ST</option>
+                    <option value="AL">AL</option>
+                    <option value="DB">DB</option>
+                    <option value="NW">NW</option>
+                    <option value="SE">SE</option>
+                    <option value="OS">OS</option>
+                    <option value="CA">CA</option>
+                </select>
+            </div>
+
+            <div class="md:col-span-4">
+                <label for="related_domain" class="block text-sm font-medium text-gray-700">연관도메인 ( ; 로 OR 검색, 대소문자 구분 없음)</label>
+                <input type="text" id="related_domain" placeholder="예: MG;SW" class="mt-1 block w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div class="md:col-span-2 flex items-end space-x-2">
                 <button onclick="applyFilters()" class="w-full bg-slate-700 text-white font-semibold py-2 px-3 rounded-md hover:bg-slate-800 transition shadow-sm text-sm">
                     조회
                 </button>
@@ -128,6 +152,12 @@
                         <th class="sortable px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase" onclick="sortTable('문제')">
                             출제 문제 <span id="sort-icon-문제" class="sort-icon"></span>
                         </th>
+                        <th class="sortable px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase whitespace-nowrap" onclick="sortTable('주도메인')">
+                            도메인 <span id="sort-icon-주도메인" class="sort-icon"></span>
+                        </th>
+                        <th class="sortable px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase whitespace-nowrap" onclick="sortTable('연관도메인')">
+                            연관도메인 <span id="sort-icon-연관도메인" class="sort-icon"></span>
+                        </th>
                         <th class="sortable px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase whitespace-nowrap" onclick="sortTable('년월')">
                             년월 <span id="sort-icon-년월" class="sort-icon"></span>
                         </th>
@@ -135,7 +165,7 @@
                 </thead>
                 <tbody id="table-body" class="bg-white divide-y divide-gray-200 text-sm">
                     <tr>
-                        <td colspan="6" class="text-center py-12 text-blue-600 font-semibold animate-pulse">
+                        <td colspan="8" class="text-center py-12 text-blue-600 font-semibold animate-pulse">
                             ⚙️ 서버에서 엑셀 데이터를 가져오고 있습니다... 잠시만 기다려주세요.
                         </td>
                     </tr>
@@ -232,6 +262,8 @@
                         document.getElementById('db-status-badge').className = "px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded";
                         document.getElementById('db-status-badge').innerText = "✅ 최신 동기화 완료";
                         resetFilters();
+                    } else {
+                        applyFilters();
                     }
                 }
             } catch (error) {
@@ -239,7 +271,7 @@
                 if (showLoadingUI && globalData.length === 0) {
                     document.getElementById('db-status-badge').className = "px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded";
                     document.getElementById('db-status-badge').innerText = "❌ 다운로드 실패";
-                    document.getElementById('table-body').innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-500 font-bold">엑셀 파일을 불러오는데 실패했습니다. (list.xlsx 파일이 존재하는지 확인해주세요)</td></tr>`;
+                    document.getElementById('table-body').innerHTML = `<tr><td colspan="8" class="text-center py-8 text-red-500 font-bold">엑셀 파일을 불러오는데 실패했습니다. (list.xlsx 파일이 존재하는지 확인해주세요)</td></tr>`;
                 }
             }
         }
@@ -260,6 +292,9 @@
             const track = document.getElementById('track').value;
             const qType = document.getElementById('q_type').value;
             const yearMonth = document.getElementById('year_month').value.trim();
+            const domain = document.getElementById('domain').value.trim().toUpperCase();
+            const relatedDomainCodes = document.getElementById('related_domain').value
+                .split(';').map(code => code.trim().toUpperCase()).filter(Boolean);
 
             const keywords = keywordStr ? keywordStr.split(/\s+/) : [];
             const sessionKeywords = sessionStr ? sessionStr.split(/\s+/) : [];
@@ -271,6 +306,9 @@
                 const rowTrack = String(row['종목'] || '');
                 const rowType = String(row['유형'] || '');
                 const rowYearMonth = String(row['년월'] || '');
+                const rowDomain = String(row['주도메인'] || '').trim().toUpperCase();
+                const rowRelatedDomains = String(row['연관도메인'] || '')
+                    .split('|').map(code => code.trim().toUpperCase()).filter(Boolean);
 
                 let keywordMatch = true;
                 if (keywords.length > 0) {
@@ -297,7 +335,10 @@
                     && (category === "" || rowCategory.includes(category))
                     && (track === "" || rowTrack.includes(track))
                     && (qType === "" || rowType === qType)
-                    && (yearMonth === "" || rowYearMonth.includes(yearMonth));
+                    && (yearMonth === "" || rowYearMonth.includes(yearMonth))
+                    && (domain === "" || rowDomain === domain)
+                    && (relatedDomainCodes.length === 0 ||
+                        relatedDomainCodes.some(code => rowRelatedDomains.includes(code)));
             });
 
             currentPage = 1;
@@ -335,7 +376,7 @@
         }
 
         function updateSortIcons() {
-            const columns = ['구분', '회차', '종목', '유형', '문제', '년월'];
+            const columns = ['구분', '회차', '종목', '유형', '문제', '주도메인', '연관도메인', '년월'];
             columns.forEach(col => {
                 const iconElement = document.getElementById(`sort-icon-${col}`);
                 if (iconElement) {
@@ -357,7 +398,9 @@
             document.getElementById('track').value = '';
             document.getElementById('q_type').value = '';
             document.getElementById('year_month').value = '';
-            
+            document.getElementById('domain').value = '';
+            document.getElementById('related_domain').value = '';
+
             currentSortColumn = '회차';
             currentSortDirection = 'desc'; 
             currentPage = 1; 
@@ -440,7 +483,7 @@
             resultInfo.innerHTML = `검색 결과: 총 <span class="font-bold text-blue-600">${totalItems}</span>건 (현재 페이지: ${currentPage}/${totalPages})`;
 
             if (displayData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-500">조건에 맞는 검색 결과가 없습니다.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-500">조건에 맞는 검색 결과가 없습니다.</td></tr>`;
                 renderPagination(0);
                 return;
             }
@@ -459,6 +502,8 @@
                         <td class="px-4 py-3 whitespace-nowrap text-gray-700">${item['종목'] || '-'}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-center text-gray-700">${item['유형'] || '-'}</td>
                         <td class="px-6 py-3 font-medium text-gray-900 break-words leading-snug">${formattedProblem}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-700">${item['주도메인'] || '-'}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-700">${item['연관도메인'] || '-'}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-gray-500">${item['년월'] || '-'}</td>
                     </tr>
                 `;
