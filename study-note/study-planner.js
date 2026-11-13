@@ -168,6 +168,86 @@ function initUi(){
   catch(err){$('plannerNotice').textContent='진도 백업 복원 실패: '+err.message}
   finally{e.target.value=''}
  };
+
+ $('plannerExtendStart').value=today();
+ $('plannerCreateStart').value=today();
+ $('plannerCreateEnd').value=plannerAddDays(today(),99);
+ const invalidateExtend=()=>{pendingExtension=null;$('plannerExtendApply').disabled=true;$('plannerExtendPreview').textContent='시작일을 지정한 뒤 배정을 미리보기로 확인하세요.'};
+ const invalidateNewPlan=()=>{pendingNewPlan=null;$('plannerCreateApply').disabled=true;$('plannerCreatePreview').textContent='생성 전 일정을 미리보기로 확인하세요.'};
+ $('plannerExtendStart').onchange=invalidateExtend;
+ ['plannerCreateName','plannerCreateStart','plannerCreateEnd','plannerCreateRounds','plannerCreateScope','plannerCreateIds'].forEach(id=>{
+   $(id).addEventListener('input',invalidateNewPlan);
+   $(id).addEventListener('change',invalidateNewPlan);
+ });
+ $('plannerCreateScope').addEventListener('change',()=>{
+   const show=$('plannerCreateScope').value==='selected';
+   $('plannerCreateIds').hidden=!show;$('plannerCreateIdsLabel').hidden=!show;
+ });
+ invalidateExtend();invalidateNewPlan();
+ $('plannerPlanBackup').onclick=()=>{
+   const p=plans.find(x=>x.id===active);
+   if(!p){$('plannerNotice').textContent='백업할 학습계획이 없습니다.';return}
+   download('study-plan-'+p.id+'-'+today()+'-backup.json',JSON.stringify(p,null,2));
+   $('plannerNotice').textContent='계획 JSON 백업 완료. 진도는 별도 「진도 기록 백업」으로 저장하세요.';
+ };
+ $('plannerExtendCheck').onclick=()=>{
+   try{
+     const p=plans.find(x=>x.id===active);
+     if(!p)throw Error('먼저 기존 학습계획을 선택하세요.');
+     const topics=plannerMasterTopics();
+     if(!topics.length)throw Error('MASTER가 비어 있습니다. 상단 MASTER 갱신을 먼저 실행하세요.');
+     const pending=plannerMissingTopics(p,topics),start=$('plannerExtendStart').value;
+     if(!validIsoDate(start))throw Error('학습 시작 날짜를 정확히 선택하세요.');
+     if(!pending.length){invalidateExtend();$('plannerExtendPreview').textContent='MASTER 학습대상(Y) 중 미편입 토픽이 없습니다.';return}
+     const result=plannerExtendPlan(p,pending,start,topics);
+     pendingExtension={plan:result,previous:JSON.stringify(p),id:p.id,missingIds:pending.map(t=>t.topicId),masterSignature:plannerMasterSignature(topics)};
+     $('plannerExtendPreview').textContent='신규 학습대상 '+pending.length+'개 · 5회 자동 배정 '+(pending.length*5)+'건 · 시작 '+start+' · 토픽 예: '+pending.slice(0,4).map(t=>t.topicId+' '+t.topicName).join(', ');
+     $('plannerExtendApply').disabled=false;
+   }catch(error){invalidateExtend();$('plannerExtendPreview').textContent='미리보기 실패: '+error.message}
+ };
+ $('plannerExtendApply').onclick=async()=>{
+   const pending=pendingExtension;if(!pending)return;
+   try{
+     const p=plans.find(x=>x.id===pending.id);
+     if(!p||JSON.stringify(p)!==pending.previous)throw Error('계획이 변경되어 미리보기를 다시 해야 합니다.');
+     const master=plannerMasterTopics();
+     if(plannerMasterSignature(master)!==pending.masterSignature)throw Error('MASTER가 갱신되었습니다. 다시 확인하세요.');
+     const missing=plannerMissingTopics(p,master).map(t=>t.topicId);
+     if(missing.join('|')!==pending.missingIds.join('|'))throw Error('신규 토픽 목록이 변경되었습니다.');
+     if(!window.confirm('신규 토픽 '+missing.length+'개를 기존 계획에 각각 5회 자동 편입할까요? 기존 기록과 배정은 그대로 유지됩니다.'))return;
+     await plannerReplaceIfUnchanged(p.id,pending.previous,pending.plan);
+     plans[plans.findIndex(x=>x.id===p.id)]=pending.plan;
+     dayKey=$('plannerExtendStart').value;
+     invalidateExtend();await render();
+     $('plannerNotice').textContent='신규 학습대상 '+missing.length+'개를 5회씩 편입했습니다. 원래 계획·진도·MASTER 원문은 보존했습니다.';
+   }catch(error){invalidateExtend();$('plannerNotice').textContent='편입 실패: '+error.message}
+ };
+ $('plannerCreatePreviewBtn').onclick=()=>{
+   try{
+     const master=plannerMasterTopics();
+     const p=plannerCreateAutoPlan({
+       name:$('plannerCreateName').value,start:$('plannerCreateStart').value,
+       end:$('plannerCreateEnd').value,rounds:Number($('plannerCreateRounds').value),
+       scope:$('plannerCreateScope').value,selected:$('plannerCreateIds').value
+     },master);
+     pendingNewPlan={plan:p,masterSignature:plannerMasterSignature(master)};
+     const days=p.days.filter(d=>d.round),sizes=days.map(d=>d.ids.length);
+     $('plannerCreatePreview').textContent='학습대상 '+(p.entries/p.rounds)+'개 · '+p.rounds+'회독 · '+p.days.length+'일 · '+p.entries+'건 · 일일 '+Math.min(...sizes)+'~'+Math.max(...sizes)+'개 · '+p.start+' ~ '+p.end;
+     $('plannerCreateApply').disabled=false;
+   }catch(error){invalidateNewPlan();$('plannerCreatePreview').textContent='생성 실패: '+error.message}
+ };
+ $('plannerCreateApply').onclick=async()=>{
+   const pending=pendingNewPlan;if(!pending)return;
+   try{
+     if(pending.masterSignature!==plannerMasterSignature(plannerMasterTopics()))throw Error('MASTER가 변경되었습니다. 다시 미리보기하세요.');
+     if(plans.some(p=>p.id===pending.plan.id))throw Error('계획 ID 충돌입니다. 다시 미리보기하세요.');
+     if(!window.confirm('새 계획 "'+pending.plan.name+'"을 별도 저장할까요? 기존 계획·진도는 그대로 유지됩니다.'))return;
+     await put(PLAN,pending.plan);
+     plans.push(pending.plan);active=pending.plan.id;dayKey=pending.plan.days[0].date;page=1;group='all';
+     localStorage.setItem(PREF,active);invalidateNewPlan();await render();
+     $('plannerNotice').textContent='새 계획 저장 완료: '+pending.plan.entries+'건. 기기별로 저장되므로 계획과 진도 백업을 권장합니다.';
+   }catch(error){invalidateNewPlan();$('plannerNotice').textContent='새 계획 저장 실패: '+error.message}
+ };
 }
 
 function makePlanExample(){
