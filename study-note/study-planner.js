@@ -6,6 +6,7 @@ let db, loading=null, plans=[], active='', dayKey='', filter='all', group='all',
 // v2 defaults existing installations to 10 instead of keeping the old 20-topic preference.
 const PAGE_SIZE_KEY='peStudyPlanner.pageSize.v2', PAGE_SIZES=[10,20,30,50];
 let page=1, pageSize=Number(localStorage.getItem(PAGE_SIZE_KEY))||10;
+let pendingExtension=null, pendingNewPlan=null;
 if(!PAGE_SIZES.includes(pageSize))pageSize=10;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,8 +41,31 @@ function initUi(){
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
   <p class="planner-local-info">학습계획별 진도는 현재 기기에만 저장되며 기기 간 자동 동기화되지 않습니다. 기기를 변경하거나 브라우저 데이터를 삭제하기 전에는 아래에서 진도를 백업하세요.</p>
   <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼을 누르면 이 영역이 열리거나 닫힙니다. 여기서는 <strong>새 계획 등록</strong>과 <strong>회독별 진도 파일 백업/복원</strong>을 할 수 있습니다. 학습노트 MASTER 내용은 수정하지 않습니다.</p>
+
+  <section class="planner-manage-section" aria-labelledby="plannerExtendTitle">
+    <h4 id="plannerExtendTitle">① 기존 계획에 신규 토픽 자동 편입</h4>
+    <p>최신 MASTER의 학습대상(Y) 중 계획에 없는 통합ID를 검색합니다. 학습 시작일만 직접 지정하며 5회 배정은 자동 분산됩니다. 기존 일정·학습기록은 보존됩니다. 먼저 상단 MASTER 갱신을 실행하세요.</p>
+    <div class="planner-toolbar"><label for="plannerExtendStart">신규 학습 시작일</label><input id="plannerExtendStart" type="date"><button id="plannerExtendCheck" class="btn" type="button">신규 토픽 확인 · 배정 미리보기</button></div>
+    <p id="plannerExtendPreview" class="planner-help" role="status" aria-live="polite"></p>
+    <div class="planner-manager-actions"><button id="plannerExtendApply" type="button" class="btn primary" disabled>신규 토픽 편입 확정</button><button id="plannerPlanBackup" type="button" class="btn">선택 계획 JSON 백업</button></div>
+  </section>
+  <section class="planner-manage-section" aria-labelledby="plannerCreateTitle">
+    <h4 id="plannerCreateTitle">② 새 학습계획 자동 생성</h4>
+    <p>최신 MASTER와 학습 기간·회독 횟수로 별도 계획을 생성합니다. 기존 계획과 진도는 유지됩니다.</p>
+    <div class="planner-toolbar"><label for="plannerCreateName">계획 이름</label><input id="plannerCreateName" maxlength="100" placeholder="예: 제142회 정보관리기술사 5회독"></div>
+    <div class="planner-create-grid">
+      <label>시작일<input id="plannerCreateStart" type="date"></label>
+      <label>종료일<input id="plannerCreateEnd" type="date"></label>
+      <label>회독 횟수<select id="plannerCreateRounds"><option value="3">3회독</option><option value="5" selected>5회독</option><option value="7">7회독</option></select></label>
+      <label>학습 대상<select id="plannerCreateScope"><option value="target">MASTER 학습대상(Y)</option><option value="all">MASTER 전체</option><option value="selected">직접 통합ID 지정</option></select></label>
+    </div>
+    <label for="plannerCreateIds" id="plannerCreateIdsLabel" class="planner-file-label" hidden>토픽 통합ID (쉼표·세미콜론·공백으로 구분)</label>
+    <textarea id="plannerCreateIds" rows="3" class="planner-create-ids" placeholder="예: T0001; T4069; T4070" hidden></textarea>
+    <div class="planner-manager-actions"><button id="plannerCreatePreviewBtn" type="button" class="btn">자동 일정 미리보기</button><button id="plannerCreateApply" type="button" class="btn primary" disabled>새 학습계획 저장</button></div>
+    <p id="plannerCreatePreview" class="planner-help" role="status" aria-live="polite"></p>
+  </section>
   <section class="planner-manage-section" aria-labelledby="plannerImportTitle">
-    <h4 id="plannerImportTitle">① 새 학습계획 등록</h4>
+    <h4 id="plannerImportTitle">③ 파일로 새 학습계획 등록</h4>
     <p>먼저 아래의 <strong>CSV 작성 예제</strong>를 내려받으세요. Excel에서 행을 추가·수정하고 <strong>CSV UTF-8(.csv)</strong>로 저장한 후, 바로 아래의 <strong>학습계획 파일 선택</strong>으로 등록합니다. JSON 예제도 사용할 수 있습니다.</p>
     <div class="planner-manager-actions"><button type="button" id="plannerCsvSample" class="btn">CSV 작성 예제 다운로드</button><button type="button" id="plannerJsonSample" class="btn">JSON 예제 다운로드</button></div>
     <details class="planner-format-guide"><summary>작성 항목 · 입력 예시 자세히 보기</summary>
@@ -61,13 +85,13 @@ function initUi(){
     <p class="planner-help">선택한 파일을 검사한 후 새 계획으로 추가하고 곧바로 선택합니다. 같은 ID의 기존 계획은 덮어쓰지 않으므로, 변경한 계획은 새 planId로 등록하세요.</p>
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerBackupTitle">
-    <h4 id="plannerBackupTitle">② 진도 백업 — 이 기기의 학습 진행상태 저장</h4>
+    <h4 id="plannerBackupTitle">④ 진도 백업 — 이 기기의 학습 진행상태 저장</h4>
     <p>여기서 <strong>진도</strong>란 계획별·날짜별 토픽의 <strong>완료(기억함) / 다시보기</strong> 기록입니다. 아래 버튼을 누르면 이 기기의 진도를 JSON 파일로 저장합니다. 브라우저 데이터 초기화나 다른 기기 사용 전 보관하세요. 원본 MASTER나 Google Sheets 학습정보를 내려받는 기능은 아닙니다.</p>
     <div class="planner-manager-actions"><button id="plannerExport" class="btn" type="button">진도 기록 백업 JSON 다운로드</button></div>
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerRestoreTitle">
-    <h4 id="plannerRestoreTitle">③ 진도 복원 — 전에 백업한 기록 불러오기</h4>
-    <p>②에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일을 선택하면 이 기기에 진도를 복원합니다. 같은 계획·날짜·토픽에 이미 기록이 있으면 확인 후 덮어쓰므로 주의하세요. 새로운 학습계획 등록 파일과는 다릅니다.</p>
+    <h4 id="plannerRestoreTitle">⑤ 진도 복원 — 전에 백업한 기록 불러오기</h4>
+    <p>④에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일을 선택하면 이 기기에 진도를 복원합니다. 같은 계획·날짜·토픽에 이미 기록이 있으면 확인 후 덮어쓰므로 주의하세요. 새로운 학습계획 등록 파일과는 다릅니다.</p>
     <label for="plannerRestore" class="planner-file-label">진도 백업 파일 선택 — 완료/다시보기 복원용 (.json)</label>
     <input id="plannerRestore" type="file" accept=".json,application/json" aria-label="기존 진도 백업 JSON 파일 선택하여 복원">
   </section>
@@ -81,6 +105,7 @@ function initUi(){
  const style=document.createElement('style');style.textContent=`
  #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:8px 10px;border-radius:8px;line-height:1.5;margin:8px 0;font-size:.8rem;color:#334155}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:8px 0;padding:7px 10px;background:#f8fafc;border-radius:9px}.planner-manager>summary{font-size:.75rem;line-height:1.35;font-weight:600;color:#475569;cursor:pointer}.planner-manager:not([open]){margin-bottom:8px}.planner-manager:not([open])>:not(summary){display:none!important}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}
  #plannerGroup{flex:1 1 185px;min-width:135px;max-width:365px}
+ .planner-create-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}.planner-create-grid label{font-size:.78rem;font-weight:600;color:#475569}.planner-create-grid input,.planner-create-grid select{display:block;width:100%;margin-top:4px}.planner-create-ids{box-sizing:border-box;width:100%;font:inherit;font-size:.85rem;padding:8px;border:1px solid #dbe2ea;border-radius:8px}.planner-create-ids[hidden],#plannerCreateIdsLabel[hidden]{display:none}
  .planner-control-label{color:var(--muted);font-size:.8rem;white-space:nowrap}
  .planner-manage-section{margin:12px 0;padding:12px;border:1px solid #dbe2ea;border-radius:9px;background:#fff}
  .planner-manage-section h4{margin:0 0 8px;color:#152238;font-size:.92rem}
@@ -91,11 +116,11 @@ function initUi(){
  .planner-format-guide summary{font-weight:700;cursor:pointer}
  .planner-fields{background:#f8fafc;border-radius:8px;padding:6px 10px;margin-top:8px}
  .planner-notice{font-size:.83rem;font-weight:600;white-space:pre-wrap}
- @media(max-width:580px){#plannerGroup{flex:1 1 180px;max-width:100%}.planner-manage-section{padding:10px}.planner-manager-actions .btn{max-width:100%;white-space:normal;text-align:center}}
+ @media(max-width:580px){#plannerGroup{flex:1 1 180px;max-width:100%}.planner-manage-section{padding:10px}.planner-manager-actions .btn{max-width:100%;white-space:normal;text-align:center}.planner-create-grid{grid-template-columns:1fr}}
  `;document.head.appendChild(style);
  $('plannerToday').onclick=()=>{page=1;group='all';dayKey=today();$('plannerDate').value=dayKey;render()};
  $('plannerDate').onchange=e=>{page=1;group='all';dayKey=e.target.value;render()};
- $('plannerSelect').onchange=e=>{page=1;group='all';active=e.target.value;localStorage.setItem(PREF,active);const plan=plans.find(p=>p.id===active);dayKey=plan.days.find(d=>d.date===today())?today():plan.days[0].date;render()};
+ $('plannerSelect').onchange=e=>{pendingExtension=null;$('plannerExtendApply').disabled=true;$('plannerExtendPreview').textContent='';page=1;group='all';active=e.target.value;localStorage.setItem(PREF,active);const plan=plans.find(p=>p.id===active);dayKey=plan.days.find(d=>d.date===today())?today():plan.days[0].date;render()};
  $('plannerSearch').oninput=e=>{page=1;search=e.target.value.trim().toLowerCase();render()};
  $('plannerGroup').onchange=e=>{page=1;group=e.target.value;render()};
  $('plannerFilter').onchange=e=>{page=1;filter=e.target.value;render()};
@@ -142,6 +167,86 @@ function initUi(){
   try{await restoreProgressUpload(file)}
   catch(err){$('plannerNotice').textContent='진도 백업 복원 실패: '+err.message}
   finally{e.target.value=''}
+ };
+
+ $('plannerExtendStart').value=today();
+ $('plannerCreateStart').value=today();
+ $('plannerCreateEnd').value=plannerAddDays(today(),99);
+ const invalidateExtend=()=>{pendingExtension=null;$('plannerExtendApply').disabled=true;$('plannerExtendPreview').textContent='시작일을 지정한 뒤 배정을 미리보기로 확인하세요.'};
+ const invalidateNewPlan=()=>{pendingNewPlan=null;$('plannerCreateApply').disabled=true;$('plannerCreatePreview').textContent='생성 전 일정을 미리보기로 확인하세요.'};
+ $('plannerExtendStart').onchange=invalidateExtend;
+ ['plannerCreateName','plannerCreateStart','plannerCreateEnd','plannerCreateRounds','plannerCreateScope','plannerCreateIds'].forEach(id=>{
+   $(id).addEventListener('input',invalidateNewPlan);
+   $(id).addEventListener('change',invalidateNewPlan);
+ });
+ $('plannerCreateScope').addEventListener('change',()=>{
+   const show=$('plannerCreateScope').value==='selected';
+   $('plannerCreateIds').hidden=!show;$('plannerCreateIdsLabel').hidden=!show;
+ });
+ invalidateExtend();invalidateNewPlan();
+ $('plannerPlanBackup').onclick=()=>{
+   const p=plans.find(x=>x.id===active);
+   if(!p){$('plannerNotice').textContent='백업할 학습계획이 없습니다.';return}
+   download('study-plan-'+p.id+'-'+today()+'-backup.json',JSON.stringify(p,null,2));
+   $('plannerNotice').textContent='계획 JSON 백업 완료. 진도는 별도 「진도 기록 백업」으로 저장하세요.';
+ };
+ $('plannerExtendCheck').onclick=()=>{
+   try{
+     const p=plans.find(x=>x.id===active);
+     if(!p)throw Error('먼저 기존 학습계획을 선택하세요.');
+     const topics=plannerMasterTopics();
+     if(!topics.length)throw Error('MASTER가 비어 있습니다. 상단 MASTER 갱신을 먼저 실행하세요.');
+     const pending=plannerMissingTopics(p,topics),start=$('plannerExtendStart').value;
+     if(!validIsoDate(start))throw Error('학습 시작 날짜를 정확히 선택하세요.');
+     if(!pending.length){invalidateExtend();$('plannerExtendPreview').textContent='MASTER 학습대상(Y) 중 미편입 토픽이 없습니다.';return}
+     const result=plannerExtendPlan(p,pending,start,topics);
+     pendingExtension={plan:result,previous:JSON.stringify(p),id:p.id,missingIds:pending.map(t=>t.topicId),masterSignature:plannerMasterSignature(topics)};
+     $('plannerExtendPreview').textContent='신규 학습대상 '+pending.length+'개 · 5회 자동 배정 '+(pending.length*5)+'건 · 시작 '+start+' · 토픽 예: '+pending.slice(0,4).map(t=>t.topicId+' '+t.topicName).join(', ');
+     $('plannerExtendApply').disabled=false;
+   }catch(error){invalidateExtend();$('plannerExtendPreview').textContent='미리보기 실패: '+error.message}
+ };
+ $('plannerExtendApply').onclick=async()=>{
+   const pending=pendingExtension;if(!pending)return;
+   try{
+     const p=plans.find(x=>x.id===pending.id);
+     if(!p||JSON.stringify(p)!==pending.previous)throw Error('계획이 변경되어 미리보기를 다시 해야 합니다.');
+     const master=plannerMasterTopics();
+     if(plannerMasterSignature(master)!==pending.masterSignature)throw Error('MASTER가 갱신되었습니다. 다시 확인하세요.');
+     const missing=plannerMissingTopics(p,master).map(t=>t.topicId);
+     if(missing.join('|')!==pending.missingIds.join('|'))throw Error('신규 토픽 목록이 변경되었습니다.');
+     if(!window.confirm('신규 토픽 '+missing.length+'개를 기존 계획에 각각 5회 자동 편입할까요? 기존 기록과 배정은 그대로 유지됩니다.'))return;
+     await plannerReplaceIfUnchanged(p.id,pending.previous,pending.plan);
+     plans[plans.findIndex(x=>x.id===p.id)]=pending.plan;
+     dayKey=$('plannerExtendStart').value;
+     invalidateExtend();await render();
+     $('plannerNotice').textContent='신규 학습대상 '+missing.length+'개를 5회씩 편입했습니다. 원래 계획·진도·MASTER 원문은 보존했습니다.';
+   }catch(error){invalidateExtend();$('plannerNotice').textContent='편입 실패: '+error.message}
+ };
+ $('plannerCreatePreviewBtn').onclick=()=>{
+   try{
+     const master=plannerMasterTopics();
+     const p=plannerCreateAutoPlan({
+       name:$('plannerCreateName').value,start:$('plannerCreateStart').value,
+       end:$('plannerCreateEnd').value,rounds:Number($('plannerCreateRounds').value),
+       scope:$('plannerCreateScope').value,selected:$('plannerCreateIds').value
+     },master);
+     pendingNewPlan={plan:p,masterSignature:plannerMasterSignature(master)};
+     const days=p.days.filter(d=>d.round),sizes=days.map(d=>d.ids.length);
+     $('plannerCreatePreview').textContent='학습대상 '+(p.entries/p.rounds)+'개 · '+p.rounds+'회독 · '+p.days.length+'일 · '+p.entries+'건 · 일일 '+Math.min(...sizes)+'~'+Math.max(...sizes)+'개 · '+p.start+' ~ '+p.end;
+     $('plannerCreateApply').disabled=false;
+   }catch(error){invalidateNewPlan();$('plannerCreatePreview').textContent='생성 실패: '+error.message}
+ };
+ $('plannerCreateApply').onclick=async()=>{
+   const pending=pendingNewPlan;if(!pending)return;
+   try{
+     if(pending.masterSignature!==plannerMasterSignature(plannerMasterTopics()))throw Error('MASTER가 변경되었습니다. 다시 미리보기하세요.');
+     if(plans.some(p=>p.id===pending.plan.id))throw Error('계획 ID 충돌입니다. 다시 미리보기하세요.');
+     if(!window.confirm('새 계획 "'+pending.plan.name+'"을 별도 저장할까요? 기존 계획·진도는 그대로 유지됩니다.'))return;
+     await put(PLAN,pending.plan);
+     plans.push(pending.plan);active=pending.plan.id;dayKey=pending.plan.days[0].date;page=1;group='all';
+     localStorage.setItem(PREF,active);invalidateNewPlan();await render();
+     $('plannerNotice').textContent='새 계획 저장 완료: '+pending.plan.entries+'건. 기기별로 저장되므로 계획과 진도 백업을 권장합니다.';
+   }catch(error){invalidateNewPlan();$('plannerNotice').textContent='새 계획 저장 실패: '+error.message}
  };
 }
 
@@ -278,6 +383,147 @@ async function restoreProgressUpload(file){
  await render();
 }
 
+
+function plannerAddDays(date,offset){
+ const d=new Date(date+'T00:00:00Z');
+ d.setUTCDate(d.getUTCDate()+offset);
+ return d.toISOString().slice(0,10);
+}
+function plannerDiffDays(start,end){
+ return Math.round((Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000);
+}
+function plannerDayText(plan){
+ const start=plan.start||plan.days[0]?.date,length=plan.days.length,index=plannerDiffDays(start,today())+1;
+ const position=index<1?'시작 전':index>length?'종료':index+'/'+length+'일차';
+ return '시작 '+start+' · 오늘 '+position;
+}
+function plannerMasterTopics(){
+ return typeof allTopics==='undefined'||!Array.isArray(allTopics)?[]:
+   allTopics.filter(t=>/^T\d{4}$/.test(t.topicId||'')).slice();
+}
+function plannerMasterSignature(topics){
+ // A refresh can change studyTarget and grouping even if total topic count is unchanged.
+ return topics.map(t=>[t.topicId,t.studyTarget,t.categoryCode,t.domain].join(':')).sort().join('|');
+}
+function plannerMissingTopics(plan,topics){
+ const planned=new Set(plan.days.flatMap(d=>d.ids));
+ return topics.filter(t=>String(t.studyTarget||'').toUpperCase()==='Y'&&!planned.has(t.topicId))
+   .sort((a,b)=>a.topicId.localeCompare(b.topicId));
+}
+function plannerGroupMatcher(plan,topics){
+ const byId=new Map(topics.map(t=>[t.topicId,t])),byCategory=new Map(),byDomain=new Map(),seen=new Set();
+ function add(map,key,code){
+  if(!key)return;
+  if(!map.has(key))map.set(key,new Map());
+  const tally=map.get(key);tally.set(code,(tally.get(code)||0)+1);
+ }
+ for(const day of plan.days){
+  day.ids.forEach((id,i)=>{
+   if(seen.has(id))return;seen.add(id);
+   const topic=byId.get(id);if(!topic)return;
+   add(byCategory,topic.categoryCode,day.groups[i]);add(byDomain,topic.domain,day.groups[i]);
+  });
+ }
+ function most(map,key){
+  const tally=map.get(key);
+  return tally?[...tally].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0][0]:null;
+ }
+ return topic=>{
+  const code=most(byCategory,topic.categoryCode)||most(byDomain,topic.domain);
+  return code||('NEW-'+String(topic.domain||'ETC').replace(/[^A-Za-z0-9_-]/g,'').slice(0,16));
+ };
+}
+function plannerExtendPlan(plan,topics,start,master){
+ if(!validIsoDate(start))throw Error('학습 시작일이 올바르지 않습니다.');
+ const workdays=plan.days.map((d,i)=>({...d,ids:d.ids.slice(),groups:d.groups.slice(),index:i}));
+ const allowed=workdays.filter(d=>d.date>=start&&Number.isInteger(d.round)&&d.round>=1);
+ if(allowed.length<5)throw Error('선택일 이후 회독 학습일이 5일 미만입니다. 더 이른 시작일을 선택해 주세요.');
+ const outGroups={...(plan.groups||{})},groupFor=plannerGroupMatcher(plan,master);
+ const existing=new Set(plan.days.flatMap(d=>d.ids)),unique=new Set();
+ const ordered=topics.slice().sort((a,b)=>a.topicId.localeCompare(b.topicId));
+ for(const topic of ordered){
+  if(!/^T\d{4}$/.test(topic.topicId)||existing.has(topic.topicId)||unique.has(topic.topicId))throw Error('편입 토픽 ID가 중복되거나 잘못되었습니다.');
+  unique.add(topic.topicId);
+  const code=groupFor(topic);
+  if(!outGroups[code])outGroups[code]='신규 · '+(topic.domainName||topic.domain||'기타');
+  let previous=-1;
+  for(let pass=0;pass<5;pass++){
+   const ideal=pass*(allowed.length-1)/4;
+   const from=previous+1,to=allowed.length-(5-pass);
+   let best=-1,bestScore=Infinity;
+   for(let i=from;i<=to;i++){
+    const d=allowed[i],score=Math.abs(i-ideal)*4+d.ids.length*.11;
+    if(score<bestScore){bestScore=score;best=i}
+   }
+   if(best<0)throw Error('회독 날짜 배정이 불가능합니다.');
+   allowed[best].ids.push(topic.topicId);
+   allowed[best].groups.push(code);
+   previous=best;
+  }
+ }
+ return normalise({...plan,groups:outGroups,days:workdays.map(({index,...d})=>d)});
+}
+function plannerCreateAutoPlan(options,master){
+ const {name,start,end,rounds,scope,selected}=options;
+ if(!String(name||'').trim()||name.trim().length>100)throw Error('계획 이름을 1~100자로 입력하세요.');
+ if(!validIsoDate(start)||!validIsoDate(end)||end<start)throw Error('유효한 시작일과 종료일을 선택하세요.');
+ if(![3,5,7].includes(rounds))throw Error('회독 횟수는 3·5·7회 중 선택하세요.');
+ const span=plannerDiffDays(start,end)+1;
+ if(span<rounds||span>730)throw Error('학습 기간은 회독 횟수 이상, 최대 730일이어야 합니다.');
+ if(!master.length)throw Error('MASTER가 비어 있습니다. MASTER 갱신을 먼저 실행하세요.');
+ const byId=new Map(master.map(t=>[t.topicId,t]));let chosen;
+ if(scope==='target')chosen=master.filter(t=>String(t.studyTarget||'').toUpperCase()==='Y');
+ else if(scope==='all')chosen=master.slice();
+ else if(scope==='selected'){
+  const ids=[...new Set(String(selected||'').toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+  if(!ids.length)throw Error('최소 1개 이상의 통합ID를 입력하세요.');
+  const missing=ids.filter(id=>!byId.has(id));
+  if(missing.length)throw Error('MASTER에 없는 통합ID: '+missing.slice(0,8).join(', '));
+  chosen=ids.map(id=>byId.get(id));
+ }else throw Error('학습대상 선택값이 잘못되었습니다.');
+ if(!chosen.length)throw Error('배정할 학습대상 토픽이 없습니다.');
+ const reserve=span>=30?2:0,activeDays=span-reserve;
+ if(activeDays<rounds)throw Error('회독 기간에 학습일이 부족합니다.');
+ const days=Array.from({length:span},(_,i)=>({
+  date:plannerAddDays(start,i),
+  round:i<activeDays?Math.floor(i*rounds/activeDays)+1:null,
+  ids:[],groups:[]
+ }));
+ const groups={},sorted=chosen.slice().sort((a,b)=>String(a.categoryCode||'').localeCompare(String(b.categoryCode||''))||a.topicId.localeCompare(b.topicId));
+ for(const t of sorted){
+  const g=String(t.categoryCode||('NEW-'+(t.domain||'ETC'))).replace(/[^A-Za-z0-9_.-]/g,'').slice(0,32)||'NEW-ETC';
+  groups[g]=t.categoryName||t.domainName||g;
+ }
+ for(let r=1;r<=rounds;r++){
+  const segment=days.filter(d=>d.round===r);
+  if(!segment.length)throw Error('회독 학습일 배정이 잘못되었습니다.');
+  sorted.forEach((t,i)=>{
+   const g=String(t.categoryCode||('NEW-'+(t.domain||'ETC'))).replace(/[^A-Za-z0-9_.-]/g,'').slice(0,32)||'NEW-ETC';
+   const day=segment[(i+(r-1)*Math.floor(segment.length/2))%segment.length];
+   day.ids.push(t.topicId);day.groups.push(g);
+  });
+ }
+ const id='auto-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+ return normalise({id,name:name.trim(),start,end,rounds,groups,days});
+}
+function plannerReplaceIfUnchanged(id,previous,next){
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(PLAN,'readwrite'),store=tx.objectStore(PLAN),req=store.get(id);
+  let fail=null;
+  req.onsuccess=()=>{
+   if(JSON.stringify(req.result)!==previous){
+    fail=Error('다른 탭에서 계획이 변경되었습니다. 새로고침하고 다시 확인해 주세요.');
+    tx.abort();return;
+   }
+   store.put(next);
+  };
+  req.onerror=()=>{fail=req.error};
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(fail||tx.error||Error('학습계획 저장 실패'));
+  tx.onabort=()=>reject(fail||tx.error||Error('학습계획 저장 취소'));
+ });
+}
+
 function goToPlannerPage(next){
  const value=Number(next);
  page=Number.isFinite(value)?Math.max(1,Math.trunc(value)):1;
@@ -312,7 +558,7 @@ async function render(){
  $('plannerSelect').innerHTML=plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');$('plannerSelect').value=active;$('plannerDate').value=dayKey;
  const p=plans.find(p=>p.id===active);if(!p){$('plannerGroups').textContent='등록된 학습계획이 없습니다. CSV 또는 JSON 계획 파일을 등록하세요.';$('plannerStats').textContent='';$('plannerGroup').innerHTML='<option value="all">전체 그룹</option>';$('plannerPager').classList.add('hidden');return}
  const d=p.days.find(d=>d.date===dayKey);const states=await all(PROGRESS),map=new Map(states.map(s=>[s.key,s]));
- if(!d){group='all';$('plannerGroup').innerHTML='<option value="all">전체 그룹 (0개)</option>';$('plannerGroups').textContent='이 날짜에는 계획된 토픽이 없습니다.';$('plannerStats').textContent=p.name+' · '+dayKey;$('plannerPager').classList.add('hidden');return}
+ if(!d){group='all';$('plannerGroup').innerHTML='<option value="all">전체 그룹 (0개)</option>';$('plannerGroups').textContent='이 날짜에는 계획된 토픽이 없습니다.';$('plannerStats').textContent=p.name+' · '+plannerDayText(p)+' · '+dayKey;$('plannerPager').classList.add('hidden');return}
  const dayGroupCounts=new Map();
  for(const code of d.groups)dayGroupCounts.set(code,(dayGroupCounts.get(code)||0)+1);
  if(group!=='all'&&!dayGroupCounts.has(group))group='all';
@@ -338,7 +584,7 @@ async function render(){
  $('plannerNextPage').disabled=page>=totalPages;
  $('plannerPageRange').textContent=total?(start+1)+'–'+Math.min(start+pageSize,total)+' / '+total+'개':'0개';
  $('plannerPager').classList.toggle('hidden',total<=pageSize);
- $('plannerStats').textContent=p.name+' · '+d.date+' · '+(d.round?d.round+'회독':'최종 점검')+' · 계획 '+d.ids.length+'개 / 완료 '+done+'개 / 다시보기 '+miss+'개 / 남은 '+(d.ids.length-done)+'개'+(group==='all'?'':' · 선택 그룹 '+dayGroupCounts.get(group)+'개');
+ $('plannerStats').textContent=p.name+' · '+plannerDayText(p)+' · '+d.date+' · '+(d.round?d.round+'회독':'최종 점검')+' · 계획 '+d.ids.length+'개 / 완료 '+done+'개 / 다시보기 '+miss+'개 / 남은 '+(d.ids.length-done)+'개'+(group==='all'?'':' · 선택 그룹 '+dayGroupCounts.get(group)+'개');
  $('plannerGroups').innerHTML=[...byGroup.entries()].map(([g,rows])=>'<details open class="planner-group"><summary>'+esc(g)+' · '+esc(p.groups?.[g]||g)+' (이 페이지 '+rows.length+'개 / 해당 그룹 '+groupCounts.get(g)+'개)</summary>'+rows.map(r=>'<button class="planner-topic" data-plan-topic="'+esc(r.id)+'" type="button"><span>'+esc(r.name)+'<small>'+esc(r.id)+(r.missing?' · MASTER에 없음':'')+'</small></span><span>'+({done:'완료',miss:'다시보기',todo:'미학습'}[r.status])+'</span></button>').join('')+'</details>').join('')||'<p>조건에 맞는 토픽이 없습니다.</p>';
  $('plannerGroups').querySelectorAll('[data-plan-topic]').forEach(btn=>btn.onclick=()=>{let id=btn.dataset.planTopic;context={planId:active,date:d.date,topicId:id};if(!(typeof allTopics!=='undefined'&&allTopics.some(t=>t.topicId===id))){alert('MASTER에 없는 토픽입니다: '+id);return}navigateToLearningTopic(id)});
 }
