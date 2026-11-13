@@ -1,0 +1,27 @@
+name: Planner Sync Stage3 Synthetic Backend
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
+      - 'study-note/tests/test_planner_sync_stage3_synthetic.cjs'
+      - '.github/workflows/planner-sync-stage3-synthetic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-api-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Synthetic Apps Script storage, replay, conflict and 19,060 slots
+        run: |
+          node --check study-note/tests/test_planner_sync_stage3_synthetic.cjs
+          node study-note/tests/test_planner_sync_stage3_synthetic.cjs
