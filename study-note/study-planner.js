@@ -37,7 +37,7 @@ function initUi(){
  const pane=document.createElement('section');pane.id='studyPlannerPanel';pane.className='hidden';pane.innerHTML=`
  <div class="planner-toolbar"><select id="plannerSelect" aria-label="학습계획 선택"></select><input id="plannerDate" type="date" aria-label="학습일 선택"><button type="button" id="plannerToday" class="btn">오늘</button><button type="button" id="plannerManage" class="btn" title="새 계획 등록, 작성 양식 다운로드, 회독별 진도 백업 및 복원" aria-controls="plannerManagement" aria-expanded="false">계획 추가 · 진도 관리</button></div>
  <div id="plannerStats" class="planner-stats"></div>
-  <p id="plannerSyncStatus" class="planner-local-info" role="status" aria-live="polite">학습계획은 아직 이 기기에만 저장됩니다.</p>
+  <p id="plannerSyncStatus" class="planner-sync-state" role="status" aria-live="polite">학습계획은 아직 이 기기에만 저장됩니다.</p>
  <details id="plannerManagement" class="planner-manager">
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
   <p class="planner-local-info">학습계획별 진도는 현재 기기에만 저장되며 기기 간 자동 동기화되지 않습니다. 기기를 변경하거나 브라우저 데이터를 삭제하기 전에는 아래에서 진도를 백업하세요.</p>
@@ -104,7 +104,7 @@ function initUi(){
 `;
  document.querySelector('.learning-view-tabs').after(pane);
  const style=document.createElement('style');style.textContent=`
- #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:8px 10px;border-radius:8px;line-height:1.5;margin:8px 0;font-size:.8rem;color:#334155}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:8px 0;padding:7px 10px;background:#f8fafc;border-radius:9px}.planner-manager>summary{font-size:.75rem;line-height:1.35;font-weight:600;color:#475569;cursor:pointer}.planner-manager:not([open]){margin-bottom:8px}.planner-manager:not([open])>:not(summary){display:none!important}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}
+ #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:8px 10px;border-radius:8px;line-height:1.5;margin:8px 0;font-size:.8rem;color:#334155}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info,.planner-sync-state{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:8px 0;padding:7px 10px;background:#f8fafc;border-radius:9px}.planner-manager>summary{font-size:.75rem;line-height:1.35;font-weight:600;color:#475569;cursor:pointer}.planner-manager:not([open]){margin-bottom:8px}.planner-manager:not([open])>:not(summary){display:none!important}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}
  #plannerGroup{flex:1 1 185px;min-width:135px;max-width:365px}
  .planner-create-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}.planner-create-grid label{font-size:.78rem;font-weight:600;color:#475569}.planner-create-grid input,.planner-create-grid select{display:block;width:100%;margin-top:4px}.planner-create-ids{box-sizing:border-box;width:100%;font:inherit;font-size:.85rem;padding:8px;border:1px solid #dbe2ea;border-radius:8px}.planner-create-ids[hidden],#plannerCreateIdsLabel[hidden]{display:none}
  .planner-control-label{color:var(--muted);font-size:.8rem;white-space:nowrap}
@@ -624,6 +624,38 @@ async function plannerSync(){
  await plannerSyncStatus();
  return result;
 }
+function connectSyntheticSyncButton(){
+ const client=window.PEPlannerSyncClient;
+ if(!client?.testEnabled()||typeof syncLearningStates!=='function')return;
+ const button=$('syncLearningBtn');
+ if(!button||button.dataset.plannerSyncBridge==='installed')return;
+ // Only in loopback/synthetic testing; the unmodified legacy handler remains in production.
+ button.removeEventListener('click',syncLearningStates);
+ button.dataset.plannerSyncBridge='installed';
+ let busy=false;
+ button.addEventListener('click',async()=>{
+  if(busy)return;busy=true;
+  try{
+   await syncLearningStates();
+   const result=await plannerSync();
+   if(typeof showToast==='function'){
+    if(result.state==='synced')showToast('일반 학습정보 및 회독계획·진도가 동기화되었습니다.');
+    else if(result.state!=='disabled')showToast('일반 학습정보와 별도로 회독계획·진도 상태: '+result.state);
+   }
+  }catch(error){
+   console.error('격리 학습계획 동기화 실패',error);
+   if(typeof showToast==='function')showToast('회독계획·진도는 미전송으로 보관 중입니다: '+error.message);
+  }finally{busy=false;await plannerSyncStatus();}
+ });
+}
+function loadSyntheticSyncAddon(){
+ if(window.PEPlannerSyncClient){connectSyntheticSyncButton();plannerSyncStatus().catch(console.error);return;}
+ const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261113-stage4-test-disabled';
+ script.async=true;
+ script.onload=()=>{connectSyntheticSyncButton();plannerSyncStatus().catch(console.error);};
+ script.onerror=()=>console.warn('Stage4 planner sync addon unavailable; existing local study planner remains usable.');
+ document.head.appendChild(script);
+}
 window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus};
-window.addEventListener('DOMContentLoaded',()=>{initUi();load().catch(console.error)});
+window.addEventListener('DOMContentLoaded',()=>{initUi();load().catch(console.error);loadSyntheticSyncAddon();});
 })();
