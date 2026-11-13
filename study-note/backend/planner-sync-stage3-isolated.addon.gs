@@ -233,7 +233,7 @@ function PS3_progressWrite_(ss,d,auth){
  var existingIds={};progress.rows.forEach(function(r){existingIds[r[8]]=r;});
  var slotsByPlan={},pmeta={};
  changes.forEach(function(c){
-  var op=PS3_mutationId_(c),hash=PS3_sha_(JSON.stringify([c.planId,c.date,c.topicId,c.status,c.expectedRowRevision,c.planRevisionAtWrite]));
+  var op=PS3_mutationId_(c),hash=PS3_sha_(JSON.stringify([c.planId,c.date,c.topicId,c.status,c.expectedRowRevision,c.planRevisionAtWrite,PS3_str_(c.clientAt)]));
   if(c.clientAt!=null&&c.clientAt!==''&&!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(PS3_str_(c.clientAt)))PS3_fail_('BAD_TIMESTAMP','clientAt는 ISO UTC 시간이어야 합니다.');
   var oldOp=existingIds[op];
   if(oldOp){
