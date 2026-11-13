@@ -125,6 +125,7 @@ async function prepared(db,srv,base=[]){
  const before=server.calls;
  await assert.rejects(mig.compare(pc,saved.id,server),/백업/);
  assert.equal(server.calls,before,'no remote GET without file proof');
+ await assert.rejects(mig.apply(pc,saved.id,selections(),server),/백업 검증/);
  const forged=JSON.parse(JSON.stringify(backupFile));forged.data.progress[0].status='miss';
  await assert.rejects(mig.verifyBackup(forged),/해시/);
  await mig.confirmBackup(pc,saved.id,JSON.parse(JSON.stringify(backupFile)));
@@ -132,7 +133,7 @@ async function prepared(db,srv,base=[]){
  assert.equal(preview.counts.planUploads,1);
  assert.equal(preview.counts.progressUploads,1);
  // Old unrelated pending must not be silently erased; state is held until resolved.
- const first=await mig.apply(pc,saved.id,selections(),server);
+ const first=await mig.apply(pc,saved.id,selections(),server,true);
  assert.equal(first.ready,false);
  assert.equal(first.pending,1);
  assert.equal((await mig.state(pc)).state,'conflict_held');
@@ -144,7 +145,7 @@ async function prepared(db,srv,base=[]){
  const fresh=await dbOpen('stage5-empty-device');
  const f=await prepared(fresh,server);
  assert.equal(f.preview.counts.planDownloads,1);assert.equal(f.preview.counts.progressDownloads,1);
- const synced=await mig.apply(fresh,f.id,selections(),server);
+ const synced=await mig.apply(fresh,f.id,selections(),server,true);
  assert.equal(synced.ready,true);
  assert.equal((await all(fresh,'plans')).length,1);
  assert.equal((await all(fresh,'progress'))[0].status,'done');
@@ -154,7 +155,7 @@ async function prepared(db,srv,base=[]){
  await write(tablet,'progress',{...done,status:'miss'});
  await write(tablet,'progress',progress(base.id,'2026-11-14','T0001','done'));
  const t=await prepared(tablet,server,[base]);assert.equal(t.preview.counts.conflicts,1);
- const tFinal=await mig.apply(tablet,t.id,selections(),server);
+ const tFinal=await mig.apply(tablet,t.id,selections(),server,true);
  assert.equal(tFinal.ready,false);
  assert.equal((await all(tablet,'progress')).find(x=>x.key===done.key).status,'miss');
  const held=(await all(tablet,'syncConflicts')).find(x=>x.key===done.key);
@@ -179,7 +180,7 @@ async function prepared(db,srv,base=[]){
  const third=await dbOpen('stage5-merge');await write(third,'plans',local);
  const stage=await prepared(third,another,[common]);
  assert.equal(stage.preview.planActions[0].kind,'merge-upload');
- const merged=await mig.apply(third,stage.id,selections(),another);
+ const merged=await mig.apply(third,stage.id,selections(),another,true);
  assert.equal(merged.ready,true);
  assert.equal(another.plans.get(common.id).rev,2);
  assert.equal((await all(third,'plans'))[0].entries,5);
@@ -187,7 +188,7 @@ async function prepared(db,srv,base=[]){
  const badServer=new Server();await badServer.seed(extend(common,'T0002','2026-11-14'));
  const bad=await dbOpen('stage5-schedule-conflict');await write(bad,'plans',extend(common,'T0002','2026-11-13'));
  const bp=await prepared(bad,badServer,[common]);assert.equal(bp.preview.counts.conflicts,1);
- const blocked=await mig.apply(bad,bp.id,selections(),badServer);
+ const blocked=await mig.apply(bad,bp.id,selections(),badServer,true);
  assert.equal(blocked.ready,false);
  assert.equal(badServer.plans.get(common.id).rev,1);
  assert((await all(bad,'syncConflicts')).some(x=>x.kind==='plan'));
@@ -195,13 +196,26 @@ async function prepared(db,srv,base=[]){
  const failServer=new Server(),fail=await dbOpen('stage5-retry');await write(fail,'plans',basePlan('retry-plan'));
  const retry=await prepared(fail,failServer);
  failServer.drop='commitstudyplanrevision';
- await assert.rejects(mig.apply(fail,retry.id,selections(),failServer),/SYNTHETIC_ACK_LOST/);
+ await assert.rejects(mig.apply(fail,retry.id,selections(),failServer,true),/SYNTHETIC_ACK_LOST/);
  assert.equal((await mig.state(fail)).state,'pending_retry');
+ await assert.rejects(mig.cancel(fail,retry.id),/취소할 수 없습니다/);
  assert.equal(failServer.plans.get('retry-plan').rev,1);
- const replay=await mig.apply(fail,retry.id,selections(),failServer);
+ const replay=await mig.apply(fail,retry.id,selections(),failServer,true);
  assert.equal(replay.ready,true);
  assert.equal(failServer.plans.get('retry-plan').rev,1);
  const ids=[...failServer.stages.keys()];assert.equal(ids.length,1);
+ // A browser process may close after persisting UPLOADING but before the first API request.
+ const crashServer=new Server(),crashed=await dbOpen('stage5-browser-crash');
+ await write(crashed,'plans',basePlan('crash-plan'));
+ const cr=await prepared(crashed,crashServer);
+ const pre=await new Promise((resolve,reject)=>{
+  const r=crashed.transaction('preSyncSnapshots').objectStore('preSyncSnapshots').get(cr.id);
+  r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+ });
+ await write(crashed,'preSyncSnapshots',{...pre,state:'UPLOADING',approvedAt:new Date().toISOString(),approval:selections(),journal:cr.preview.journal});
+ const afterCrash=await mig.apply(crashed,cr.id,selections(),crashServer);
+ assert.equal(afterCrash.ready,true);
+ assert.equal(crashServer.plans.get('crash-plan').rev,1);
  // Changing local data after a backup but before file proof blocks that proof.
  const stale=await dbOpen('stage5-stale');await write(stale,'plans',basePlan('stale-plan'));
  const staleFile=await mig.backup(stale),sref=await mig.storeBackup(stale,staleFile);
