@@ -108,7 +108,7 @@
 | --- | --- | --- | --- |
 | 목록·버전 확인 | signed GET `studyPlans` | 빈 객체 | planId,activeRevision,activeHash,progressSeq 등 |
 | 활성 일정 페이지 조회 | signed GET `studyPlanSchedule` | planId,revision,offset,limit | chunks,hasMore,nextOffset,hash |
-| 진도 이벤트 증분 조회 | signed GET `studyProgress` | planId,afterSeq,limit | events,hasMore,nextSeq,highWatermark |
+| 진도 이벤트 증분 조회 | signed GET `studyProgress` | planId,afterSeq,limit,untilSeq(후속 페이지에 고정) | events,hasMore,nextSeq,highWatermark |
 | 계획 업로드 시작 | signed POST `beginStudyPlanRevision` | operationId,planId,baseRevision,meta,snapshotHash,expectedChunks | stageId,allocatedRevision |
 | 일정 분할 업로드 | signed POST `putStudyPlanChunks` | operationId,stageId,chunks[] | accepted,duplicated,received |
 | 활성 계획 확정 | signed POST `commitStudyPlanRevision` | operationId,stageId,baseRevision,snapshotHash | activeRevision,activeHash |
@@ -171,12 +171,12 @@ API의 GET query는 현행 signed `authPayload`를 사용; 서버 응답은 기�
 
 - 일반 버튼 `학습정보 동기화`: 인증→일반 학습정보 동기화(기존 경로 유지)→계획 메타 GET→필요한 일정 revision GET→로컬 변경 비교/충돌 보류→진도 증분 GET→로컬 pending 이벤트 조건부 업로드→누락된 서버 이벤트 재조회→커서/마지막 성공시각 **최종 검증 후** 저장.
 - 최초 실행은 별도 Stage 5 마이그레이션 모드가 우선한다. 자동 서버 쓰기/로컬 덮어쓰기 전 사용자 확인.
-- GET 중 응답이 커지면 offset/afterSeq 페이징. 반환 `highWatermark`를 한 번의 읽기 세션 상한으로 고정하여 무한 페이지/동시 쓰기 혼선을 막는다.
+- GET 중 응답이 커지면 offset/afterSeq 페이징. **첫 진도 GET에서 반환된 `highWatermark`를 이후 요청의 `untilSeq`로 전달**하여 한 번의 읽기 세션 상한을 고정하고 중간 동시 쓰기 혼선을 막는다.
 - 쓰기는 항목별 CAS 충돌을 반환한다. **기존 일반 학습정보의 전송 성공과 새 계획의 전송 실패는 분리된 상태로 사용자에게 표시**한다(부분 성공을 전체 동기화 완료라고 표시하지 않음).
 
 ## E. 안전/오류/성능 규칙
 
-1. 요청 값의 planId/date/topicId 정규식·MASTER에 통합ID 존재·선택 일정에 배정된 토픽인지 검증. 최종 점검 빈 날짜 및 기존의 N 토픽을 임의로 삭제하지 않는다.
+1. 요청 값의 planId/date/topicId 정규식·MASTER 통합ID·활성 일정 슬롯 존재를 검증한다. **단, 이전 계획에 이미 존재했던 N/삭제·비활성 토픽의 과거 일정/진도는 `legacy-import`와 기존 커밋 revision 근거가 있으면 보존(새 배정은 금지)**한다. 최종 점검 빈 날짜 및 기존 N 토픽을 임의로 삭제하지 않는다.
 2. 서버 스프레드시트 ID는 **배포 Apps Script Script Properties에서 조회한 정확한 대상**으로만 사용. 이름만 같은 다른 Sheets 금지.
 3. 같은 operationId로 다른 payloadHash면 `OPERATION_REUSE`, 서버 revision이 다르면 `REVISION_CONFLICT`, 배정되지 않은 key는 `SLOT_NOT_FOUND`, 인증 실패는 기존 보안 에러 체계를 사용.
 4. 읽기 실패·타임아웃·429/서버 오류는 로컬 pending을 **유지**. 재시도 시 operationId 재사용; 사용자 완료 상태가 다른 장치에서 삭제되지 않음.
