@@ -44,6 +44,7 @@
 - `plannerExtendPlan`·`plannerCreateAutoPlan`·CSV/JSON 복원도 로컬 `plans`만 변경.
 - 일반 학습 기록은 `study-note.html`의 `recordLearningResult`→`updateLearningState`→`syncSingleLearningState`와 연결되어 있으나, 같은 이벤트로 호출하는 `StudyPlanner.record`는 서버 전송을 하지 않음.
 - 기존 `syncLearningStates`: 일반 학습정보 dirty 기록을 50건씩 전송한 뒤 원격 목록을 받아 업데이트. **계획/진도 조회·전송은 포함되지 않음.**
+- UI 문구 실측: `plannerManagement`의 제목은 '학습계획 추가 · 진도 백업/복원 사용 안내', 하위 `planner-local-info`는 기기별 저장을 명시. `plannerExport`와 `restoreProgressUpload`의 알림에는 기능 번호 **③/②**가 일부 남아 있으나 화면의 현재 백업·복원 번호는 **④/⑤**임. Stage 6에서 동기화 설명과 번호 불일치를 함께 수정.
 
 ## 4. 운영 Apps Script / 보안 구조
 
