@@ -226,6 +226,40 @@ async function selectTopic(page,id,date){
   assert.deepEqual(snap.plans.find(p=>p.id==='legacy-plan'),legacyPlan);
   assert.deepEqual(snap.progress.find(p=>p.key===legacyProgress.key),legacyProgress);
   assert.deepEqual(pageErrors,[]);
+  // Third synthetic profile: validate the real Stage5 wizard's backup-file
+  // re-selection gate, preview and user-confirmed initial import.
+  const mobileCtx=await browser.createBrowserContext();
+  const mobile=await newPage(mobileCtx,origin);
+  mobile.on('dialog',d=>d.accept());mobile.on('pageerror',e=>pageErrors.push(String(e)));
+  await navigate(mobile,origin);
+  await mobile.waitForSelector('#plannerFirstSyncWizard',{timeout:10000});
+  await mobile.evaluate(()=>{
+   PEPlannerMigration.downloadBackup=file=>{window.__stage5SavedFile=JSON.stringify(file);};
+  });
+  await mobile.click('#plannerManage');
+  const preflightCalls=memory.calls;
+  await mobile.click('#plannerMigBackup');
+  await mobile.waitForFunction(()=>Boolean(window.__stage5SavedFile),{timeout:25000});
+  assert.equal(memory.calls,preflightCalls,'backup download must make no server calls');
+  assert.equal(await mobile.$eval('#plannerMigCompare',e=>e.disabled),true,'preview disabled until physical-file reimport');
+  await mobile.evaluate(()=>{
+   const selection=new DataTransfer();
+   selection.items.add(new File([window.__stage5SavedFile],'downloaded-full-backup.json',{type:'application/json'}));
+   const input=document.getElementById('plannerMigVerify');input.files=selection.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  await mobile.waitForFunction(()=>!document.getElementById('plannerMigCompare').disabled,{timeout:12000});
+  await mobile.click('#plannerMigCompare');
+  await mobile.waitForFunction(()=>!document.getElementById('plannerMigApprove').disabled,{timeout:25000});
+  assert((await mobile.$eval('#plannerMigPreview',e=>e.textContent)).includes('충돌'));
+  await mobile.click('#plannerMigApprove');
+  await mobile.waitForFunction(()=>document.getElementById('plannerMigMessage').textContent.includes('첫 통합 검증 완료'),{timeout:90000});
+  const mobileData=await values(mobile);
+  assert(mobileData.plans.some(p=>p.id===planId),'third profile must import server plan');
+  assert(mobileData.progress.some(p=>p.planId===planId),'third profile must import server progress');
+  assert(mobileData.meta.some(x=>x.key==='migration'&&x.state==='ready'));
+  assert.deepEqual(pageErrors,[]);
+  console.log('STAGE5_UI_BROWSER_PASS',JSON.stringify({downloadReselected:true,previewRequired:true,approved:true,thirdProfile:true,slotsPreserved:mobileData.plans.length}));
+  await mobileCtx.close();
   console.log('STAGE4_BROWSER_PASS',JSON.stringify({v1Preserved:true,stores:snap.names.length,crossDevice:true,offline:true,conflictHeld:true,ackReplay:true,mockCalls:memory.calls,planId}));
  }finally{
   if(c1)await c1.close();if(c2)await c2.close();if(browser)await browser.close();
