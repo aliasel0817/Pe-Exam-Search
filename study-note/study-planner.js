@@ -134,6 +134,7 @@ function initUi(){
  $('plannerManage').onclick=()=>{
   const panel=$('plannerManagement');
   panel.open=!panel.open;
+  $('plannerManage').setAttribute('aria-expanded',String(panel.open));
   if(panel.open)panel.scrollIntoView({block:'nearest',behavior:'smooth'});
  };
  $('plannerManagement').addEventListener('toggle',()=>{
