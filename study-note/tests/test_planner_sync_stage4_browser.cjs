@@ -129,7 +129,7 @@ async function navigate(page,origin){
  await page.goto(origin+'/harness',{waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>window.StudyPlanner&&document.getElementById('plannerManagement'),{timeout:14000});
  await page.evaluate(()=>StudyPlanner.render());
- await page.waitForFunction(()=>document.getElementById('plannerSelect')?.options?.length>0,{timeout:14000});
+ // A genuinely new second device has no local plans until remote first import.
 }
 async function migrateMock(page){
  await page.evaluate(async()=>{
