@@ -640,7 +640,7 @@ function connectSyntheticSyncButton(){
    await syncLearningStates();
    const result=await plannerSync();
    if(typeof showToast==='function'){
-    if(result.state==='synced')showToast('일반 학습정보 및 회독계획·진도가 동기화되었습니다.');
+    if(result.state==='synced')showToast('회독계획·진도 동기화 완료 · 일반 학습정보 결과는 별도 안내를 확인하세요.');
     else if(result.state!=='disabled')showToast('일반 학습정보와 별도로 회독계획·진도 상태: '+result.state);
    }
   }catch(error){
