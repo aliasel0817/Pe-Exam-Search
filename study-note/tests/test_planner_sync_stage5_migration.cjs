@@ -2,7 +2,7 @@
 /* No LIVE data, Apps Script or real devices. Stage5 deterministic IndexedDB + simulated server. */
 const assert=require('node:assert/strict');
 const {webcrypto}=require('node:crypto');
-globalThis.crypto=webcrypto;
+Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});
 globalThis.location={hostname:'127.0.0.1'};
 globalThis.navigator={onLine:true};
 globalThis.PE_PLANNER_SYNC_TEST_ENABLED=true;
