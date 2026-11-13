@@ -11,7 +11,7 @@ if(!PAGE_SIZES.includes(pageSize))pageSize=10;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const openDb=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{let d=r.result;d.createObjectStore(PLAN,{keyPath:'id'});d.createObjectStore(PROGRESS,{keyPath:'key'});};r.onerror=()=>reject(r.error);r.onsuccess=()=>resolve(r.result)});
+const openDb=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(DB,2);r.onupgradeneeded=()=>{const d=r.result;const stores=[[PLAN,'id'],[PROGRESS,'key'],['syncMeta','key'],['pendingOps','id'],['syncConflicts','id'],['preSyncSnapshots','id']];for(const [name,key] of stores)if(!d.objectStoreNames.contains(name))d.createObjectStore(name,{keyPath:key});};r.onerror=()=>reject(r.error);r.onblocked=()=>console.warn('학습계획 DB v2 업그레이드 대기: 다른 탭을 닫고 다시 열어 주세요.');r.onsuccess=()=>resolve(r.result)});
 function all(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 function put(store,object){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(object);r.onsuccess=resolve;r.onerror=()=>reject(r.error)})}
 function normalise(item){
@@ -37,6 +37,7 @@ function initUi(){
  const pane=document.createElement('section');pane.id='studyPlannerPanel';pane.className='hidden';pane.innerHTML=`
  <div class="planner-toolbar"><select id="plannerSelect" aria-label="학습계획 선택"></select><input id="plannerDate" type="date" aria-label="학습일 선택"><button type="button" id="plannerToday" class="btn">오늘</button><button type="button" id="plannerManage" class="btn" title="새 계획 등록, 작성 양식 다운로드, 회독별 진도 백업 및 복원" aria-controls="plannerManagement" aria-expanded="false">계획 추가 · 진도 관리</button></div>
  <div id="plannerStats" class="planner-stats"></div>
+  <p id="plannerSyncStatus" class="planner-local-info" role="status" aria-live="polite">학습계획은 아직 이 기기에만 저장됩니다.</p>
  <details id="plannerManagement" class="planner-manager">
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
   <p class="planner-local-info">학습계획별 진도는 현재 기기에만 저장되며 기기 간 자동 동기화되지 않습니다. 기기를 변경하거나 브라우저 데이터를 삭제하기 전에는 아래에서 진도를 백업하세요.</p>
@@ -148,7 +149,7 @@ function initUi(){
    const knownIds=new Set((typeof allTopics!=='undefined'?allTopics:[]).map(t=>t.topicId));
    const missing=[...new Set(imported.days.flatMap(d=>d.ids))].filter(id=>knownIds.size&&!knownIds.has(id));
    if(missing.length)throw Error('MASTER에 없는 통합ID '+missing.length+'개: '+missing.slice(0,8).join(', '));
-   await put(PLAN,imported);
+   await (window.PEPlannerSyncClient?window.PEPlannerSyncClient.queuePlan(db,imported):put(PLAN,imported));
    plans.push(imported);active=imported.id;page=1;group='all';
    localStorage.setItem(PREF,active);dayKey=imported.days[0].date;await render();
    $('plannerNotice').textContent='새 학습계획 "'+imported.name+'" 등록 완료: '+imported.entries+'건. 기존 계획·MASTER·학습기록은 변경하지 않았습니다.';
@@ -242,10 +243,10 @@ function initUi(){
      if(pending.masterSignature!==plannerMasterSignature(plannerMasterTopics()))throw Error('MASTER가 변경되었습니다. 다시 미리보기하세요.');
      if(plans.some(p=>p.id===pending.plan.id))throw Error('계획 ID 충돌입니다. 다시 미리보기하세요.');
      if(!window.confirm('새 계획 "'+pending.plan.name+'"을 별도 저장할까요? 기존 계획·진도는 그대로 유지됩니다.'))return;
-     await put(PLAN,pending.plan);
+     await (window.PEPlannerSyncClient?window.PEPlannerSyncClient.queuePlan(db,pending.plan):put(PLAN,pending.plan));
      plans.push(pending.plan);active=pending.plan.id;dayKey=pending.plan.days[0].date;page=1;group='all';
      localStorage.setItem(PREF,active);invalidateNewPlan();await render();
-     $('plannerNotice').textContent='새 계획 저장 완료: '+pending.plan.entries+'건. 기기별로 저장되므로 계획과 진도 백업을 권장합니다.';
+     $('plannerNotice').textContent='새 계획 저장 완료: '+pending.plan.entries+'건. 서버 공유 전에는 이 기기의 JSON 백업을 보관하세요.';
    }catch(error){invalidateNewPlan();$('plannerNotice').textContent='새 계획 저장 실패: '+error.message}
  };
 }
@@ -378,7 +379,7 @@ async function restoreProgressUpload(file){
   const ok=window.confirm('이미 저장된 진도 '+overlaps+'건이 있습니다.\n이 파일의 동일 계획·날짜·토픽 기록으로 덮어쓸까요?\n다른 기록과 기존 MASTER는 유지됩니다.');
   if(!ok){$('plannerNotice').textContent='진도 복원이 취소되었습니다. 기존 기록은 그대로입니다.';return}
  }
- await putMany(PROGRESS,obj.progress);
+ await (window.PEPlannerSyncClient?window.PEPlannerSyncClient.queueProgressBatch(db,obj.progress):putMany(PROGRESS,obj.progress));
  $('plannerNotice').textContent='진도 '+obj.progress.length+'건을 복원했습니다.'+(overlaps?' (기존 '+overlaps+'건 덮어씀)':'')+' 기존 MASTER/학습정보는 변경하지 않았습니다.';
  await render();
 }
@@ -507,6 +508,7 @@ function plannerCreateAutoPlan(options,master){
  return normalise({id,name:name.trim(),start,end,rounds,groups,days});
 }
 function plannerReplaceIfUnchanged(id,previous,next){
+ if(window.PEPlannerSyncClient)return window.PEPlannerSyncClient.queuePlan(db,next,previous);
  return new Promise((resolve,reject)=>{
   const tx=db.transaction(PLAN,'readwrite'),store=tx.objectStore(PLAN),req=store.get(id);
   let fail=null;
@@ -554,6 +556,7 @@ async function render(){
  const legacyList=$('learningList');if(legacyList)legacyList.classList.toggle('hidden',activeTab);
  const pager=$('learningPager');if(pager)pager.classList.toggle('hidden',activeTab);
  if(!activeTab)return;
+ await plannerSyncStatus();
  document.querySelectorAll('[data-learning-view]').forEach(b=>b.classList.toggle('active',b.dataset.learningView==='plan'));
  $('plannerSelect').innerHTML=plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');$('plannerSelect').value=active;$('plannerDate').value=dayKey;
  const p=plans.find(p=>p.id===active);if(!p){$('plannerGroups').textContent='등록된 학습계획이 없습니다. CSV 또는 JSON 계획 파일을 등록하세요.';$('plannerStats').textContent='';$('plannerGroup').innerHTML='<option value="all">전체 그룹</option>';$('plannerPager').classList.add('hidden');return}
@@ -595,8 +598,28 @@ async function record(topicId,result){
  const day=plan?.days.find(d=>d.date===selected.date);
  if(!day?.ids.includes(topicId))return;
  const key=selected.planId+'|'+selected.date+'|'+topicId;
- await put(PROGRESS,{key,planId:selected.planId,date:selected.date,topicId,status:result==='암기'?'done':'miss',updatedAt:new Date().toISOString()});
+ const row={key,planId:selected.planId,date:selected.date,topicId,status:result==='암기'?'done':'miss',updatedAt:new Date().toISOString()};
+ if(window.PEPlannerSyncClient)await window.PEPlannerSyncClient.queueProgress(db,row);
+ else await put(PROGRESS,row);
 }
-window.StudyPlanner={render,record};
+async function plannerSyncStatus(){
+ const label=$('plannerSyncStatus');if(!label||!db)return;
+ try{
+  const client=window.PEPlannerSyncClient;
+  if(!client){label.textContent='학습계획 동기화 기능 준비 중 · 현재 기기에만 저장됩니다.';return}
+  const s=await client.status(db);
+  const prefix=!s.enabled?'서버 연동 준비 중 · 이 기기에 보관':s.migration!=='ready'?'첫 통합 전에 기기별 백업·확인이 필요합니다':s.conflicts?'충돌 '+s.conflicts+'건 · 확인 필요':s.pending?'미전송 '+s.pending+'건 · 기기에 보관':'서버 동기화 준비됨';
+  label.textContent=prefix+(s.pending?' · 미전송 '+s.pending+'건':'')+(s.lastSuccess?' · 마지막 동기화 '+s.lastSuccess.slice(0,16).replace('T',' '):'');
+ }catch(err){label.textContent='학습계획 동기화 상태 확인 실패 · 현재 기기 기록은 보존됩니다.';}
+}
+async function plannerSync(){
+ if(!loaded)await load();
+ const client=window.PEPlannerSyncClient;if(!client)return {state:'disabled'};
+ const result=await client.sync(db);
+ if(result.state!=='disabled'&&result.state!=='migration-required')await render();
+ await plannerSyncStatus();
+ return result;
+}
+window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus};
 window.addEventListener('DOMContentLoaded',()=>{initUi();load().catch(console.error)});
 })();
