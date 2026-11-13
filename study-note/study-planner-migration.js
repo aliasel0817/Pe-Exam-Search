@@ -299,7 +299,7 @@ async function apply(db,snapshotId,options,transport){
    if(p&&p.operationId!==a.operationId)throw Error('재개 중 동일 진도키에 다른 기기 변경이 발생했습니다.');
   }
  }
- snap=await putState(db,snap,'UPLOADING',{approval:opt,approvedAt:snap.approvedAt||now()});
+ snap=await putState(db,snap,'UPLOADING',{approval:opt,approvedAt:snap.approvedAt||now(),journal:snap.journal||copy(preview.journal)});
  const plans=preview.planActions,progress=preview.progressActions;
  try{
   for(const a of plans){
