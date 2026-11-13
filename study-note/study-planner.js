@@ -6,6 +6,7 @@ let db, loading=null, plans=[], active='', dayKey='', filter='all', group='all',
 // v2 defaults existing installations to 10 instead of keeping the old 20-topic preference.
 const PAGE_SIZE_KEY='peStudyPlanner.pageSize.v2', PAGE_SIZES=[10,20,30,50];
 let page=1, pageSize=Number(localStorage.getItem(PAGE_SIZE_KEY))||10;
+let pendingExtension=null, pendingNewPlan=null;
 if(!PAGE_SIZES.includes(pageSize))pageSize=10;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -40,8 +41,31 @@ function initUi(){
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
   <p class="planner-local-info">학습계획별 진도는 현재 기기에만 저장되며 기기 간 자동 동기화되지 않습니다. 기기를 변경하거나 브라우저 데이터를 삭제하기 전에는 아래에서 진도를 백업하세요.</p>
   <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼을 누르면 이 영역이 열리거나 닫힙니다. 여기서는 <strong>새 계획 등록</strong>과 <strong>회독별 진도 파일 백업/복원</strong>을 할 수 있습니다. 학습노트 MASTER 내용은 수정하지 않습니다.</p>
+
+  <section class="planner-manage-section" aria-labelledby="plannerExtendTitle">
+    <h4 id="plannerExtendTitle">① 기존 계획에 신규 토픽 자동 편입</h4>
+    <p>최신 MASTER의 학습대상(Y) 중 계획에 없는 통합ID를 검색합니다. 학습 시작일만 직접 지정하며 5회 배정은 자동 분산됩니다. 기존 일정·학습기록은 보존됩니다. 먼저 상단 MASTER 갱신을 실행하세요.</p>
+    <div class="planner-toolbar"><label for="plannerExtendStart">신규 학습 시작일</label><input id="plannerExtendStart" type="date"><button id="plannerExtendCheck" class="btn" type="button">신규 토픽 확인 · 배정 미리보기</button></div>
+    <p id="plannerExtendPreview" class="planner-help" role="status" aria-live="polite"></p>
+    <div class="planner-manager-actions"><button id="plannerExtendApply" type="button" class="btn primary" disabled>신규 토픽 편입 확정</button><button id="plannerPlanBackup" type="button" class="btn">선택 계획 JSON 백업</button></div>
+  </section>
+  <section class="planner-manage-section" aria-labelledby="plannerCreateTitle">
+    <h4 id="plannerCreateTitle">② 새 학습계획 자동 생성</h4>
+    <p>최신 MASTER와 학습 기간·회독 횟수로 별도 계획을 생성합니다. 기존 계획과 진도는 유지됩니다.</p>
+    <div class="planner-toolbar"><label for="plannerCreateName">계획 이름</label><input id="plannerCreateName" maxlength="100" placeholder="예: 제142회 정보관리기술사 5회독"></div>
+    <div class="planner-create-grid">
+      <label>시작일<input id="plannerCreateStart" type="date"></label>
+      <label>종료일<input id="plannerCreateEnd" type="date"></label>
+      <label>회독 횟수<select id="plannerCreateRounds"><option value="3">3회독</option><option value="5" selected>5회독</option><option value="7">7회독</option></select></label>
+      <label>학습 대상<select id="plannerCreateScope"><option value="target">MASTER 학습대상(Y)</option><option value="all">MASTER 전체</option><option value="selected">직접 통합ID 지정</option></select></label>
+    </div>
+    <label for="plannerCreateIds" id="plannerCreateIdsLabel" class="planner-file-label" hidden>토픽 통합ID (쉼표·세미콜론·공백으로 구분)</label>
+    <textarea id="plannerCreateIds" rows="3" class="planner-create-ids" placeholder="예: T0001; T4069; T4070" hidden></textarea>
+    <div class="planner-manager-actions"><button id="plannerCreatePreviewBtn" type="button" class="btn">자동 일정 미리보기</button><button id="plannerCreateApply" type="button" class="btn primary" disabled>새 학습계획 저장</button></div>
+    <p id="plannerCreatePreview" class="planner-help" role="status" aria-live="polite"></p>
+  </section>
   <section class="planner-manage-section" aria-labelledby="plannerImportTitle">
-    <h4 id="plannerImportTitle">① 새 학습계획 등록</h4>
+    <h4 id="plannerImportTitle">③ 파일로 새 학습계획 등록</h4>
     <p>먼저 아래의 <strong>CSV 작성 예제</strong>를 내려받으세요. Excel에서 행을 추가·수정하고 <strong>CSV UTF-8(.csv)</strong>로 저장한 후, 바로 아래의 <strong>학습계획 파일 선택</strong>으로 등록합니다. JSON 예제도 사용할 수 있습니다.</p>
     <div class="planner-manager-actions"><button type="button" id="plannerCsvSample" class="btn">CSV 작성 예제 다운로드</button><button type="button" id="plannerJsonSample" class="btn">JSON 예제 다운로드</button></div>
     <details class="planner-format-guide"><summary>작성 항목 · 입력 예시 자세히 보기</summary>
@@ -61,13 +85,13 @@ function initUi(){
     <p class="planner-help">선택한 파일을 검사한 후 새 계획으로 추가하고 곧바로 선택합니다. 같은 ID의 기존 계획은 덮어쓰지 않으므로, 변경한 계획은 새 planId로 등록하세요.</p>
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerBackupTitle">
-    <h4 id="plannerBackupTitle">② 진도 백업 — 이 기기의 학습 진행상태 저장</h4>
+    <h4 id="plannerBackupTitle">④ 진도 백업 — 이 기기의 학습 진행상태 저장</h4>
     <p>여기서 <strong>진도</strong>란 계획별·날짜별 토픽의 <strong>완료(기억함) / 다시보기</strong> 기록입니다. 아래 버튼을 누르면 이 기기의 진도를 JSON 파일로 저장합니다. 브라우저 데이터 초기화나 다른 기기 사용 전 보관하세요. 원본 MASTER나 Google Sheets 학습정보를 내려받는 기능은 아닙니다.</p>
     <div class="planner-manager-actions"><button id="plannerExport" class="btn" type="button">진도 기록 백업 JSON 다운로드</button></div>
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerRestoreTitle">
-    <h4 id="plannerRestoreTitle">③ 진도 복원 — 전에 백업한 기록 불러오기</h4>
-    <p>②에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일을 선택하면 이 기기에 진도를 복원합니다. 같은 계획·날짜·토픽에 이미 기록이 있으면 확인 후 덮어쓰므로 주의하세요. 새로운 학습계획 등록 파일과는 다릅니다.</p>
+    <h4 id="plannerRestoreTitle">⑤ 진도 복원 — 전에 백업한 기록 불러오기</h4>
+    <p>④에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일을 선택하면 이 기기에 진도를 복원합니다. 같은 계획·날짜·토픽에 이미 기록이 있으면 확인 후 덮어쓰므로 주의하세요. 새로운 학습계획 등록 파일과는 다릅니다.</p>
     <label for="plannerRestore" class="planner-file-label">진도 백업 파일 선택 — 완료/다시보기 복원용 (.json)</label>
     <input id="plannerRestore" type="file" accept=".json,application/json" aria-label="기존 진도 백업 JSON 파일 선택하여 복원">
   </section>
@@ -81,6 +105,7 @@ function initUi(){
  const style=document.createElement('style');style.textContent=`
  #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:8px 10px;border-radius:8px;line-height:1.5;margin:8px 0;font-size:.8rem;color:#334155}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:8px 0;padding:7px 10px;background:#f8fafc;border-radius:9px}.planner-manager>summary{font-size:.75rem;line-height:1.35;font-weight:600;color:#475569;cursor:pointer}.planner-manager:not([open]){margin-bottom:8px}.planner-manager:not([open])>:not(summary){display:none!important}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}
  #plannerGroup{flex:1 1 185px;min-width:135px;max-width:365px}
+ .planner-create-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}.planner-create-grid label{font-size:.78rem;font-weight:600;color:#475569}.planner-create-grid input,.planner-create-grid select{display:block;width:100%;margin-top:4px}.planner-create-ids{box-sizing:border-box;width:100%;font:inherit;font-size:.85rem;padding:8px;border:1px solid #dbe2ea;border-radius:8px}.planner-create-ids[hidden],#plannerCreateIdsLabel[hidden]{display:none}
  .planner-control-label{color:var(--muted);font-size:.8rem;white-space:nowrap}
  .planner-manage-section{margin:12px 0;padding:12px;border:1px solid #dbe2ea;border-radius:9px;background:#fff}
  .planner-manage-section h4{margin:0 0 8px;color:#152238;font-size:.92rem}
@@ -91,11 +116,11 @@ function initUi(){
  .planner-format-guide summary{font-weight:700;cursor:pointer}
  .planner-fields{background:#f8fafc;border-radius:8px;padding:6px 10px;margin-top:8px}
  .planner-notice{font-size:.83rem;font-weight:600;white-space:pre-wrap}
- @media(max-width:580px){#plannerGroup{flex:1 1 180px;max-width:100%}.planner-manage-section{padding:10px}.planner-manager-actions .btn{max-width:100%;white-space:normal;text-align:center}}
+ @media(max-width:580px){#plannerGroup{flex:1 1 180px;max-width:100%}.planner-manage-section{padding:10px}.planner-manager-actions .btn{max-width:100%;white-space:normal;text-align:center}.planner-create-grid{grid-template-columns:1fr}}
  `;document.head.appendChild(style);
  $('plannerToday').onclick=()=>{page=1;group='all';dayKey=today();$('plannerDate').value=dayKey;render()};
  $('plannerDate').onchange=e=>{page=1;group='all';dayKey=e.target.value;render()};
- $('plannerSelect').onchange=e=>{page=1;group='all';active=e.target.value;localStorage.setItem(PREF,active);const plan=plans.find(p=>p.id===active);dayKey=plan.days.find(d=>d.date===today())?today():plan.days[0].date;render()};
+ $('plannerSelect').onchange=e=>{pendingExtension=null;$('plannerExtendApply').disabled=true;$('plannerExtendPreview').textContent='';page=1;group='all';active=e.target.value;localStorage.setItem(PREF,active);const plan=plans.find(p=>p.id===active);dayKey=plan.days.find(d=>d.date===today())?today():plan.days[0].date;render()};
  $('plannerSearch').oninput=e=>{page=1;search=e.target.value.trim().toLowerCase();render()};
  $('plannerGroup').onchange=e=>{page=1;group=e.target.value;render()};
  $('plannerFilter').onchange=e=>{page=1;filter=e.target.value;render()};
