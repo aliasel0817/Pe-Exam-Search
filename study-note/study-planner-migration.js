@@ -7,7 +7,7 @@
 const FORMAT='pe-planner-full-backup-v1',ORDER=['plans','progress','pendingOps','syncConflicts','syncMeta'],PRIMARY=ORDER.slice(0,4),SNAP='preSyncSnapshots';
 const STATE={REQUIRED:'required',BACKUP:'backed_up',REVIEW:'review_required',UPLOADING:'uploading',RETRY:'pending_retry',CONFLICT:'conflict_held',READY:'ready',LOCAL:'local_only'};
 const KEY={plans:'id',progress:'key',pendingOps:'id',syncConflicts:'id',syncMeta:'key'};
-const dangerous=/^(sessiontoken|password|secret|apikey|access_token|refresh_token|hmac|privatekey|oauth|credential|authorization)$/i;
+const dangerous=/(?:token|password|secret|credential|oauth|hmac|privatekey|authorization|api[-_]?key)/i;
 const client=()=>root.PEPlannerSyncClient;
 const now=()=>new Date().toISOString();
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -352,7 +352,13 @@ async function apply(db,snapshotId,options,transport){
   }
   for(const a of progress){
    if(a.kind==='conflict'){conflictRows.push({id:'migration:progress:'+a.key,kind:'progress',key:a.key,local:a.local,remote:a.remote,reason:'PROGRESS_DIVERGENCE',at:now()});continue;}
-   if(a.kind==='same')continue;
+   if(a.kind==='same'){
+    const server=remote.progress.get(a.planId)?.latest.get(a.key),prior=gm.get(a.key);
+    if(server&&prior&&prior.status===server.status){
+     newProgress.push({...prior,serverSeq:server.serverSeq,serverRowRevision:server.rowRevision,dirty:false,pendingOpId:null});
+    }
+    continue;
+   }
    if(!enabledProgress(a,opt))continue;
    const server=remote.progress.get(a.planId)?.latest.get(a.key),prior=gm.get(a.key);
    if(!server)throw Error('진도 최종 서버 내역 누락: '+a.key);
@@ -406,10 +412,10 @@ async function restore(db,blob,confirmed){
  for(const store of ORDER){
   additions[store]=[];
   for(const row of data[store]){
-   if(store==='syncMeta'&&(/^(migration|cursor:|plan:|lastSuccess)$/.test(row.key)||row.key.startsWith('lastSuccess')))continue;
+   if(store==='syncMeta'&&(/^(?:migration$|cursor:|plan:|lastSuccess)/.test(row.key)))continue;
    const existing=maps[store].get(row[KEY[store]]);
    if(!existing)additions[store].push(copy(row));
-   else if(stable(existing)!==stable(row))conflicts.push({id:'restore:'+store+':'+row[KEY[store]],kind:'restore',key:row[KEY[store]],store,
+   else if(stable(existing)!==stable(row))conflicts.push({id:'restore:'+id()+':'+store+':'+row[KEY[store]],kind:'restore',key:row[KEY[store]],store,
     local:copy(existing),backup:copy(row),reason:'RESTORE_COLLISION',at:now()});
   }
  }
