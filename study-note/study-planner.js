@@ -653,14 +653,16 @@ function loadStage5FirstMigrationAddon(){
  const client=window.PEPlannerSyncClient;
  if(!client?.testEnabled()||document.getElementById('plannerFirstSyncWizard'))return;
  const done=async()=>{
+  if(!loaded)await load();
   plans=await all(PLAN);
   if(!plans.find(p=>p.id===active)){active=plans[0]?.id||'';localStorage.setItem(PREF,active);}
   await render();
  };
+ const mountUi=async()=>{if(!loaded)await load();window.PEPlannerMigrationUI?.mount({db,onApplied:done});};
  const loadUi=()=>{
-  if(window.PEPlannerMigrationUI){window.PEPlannerMigrationUI.mount({db,onApplied:done});return;}
+  if(window.PEPlannerMigrationUI){mountUi().catch(console.error);return;}
   const ui=document.createElement('script');ui.src='./study-planner-migration-ui.js?v=20261113-stage5-test';
-  ui.onload=()=>window.PEPlannerMigrationUI?.mount({db,onApplied:done});
+  ui.onload=()=>mountUi().catch(console.error);
   ui.onerror=()=>console.warn('Stage5 wizard UI is unavailable. No data modified.');
   document.head.appendChild(ui);
  };
