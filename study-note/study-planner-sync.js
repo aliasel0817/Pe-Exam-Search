@@ -240,9 +240,10 @@ async function pullProgress(db,transport,planId){
   if(!resp?.ok||!Array.isArray(resp.events))throw Error('진도 응답 오류');
   if(high===null)high=Number(resp.highWatermark);
   if(Number(resp.highWatermark)!==high)throw Error('진도 highWatermark 변경');
-  for(const e of resp.events){if(!Number.isInteger(e.serverSeq)||e.serverSeq<=after||e.serverSeq>high)throw Error('진도 이벤트 순서 오류');}
+  let previous=after;
+  for(const e of resp.events){if(!Number.isInteger(e.serverSeq)||e.serverSeq!==previous+1||e.serverSeq>high)throw Error('진도 이벤트 순서 오류');previous=e.serverSeq;}
   events.push(...resp.events);after=resp.events.length?resp.events[resp.events.length-1].serverSeq:after;
-  if(!resp.hasMore)break;
+  if(!resp.hasMore){if(after!==high)throw Error('진도 커서 중간 누락');break;}
   if(!resp.events.length)throw Error('진도 페이지가 진행되지 않습니다.');
   if(i===1999)throw Error('진도 페이지 제한 초과');
  }
@@ -311,13 +312,14 @@ async function runSync(db,transport){
  const list=await transport.get('studyPlans',{});
  if(!list?.ok||list.plannerSyncVersion!==VERSION||!Array.isArray(list.plans))throw Error('격리 서버 동기화 버전 불일치');
  const remote=new Map(list.plans.map(x=>[x.planId,x])),pending=await all(db,STORES.outbox);
- const byPlan=new Set(pending.filter(x=>x.kind==='plan'&&x.state!=='conflict').map(x=>x.planId));
+ let byPlan=new Set(pending.filter(x=>x.kind==='plan'&&x.state!=='conflict').map(x=>x.planId));
  for(const op of pending.filter(x=>x.kind==='plan'&&x.state!=='conflict').sort((a,b)=>a.createdAt.localeCompare(b.createdAt))){
   const s=await uploadPlan(db,transport,op,remote.get(op.planId));
   if(s==='conflict'){result.conflicts++;continue;}
   remote.set(op.planId,{...remote.get(op.planId),planId:op.planId,
    activeRevision:s.activeRevision,activeHash:s.activeHash});result.plansUploaded++;
  }
+ byPlan=new Set((await all(db,STORES.outbox)).filter(x=>x.kind==='plan'&&x.state!=='conflict').map(x=>x.planId));
  const local=new Map((await all(db,STORES.plan)).map(x=>[x.id,x]));
  for(const info of remote.values()){
   if(!info?.activeRevision)continue;
