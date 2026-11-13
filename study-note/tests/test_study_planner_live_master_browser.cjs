@@ -107,7 +107,10 @@ async function dbSnapshot(page){
   assert.equal(await page.$eval('#plannerSelect',e=>e.value),personal.id);
   assert.equal(dialogs.length,2,'each mutation requires explicit confirmation');
   await page.reload({waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.StudyPlanner&&document.getElementById('plannerSelect')?.options.length===2,{timeout:15000});
+  await page.waitForFunction(()=>window.StudyPlanner&&document.querySelector('[data-learning-view="plan"]'),{timeout:15000});
+  await page.click('#learningBtn');
+  await page.evaluate(()=>document.querySelector('[data-learning-view="plan"]').click());
+  await page.waitForFunction(()=>document.getElementById('plannerSelect')?.options.length===2,{timeout:15000});
   const persisted=await dbSnapshot(page);
   assert.equal(persisted.plans.find(p=>p.id===planId).entries,19180);
   assert.equal(persisted.plans.find(p=>p.id===personal.id).entries,10);
