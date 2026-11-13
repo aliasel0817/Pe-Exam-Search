@@ -73,8 +73,8 @@ function mock(method,action,data){
  return err('UNKNOWN_POST');
 }
 const harness='<!doctype html><html lang="ko"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>'+
- '<div class="learning-view-tabs"><button data-learning-view="recent">최근</button></div><div id="learningList"></div><nav id="learningPager"></nav>'+
- '<script>var learningView="plan",learningPage=1;var allTopics=[{topicId:"T0001",topicName:"합성 토픽",studyTarget:"Y",categoryCode:"G01",categoryName:"합성 그룹",domain:"SW"}];function renderLearningDashboard(){return StudyPlanner.render()}function navigateToLearningTopic(id){window.currentTestTopic=id}</script>'+
+ '<button id="syncLearningBtn" type="button">학습정보 동기화</button><div class="learning-view-tabs"><button data-learning-view="recent">최근</button></div><div id="learningList"></div><nav id="learningPager"></nav>'+
+ '<script>var learningView="plan",learningPage=1;var allTopics=[{topicId:"T0001",topicName:"합성 토픽",studyTarget:"Y",categoryCode:"G01",categoryName:"합성 그룹",domain:"SW"}];function renderLearningDashboard(){return StudyPlanner.render()}function navigateToLearningTopic(id){window.currentTestTopic=id}function syncLearningStates(){window.__legacySyncCount=(window.__legacySyncCount||0)+1;return Promise.resolve()}</script>'+
  '<script src="/study-note/study-planner-sync.js"></script><script src="/study-note/study-planner.js"></script></body></html>';
 const server=http.createServer((req,res)=>{
  const u=new URL(req.url,'http://127.0.0.1');
@@ -169,6 +169,9 @@ async function selectTopic(page,id,date){
   const before=memory.calls;
   assert.equal((await pc.evaluate(()=>StudyPlanner.sync())).state,'migration-required');
   assert.equal(memory.calls,before,'migration block must make zero server calls');
+  await pc.click('#syncLearningBtn');
+  await pc.waitForFunction(()=>window.__legacySyncCount===1,{timeout:4000});
+  assert.equal(memory.calls,before,'legacy sync button must not bypass first-migration gate');
   await migrateMock(pc);
   await pc.click('#plannerManage');
   await pc.waitForFunction(()=>document.getElementById('plannerManagement').open,{timeout:4000});
