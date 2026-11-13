@@ -649,11 +649,33 @@ function connectSyntheticSyncButton(){
   }finally{busy=false;await plannerSyncStatus();}
  });
 }
+function loadStage5FirstMigrationAddon(){
+ const client=window.PEPlannerSyncClient;
+ if(!client?.testEnabled()||document.getElementById('plannerFirstSyncWizard'))return;
+ const done=async()=>{
+  if(!loaded)await load();
+  plans=await all(PLAN);
+  if(!plans.find(p=>p.id===active)){active=plans[0]?.id||'';localStorage.setItem(PREF,active);}
+  await render();
+ };
+ const mountUi=async()=>{if(!loaded)await load();window.PEPlannerMigrationUI?.mount({db,onApplied:done});};
+ const loadUi=()=>{
+  if(window.PEPlannerMigrationUI){mountUi().catch(console.error);return;}
+  const ui=document.createElement('script');ui.src='./study-planner-migration-ui.js?v=20261113-stage5-test';
+  ui.onload=()=>mountUi().catch(console.error);
+  ui.onerror=()=>console.warn('Stage5 wizard UI is unavailable. No data modified.');
+  document.head.appendChild(ui);
+ };
+ if(window.PEPlannerMigration){loadUi();return;}
+ const script=document.createElement('script');script.src='./study-planner-migration.js?v=20261113-stage5-test';
+ script.onload=loadUi;script.onerror=()=>console.warn('Stage5 first migration candidate unavailable. Existing records preserved.');
+ document.head.appendChild(script);
+}
 function loadSyntheticSyncAddon(){
- if(window.PEPlannerSyncClient){connectSyntheticSyncButton();plannerSyncStatus().catch(console.error);return;}
+ if(window.PEPlannerSyncClient){connectSyntheticSyncButton();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);return;}
  const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261113-stage4-test-disabled';
  script.async=true;
- script.onload=()=>{connectSyntheticSyncButton();plannerSyncStatus().catch(console.error);};
+ script.onload=()=>{connectSyntheticSyncButton();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);};
  script.onerror=()=>console.warn('Stage4 planner sync addon unavailable; existing local study planner remains usable.');
  document.head.appendChild(script);
 }
