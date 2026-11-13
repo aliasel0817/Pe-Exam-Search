@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {webcrypto}=require('node:crypto');
 Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});
 globalThis.location={hostname:'127.0.0.1'};
-globalThis.navigator={onLine:true};
+Object.defineProperty(globalThis,'navigator',{configurable:true,value:{onLine:true}});
 globalThis.PE_PLANNER_SYNC_TEST_ENABLED=true;
 globalThis.PE_PLANNER_SYNC_TEST_TRANSPORT={get:async()=>({ok:false}),post:async()=>({ok:false})};
 const {indexedDB}=require('../../.qa-browser/node_modules/fake-indexeddb');
