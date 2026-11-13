@@ -1,0 +1,37 @@
+name: Planner Sync Stage4 Synthetic Browser
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'study-note/study-planner-sync.js'
+      - 'study-note/study-planner.js'
+      - 'study-note/study-note.html'
+      - 'study-note/tests/test_planner_sync_stage4_browser.cjs'
+      - '.github/workflows/planner-sync-stage4-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage4-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated Chromium harness dependency
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
+      - name: JavaScript syntax checks
+        run: |
+          node --check study-note/study-planner-sync.js
+          node --check study-note/study-planner.js
+          node --check study-note/tests/test_planner_sync_stage4_browser.cjs
+      - name: Synthetic cross-device browser validation
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          node study-note/tests/test_planner_sync_stage4_browser.cjs
