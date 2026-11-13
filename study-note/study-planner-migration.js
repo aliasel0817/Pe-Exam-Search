@@ -90,7 +90,9 @@ function downloadBackup(blob){
  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),120000);
 }
 async function storeBackup(db,backupFile){
- guard();const details=await verifyBackup(backupFile);
+ guard();const previous=await state(db);
+ if(['uploading','pending_retry'].includes(previous.state))throw Error('이전 최초 통합 작업이 미완료입니다. 먼저 작업을 재개하거나 충돌을 확인하세요.');
+ const details=await verifyBackup(backupFile);
  const row={id:'migration:'+backupFile.backupId,state:'BACKUP_PREPARED',file:copy(backupFile),
   backupHash:details.bundleHash,criticalHash:details.criticalHash,createdAt:now(),journal:null,preview:null};
  await put(db,SNAP,row);
@@ -277,10 +279,13 @@ async function uploadPlan(transport,action){
  return reply;
 }
 function snapshotLocalUnchanged(current,before){return stable(current)===stable(before);}
-async function apply(db,snapshotId,options,transport){
+async function apply(db,snapshotId,options,transport,explicitApproval=false){
  guard();if(!root.navigator?.onLine)throw Error('오프라인: 승인된 작업은 기기에 유지됩니다.');
  let snap=await read(db,SNAP,snapshotId);const opt=choices(options);
- if(!snap?.fileConfirmedAt||!snap.preview||!['REVIEW_REQUIRED','PENDING_RETRY'].includes(snap.state))throw Error('백업 검증·비교·사용자 승인 단계를 먼저 수행하세요.');
+ if(!snap?.fileConfirmedAt||!snap.preview||!['REVIEW_REQUIRED','PENDING_RETRY','UPLOADING'].includes(snap.state))throw Error('백업 검증·비교·사용자 승인 단계를 먼저 수행하세요.');
+ const resuming=snap.state!=='REVIEW_REQUIRED';
+ if(!resuming&&explicitApproval!==true)throw Error('미리보기와 백업을 확인한 사용자 승인 없이 최초 통합할 수 없습니다.');
+ if(resuming&&(!snap.approvedAt||stable(opt)!==stable(snap.approval)))throw Error('승인된 기존 작업만 동일 조건으로 재개할 수 있습니다.');
  const preview=snap.preview,env=transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT;
  if(!Object.values(opt).some(Boolean))throw Error('최소 하나의 안전한 통합 작업을 선택하세요.');
  // Re-reading before the first write protects against other device changes since preview.
@@ -288,7 +293,7 @@ async function apply(db,snapshotId,options,transport){
  if(await criticalHash(local)!==snap.criticalHash)throw Error('현재 기기 기록이 미리보기와 다릅니다. 새 백업이 필요합니다.');
  let remote=await remoteData(env);
  if(snap.state==='REVIEW_REQUIRED'&&remoteFingerprint(remote)!==priorFingerprint(preview))throw Error('서버 기록이 변경되었습니다. 다시 비교해야 합니다.');
- if(snap.state==='PENDING_RETRY'){
+ if(resuming){
   for(const a of preview.planActions){
    const p=remote.summaries.get(a.planId);
    if(p&&p.activeHash!==a.remoteHash&&p.activeHash!==a.targetHash)throw Error('재개 중 서버 계획이 다른 기기에서 수정되었습니다.');
@@ -331,6 +336,17 @@ async function apply(db,snapshotId,options,transport){
    snap.journal.uploadedProgress[a.key]=true;await put(db,SNAP,snap);
   }
   remote=await remoteData(env);
+  // Never advance a local cursor past events written by another device after
+  // the approval snapshot: that would silently skip those remote changes.
+  const allowedNewOps=new Set(progress.filter(a=>a.kind==='upload'&&opt.uploadProgress).map(a=>a.operationId));
+  const expectedPlanIds=new Set(plans.map(a=>a.planId));
+  for(const planId of remote.plans.keys())if(!expectedPlanIds.has(planId))throw Error('승인 이후 다른 기기가 새 계획을 생성했습니다. 다시 비교해야 합니다.');
+  for(const [planId,group] of remote.progress){
+   const oldHigh=Number(preview.serverStamp.marks[planId]||0);
+   for(const event of group.events)if(event.serverSeq>oldHigh&&!allowedNewOps.has(event.operationId)){
+    throw Error('승인 이후 다른 기기의 진도 변경이 발견되어 커서 반영을 중단했습니다.');
+   }
+  }
   for(const a of progress)if(a.kind==='upload'&&opt.uploadProgress){
    if(remote.progress.get(a.planId)?.latest.get(a.key)?.operationId!==a.operationId)throw Error('진도 서버 저장 재검증 오류: '+a.key);
   }
@@ -341,7 +357,7 @@ async function apply(db,snapshotId,options,transport){
   const pm=new Map(planRows.map(p=>[p.id,p])),gm=new Map(progressRows.map(p=>[p.key,p]));
   const newPlans=[],newProgress=[],metadata=[],conflictRows=[];
   for(const a of plans){
-   if(a.kind==='conflict'){conflictRows.push({id:'migration:plan:'+a.planId,kind:'plan',key:a.planId,local:a.local,remote:a.remote,reason:a.reason,at:now()});continue;}
+   if(a.kind==='conflict'){conflictRows.push({id:'migration:'+snap.id+':plan:'+a.planId,kind:'plan',key:a.planId,local:a.local,remote:a.remote,reason:a.reason,at:now()});continue;}
    if(!a.target||!enabledAction(a,opt)&&a.kind!=='same')continue;
    const current=pm.get(a.planId),server=remote.summaries.get(a.planId);
    if(!server||server.activeHash!==a.targetHash)throw Error('일정 최종 버전이 변경되었습니다: '+a.planId);
@@ -351,7 +367,7 @@ async function apply(db,snapshotId,options,transport){
    metadata.push({key:'plan:'+a.planId,hash:server.activeHash,revision:server.activeRevision});
   }
   for(const a of progress){
-   if(a.kind==='conflict'){conflictRows.push({id:'migration:progress:'+a.key,kind:'progress',key:a.key,local:a.local,remote:a.remote,reason:'PROGRESS_DIVERGENCE',at:now()});continue;}
+   if(a.kind==='conflict'){conflictRows.push({id:'migration:'+snap.id+':progress:'+a.key,kind:'progress',key:a.key,local:a.local,remote:a.remote,reason:'PROGRESS_DIVERGENCE',at:now()});continue;}
    if(a.kind==='same'){
     const server=remote.progress.get(a.planId)?.latest.get(a.key),prior=gm.get(a.key);
     if(server&&prior&&prior.status===server.status&&!pendingRows.some(op=>op.kind==='progress'&&op.key===a.key)){
@@ -414,7 +430,7 @@ async function apply(db,snapshotId,options,transport){
 }
 async function cancel(db,snapshotId){
  guard();const snap=await read(db,SNAP,snapshotId);if(!snap)throw Error('이행 스냅샷이 없습니다.');
- if(snap.state==='UPLOADING'||snap.state==='PENDING_RETRY')throw Error('서버 전송이 이미 시작되어 취소 대신 안전한 재시도를 사용해야 합니다.');
+ if(['UPLOADING','PENDING_RETRY','CONFLICT_HELD'].includes(snap.state))throw Error('서버 전송 또는 충돌 보류가 시작되어 취소할 수 없습니다. 기록을 보존하고 재검토해야 합니다.');
  if(snap.state==='SYNC_READY')throw Error('완료된 동기화는 자동 롤백하지 않습니다.');
  return putState(db,snap,'LOCAL_ONLY',{cancelledAt:now()});
 }
