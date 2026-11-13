@@ -1,0 +1,55 @@
+name: Study Planner Live MASTER QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - study-note/study-planner.js
+      - study-note/tests/test_study_planner_live_master.cjs
+      - study-note/tests/test_study_planner_live_master_browser.cjs
+      - study-note/tests/test_study_planner_management_qa.cjs
+      - .github/workflows/study-planner-live-master-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  planner-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser test dependency
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
+      - name: Confirm Chromium and Korean font
+        run: |
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+      - name: Check JavaScript syntax and planner invariants
+        run: |
+          node --check study-note/study-planner.js
+          node --check study-note/tests/test_study_planner_live_master_browser.cjs
+          node study-note/tests/test_study_planner_live_master.cjs
+      - name: Existing planner management browser regression
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node study-note/tests/test_study_planner_management_qa.cjs
+      - name: New live MASTER planner browser regression
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node study-note/tests/test_study_planner_live_master_browser.cjs
+      - name: Preserve responsive QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: study-planner-live-master-${{ github.run_number }}
+          path: |
+            study-note/qa-artifacts/study-planner-live-master/
+            study-note/qa-artifacts/study-planner-management/
+          if-no-files-found: warn
+          retention-days: 14
