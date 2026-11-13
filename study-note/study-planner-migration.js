@@ -346,15 +346,15 @@ async function apply(db,snapshotId,options,transport){
    const current=pm.get(a.planId),server=remote.summaries.get(a.planId);
    if(!server||server.activeHash!==a.targetHash)throw Error('일정 최종 버전이 변경되었습니다: '+a.planId);
    if(a.kind==='download'&&!current)newPlans.push(copy(a.target));
-   else if(a.kind==='download'&&client().canonicalPlan(current)!==client().canonicalPlan(a.target))newPlans.push(copy(a.target));
-   else if(a.kind==='merge-upload'&&client().canonicalPlan(current)!==client().canonicalPlan(a.target))newPlans.push(copy(a.target));
+   else if(a.kind==='download'&&client().canonicalPlan(current)!==client().canonicalPlan(a.target))newPlans.push({...current,...copy(a.target)});
+   else if(a.kind==='merge-upload'&&client().canonicalPlan(current)!==client().canonicalPlan(a.target))newPlans.push({...current,...copy(a.target)});
    metadata.push({key:'plan:'+a.planId,hash:server.activeHash,revision:server.activeRevision});
   }
   for(const a of progress){
    if(a.kind==='conflict'){conflictRows.push({id:'migration:progress:'+a.key,kind:'progress',key:a.key,local:a.local,remote:a.remote,reason:'PROGRESS_DIVERGENCE',at:now()});continue;}
    if(a.kind==='same'){
     const server=remote.progress.get(a.planId)?.latest.get(a.key),prior=gm.get(a.key);
-    if(server&&prior&&prior.status===server.status){
+    if(server&&prior&&prior.status===server.status&&!pendingRows.some(op=>op.kind==='progress'&&op.key===a.key)){
      newProgress.push({...prior,serverSeq:server.serverSeq,serverRowRevision:server.rowRevision,dirty:false,pendingOpId:null});
     }
     continue;
@@ -376,19 +376,34 @@ async function apply(db,snapshotId,options,transport){
    op.kind==='plan'&&snap.journal.uploadedPlans[op.planId]).map(op=>op.id);
   await new Promise((resolve,reject)=>{
    const names=['plans','progress','syncMeta','pendingOps','syncConflicts',SNAP],tx=db.transaction(names,'readwrite');
-   for(const p of newPlans)tx.objectStore('plans').put(p);
-   for(const p of newProgress)tx.objectStore('progress').put(p);
-   for(const m of metadata)tx.objectStore('syncMeta').put(m);
-   for(const op of pendingAcked)tx.objectStore('pendingOps').delete(op);
-   for(const c of conflictRows)tx.objectStore('syncConflicts').put(c);
-   const conflictsCount=preview.conflicts.length;const pendingUnmatched=pendingRows.filter(x=>!pendingAcked.includes(x.id));
-   const complete=!conflictsCount&&!pendingUnmatched.length &&
-    plans.every(a=>a.kind==='same'||a.kind==='conflict'||enabledAction(a,opt))&&
-    progress.every(a=>a.kind==='same'||a.kind==='conflict'||enabledProgress(a,opt));
-   const final=complete?'SYNC_READY':'CONFLICT_HELD';
-   tx.objectStore('syncMeta').put({key:'migration',state:complete?'ready':'conflict_held',snapshotId:snap.id,backupHash:snap.backupHash,updatedAt:now()});
-   tx.objectStore(SNAP).put({...snap,state:final,journal:{...snap.journal,verified:true},finalAt:now(),result:{downloadedPlans:newPlans.length,downloadedProgress:newProgress.length,conflicts:conflictRows.length,pending:pendingUnmatched.length,ready:complete}});
-   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||Error('최초 통합 로컬 반영 실패'));tx.onabort=()=>reject(tx.error||Error('최초 통합 거래 취소'));
+   const criticalAtWrite={},records=[],reason={error:null};
+   // Use a single readwrite transaction to prevent other tabs modifying original
+   // records between preflight and replacement.
+   for(const kind of PRIMARY){
+    const r=tx.objectStore(kind).getAll();
+    r.onsuccess=()=>{
+     criticalAtWrite[kind]=r.result;records.push(kind);
+     if(records.length!==PRIMARY.length)return;
+     try{
+      if(PRIMARY.some(name=>stable(criticalAtWrite[name])!==stable(beforeWrite[name])))throw Error('동시 탭의 로컬 변경을 감지했습니다. 기존 기록은 덮어쓰지 않습니다.');
+      for(const p of newPlans)tx.objectStore('plans').put(p);
+      for(const p of newProgress)tx.objectStore('progress').put(p);
+      for(const m of metadata)tx.objectStore('syncMeta').put(m);
+      for(const op of pendingAcked)tx.objectStore('pendingOps').delete(op);
+      for(const c of conflictRows)tx.objectStore('syncConflicts').put(c);
+      const conflictsCount=preview.conflicts.length;const pendingUnmatched=pendingRows.filter(x=>!pendingAcked.includes(x.id));
+      const complete=!conflictsCount&&!pendingUnmatched.length &&
+       plans.every(a=>a.kind==='same'||a.kind==='conflict'||enabledAction(a,opt))&&
+       progress.every(a=>a.kind==='same'||a.kind==='conflict'||enabledProgress(a,opt));
+      const final=complete?'SYNC_READY':'CONFLICT_HELD';
+      tx.objectStore('syncMeta').put({key:'migration',state:complete?'ready':'conflict_held',snapshotId:snap.id,backupHash:snap.backupHash,updatedAt:now()});
+      tx.objectStore(SNAP).put({...snap,state:final,journal:{...snap.journal,verified:true},finalAt:now(),result:{downloadedPlans:newPlans.length,downloadedProgress:newProgress.length,conflicts:conflictRows.length,pending:pendingUnmatched.length,ready:complete}});
+     }catch(error){reason.error=error;tx.abort();}
+    };
+   }
+   tx.oncomplete=resolve;
+   tx.onerror=()=>reject(reason.error||tx.error||Error('최초 통합 로컬 반영 실패'));
+   tx.onabort=()=>reject(reason.error||tx.error||Error('최초 통합 거래 취소'));
   });
   return (await read(db,SNAP,snapshotId)).result;
  }catch(error){
