@@ -303,6 +303,147 @@ async function restoreProgressUpload(file){
  await render();
 }
 
+
+function plannerAddDays(date,offset){
+ const d=new Date(date+'T00:00:00Z');
+ d.setUTCDate(d.getUTCDate()+offset);
+ return d.toISOString().slice(0,10);
+}
+function plannerDiffDays(start,end){
+ return Math.round((Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000);
+}
+function plannerDayText(plan){
+ const start=plan.start||plan.days[0]?.date,length=plan.days.length,index=plannerDiffDays(start,today())+1;
+ const position=index<1?'시작 전':index>length?'종료':index+'/'+length+'일차';
+ return '시작 '+start+' · 오늘 '+position;
+}
+function plannerMasterTopics(){
+ return typeof allTopics==='undefined'||!Array.isArray(allTopics)?[]:
+   allTopics.filter(t=>/^T\d{4}$/.test(t.topicId||'')).slice();
+}
+function plannerMasterSignature(topics){
+ // A refresh can change studyTarget and grouping even if total topic count is unchanged.
+ return topics.map(t=>[t.topicId,t.studyTarget,t.categoryCode,t.domain].join(':')).sort().join('|');
+}
+function plannerMissingTopics(plan,topics){
+ const planned=new Set(plan.days.flatMap(d=>d.ids));
+ return topics.filter(t=>String(t.studyTarget||'').toUpperCase()==='Y'&&!planned.has(t.topicId))
+   .sort((a,b)=>a.topicId.localeCompare(b.topicId));
+}
+function plannerGroupMatcher(plan,topics){
+ const byId=new Map(topics.map(t=>[t.topicId,t])),byCategory=new Map(),byDomain=new Map(),seen=new Set();
+ function add(map,key,code){
+  if(!key)return;
+  if(!map.has(key))map.set(key,new Map());
+  const tally=map.get(key);tally.set(code,(tally.get(code)||0)+1);
+ }
+ for(const day of plan.days){
+  day.ids.forEach((id,i)=>{
+   if(seen.has(id))return;seen.add(id);
+   const topic=byId.get(id);if(!topic)return;
+   add(byCategory,topic.categoryCode,day.groups[i]);add(byDomain,topic.domain,day.groups[i]);
+  });
+ }
+ function most(map,key){
+  const tally=map.get(key);
+  return tally?[...tally].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))[0][0]:null;
+ }
+ return topic=>{
+  const code=most(byCategory,topic.categoryCode)||most(byDomain,topic.domain);
+  return code||('NEW-'+String(topic.domain||'ETC').replace(/[^A-Za-z0-9_-]/g,'').slice(0,16));
+ };
+}
+function plannerExtendPlan(plan,topics,start,master){
+ if(!validIsoDate(start))throw Error('학습 시작일이 올바르지 않습니다.');
+ const workdays=plan.days.map((d,i)=>({...d,ids:d.ids.slice(),groups:d.groups.slice(),index:i}));
+ const allowed=workdays.filter(d=>d.date>=start&&Number.isInteger(d.round)&&d.round>=1);
+ if(allowed.length<5)throw Error('선택일 이후 회독 학습일이 5일 미만입니다. 더 이른 시작일을 선택해 주세요.');
+ const outGroups={...(plan.groups||{})},groupFor=plannerGroupMatcher(plan,master);
+ const existing=new Set(plan.days.flatMap(d=>d.ids)),unique=new Set();
+ const ordered=topics.slice().sort((a,b)=>a.topicId.localeCompare(b.topicId));
+ for(const topic of ordered){
+  if(!/^T\d{4}$/.test(topic.topicId)||existing.has(topic.topicId)||unique.has(topic.topicId))throw Error('편입 토픽 ID가 중복되거나 잘못되었습니다.');
+  unique.add(topic.topicId);
+  const code=groupFor(topic);
+  if(!outGroups[code])outGroups[code]='신규 · '+(topic.domainName||topic.domain||'기타');
+  let previous=-1;
+  for(let pass=0;pass<5;pass++){
+   const ideal=pass*(allowed.length-1)/4;
+   const from=previous+1,to=allowed.length-(5-pass);
+   let best=-1,bestScore=Infinity;
+   for(let i=from;i<=to;i++){
+    const d=allowed[i],score=Math.abs(i-ideal)*4+d.ids.length*.11;
+    if(score<bestScore){bestScore=score;best=i}
+   }
+   if(best<0)throw Error('회독 날짜 배정이 불가능합니다.');
+   allowed[best].ids.push(topic.topicId);
+   allowed[best].groups.push(code);
+   previous=best;
+  }
+ }
+ return normalise({...plan,groups:outGroups,days:workdays.map(({index,...d})=>d)});
+}
+function plannerCreateAutoPlan(options,master){
+ const {name,start,end,rounds,scope,selected}=options;
+ if(!String(name||'').trim()||name.trim().length>100)throw Error('계획 이름을 1~100자로 입력하세요.');
+ if(!validIsoDate(start)||!validIsoDate(end)||end<start)throw Error('유효한 시작일과 종료일을 선택하세요.');
+ if(![3,5,7].includes(rounds))throw Error('회독 횟수는 3·5·7회 중 선택하세요.');
+ const span=plannerDiffDays(start,end)+1;
+ if(span<rounds||span>730)throw Error('학습 기간은 회독 횟수 이상, 최대 730일이어야 합니다.');
+ if(!master.length)throw Error('MASTER가 비어 있습니다. MASTER 갱신을 먼저 실행하세요.');
+ const byId=new Map(master.map(t=>[t.topicId,t]));let chosen;
+ if(scope==='target')chosen=master.filter(t=>String(t.studyTarget||'').toUpperCase()==='Y');
+ else if(scope==='all')chosen=master.slice();
+ else if(scope==='selected'){
+  const ids=[...new Set(String(selected||'').toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+  if(!ids.length)throw Error('최소 1개 이상의 통합ID를 입력하세요.');
+  const missing=ids.filter(id=>!byId.has(id));
+  if(missing.length)throw Error('MASTER에 없는 통합ID: '+missing.slice(0,8).join(', '));
+  chosen=ids.map(id=>byId.get(id));
+ }else throw Error('학습대상 선택값이 잘못되었습니다.');
+ if(!chosen.length)throw Error('배정할 학습대상 토픽이 없습니다.');
+ const reserve=span>=30?2:0,activeDays=span-reserve;
+ if(activeDays<rounds)throw Error('회독 기간에 학습일이 부족합니다.');
+ const days=Array.from({length:span},(_,i)=>({
+  date:plannerAddDays(start,i),
+  round:i<activeDays?Math.floor(i*rounds/activeDays)+1:null,
+  ids:[],groups:[]
+ }));
+ const groups={},sorted=chosen.slice().sort((a,b)=>String(a.categoryCode||'').localeCompare(String(b.categoryCode||''))||a.topicId.localeCompare(b.topicId));
+ for(const t of sorted){
+  const g=String(t.categoryCode||('NEW-'+(t.domain||'ETC'))).replace(/[^A-Za-z0-9_.-]/g,'').slice(0,32)||'NEW-ETC';
+  groups[g]=t.categoryName||t.domainName||g;
+ }
+ for(let r=1;r<=rounds;r++){
+  const segment=days.filter(d=>d.round===r);
+  if(!segment.length)throw Error('회독 학습일 배정이 잘못되었습니다.');
+  sorted.forEach((t,i)=>{
+   const g=String(t.categoryCode||('NEW-'+(t.domain||'ETC'))).replace(/[^A-Za-z0-9_.-]/g,'').slice(0,32)||'NEW-ETC';
+   const day=segment[(i+(r-1)*Math.floor(segment.length/2))%segment.length];
+   day.ids.push(t.topicId);day.groups.push(g);
+  });
+ }
+ const id='auto-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+ return normalise({id,name:name.trim(),start,end,rounds,groups,days});
+}
+function plannerReplaceIfUnchanged(id,previous,next){
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction(PLAN,'readwrite'),store=tx.objectStore(PLAN),req=store.get(id);
+  let fail=null;
+  req.onsuccess=()=>{
+   if(JSON.stringify(req.result)!==previous){
+    fail=Error('다른 탭에서 계획이 변경되었습니다. 새로고침하고 다시 확인해 주세요.');
+    tx.abort();return;
+   }
+   store.put(next);
+  };
+  req.onerror=()=>{fail=req.error};
+  tx.oncomplete=()=>resolve();
+  tx.onerror=()=>reject(fail||tx.error||Error('학습계획 저장 실패'));
+  tx.onabort=()=>reject(fail||tx.error||Error('학습계획 저장 취소'));
+ });
+}
+
 function goToPlannerPage(next){
  const value=Number(next);
  page=Number.isFinite(value)?Math.max(1,Math.trunc(value)):1;
@@ -337,7 +478,7 @@ async function render(){
  $('plannerSelect').innerHTML=plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');$('plannerSelect').value=active;$('plannerDate').value=dayKey;
  const p=plans.find(p=>p.id===active);if(!p){$('plannerGroups').textContent='등록된 학습계획이 없습니다. CSV 또는 JSON 계획 파일을 등록하세요.';$('plannerStats').textContent='';$('plannerGroup').innerHTML='<option value="all">전체 그룹</option>';$('plannerPager').classList.add('hidden');return}
  const d=p.days.find(d=>d.date===dayKey);const states=await all(PROGRESS),map=new Map(states.map(s=>[s.key,s]));
- if(!d){group='all';$('plannerGroup').innerHTML='<option value="all">전체 그룹 (0개)</option>';$('plannerGroups').textContent='이 날짜에는 계획된 토픽이 없습니다.';$('plannerStats').textContent=p.name+' · '+dayKey;$('plannerPager').classList.add('hidden');return}
+ if(!d){group='all';$('plannerGroup').innerHTML='<option value="all">전체 그룹 (0개)</option>';$('plannerGroups').textContent='이 날짜에는 계획된 토픽이 없습니다.';$('plannerStats').textContent=p.name+' · '+plannerDayText(p)+' · '+dayKey;$('plannerPager').classList.add('hidden');return}
  const dayGroupCounts=new Map();
  for(const code of d.groups)dayGroupCounts.set(code,(dayGroupCounts.get(code)||0)+1);
  if(group!=='all'&&!dayGroupCounts.has(group))group='all';
@@ -363,7 +504,7 @@ async function render(){
  $('plannerNextPage').disabled=page>=totalPages;
  $('plannerPageRange').textContent=total?(start+1)+'–'+Math.min(start+pageSize,total)+' / '+total+'개':'0개';
  $('plannerPager').classList.toggle('hidden',total<=pageSize);
- $('plannerStats').textContent=p.name+' · '+d.date+' · '+(d.round?d.round+'회독':'최종 점검')+' · 계획 '+d.ids.length+'개 / 완료 '+done+'개 / 다시보기 '+miss+'개 / 남은 '+(d.ids.length-done)+'개'+(group==='all'?'':' · 선택 그룹 '+dayGroupCounts.get(group)+'개');
+ $('plannerStats').textContent=p.name+' · '+plannerDayText(p)+' · '+d.date+' · '+(d.round?d.round+'회독':'최종 점검')+' · 계획 '+d.ids.length+'개 / 완료 '+done+'개 / 다시보기 '+miss+'개 / 남은 '+(d.ids.length-done)+'개'+(group==='all'?'':' · 선택 그룹 '+dayGroupCounts.get(group)+'개');
  $('plannerGroups').innerHTML=[...byGroup.entries()].map(([g,rows])=>'<details open class="planner-group"><summary>'+esc(g)+' · '+esc(p.groups?.[g]||g)+' (이 페이지 '+rows.length+'개 / 해당 그룹 '+groupCounts.get(g)+'개)</summary>'+rows.map(r=>'<button class="planner-topic" data-plan-topic="'+esc(r.id)+'" type="button"><span>'+esc(r.name)+'<small>'+esc(r.id)+(r.missing?' · MASTER에 없음':'')+'</small></span><span>'+({done:'완료',miss:'다시보기',todo:'미학습'}[r.status])+'</span></button>').join('')+'</details>').join('')||'<p>조건에 맞는 토픽이 없습니다.</p>';
  $('plannerGroups').querySelectorAll('[data-plan-topic]').forEach(btn=>btn.onclick=()=>{let id=btn.dataset.planTopic;context={planId:active,date:d.date,topicId:id};if(!(typeof allTopics!=='undefined'&&allTopics.some(t=>t.topicId===id))){alert('MASTER에 없는 토픽입니다: '+id);return}navigateToLearningTopic(id)});
 }
