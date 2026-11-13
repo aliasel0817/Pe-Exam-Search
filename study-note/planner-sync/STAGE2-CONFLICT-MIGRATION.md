@@ -16,7 +16,7 @@
 ## 2. 최초 동기화 절차(한 기기씩 승인, PC→태블릿→모바일 순서 예시)
 
 0. **사전 게이트:** 서버 `plannerSyncVersion>=1` + ACTIVE 신뢰기기 + 기능 토글 확인. 허가 없으면 로컬 전용으로 그대로 사용하고 이유를 안내.
-1. **로컬 읽기 전용 동결 스냅샷:** 현재 `pe-study-planner-v1/plans`, `progress`를 읽고 plan 수, day/slot 수, progress별 건수, SHA-256 manifest 생성. 메모리 또는 별도 백업 저장소에 **수정 전 원본**을 저장. 기존 plan/export JSON과 progress/backup JSON도 사용자가 내려받도록 안내.
+1. **로컬 읽기 전용 동결 스냅샷:** 현재 `pe-study-planner-v1/plans`, `progress`를 읽고 plan 수, day/slot 수, progress별 건수, SHA-256 manifest 생성. 메모리 또는 별도 백업 저장소에 **수정 전 원본**을 저장. 현재 UI의 계획 JSON 버튼은 **선택 계획만 백업**하므로, 최초 이행 전 **모든 planId를 빠짐없이 내보내는 일괄 백업**을 Stage 5에 추가하고 진도 JSON 전체 백업과 묶어 검증한다.
 2. **독립 백업 완료 확인:** 복구 가능한 JSON 원본이 준비되고 사용자가 확인하기 전 `plans/progress`에 서버 자료를 덮어쓰지 않는다. 각 기기마다 별도로 백업(다른 기기의 기록은 서버만으로 추측 불가).
 3. **서버 목록 조회:** signed GET `studyPlans` → revision/hash 비교. 서버 계획 없는 상태도 유효한 첫 마이그레이션 케이스.
 4. **일정 비교:** planId별 최신 스냅샷, 로컬 스냅샷, 알려진 공통 조상(기본 `pe141-100days.json` 해시 또는 마지막 동기화 revision)을 순서·그룹명까지 비교. 서버 일정은 페이징으로 끝까지 가져와 SHA 검증 후에만 판단.
@@ -107,7 +107,7 @@ for each validated change, within server LockService:
 - 두 기기에서 같은 key를 동시에 작성: 서버 lock 안의 CAS가 한 작업을 통과시키고 나머지는 CONFLICT; **last-write-wins 자동 선택하지 않는다**.
 - 클라이언트 `clientAt`은 참고; 인증용 요청 timestamp ±허용창은 기존 로직 적용. 시간 오차/오프라인 오래된 요청을 재서명할 때는 **새 전송 envelope**를 만들되 앱 영속 operationId는 재사용.
 - 기존 UI의 '미학습'은 아직 이벤트 없음이며, `todo` 이벤트는 분명한 리셋이므로 원격의 이전 done/miss를 되살리지 않는다.
-- progress GET 페이지는 고정 `highWatermark`까지만 순회. 네트워크 실패 시 마지막 **검증된** 커서부터 재시작하며 중간 페이지 유실을 건너뛰지 않는다.
+- progress GET 첫 페이지의 `highWatermark`를 후속 모든 페이지 요청의 `untilSeq`로 고정해 순회. 네트워크 실패 시 마지막 **검증된** 커서부터 재시작하며 중간 페이지 유실을 건너뛰지 않는다.
 
 ## 6. 백업·복원·롤백 정책
 
