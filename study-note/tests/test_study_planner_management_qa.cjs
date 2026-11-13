@@ -103,7 +103,7 @@ async function downloaded(dir,name){
   const expandedNoteHeight=await page.$eval('#plannerManagement > .planner-local-info',e=>e.getBoundingClientRect().height);
   assert(expandedNoteHeight>0,'Note should appear when manager is expanded');
   assert.equal(await page.$eval('#plannerManage',e=>e.getAttribute('aria-expanded')),'true');
-  assert.equal(await page.$$eval('.planner-manage-section',xs=>xs.length),3);
+  assert.equal(await page.$eval('.planner-manage-section',xs=>xs.length),5);
   assert((await page.$eval('#plannerManagement',e=>e.textContent)).includes('CSV UTF-8'));
   assert((await page.$eval('#plannerManagement',e=>e.textContent)).includes('진도 복원'));
   await page.click("#plannerCsvSample");
