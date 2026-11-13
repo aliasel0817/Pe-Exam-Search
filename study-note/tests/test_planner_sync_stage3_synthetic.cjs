@@ -71,43 +71,43 @@ function fixture(id,count,small){
  return {meta:{planId:id,name,start:dates[0],end:dates.at(-1),rounds:5},hash:hash(canonical),chunks,slots:n};
 }
 function createPlan(f,device=A,base=0,op='operation-'+f.meta.planId+'-'+base){
- const stage=fn('post_')('beginStudyPlanRevision',{operationId:op,planId:f.meta.planId,baseRevision:base,meta:f.meta,snapshotHash:f.hash,expectedChunks:f.chunks.length},device);
+ const stage=fn('post')('beginStudyPlanRevision',{operationId:op,planId:f.meta.planId,baseRevision:base,meta:f.meta,snapshotHash:f.hash,expectedChunks:f.chunks.length},device);
  const state={operationId:op,stageId:stage.stageId};
- for(let i=0;i<f.chunks.length;i+=12)fn('post_')('putStudyPlanChunks',{...state,chunks:f.chunks.slice(i,i+12)},device);
- return fn('post_')('commitStudyPlanRevision',{...state,baseRevision:base,snapshotHash:f.hash},device);
+ for(let i=0;i<f.chunks.length;i+=12)fn('post')('putStudyPlanChunks',{...state,chunks:f.chunks.slice(i,i+12)},device);
+ return fn('post')('commitStudyPlanRevision',{...state,baseRevision:base,snapshotHash:f.hash},device);
 }
 const started=Date.now();
-assert.equal(fn('get_')('studyPlans',{},A).plans.length,0);
+assert.equal(fn('get')('studyPlans',{},A).plans.length,0);
 const small=fixture('test-small',2,true);
 const result=createPlan(small);assert.equal(result.entries,2);assert.equal(result.days,100);assert.equal(result.activeRevision,1);
-assert.equal(fn('get_')('studyPlans',{},A).plans.length,1);
-const pg=fn('get_')('studyPlanSchedule',{planId:'test-small',offset:0,limit:40},A);
+assert.equal(fn('get')('studyPlans',{},A).plans.length,1);
+const pg=fn('get')('studyPlanSchedule',{planId:'test-small',offset:0,limit:40},A);
 assert.equal(pg.chunks.length,40);assert.equal(pg.hasMore,true);
-ok('AUTH_REQUIRED',()=>fn('get_')('studyPlans',{},{}));
-properties.PLANNER_SYNC_MODE='PRODUCTION';ok('ISOLATION_REQUIRED',()=>fn('get_')('studyPlans',{},A));properties.PLANNER_SYNC_MODE='ISOLATED_TEST';
+ok('AUTH_REQUIRED',()=>fn('get')('studyPlans',{},{}));
+properties.PLANNER_SYNC_MODE='PRODUCTION';ok('ISOLATION_REQUIRED',()=>fn('get')('studyPlans',{},A));properties.PLANNER_SYNC_MODE='ISOLATED_TEST';
 const first={operationId:'progress-op-001',planId:'test-small',date:now,topicId:'T0001',status:'done',expectedRowRevision:0,planRevisionAtWrite:1};
-const saved=fn('post_')('saveStudyProgress',{changes:[first]},A);assert.equal(saved.applied.length,1);
-const duplicate=fn('post_')('saveStudyProgress',{changes:[first]},A);assert.equal(duplicate.duplicate.length,1);
-const conflict=fn('post_')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-002',status:'miss'}]},B);assert.equal(conflict.conflicts.length,1);
-const miss=fn('post_')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-003',topicId:'T0002',status:'miss'}]},A);
+const saved=fn('post')('saveStudyProgress',{changes:[first]},A);assert.equal(saved.applied.length,1);
+const duplicate=fn('post')('saveStudyProgress',{changes:[first]},A);assert.equal(duplicate.duplicate.length,1);
+const conflict=fn('post')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-002',status:'miss'}]},B);assert.equal(conflict.conflicts.length,1);
+const miss=fn('post')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-003',topicId:'T0002',status:'miss'}]},A);
 assert.equal(miss.applied.length,1);
-const reset=fn('post_')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-004',status:'todo',expectedRowRevision:1}]},A);
+const reset=fn('post')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-004',status:'todo',expectedRowRevision:1}]},A);
 assert.equal(reset.applied.length,1);
 assert.equal(sheets.학습계획진도.rows.length,4,'only 3 unique changes');
-const cursor=fn('get_')('studyProgress',{planId:'test-small',limit:1},A);
+const cursor=fn('get')('studyProgress',{planId:'test-small',limit:1},A);
 assert.equal(cursor.highWatermark,3);
-const next=fn('get_')('studyProgress',{planId:'test-small',afterSeq:cursor.nextSeq,untilSeq:cursor.highWatermark,limit:30},A);
+const next=fn('get')('studyProgress',{planId:'test-small',afterSeq:cursor.nextSeq,untilSeq:cursor.highWatermark,limit:30},A);
 assert.equal(next.events.length,2);
-ok('SLOT_NOT_FOUND',()=>fn('post_')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-005',topicId:'T9999'}]},A));
+ok('SLOT_NOT_FOUND',()=>fn('post')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-005',topicId:'T9999'}]},A));
 const big=fixture('test-big',19060,false);
 assert.equal(big.slots,19060);
 const committed=createPlan(big,A);
 assert.equal(committed.entries,19060);assert.equal(committed.days,100);assert.equal(committed.activeRevision,1);
 const pages=[];let off=0;
-while(true){const p=fn('get_')('studyPlanSchedule',{planId:'test-big',offset:off,limit:100},A);pages.push(...p.chunks);off=p.nextOffset;if(!p.hasMore)break;}
+while(true){const p=fn('get')('studyPlanSchedule',{planId:'test-big',offset:off,limit:100},A);pages.push(...p.chunks);off=p.nextOffset;if(!p.hasMore)break;}
 assert.equal(pages.length,big.chunks.length);
 assert.equal(pages.map(x=>x.chunkKey).sort().join('|'),big.chunks.map(x=>x.chunkKey).sort().join('|'));
 const updated=fixture('test-big',19060,false);updated.meta.name='altered-name';
-ok('REVISION_CONFLICT',()=>fn('post_')('beginStudyPlanRevision',{operationId:'competing-op-001',planId:'test-big',baseRevision:0,meta:updated.meta,snapshotHash:updated.hash,expectedChunks:updated.chunks.length},B));
+ok('REVISION_CONFLICT',()=>fn('post')('beginStudyPlanRevision',{operationId:'competing-op-001',planId:'test-big',baseRevision:0,meta:updated.meta,snapshotHash:updated.hash,expectedChunks:updated.chunks.length},B));
 const stats={checks:'PASS',plans:2,days:100,slots:19060,chunks:big.chunks.length,progressEvents:3,elapsedMs:Date.now()-started};
 console.log('STAGE3_SYNTHETIC_PASS',JSON.stringify(stats));
