@@ -43,7 +43,7 @@ function PS3_find_(rows,key,value){for(var i=0;i<rows.length;i++)if(PS3_str_(row
 function PS3_auth_(ctx){if(!ctx||ctx.status!=='ACTIVE'||!ctx.deviceId)PS3_fail_('AUTH_REQUIRED','ACTIVE 신뢰기기 검증 필요');}
 function PS3_validatePlan_(m){
  m=m||{};if(!PS3_planId_(m.planId))PS3_fail_('BAD_PLAN','계획 ID 오류');
- if(!m.name||PS3_str_(m.name).length>100||!PS3_date_(m.start)||!PS3_date_(m.end)||m.end<m.start)PS3_fail_('BAD_PLAN','계획 이름/기간 오류');
+ if(!m.name||PS3_str_(m.name).length>100||/^[=+@-]/.test(PS3_str_(m.name))||!PS3_date_(m.start)||!PS3_date_(m.end)||m.end<m.start)PS3_fail_('BAD_PLAN','계획 이름/기간 오류');
  if(!Number.isInteger(m.rounds)||m.rounds<1||m.rounds>30)PS3_fail_('BAD_PLAN','회독 수 오류');
 }
 function PS3_lock_(fn){
@@ -234,6 +234,7 @@ function PS3_progressWrite_(ss,d,auth){
  var slotsByPlan={},pmeta={};
  changes.forEach(function(c){
   var op=PS3_mutationId_(c),hash=PS3_sha_(JSON.stringify([c.planId,c.date,c.topicId,c.status,c.expectedRowRevision,c.planRevisionAtWrite]));
+  if(c.clientAt!=null&&c.clientAt!==''&&!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(PS3_str_(c.clientAt)))PS3_fail_('BAD_TIMESTAMP','clientAt는 ISO UTC 시간이어야 합니다.');
   var oldOp=existingIds[op];
   if(oldOp){
    if(oldOp[9]!==hash)PS3_fail_('OPERATION_REUSE','이미 사용한 operationId와 다른 데이터');
