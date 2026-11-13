@@ -65,7 +65,7 @@ function PS3_ensurePlan_(ss,id){
 }
 function PS3_outputPlan_(r){return {planId:r[0],name:r[1],start:r[2],end:r[3],rounds:Number(r[4]),activeRevision:Number(r[5]),activeHash:r[7],dayCount:Number(r[8]),slotCount:Number(r[9]),groupCount:Number(r[10]),progressSeq:Number(r[11]),status:r[12]};}
 function PS3_get_(action,data,auth){
- PS3_auth_(auth);var ss=PS3_context_(),d=data||{};
+ PS3_auth_(auth);action=String(action||'').toLowerCase();var ss=PS3_context_(),d=data||{};
  if(action==='studyplans'){
   var plans=PS3_table_(ss,'plans').rows.filter(function(x){return x[0];}).map(PS3_outputPlan_);
   return {ok:true,plannerSyncVersion:1,plans:plans};
