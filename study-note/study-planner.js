@@ -616,7 +616,11 @@ async function plannerSync(){
  if(!loaded)await load();
  const client=window.PEPlannerSyncClient;if(!client)return {state:'disabled'};
  const result=await client.sync(db);
- if(result.state!=='disabled'&&result.state!=='migration-required')await render();
+ if(result.state!=='disabled'&&result.state!=='migration-required'){
+  plans=await all(PLAN);
+  if(!plans.some(p=>p.id===active)){active=plans[0]?.id||'';localStorage.setItem(PREF,active);}
+  await render();
+ }
  await plannerSyncStatus();
  return result;
 }
