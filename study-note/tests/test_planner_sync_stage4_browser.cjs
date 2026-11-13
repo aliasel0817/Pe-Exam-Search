@@ -170,6 +170,8 @@ async function selectTopic(page,id,date){
   assert.equal((await pc.evaluate(()=>StudyPlanner.sync())).state,'migration-required');
   assert.equal(memory.calls,before,'migration block must make zero server calls');
   await migrateMock(pc);
+  await pc.click('#plannerManage');
+  await pc.waitForFunction(()=>document.getElementById('plannerManagement').open,{timeout:4000});
   await pc.$eval('#plannerCreateName',e=>{e.value='합성 클라우드';e.dispatchEvent(new Event('input',{bubbles:true}))});
   await pc.$eval('#plannerCreateStart',e=>{e.value='2026-11-13';e.dispatchEvent(new Event('change',{bubbles:true}))});
   await pc.$eval('#plannerCreateEnd',e=>{e.value='2026-11-15';e.dispatchEvent(new Event('change',{bubbles:true}))});
