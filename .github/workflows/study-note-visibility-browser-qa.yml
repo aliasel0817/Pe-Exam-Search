@@ -40,6 +40,18 @@ jobs:
             -o .qa-browser/pdfjs/pdf.worker.min.js
           echo '5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946  .qa-browser/pdfjs/pdf.min.js' | sha256sum -c -
           echo 'feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b  .qa-browser/pdfjs/pdf.worker.min.js' | sha256sum -c -
+      - name: Run planner JS invariants and browser regression (no LIVE MASTER writes)
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: |
+          if [ ! -x "$CHROME_BIN" ]; then
+            CHROME_BIN="$(command -v chromium || command -v chromium-browser)"
+            export CHROME_BIN
+          fi
+          node --check study-note/study-planner.js
+          node study-note/tests/test_study_planner_live_master.cjs
+          node study-note/tests/test_study_planner_management_qa.cjs
+          node study-note/tests/test_study_planner_live_master_browser.cjs
       - name: Run full-PWA DOM and responsive screen QA against synthetic topics
         env:
           CHROME_BIN: /usr/bin/google-chrome
