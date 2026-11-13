@@ -85,9 +85,13 @@ const pg=fn('get')('studyPlanSchedule',{planId:'test-small',offset:0,limit:40},A
 assert.equal(pg.chunks.length,40);assert.equal(pg.hasMore,true);
 ok('AUTH_REQUIRED',()=>fn('get')('studyPlans',{},{}));
 properties.PLANNER_SYNC_MODE='PRODUCTION';ok('ISOLATION_REQUIRED',()=>fn('get')('studyPlans',{},A));properties.PLANNER_SYNC_MODE='ISOLATED_TEST';
+properties.STUDY_NOTE_SPREADSHEET_ID=properties.PLANNER_SYNC_TEST_SPREADSHEET_ID;
+ok('LIVE_BLOCKED',()=>fn('get')('studyPlans',{},A));
+properties.STUDY_NOTE_SPREADSHEET_ID='production-inaccessible';
 const first={operationId:'progress-op-001',planId:'test-small',date:now,topicId:'T0001',status:'done',expectedRowRevision:0,planRevisionAtWrite:1};
 const saved=fn('post')('saveStudyProgress',{changes:[first]},A);assert.equal(saved.applied.length,1);
 const duplicate=fn('post')('saveStudyProgress',{changes:[first]},A);assert.equal(duplicate.duplicate.length,1);
+ok('OPERATION_REUSE',()=>fn('post')('saveStudyProgress',{changes:[{...first,status:'miss'}]},A));
 const conflict=fn('post')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-002',status:'miss'}]},B);assert.equal(conflict.conflicts.length,1);
 const miss=fn('post')('saveStudyProgress',{changes:[{...first,operationId:'progress-op-003',topicId:'T0002',status:'miss'}]},A);
 assert.equal(miss.applied.length,1);
