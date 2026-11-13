@@ -21,7 +21,7 @@ PC·태블릿·모바일에서 공유할 학습계획·일정·회독별 진행 
 - 기존 웹 코드: `study-note/study-note.html`의 `buildSignedGetUrl`, `sendSecureMutation`, `syncLearningStates`; `study-note/study-planner.js`의 `plans/progress`.
 - 백엔드 참조 소스: `study-note/mupdf-migration/r5/source/Code.js`는 이전 R8 운영 v21 대응 사본이었음. **이번 Stage 3의 운영 실소스라고 가정 금지.** 다른 후속 `r7/source/Code.js` 역시 운영 소스와 혼용 금지.
 - LIVE 원장 이름 `topic_study_data`, 1단계 조사 당시 토픽 3895개. 구글 시트 이름/ID 동일 여부는 운영 Apps Script Script Properties와 대조 전까지 **미확정**.
-- 기존 학습계획: `pe141-100d-2026` 100일, 3812개 고유 토픽, 19060건 배정. MASTER 대비 Y 미편입 24개(정적 JSON 기준, **실제 기기별 상태 미확인**).
+- 기존 학습계획: `pe141-100d-2026` 100일, 3812개 고유 토픽, 19060건 배정. MASTER 대비 Y 미편입 24개(정적 JSON 기준, **실제 기기별 상태 미확인**). 기존 N·비활성 토픽의 과거 슬롯/진도도 임의 삭제하지 않는다.
 - 기존 중앙 일반 학습정보 `학습정보`, 기기별 플래너 DB `pe-study-planner-v1`: `plans` / `progress`. 이번 Stage 3은 기기 로컬 데이터를 직접 변경하지 않음.
 - 기존 보안: ACTIVE 신뢰기기, 서명 GET/POST, nonce·서버 시간창, requestId/pollKey/`mutationStatus` 폴링. 동일 제약 적용; 운영 OAuth 비밀키·등록기기 세션을 출력/커밋 금지.
 
@@ -51,7 +51,7 @@ PC·태블릿·모바일에서 공유할 학습계획·일정·회독별 진행 
 
 ### 3-4. 진도 이벤트 GET/POST와 중복 전송·경합 안전성
 
-- 신규 signed GET: `studyProgress` (`planId,afterSeq,limit`).
+- 신규 signed GET: `studyProgress` (`planId,afterSeq,limit,untilSeq`); 첫 응답의 `highWatermark`를 후속 `untilSeq`에 고정.
 - 신규 signed POST: `saveStudyProgress` (`changes[]`, 각 항목 operationId 및 expectedRowRevision).
 - `done/miss/todo` 상태의 append-only 이벤트 원장, 서버 부여 per-plan serverSeq, per-key rowRevision 구현. 각 이벤트는 실제 계획의 날짜/토픽에 연결되어야 한다.
 - 동일 operationId 동일 payload는 중복 기록하지 않고 기존 ACK 반환, 다른 payload는 거부.
