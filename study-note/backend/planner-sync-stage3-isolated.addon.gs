@@ -117,8 +117,19 @@ function PS3_begin_(ss,d,auth){
  var p=PS3_ensurePlan_(ss,d.planId);
  if(p.match && Number(p.match.row[5])!==base)PS3_fail_('REVISION_CONFLICT','서버 계획이 변경됨');
  if(!p.match && base!==0)PS3_fail_('REVISION_CONFLICT','신규 계획 baseRevision은 0');
- var alloc=p.match?Number(p.match.row[6]):1,now=PS3_now_(),stage='stage-'+op;
- PS3_row_(PS3_table_(ss,'operations').sheet,[op,stage,d.planId,'beginStudyPlanRevision',base,alloc,hash,count,0,fingerprint,'STAGING',JSON.stringify(meta),auth.deviceId,now,'']);
+ var operationTable=PS3_table_(ss,'operations'),now=PS3_now_(),alloc=p.match?Number(p.match.row[6]):1;
+ operationTable.rows.forEach(function(existingRow,index){
+   if(existingRow[2]!==d.planId)return;
+   alloc=Math.max(alloc,Number(existingRow[5]||0)+1);
+   if(existingRow[10]==='STAGING'){
+     var expires=Date.parse(existingRow[14]);
+     if(Number.isFinite(expires)&&expires<Date.now()){
+       operationTable.sheet.getRange(index+2,11).setValue('EXPIRED');
+     } else PS3_fail_('PLAN_STAGE_BUSY','이 계획의 다른 버전 업로드가 진행 중입니다.');
+   }
+ });
+ var stage='stage-'+op,expiresAt=new Date(Date.now()+3600000).toISOString();
+ PS3_row_(operationTable.sheet,[op,stage,d.planId,'beginStudyPlanRevision',base,alloc,hash,count,0,fingerprint,'STAGING',JSON.stringify(meta),auth.deviceId,now,expiresAt]);
  return {ok:true,action:'beginStudyPlanRevision',stageId:stage,allocatedRevision:alloc};
 }
 function PS3_stage_(ss,d){
@@ -190,6 +201,11 @@ function PS3_commit_(ss,d,auth){
  if(row[12]!==auth.deviceId)PS3_fail_('AUTH_REQUIRED','다른 기기 단계 접근 금지');
  if(row[10]==='COMMITTED')return {ok:true,action:'commitStudyPlanRevision',duplicate:true,activeRevision:Number(row[5]),activeHash:row[6]};
  if(row[6]!==d.snapshotHash||Number(row[4])!==Number(d.baseRevision))PS3_fail_('BAD_PLAN','stage 정보 불일치');
+ var alreadyActive=PS3_ensurePlan_(ss,row[2]).match;
+ if(alreadyActive&&Number(alreadyActive.row[5])===Number(row[5])&&alreadyActive.row[7]===row[6]){
+   PS3_table_(ss,'operations').sheet.getRange(stage.match.index+2,11).setValue('COMMITTED');
+   return {ok:true,action:'commitStudyPlanRevision',duplicate:true,state:'ALREADY_APPLIED',activeRevision:Number(row[5]),activeHash:row[6]};
+ }
  var chunks=PS3_table_(ss,'schedule').rows.filter(function(r){return r[0]===row[2]&&Number(r[1])===Number(row[5]);});
  if(chunks.length!==Number(row[7]))PS3_fail_('INCOMPLETE_STAGE','청크 누락');
  var meta=JSON.parse(row[11]);var snap=PS3_snapshot_(chunks,meta);
