@@ -36,14 +36,24 @@ function mount({db,onApplied,transport}){
  parent.appendChild(section);
  const css=document.createElement('style');css.textContent='#plannerFirstSyncWizard{margin:12px 0;padding:12px;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc}#plannerFirstSyncWizard h4{margin:0 0 8px}#plannerMigChoices label{display:block;font-size:.8rem;padding:3px}#plannerFirstSyncWizard button:disabled{opacity:.6}#plannerFirstSyncWizard input[type=file]{margin:6px 0}';
  document.head.appendChild(css);
- let snapId=null,preview=null,busy=false;
+ let snapId=null,preview=null,busy=false,verified=false,phase='UNINITIALIZED';
  const say=message=>{$('plannerMigMessage').textContent=message;};
- const update=()=>{$('plannerMigCompare').disabled=busy||!snapId;$('plannerMigChoices').disabled=busy||!preview;
-  $('plannerMigApprove').disabled=busy||!preview;$('plannerMigRetry').disabled=busy||!snapId;$('plannerMigCancel').disabled=busy||!snapId;};
+ const update=()=>{
+  $('plannerMigCompare').disabled=busy||!verified||!['BACKED_UP','REVIEW_REQUIRED'].includes(phase);
+  $('plannerMigChoices').disabled=busy||!preview||phase!=='REVIEW_REQUIRED';
+  $('plannerMigApprove').disabled=busy||!preview||phase!=='REVIEW_REQUIRED';
+  $('plannerMigRetry').disabled=busy||!['PENDING_RETRY','UPLOADING'].includes(phase);
+  $('plannerMigCancel').disabled=busy||!['BACKUP_PREPARED','BACKED_UP','REVIEW_REQUIRED'].includes(phase);
+ };
+ async function syncPhase(){
+  if(!snapId)return;
+  const s=await new Promise((resolve,reject)=>{const r=db.transaction('preSyncSnapshots').objectStore('preSyncSnapshots').get(snapId);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+  if(s){phase=s.state;verified=Boolean(s.fileConfirmedAt);if(s.preview){preview=s.preview;showPreview(preview);}}
+ }
  function withBusy(task){return async e=>{
   if(busy)return;busy=true;update();say('격리된 합성 데이터를 안전하게 처리 중입니다.');
   try{await task(e)}catch(ex){console.error('Stage5 migration',ex);say('통합 보류 · 기존 기록 보존: '+ex.message)}
-  finally{busy=false;update();}
+  finally{busy=false;await syncPhase().catch(console.error);update();}
  };}
  const ownTransport=()=>transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT;
  const readJson=async file=>{
@@ -59,7 +69,7 @@ function mount({db,onApplied,transport}){
    (lines.length?'\n보류 예정:\n'+lines.join('\n'):'\n충돌 없는 항목만 사용자 승인 후 처리합니다.');
  }
  $('plannerMigBackup').onclick=withBusy(async()=>{
-  const file=await api.backup(db),snap=await api.storeBackup(db,file);snapId=snap.id;preview=null;api.downloadBackup(file);
+  const file=await api.backup(db),snap=await api.storeBackup(db,file);snapId=snap.id;preview=null;verified=false;phase='BACKUP_PREPARED';api.downloadBackup(file);
   $('plannerMigPreview').textContent='백업: 계획 '+file.counts.plans+'개 · 배정 '+file.counts.slots+'회 · 진도 '+file.counts.progress+'건. 저장된 JSON을 ②에서 다시 선택하세요.';
   say('백업 다운로드를 시작했습니다. 실제 파일 재선택·해시 확인 전에는 통합할 수 없습니다.');
  });
@@ -77,14 +87,14 @@ function mount({db,onApplied,transport}){
   if(!preview)throw Error('비교 미리보기가 필요합니다.');
   const opts=selection();if(!Object.values(opts).some(Boolean))throw Error('통합할 항목을 선택하세요.');
   if(!root.confirm('백업 파일을 실제로 저장하고 검증했습니까?\n미리보기에 나타난 충돌 없는 선택 항목만 격리 서버로 통합할까요?')){say('취소됨: 기존 기기 기록 유지');return;}
-  const result=await api.apply(db,snapId,opts,ownTransport());
+  const result=await api.apply(db,snapId,opts,ownTransport(),true);
   say(result.ready?'첫 통합 검증 완료 · 이 합성 기기의 동기화 준비됨':'부분 통합 완료 · 충돌과 미선택 항목 보존');
   if(typeof onApplied==='function')await onApplied(result);
  });
  $('plannerMigRetry').onclick=withBusy(async()=>{
   const s=await new Promise((resolve,reject)=>{const r=db.transaction('preSyncSnapshots').objectStore('preSyncSnapshots').get(snapId);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-  if(s?.state!=='PENDING_RETRY')throw Error('재시도할 미완료 작업이 없습니다.');
-  const result=await api.apply(db,snapId,s.approval,ownTransport());
+  if(!['PENDING_RETRY','UPLOADING'].includes(s?.state))throw Error('재시도할 미완료 작업이 없습니다.');
+  const result=await api.apply(db,snapId,s.approval,ownTransport(),true);
   say(result.ready?'재시도·서버 검증 완료':'부분 적용 후 충돌 보류');if(typeof onApplied==='function')await onApplied(result);
  });
  $('plannerMigCancel').onclick=withBusy(async()=>{
@@ -97,6 +107,21 @@ function mount({db,onApplied,transport}){
   say('로컬 안전 복원: 계획 '+result.restored.plans+'개 / 진도 '+result.restored.progress+'건, 충돌 '+result.conflicts+'건. 서버 전송 없음.');
   if(typeof onApplied==='function')await onApplied(result);e.target.value='';
  });
+ // Restore the most recent incomplete first-sync journal after browser refresh;
+ // no network call or automatic write is performed when this UI mounts.
+ new Promise((resolve,reject)=>{
+  const r=db.transaction('preSyncSnapshots').objectStore('preSyncSnapshots').getAll();
+  r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+ }).then(async rows=>{
+  const recover=(rows||[]).filter(x=>['BACKUP_PREPARED','BACKED_UP','REVIEW_REQUIRED','UPLOADING','PENDING_RETRY'].includes(x.state))
+   .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+  if(!recover)return;
+  snapId=recover.id;await syncPhase();
+  say(['UPLOADING','PENDING_RETRY'].includes(phase)
+   ?'이전에 승인된 통합 작업이 중단되었습니다. 동일 작업 ID로 안전하게 재시도할 수 있습니다.'
+   :'이전 백업·미리보기 단계가 저장되어 있습니다. 검증 후 이어서 진행할 수 있습니다.');
+  update();
+ }).catch(error=>{console.warn('Stage5 migration recovery inspection failed',error);});
  update();return section;
 }
 root.PEPlannerMigrationUI={mount};
