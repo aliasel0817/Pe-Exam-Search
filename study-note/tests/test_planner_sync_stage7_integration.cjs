@@ -13,7 +13,10 @@ Object.defineProperty(globalThis,'crypto',{configurable:true,value:webcrypto});
 const client=require('../study-planner-sync.js');
 const testFile=path.resolve(process.env.STAGE3_TEST_FILE||'.qa-stage3/study-note/tests/test_planner_sync_stage3_synthetic.cjs');
 if(!fs.existsSync(testFile))throw Error('Pinned Stage 3 synthetic fixture checkout missing: '+testFile);
-const source=fs.readFileSync(testFile,'utf8');
+const originalFixture=fs.readFileSync(testFile,'utf8');
+const anchor="const code=fs.readFileSync(path.join(__dirname,'../backend/planner-sync-stage3-isolated.addon.gs'),'utf8');";
+assert(originalFixture.includes(anchor),'Stage3 pinned fixture changed; review test harness first');
+const source=originalFixture.replace(anchor,"const code=fs.readFileSync(path.resolve('study-note/backend/planner-sync-stage3-isolated.addon.gs'),'utf8');");
 
 function stage7Assertions(){
  return (async()=>{
