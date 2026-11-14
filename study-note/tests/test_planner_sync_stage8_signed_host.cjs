@@ -83,6 +83,11 @@ isolated=false;
 assert.throws(()=>sandbox.PS8_signedPlannerGet_(buildGet('studyplans',{})),/ISOLATION_REQUIRED/);
 isolated=true;
 assert.throws(()=>sandbox.PS8_signedPlannerGet_(buildGet('topics',{})),/UNKNOWN_ACTION/);
+for(const inherited of ['constructor','toString','__proto__']){
+ assert.equal(sandbox.PS8_isPlannerGet_(inherited),false,'GET route prototype key');
+ assert.equal(sandbox.PS8_isPlannerPost_(inherited),false,'POST route prototype key');
+ assert.throws(()=>sandbox.PS8_signedPlannerGet_(buildGet(inherited,{})),/UNKNOWN_ACTION/);
+}
 const signedPost=buildPost('savestudyprogress',{changes:[{operationId:'synthetic-only'}]});
 const verified=sandbox.validateSignedMutation_(signedPost,['ACTIVE']);
 assert.equal(verified.auth.status,'ACTIVE');
