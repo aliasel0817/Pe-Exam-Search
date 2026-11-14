@@ -94,11 +94,15 @@ async function downloaded(dir,name){
   // Stage6 intentionally replaced the old absolute non-sync notice with a
   // truthful production-local warning and backup/approval/server-proof gates.
   // Preserve stronger safety assertions rather than deleting the regression.
+  // Stage6 UX updates the intro after publish() in disabled/local mode.
+  // Verify the actual rendered safeguard, not its overwritten static template.
   assert(compactClosed.noteText.includes('현재 운영 서비스에서는'));
-  assert(compactClosed.noteText.includes('기기별로 보관됩니다'));
-  assert(compactClosed.noteText.includes('전체 백업과 최초 통합 승인'));
-  assert(compactClosed.noteText.includes('서버 응답 검증'));
-  assert(compactClosed.noteText.includes('JSON 백업은 동기화와 별개의 안전장치'));
+  assert(compactClosed.noteText.includes('각 기기별로 저장됩니다'));
+  assert(compactClosed.noteText.includes('다른 기기로 자동 공유되지 않습니다'));
+  assert(compactClosed.noteText.includes('JSON 백업은 독립 안전장치입니다'));
+  const managementHelp=await page.$eval('#plannerManagement > .planner-help',e=>e.textContent);
+  assert(managementHelp.includes('⑥ 최초 전체 백업'));
+  assert(managementHelp.includes('MASTER 원문은 수정하지 않습니다'));
   assert.equal(compactClosed.noteDisplay,'none','Collapsed note must be explicitly hidden on every browser');
   assert.equal(compactClosed.noteVisibleHeight,0,'Note must not occupy space while collapsed');
   assert.equal(compactClosed.titleSize,'12px','Summary title should be smaller');
