@@ -31,7 +31,7 @@ jobs:
           node-version: '22'
       - name: Syntax validation
         run: |
-          node --check study-note/backend/planner-sync-stage3-isolated.addon.gs
+          node --check < study-note/backend/planner-sync-stage3-isolated.addon.gs
           node --check study-note/study-planner-sync.js
           node --check study-note/tests/test_planner_sync_stage7_integration.cjs
       - name: Stage 3 isolated server synthetic baseline (pinned original)
