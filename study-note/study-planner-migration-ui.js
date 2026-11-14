@@ -10,13 +10,19 @@ function mount({db,onApplied,transport}){
  const section=document.createElement('section');section.id='plannerFirstSyncWizard';section.className='planner-migrate-section';
  section.innerHTML=[
  '<h4>⑥ 모든 기기 학습기록 최초 통합 — 격리 시험</h4>',
- '<p class="planner-help">실사용 MASTER·운영 서버와 연결하지 않습니다. <strong>현재 기기 전체 백업 파일을 내려받은 후 다시 선택하여 확인</strong>해야 최초 통합을 진행할 수 있습니다. 충돌은 자동으로 덮어쓰지 않습니다.</p>',
+ '<p class="planner-help">실사용 MASTER·운영 서버와 연결하지 않습니다. <strong>현재 기기 전체 백업 파일을 내려받은 후 다시 선택하여 확인</strong>해야 최초 통합을 진행할 수 있습니다. 완료·다시보기와 다른 날짜의 회독은 각각 독립된 기록이며, 충돌은 자동으로 덮어쓰지 않습니다.</p>',
+ '<ol id="plannerMigSteps" class="planner-migrate-steps" aria-label="기기별 최초 동기화 7단계">',
+ '<li>전체 계획·진도 백업</li><li>저장한 JSON 재선택·SHA-256 확인</li>',
+ '<li>서버 일정·진도 읽기</li><li>병합 미리보기·충돌 확인</li>',
+ '<li>사용자 승인</li><li>선택한 기록 전송·중단 재개</li><li>서버 버전·해시·진도 시퀀스 검증</li></ol>',
  '<div class="planner-manager-actions">',
  '<button id="plannerMigBackup" class="btn" type="button">① 계획·진도 전체 백업 다운로드</button>',
  '<label class="planner-file-label" for="plannerMigVerify">② 다운로드한 파일 재선택·해시 확인</label>',
  '<input id="plannerMigVerify" type="file" accept=".json,application/json">',
  '<button id="plannerMigCompare" class="btn" disabled type="button">③ 서버와 전체 비교</button></div>',
  '<div id="plannerMigPreview" class="planner-help" role="status" aria-live="polite"></div>',
+ '<details id="plannerMigConflictDetails" hidden><summary>충돌 원본 비교 보기 — 사용자 선택 전 자동 덮어쓰기 없음</summary>',
+ '<div id="plannerMigConflictRows" class="planner-conflict-list" role="region" aria-label="학습계획과 진도 충돌 원본 상세"></div></details>',
  '<fieldset id="plannerMigChoices" disabled style="margin-top:8px;border:1px solid #cbd5e1;border-radius:8px;padding:8px">',
  '<legend>④ 미리보기 확인 후 통합할 항목 선택 (충돌 제외)</legend>',
  '<label><input type="checkbox" id="plannerMigUpPlan" checked> 기기에만 있거나 안전하게 추가된 계획 업로드</label>',
@@ -38,12 +44,52 @@ function mount({db,onApplied,transport}){
  document.head.appendChild(css);
  let snapId=null,preview=null,busy=false,verified=false,phase='UNINITIALIZED';
  const say=message=>{$('plannerMigMessage').textContent=message;};
+ const stepNames=['전체 백업','파일 SHA 확인','서버 조회','병합 미리보기','사용자 승인','서버 처리·재개','최종 검증'];
+ function updateSteps(){
+  const steps=[...$('plannerMigSteps').querySelectorAll('li')];
+  const position=phase==='UNINITIALIZED'?0:phase==='BACKUP_PREPARED'?1:phase==='BACKED_UP'?2:
+   phase==='REVIEW_REQUIRED'?4:phase==='UPLOADING'||phase==='PENDING_RETRY'?5:phase==='SYNC_READY'||phase==='CONFLICT_HELD'?7:0;
+  steps.forEach((node,i)=>{
+   node.dataset.state=i<position?'done':i===position?'current':'waiting';
+   if(i===position)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');
+   const n=i+1;node.title=n+'단계: '+stepNames[i] + (i<position?' · 이전 처리됨':i===position?' · 현재 단계':' · 대기');
+  });
+ }
+ function renderConflicts(p){
+  const list=$('plannerMigConflictRows'),panel=$('plannerMigConflictDetails');
+  list.replaceChildren();
+  const records=p?.conflicts||[];
+  panel.hidden=!records.length;
+  const fmt=value=>JSON.stringify(value??null,null,2);
+  for(const record of records){
+   const wrapper=document.createElement('details');
+   const summary=document.createElement('summary');
+   summary.textContent=(record.kind==='plan'?'계획 일정 충돌 · ':'회독 진도 충돌 · ')+record.key+' · 원본 두 건 모두 보류';
+   wrapper.appendChild(summary);
+   if(record.kind==='plan'){
+    const intro=document.createElement('p');intro.textContent='동일 계획 ID의 날짜·회독·토픽·그룹을 비교합니다. 승인 전 변경 또는 삭제하지 않습니다.';wrapper.appendChild(intro);
+    const local=document.createElement('pre');local.textContent='로컬 전체 일정 원본: '+fmt(record.local);
+    const remote=document.createElement('pre');remote.textContent='서버 전체 일정 원본: '+fmt(record.remote);
+    wrapper.append(local,remote);
+   }else{
+    const row=document.createElement('p');
+    const r=record.local||record.remote||{};
+    row.textContent='계획 '+(r.planId||'미확인')+' · 날짜 '+(r.date||'미확인')+' · 통합ID '+(r.topicId||'미확인')+
+     ' · 서버 rowRevision '+(record.remote?.rowRevision??'없음');
+    const local=document.createElement('pre');local.textContent='로컬 기록: '+fmt(record.local);
+    const remote=document.createElement('pre');remote.textContent='서버 기록: '+fmt(record.remote);
+    wrapper.append(row,local,remote);
+   }
+   list.appendChild(wrapper);
+  }
+ }
  const update=()=>{
   $('plannerMigCompare').disabled=busy||!verified||!['BACKED_UP','REVIEW_REQUIRED'].includes(phase);
   $('plannerMigChoices').disabled=busy||!preview||phase!=='REVIEW_REQUIRED';
   $('plannerMigApprove').disabled=busy||!preview||phase!=='REVIEW_REQUIRED';
   $('plannerMigRetry').disabled=busy||!['PENDING_RETRY','UPLOADING'].includes(phase);
   $('plannerMigCancel').disabled=busy||!['BACKUP_PREPARED','BACKED_UP','REVIEW_REQUIRED'].includes(phase);
+  updateSteps();
  };
  async function syncPhase(){
   if(!snapId)return;
@@ -52,7 +98,11 @@ function mount({db,onApplied,transport}){
  }
  function withBusy(task){return async e=>{
   if(busy)return;busy=true;update();say('격리된 합성 데이터를 안전하게 처리 중입니다.');
-  try{await task(e)}catch(ex){console.error('Stage5 migration',ex);say('통합 보류 · 기존 기록 보존: '+ex.message)}
+  try{await task(e)}catch(ex){
+   console.error('Stage5 migration',ex);
+   const guide=root.PEPlannerSyncUX?.classifyError?.(ex)||'백업과 미전송 기록을 보존한 상태로 다시 확인하세요.';
+   say('통합 처리 보류 · 기존 기록 삭제 없음: '+ex.message+'\n다음 조치: '+guide);
+  }
   finally{busy=false;await syncPhase().catch(console.error);update();}
  };}
  const ownTransport=()=>transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT;
@@ -64,9 +114,10 @@ function mount({db,onApplied,transport}){
   uploadProgress:$('plannerMigUpProgress').checked,downloadProgress:$('plannerMigDownProgress').checked});
  function showPreview(p){
   const c=p.counts,lines=p.conflicts.slice(0,6).map(x=>'• '+x.kind+' '+x.key+' — '+x.reason);
-  $('plannerMigPreview').textContent='기기 계획 '+c.localPlans+'개 · 서버 계획 '+c.remotePlans+'개 · 계획 업로드 '+c.planUploads+'개 / 다운로드 '+c.planDownloads+
-   '개 · 진도 업로드 '+c.progressUploads+'건 / 다운로드 '+c.progressDownloads+'건 · 충돌 '+c.conflicts+'건.'+
+  $('plannerMigPreview').textContent='기기 계획 '+c.localPlans+'개 · 서버 계획 '+c.remotePlans+'개 · 동일 계획 '+c.identicalPlans+'개 · 계획 업로드 '+c.planUploads+'개 / 다운로드 '+c.planDownloads+
+   '개 · 기기 진도 '+c.localProgress+'건 / 서버 진도 '+c.remoteProgress+'건 · 진도 업로드 '+c.progressUploads+'건 / 다운로드 '+c.progressDownloads+'건 · 충돌 '+c.conflicts+'건.'+
    (lines.length?'\n보류 예정:\n'+lines.join('\n'):'\n충돌 없는 항목만 사용자 승인 후 처리합니다.');
+  renderConflicts(p);
  }
  $('plannerMigBackup').onclick=withBusy(async()=>{
   const file=await api.backup(db),snap=await api.storeBackup(db,file);snapId=snap.id;preview=null;verified=false;phase='BACKUP_PREPARED';api.downloadBackup(file);
@@ -113,13 +164,15 @@ function mount({db,onApplied,transport}){
   const r=db.transaction('preSyncSnapshots').objectStore('preSyncSnapshots').getAll();
   r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
  }).then(async rows=>{
-  const recover=(rows||[]).filter(x=>['BACKUP_PREPARED','BACKED_UP','REVIEW_REQUIRED','UPLOADING','PENDING_RETRY'].includes(x.state))
+  const recover=(rows||[]).filter(x=>['BACKUP_PREPARED','BACKED_UP','REVIEW_REQUIRED','UPLOADING','PENDING_RETRY','CONFLICT_HELD','SYNC_READY'].includes(x.state))
    .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)))[0];
   if(!recover)return;
   snapId=recover.id;await syncPhase();
   say(['UPLOADING','PENDING_RETRY'].includes(phase)
    ?'이전에 승인된 통합 작업이 중단되었습니다. 동일 작업 ID로 안전하게 재시도할 수 있습니다.'
-   :'이전 백업·미리보기 단계가 저장되어 있습니다. 검증 후 이어서 진행할 수 있습니다.');
+   :phase==='CONFLICT_HELD'?'이전 최초 통합에서 상충 기록이 보류됐습니다. 아래에서 양쪽 원본을 확인하고 임의 덮어쓰지 마세요.':
+    phase==='SYNC_READY'?'이 기기에서 이전 최초 통합의 서버 검증 완료 기록을 찾았습니다. 다른 기기들도 각각 백업·확인이 필요합니다.':
+    '이전 백업·미리보기 단계가 저장되어 있습니다. 검증 후 이어서 진행할 수 있습니다.');
   update();
  }).catch(error=>{console.warn('Stage5 migration recovery inspection failed',error);});
  update();return section;

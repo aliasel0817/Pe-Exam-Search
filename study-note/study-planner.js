@@ -40,8 +40,8 @@ function initUi(){
   <p id="plannerSyncStatus" class="planner-sync-state" role="status" aria-live="polite">학습계획은 아직 이 기기에만 저장됩니다.</p>
  <details id="plannerManagement" class="planner-manager">
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
-  <p class="planner-local-info">학습계획별 진도는 현재 기기에만 저장되며 기기 간 자동 동기화되지 않습니다. 기기를 변경하거나 브라우저 데이터를 삭제하기 전에는 아래에서 진도를 백업하세요.</p>
-  <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼을 누르면 이 영역이 열리거나 닫힙니다. 여기서는 <strong>새 계획 등록</strong>과 <strong>회독별 진도 파일 백업/복원</strong>을 할 수 있습니다. 학습노트 MASTER 내용은 수정하지 않습니다.</p>
+  <p id="plannerStorageExplanation" class="planner-local-info">현재 운영 서비스에서는 학습계획·회독별 진도가 기기별로 보관됩니다. 신뢰기기 사이의 공유는 전체 백업과 최초 통합 승인, 서버 응답 검증을 마친 후에만 가능합니다. 오프라인에서 작성한 미전송 기록은 기기에 남으며, JSON 백업은 동기화와 별개의 안전장치입니다.</p>
+  <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼으로 이 영역을 여닫습니다. ① 신규 토픽 5회 편입 · ② 새 계획 자동 생성 · ③ CSV/JSON 등록 · ④ 진도 JSON 백업 · ⑤ 진도 복원 · ⑥ 최초 전체 백업·기기 간 통합(격리 시험)을 각각 구분합니다. 일반 학습정보의 암기/미암기와 회독별 완료/다시보기 기록은 서로 다른 데이터입니다. MASTER 원문은 수정하지 않습니다.</p>
 
   <section class="planner-manage-section" aria-labelledby="plannerExtendTitle">
     <h4 id="plannerExtendTitle">① 기존 계획에 신규 토픽 자동 편입</h4>
@@ -87,12 +87,12 @@ function initUi(){
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerBackupTitle">
     <h4 id="plannerBackupTitle">④ 진도 백업 — 이 기기의 학습 진행상태 저장</h4>
-    <p>여기서 <strong>진도</strong>란 계획별·날짜별 토픽의 <strong>완료(기억함) / 다시보기</strong> 기록입니다. 아래 버튼을 누르면 이 기기의 진도를 JSON 파일로 저장합니다. 브라우저 데이터 초기화나 다른 기기 사용 전 보관하세요. 원본 MASTER나 Google Sheets 학습정보를 내려받는 기능은 아닙니다.</p>
+    <p>여기서 <strong>진도</strong>란 계획별·날짜별 토픽의 <strong>완료(기억함) / 다시보기</strong> 기록입니다. 이 버튼은 <strong>진도만 JSON으로 백업</strong>하며, 계획 파일이나 미전송 작업은 포함하지 않습니다. 기존 계획·진도·미전송·충돌을 모두 보관하려면 ⑥의 전체 백업을 사용하세요. 원본 MASTER나 Google Sheets 일반 학습정보를 내려받는 기능은 아닙니다.</p>
     <div class="planner-manager-actions"><button id="plannerExport" class="btn" type="button">진도 기록 백업 JSON 다운로드</button></div>
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerRestoreTitle">
     <h4 id="plannerRestoreTitle">⑤ 진도 복원 — 전에 백업한 기록 불러오기</h4>
-    <p>④에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일을 선택하면 이 기기에 진도를 복원합니다. 같은 계획·날짜·토픽에 이미 기록이 있으면 확인 후 덮어쓰므로 주의하세요. 새로운 학습계획 등록 파일과는 다릅니다.</p>
+    <p>④에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일로 이 기기의 진도를 복원합니다. 기존 기록과 같은 키는 <strong>사용자 확인 후 덮어쓸 수 있으므로</strong> 주의하세요. ⑥의 전체 백업 안전 복원은 다르게 작동하여 기존 키를 덮어쓰지 않고 충돌로 보류합니다. 기기 간 동기화나 신규 계획 등록 파일과 구별하세요.</p>
     <label for="plannerRestore" class="planner-file-label">진도 백업 파일 선택 — 완료/다시보기 복원용 (.json)</label>
     <input id="plannerRestore" type="file" accept=".json,application/json" aria-label="기존 진도 백업 JSON 파일 선택하여 복원">
   </section>
@@ -161,7 +161,7 @@ function initUi(){
   try{
    const progress=await all(PROGRESS);
    download('study-plan-progress-backup.json',JSON.stringify({format:'study-planner-progress-v1',progress},null,2));
-   $('plannerNotice').textContent='진도 '+progress.length+'건을 JSON 파일로 백업했습니다. 다른 기기에서는 먼저 학습계획을 등록한 후 ③ 진도 복원으로 불러오세요.';
+   $('plannerNotice').textContent='진도 '+progress.length+'건을 JSON 파일로 백업했습니다. 다른 기기에서는 먼저 해당 학습계획을 등록한 후 ⑤ 진도 복원에서 불러오세요.';
   }catch(err){$('plannerNotice').textContent='진도 백업 실패: '+err.message}
  };
  $('plannerRestore').onchange=async e=>{
@@ -363,7 +363,7 @@ async function restoreProgressUpload(file){
  if(!file.name.toLowerCase().endsWith('.json'))throw Error('진도 복원에는 백업 JSON 파일만 선택하세요.');
  if(file.size>12*1024*1024)throw Error('백업 파일 크기는 12MB 이하만 지원합니다.');
  const obj=JSON.parse((await file.text()).replace(/^\uFEFF/,''));
- if(obj?.format!=='study-planner-progress-v1'||!Array.isArray(obj.progress))throw Error('올바른 진도 백업 파일이 아닙니다. ② 진도 백업에서 받은 파일을 사용하세요.');
+ if(obj?.format!=='study-planner-progress-v1'||!Array.isArray(obj.progress))throw Error('올바른 진도 백업 파일이 아닙니다. ④ 진도 백업에서 받은 파일을 사용하세요.');
  const keys=new Set(),unknownPlans=new Set();
  for(const row of obj.progress){
   if(!row||typeof row.planId!=='string'||typeof row.date!=='string'||typeof row.topicId!=='string'||
@@ -609,6 +609,7 @@ async function plannerSyncStatus(){
   const client=window.PEPlannerSyncClient;
   if(!client){label.textContent='학습계획 동기화 기능 준비 중 · 현재 기기에만 저장됩니다.';return}
   const s=await client.status(db);
+  if(window.PEPlannerSyncUX){window.PEPlannerSyncUX.publish({backend:s});return;}
   const prefix=!s.enabled?'서버 연동 준비 중 · 이 기기에 보관':s.migration!=='ready'?'첫 통합 전에 기기별 백업·확인이 필요합니다':s.conflicts?'충돌 '+s.conflicts+'건 · 확인 필요':s.pending?'미전송 '+s.pending+'건 · 기기에 보관':'서버 동기화 준비됨';
   label.textContent=prefix+(s.pending?' · 미전송 '+s.pending+'건':'')+(s.lastSuccess?' · 마지막 동기화 '+s.lastSuccess.slice(0,16).replace('T',' '):'');
  }catch(err){label.textContent='학습계획 동기화 상태 확인 실패 · 현재 기기 기록은 보존됩니다.';}
@@ -627,7 +628,7 @@ async function plannerSync(){
 }
 function connectSyntheticSyncButton(){
  const client=window.PEPlannerSyncClient;
- if(!client?.testEnabled()||typeof syncLearningStates!=='function')return;
+ if(!client?.testEnabled()||!window.PEPlannerSyncUX||typeof syncLearningStates!=='function')return;
  const button=$('syncLearningBtn');
  if(!button||button.dataset.plannerSyncBridge==='installed')return;
  // Only in loopback/synthetic testing; the unmodified legacy handler remains in production.
@@ -637,15 +638,18 @@ function connectSyntheticSyncButton(){
  button.addEventListener('click',async()=>{
   if(busy)return;busy=true;
   try{
-   await syncLearningStates();
-   const result=await plannerSync();
+   const report=await window.PEPlannerSyncUX.syncCombined({
+    legacy:syncLearningStates,planner:plannerSync,getStatus:()=>client.status(db)
+   });
    if(typeof showToast==='function'){
-    if(result.state==='synced')showToast('회독계획·진도 동기화 완료 · 일반 학습정보 결과는 별도 안내를 확인하세요.');
-    else if(result.state!=='disabled')showToast('일반 학습정보와 별도로 회독계획·진도 상태: '+result.state);
+    const plan=report.display?.plans?.label||'확인 필요';
+    const progress=report.display?.progress?.label||'확인 필요';
+    const legacy=report.display?.legacy?.label||'기록 미확인';
+    showToast('일반 학습정보: '+legacy+' · 계획: '+plan+' · 회독 진도: '+progress);
    }
   }catch(error){
    console.error('격리 학습계획 동기화 실패',error);
-   if(typeof showToast==='function')showToast('회독계획·진도는 미전송으로 보관 중입니다: '+error.message);
+   if(typeof showToast==='function')showToast('일부 동기화 확인 불가 · '+(window.PEPlannerSyncUX?.classifyError(error)||error.message));
   }finally{busy=false;await plannerSyncStatus();}
  });
 }
@@ -671,12 +675,25 @@ function loadStage5FirstMigrationAddon(){
  script.onload=loadUi;script.onerror=()=>console.warn('Stage5 first migration candidate unavailable. Existing records preserved.');
  document.head.appendChild(script);
 }
+function loadStage6UxAddon(){
+ const ready=()=>{
+  window.PEPlannerSyncUX?.mount();
+  connectSyntheticSyncButton();
+  plannerSyncStatus().catch(console.error);
+ };
+ if(window.PEPlannerSyncUX){ready();return;}
+ const ui=document.createElement('script');
+ ui.src='./study-planner-sync-ux.js?v=20261114-stage6';
+ ui.async=true;ui.onload=ready;
+ ui.onerror=()=>console.warn('Stage6 status UX unavailable; existing local study planner remains usable.');
+ document.head.appendChild(ui);
+}
 function loadSyntheticSyncAddon(){
- if(window.PEPlannerSyncClient){connectSyntheticSyncButton();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);return;}
- const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261113-stage4-test-disabled';
+ if(window.PEPlannerSyncClient){loadStage6UxAddon();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);return;}
+ const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261114-stage6-client';
  script.async=true;
- script.onload=()=>{connectSyntheticSyncButton();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);};
- script.onerror=()=>console.warn('Stage4 planner sync addon unavailable; existing local study planner remains usable.');
+ script.onload=()=>{loadStage6UxAddon();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);};
+ script.onerror=()=>console.warn('Planner sync addon unavailable; existing local study planner remains usable.');
  document.head.appendChild(script);
 }
 window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus};

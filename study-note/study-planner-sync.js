@@ -167,8 +167,16 @@ function queueProgressBatch(db,rows){
 async function migration(db){return (await get(db,STORES.meta,'migration'))||{key:'migration',state:'required'};}
 async function status(db){
  const q=await all(db,STORES.outbox),conflicts=await all(db,STORES.conflict),m=await migration(db);
- return {enabled:Boolean(testEnabled()),migration:m.state,pending:q.filter(x=>x.state!=='ack').length,
-  conflicts:conflicts.length,lastSuccess:(await get(db,STORES.meta,'lastSuccess'))?.at||null};
+ const waiting=q.filter(x=>x.state!=='ack'),planWaiting=waiting.filter(x=>x.kind==='plan'),
+  progressWaiting=waiting.filter(x=>x.kind==='progress'),
+  planConflicts=conflicts.filter(x=>x.kind==='plan'),progressConflicts=conflicts.filter(x=>x.kind==='progress');
+ const planReceipt=await get(db,STORES.meta,'lastPlanSyncAt'),progressReceipt=await get(db,STORES.meta,'lastProgressSyncAt');
+ return {enabled:Boolean(testEnabled()),migration:m.state,online:root.navigator?.onLine!==false,
+  pending:waiting.length,conflicts:conflicts.length,planPending:planWaiting.length,progressPending:progressWaiting.length,
+  planConflicts:planConflicts.length,progressConflicts:progressConflicts.length,
+  planResult:planReceipt?.at?{state:'confirmed',at:planReceipt.at}:null,
+  progressResult:progressReceipt?.at?{state:'confirmed',at:progressReceipt.at}:null,
+  lastSuccess:(await get(db,STORES.meta,'lastSuccess'))?.at||null};
 }
 async function markConflict(db,kind,key,details,op){
  const id=kind+':'+key;
@@ -334,10 +342,17 @@ async function runSync(db,transport){
   result.progressUploaded+=pushed.applied;result.conflicts+=pushed.conflicts;
   result.progressDownloaded+=await pullProgress(db,transport,info.planId);
  }
- const pendingAfter=(await all(db,STORES.outbox)).filter(o=>o.state!=='ack').length;
- const conflictsAfter=(await all(db,STORES.conflict)).length;
- result.state=pendingAfter||conflictsAfter?'partial':'synced';result.pending=pendingAfter;result.conflicts=conflictsAfter;
- if(result.state==='synced')await save(db,STORES.meta,{key:'lastSuccess',at:now()});
+ const after=await status(db);
+ result.pending=after.pending;result.conflicts=after.conflicts;
+ const planOk=after.planPending===0&&after.planConflicts===0&&after.conflicts===after.planConflicts+after.progressConflicts;
+ const progressOk=after.progressPending===0&&after.progressConflicts===0&&after.planConflicts===0&&after.planPending===0&&after.conflicts===after.planConflicts+after.progressConflicts;
+ const at=now();
+ result.planResult={state:planOk?'confirmed':'partial',at:planOk?at:null};
+ result.progressResult={state:progressOk?'confirmed':'partial',at:progressOk?at:null};
+ if(planOk)await save(db,STORES.meta,{key:'lastPlanSyncAt',at});
+ if(progressOk)await save(db,STORES.meta,{key:'lastProgressSyncAt',at});
+ result.state=after.pending||after.conflicts?'partial':'synced';
+ if(result.state==='synced')await save(db,STORES.meta,{key:'lastSuccess',at});
  return result;
 }
 async function sync(db,transport){
