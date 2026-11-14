@@ -133,7 +133,9 @@ async function syncLegacySafely(handler){
 function publish({backend={},legacy=lastLegacy,plannerResult=null}={}){
  if(!$('plannerSyncStatus'))return null;
  mount();
- const value=formatSyncStatus(backend,legacy),label=$('plannerSyncStatus');
+ const effective=plannerResult?.state==='error'
+  ?{...backend,planResult:{state:'error'},progressResult:{state:'error'}}:backend;
+ const value=formatSyncStatus(effective,legacy),label=$('plannerSyncStatus');
  const ready=backend?.enabled&&backend?.migration==='ready'&&root.navigator?.onLine!==false;
  let summary;
  if(!backend?.enabled)summary='학습계획 서버 연동 준비 중 · 지금은 기기별 로컬 저장';
@@ -164,7 +166,9 @@ async function syncCombined({legacy,planner,getStatus,refresh}){
   plannerResult={state:'error',message:error.message||String(error)};
  }
  lastSync=plannerResult;
- const backend=typeof getStatus==='function'?await getStatus():{};
+ let backend={};
+ try{backend=typeof getStatus==='function'?await getStatus():{};}
+ catch(error){plannerResult={state:'error',message:(plannerResult?.message||'')+' · 상태 조회 실패: '+(error.message||error)};}
  const result=publish({backend,legacy:lastLegacy,plannerResult});
  if(typeof refresh==='function')await refresh(result);
  return {legacy:lastLegacy,planner:plannerResult,display:result};
