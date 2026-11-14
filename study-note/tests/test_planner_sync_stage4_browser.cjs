@@ -91,7 +91,7 @@ const server=http.createServer((req,res)=>{
  if(u.pathname==='/__drop'){memory.dropNext=true;res.writeHead(204);res.end();return;}
  if(u.pathname==='/empty'){res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>empty</title>');return;}
  if(u.pathname==='/harness'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(harness);return;}
- if(u.pathname==='/study-planner-migration.js'||u.pathname==='/study-planner-migration-ui.js'){
+ if(['/study-planner-sync-ux.js','/study-planner-migration.js','/study-planner-migration-ui.js'].includes(u.pathname)){
   const p=path.resolve(root,u.pathname.slice(1));
   res.setHeader('Content-Type','application/javascript');res.end(fs.readFileSync(p));return;
  }
