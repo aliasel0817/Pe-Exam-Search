@@ -7,6 +7,9 @@ on:
       - 'study-note/backend/planner-sync-stage*.gs'
       - 'study-note/study-planner*.js'
       - 'study-note/tests/test_planner_sync_stage*.cjs'
+      - 'study-note/tests/test_study_planner*.cjs'
+      - 'study-note/tests/test_reference_pdf*.cjs'
+      - 'study-note/tests/test_technical_readability.cjs'
       - '.github/workflows/planner-sync-stage8-preflight.yml'
   workflow_dispatch:
 
