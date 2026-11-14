@@ -91,7 +91,14 @@ async function downloaded(dir,name){
   });
   assert.equal(compactClosed.outsideNoteCount,0);
   assert.equal(compactClosed.insideNoteCount,1);
-  assert(compactClosed.noteText.includes('기기 간 자동 동기화되지 않습니다'));
+  // Stage6 intentionally replaced the old absolute non-sync notice with a
+  // truthful production-local warning and backup/approval/server-proof gates.
+  // Preserve stronger safety assertions rather than deleting the regression.
+  assert(compactClosed.noteText.includes('현재 운영 서비스에서는'));
+  assert(compactClosed.noteText.includes('기기별로 보관됩니다'));
+  assert(compactClosed.noteText.includes('전체 백업과 최초 통합 승인'));
+  assert(compactClosed.noteText.includes('서버 응답 검증'));
+  assert(compactClosed.noteText.includes('JSON 백업은 동기화와 별개의 안전장치'));
   assert.equal(compactClosed.noteDisplay,'none','Collapsed note must be explicitly hidden on every browser');
   assert.equal(compactClosed.noteVisibleHeight,0,'Note must not occupy space while collapsed');
   assert.equal(compactClosed.titleSize,'12px','Summary title should be smaller');
