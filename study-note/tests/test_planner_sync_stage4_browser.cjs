@@ -286,7 +286,7 @@ async function selectTopic(page,id,date){
    assert(info.fieldsetScroll<=info.fieldsetWidth+7,'fieldset overflow '+width+' '+JSON.stringify(info));
    layouts.push({width,bodyScroll:info.bodyScroll,status:Math.round(info.status)});
   }
-  assert((await mobile.$eval('#plannerMigSteps',e=>e.textContent)).includes('최종 검증'));
+  assert((await mobile.$eval('#plannerMigSteps',e=>e.textContent)).includes('서버 버전·해시·진도 시퀀스 검증'));
   // A different existing device can inspect BOTH sources without writing over either.
   await tab.waitForSelector('#plannerFirstSyncWizard',{timeout:10000});
   await tab.evaluate(()=>{PEPlannerMigration.downloadBackup=file=>{window.__stage6ConflictFile=JSON.stringify(file)};});
