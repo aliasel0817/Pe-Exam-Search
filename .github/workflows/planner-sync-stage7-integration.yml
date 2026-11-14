@@ -38,3 +38,14 @@ jobs:
         run: node .qa-stage3/study-note/tests/test_planner_sync_stage3_synthetic.cjs
       - name: Cross-branch client-server roundtrip and round-part integrity
         run: node study-note/tests/test_planner_sync_stage7_integration.cjs
+      - name: Install isolated test-only IndexedDB and browser libraries
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund fake-indexeddb@6 puppeteer-core@24.31.0
+      - name: Re-run Stage5 full backup, conflict and recovery regression
+        run: node study-note/tests/test_planner_sync_stage5_migration.cjs
+      - name: Re-run Stage6 independent sync UX receipt regression
+        run: node study-note/tests/test_planner_sync_stage6_ux.cjs
+      - name: Re-run Stage4/5/6 three-profile Chromium and responsive layouts
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          node study-note/tests/test_planner_sync_stage4_browser.cjs
