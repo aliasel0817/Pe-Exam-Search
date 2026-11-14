@@ -1,0 +1,40 @@
+name: Planner Sync Stage7 Cross-Branch Synthetic Integration
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
+      - 'study-note/study-planner-sync.js'
+      - 'study-note/tests/test_planner_sync_stage7_integration.cjs'
+      - '.github/workflows/planner-sync-stage7-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage7-cross-branch-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout stage7 candidate (stacked on stage6)
+        uses: actions/checkout@v4
+      - name: Checkout pinned stage3 isolated server harness (NO LIVE)
+        uses: actions/checkout@v4
+        with:
+          repository: aliasel0817/Pe-Exam-Search
+          ref: 9d063ae9e08f0c70534193bb4571cb9c65cebf7f
+          path: .qa-stage3
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax validation
+        run: |
+          node --check study-note/backend/planner-sync-stage3-isolated.addon.gs
+          node --check study-note/study-planner-sync.js
+          node --check study-note/tests/test_planner_sync_stage7_integration.cjs
+      - name: Stage 3 isolated server synthetic baseline (pinned original)
+        run: node .qa-stage3/study-note/tests/test_planner_sync_stage3_synthetic.cjs
+      - name: Cross-branch client-server roundtrip and round-part integrity
+        run: node study-note/tests/test_planner_sync_stage7_integration.cjs
