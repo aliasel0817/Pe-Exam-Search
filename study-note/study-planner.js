@@ -40,7 +40,7 @@ function initUi(){
   <p id="plannerSyncStatus" class="planner-sync-state" role="status" aria-live="polite">학습계획은 아직 이 기기에만 저장됩니다.</p>
  <details id="plannerManagement" class="planner-manager">
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
-  <p class="planner-local-info">현재 운영 서비스에서는 학습계획·회독별 진도가 기기별로 보관됩니다. 신뢰기기 사이의 공유는 전체 백업과 최초 통합 승인, 서버 응답 검증을 마친 후에만 가능합니다. 오프라인에서 작성한 미전송 기록은 기기에 남으며, JSON 백업은 동기화와 별개의 안전장치입니다.</p>
+  <p id="plannerStorageExplanation" class="planner-local-info">현재 운영 서비스에서는 학습계획·회독별 진도가 기기별로 보관됩니다. 신뢰기기 사이의 공유는 전체 백업과 최초 통합 승인, 서버 응답 검증을 마친 후에만 가능합니다. 오프라인에서 작성한 미전송 기록은 기기에 남으며, JSON 백업은 동기화와 별개의 안전장치입니다.</p>
   <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼으로 이 영역을 여닫습니다. ① 신규 토픽 5회 편입 · ② 새 계획 자동 생성 · ③ CSV/JSON 등록 · ④ 진도 JSON 백업 · ⑤ 진도 복원 · ⑥ 최초 전체 백업·기기 간 통합(격리 시험)을 각각 구분합니다. 일반 학습정보의 암기/미암기와 회독별 완료/다시보기 기록은 서로 다른 데이터입니다. MASTER 원문은 수정하지 않습니다.</p>
 
   <section class="planner-manage-section" aria-labelledby="plannerExtendTitle">
