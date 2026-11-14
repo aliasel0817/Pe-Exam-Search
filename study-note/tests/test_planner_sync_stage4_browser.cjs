@@ -244,7 +244,7 @@ async function selectTopic(page,id,date){
   mobile.on('dialog',d=>d.accept());mobile.on('pageerror',e=>pageErrors.push(String(e)));
   await navigate(mobile,origin);
   await mobile.waitForSelector('#plannerFirstSyncWizard',{timeout:10000});
-  assert.equal(await mobile.$eval('#plannerMigSteps li',els=>els.length),7,'7 accessible migration steps');
+  assert.equal(await mobile.evaluate(()=>document.querySelectorAll('#plannerMigSteps li').length),7,'7 accessible migration steps');
   assert.equal((await mobile.$eval('#plannerMigCompare',e=>e.disabled)),true);
   await mobile.evaluate(()=>{
    PEPlannerMigration.downloadBackup=file=>{window.__stage5SavedFile=JSON.stringify(file);};
