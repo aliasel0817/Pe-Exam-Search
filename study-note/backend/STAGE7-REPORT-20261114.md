@@ -31,16 +31,16 @@ Original `study-note/study-note.html`, `study-note/service-worker.js`, existing 
 |---|---|---|
 | A | Stage3 isolated in-memory server API begin/put/commit, GET plans/schedule/progress, save progress | **PASS (Node synthetic)** |
 | A | Real isolated Apps Script deployment, HMAC, nonce reuse, request time expiry and ACTIVE trust device end-to-end | **UNVERIFIED; release BLOCKED** |
-| B | Original Stage5 fake-indexeddb backup/hash/3-way conflict/replay safe first-migration prior CI evidence | **PASS (prior synthetic run at d16b54b); not re-executed as Stage7** |
+| B | Original Stage5 fake-indexeddb backup/hash/3-way conflict/replay safe first-migration prior CI evidence | **PASS (re-executed Stage7 Run #43595387424)** |
 | B | Cross-branch operationId replay, progress CAS hold, explicit todo event | **PASS (Node synthetic)** |
 | B | Independently hosted PC/tablet/mobile full first migration, physical backups | **UNVERIFIED; user data untouched** |
 | C | 100 days × 5 rounds, 3,812 unique topics, 19,060 entries; Stage3 server/client SHA roundtrip | **PASS (Node VM synthetic)** |
 | C | Multipart day round tamper guard after minimal server fix | **PASS (Node VM synthetic)** |
 | C | Real GAS/Sheets throughput, concurrent LockService, quotas, 19,060 real rows | **UNVERIFIED; release BLOCKED** |
-| D | Existing Stage4/5/6 prior workflow checks at `d16b54be...` | **PASS (historical CI evidence only)** |
+| D | Existing Stage4/5/6 prior workflow checks at `d16b54be...` | **PASS (re-executed Stage7 Run #43595387424)** |
 | D | Full latest legacy records, MASTER, MuPDF, PDF/attachment/ink/auth/service-worker live Chromium E2E | **UNVERIFIED** |
 | E | 1366/768/390 synthetic browser layouts from Stage6 prior CI | **PASS (historical CI evidence only)** |
-| E | Latest Stage7 independent 1366/768/390 real-device/browser accessibility regression | **UNVERIFIED** |
+| E | Latest Stage7 independent 1366/768/390 real-device/browser accessibility regression | **PASS (3 synthetic Chromium profiles and 1366/768/390 layout, Stage7 Run #43595387424); physical devices UNVERIFIED** |
 
 No claim of real Apps Script, authenticated integration, network multi-device synchronization, or real-device acceptance from this test.
 
@@ -48,7 +48,7 @@ No claim of real Apps Script, authenticated integration, network multi-device sy
 
 - GitHub Actions workflow `Planner Sync Stage7 Cross-Branch Synthetic Integration`
 - Initial run #43595240851 FAIL: CI runner tried `node --check` directly on a `.gs` extension (unsupported); fixed workflow to syntax-check stdin. No product code impact.
-- Verified later run **#43595285001**, job **132448350692**: **SUCCESS** on the Stage7 candidate after workflow fix.
+- Verified intermediate run **#43595285001**, job **132448350692**: SUCCESS after syntax fix. **Final expanded Stage7 Run #43595387424**, job **132448653340**: SUCCESS after re-running Stage3 + Stage7 + Stage5 backup + Stage6 receipt + three-profile Stage4/5/6 Chromium tests.
 - Baseline output `STAGE3_SYNTHETIC_PASS`: 100 days, 19,060 slots, 101 chunks, 360ms mock runtime.
 - Stage7 combined output `STAGE7_CROSS_BRANCH_SYNTHETIC_PASS`:
   - days: 100, uniqueTopics: 3812, slots: 19060, chunks: 101
@@ -56,7 +56,7 @@ No claim of real Apps Script, authenticated integration, network multi-device sy
   - POST JSON total (instrumented): 404,512 bytes; largest one POST: 48,323 bytes
   - mock in-memory time: 449ms; **not a Google Sheets/GAS latency estimate**
   - canonical plan SHA roundtrip, schedule page retrieval, duplicate operation ACK, CAS conflict, explicit todo tombstone, pinned highWatermark, invalid round-part rejection, basic inactive device guard all PASS in simulation.
-- The Stage7 additional check proves server candidate and actual client JSON contract agreement **only in Node VM with simulated SpreadsheetApp**. It does **not** prove HMAC/nonce correctness.
+- Final expanded workflow output confirms \`STAGE5_MIGRATION_PASS\`, \`STAGE6_SYNC_UX_PASS\`, \`STAGE6_UI_BROWSER_PASS\`, \`STAGE5_UI_BROWSER_PASS\`, and \`STAGE4_BROWSER_PASS\` on the Stage7 code HEAD. Responsive synthetic browser widths 1366/768/390 had no horizontal body overflow (bodyScroll widths equal viewport widths). Chromium profiles are not physical user devices.\n- The Stage7 additional check proves server candidate and actual client JSON contract agreement **only in Node VM with simulated SpreadsheetApp**. It does **not** prove HMAC/nonce correctness.
 
 ## 5. Defect/fix reasoning
 
