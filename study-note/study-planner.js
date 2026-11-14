@@ -609,6 +609,7 @@ async function plannerSyncStatus(){
   const client=window.PEPlannerSyncClient;
   if(!client){label.textContent='학습계획 동기화 기능 준비 중 · 현재 기기에만 저장됩니다.';return}
   const s=await client.status(db);
+  if(window.PEPlannerSyncUX){window.PEPlannerSyncUX.publish({backend:s});return;}
   const prefix=!s.enabled?'서버 연동 준비 중 · 이 기기에 보관':s.migration!=='ready'?'첫 통합 전에 기기별 백업·확인이 필요합니다':s.conflicts?'충돌 '+s.conflicts+'건 · 확인 필요':s.pending?'미전송 '+s.pending+'건 · 기기에 보관':'서버 동기화 준비됨';
   label.textContent=prefix+(s.pending?' · 미전송 '+s.pending+'건':'')+(s.lastSuccess?' · 마지막 동기화 '+s.lastSuccess.slice(0,16).replace('T',' '):'');
  }catch(err){label.textContent='학습계획 동기화 상태 확인 실패 · 현재 기기 기록은 보존됩니다.';}
@@ -627,7 +628,7 @@ async function plannerSync(){
 }
 function connectSyntheticSyncButton(){
  const client=window.PEPlannerSyncClient;
- if(!client?.testEnabled()||typeof syncLearningStates!=='function')return;
+ if(!client?.testEnabled()||!window.PEPlannerSyncUX||typeof syncLearningStates!=='function')return;
  const button=$('syncLearningBtn');
  if(!button||button.dataset.plannerSyncBridge==='installed')return;
  // Only in loopback/synthetic testing; the unmodified legacy handler remains in production.
@@ -637,15 +638,18 @@ function connectSyntheticSyncButton(){
  button.addEventListener('click',async()=>{
   if(busy)return;busy=true;
   try{
-   await syncLearningStates();
-   const result=await plannerSync();
+   const report=await window.PEPlannerSyncUX.syncCombined({
+    legacy:syncLearningStates,planner:plannerSync,getStatus:()=>client.status(db)
+   });
    if(typeof showToast==='function'){
-    if(result.state==='synced')showToast('회독계획·진도 동기화 완료 · 일반 학습정보 결과는 별도 안내를 확인하세요.');
-    else if(result.state!=='disabled')showToast('일반 학습정보와 별도로 회독계획·진도 상태: '+result.state);
+    const plan=report.display?.plans?.label||'확인 필요';
+    const progress=report.display?.progress?.label||'확인 필요';
+    const legacy=report.display?.legacy?.label||'기록 미확인';
+    showToast('일반 학습정보: '+legacy+' · 계획: '+plan+' · 회독 진도: '+progress);
    }
   }catch(error){
    console.error('격리 학습계획 동기화 실패',error);
-   if(typeof showToast==='function')showToast('회독계획·진도는 미전송으로 보관 중입니다: '+error.message);
+   if(typeof showToast==='function')showToast('일부 동기화 확인 불가 · '+(window.PEPlannerSyncUX?.classifyError(error)||error.message));
   }finally{busy=false;await plannerSyncStatus();}
  });
 }
@@ -671,12 +675,25 @@ function loadStage5FirstMigrationAddon(){
  script.onload=loadUi;script.onerror=()=>console.warn('Stage5 first migration candidate unavailable. Existing records preserved.');
  document.head.appendChild(script);
 }
+function loadStage6UxAddon(){
+ const ready=()=>{
+  window.PEPlannerSyncUX?.mount();
+  connectSyntheticSyncButton();
+  plannerSyncStatus().catch(console.error);
+ };
+ if(window.PEPlannerSyncUX){ready();return;}
+ const ui=document.createElement('script');
+ ui.src='./study-planner-sync-ux.js?v=20261114-stage6';
+ ui.async=true;ui.onload=ready;
+ ui.onerror=()=>console.warn('Stage6 status UX unavailable; existing local study planner remains usable.');
+ document.head.appendChild(ui);
+}
 function loadSyntheticSyncAddon(){
- if(window.PEPlannerSyncClient){connectSyntheticSyncButton();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);return;}
- const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261113-stage4-test-disabled';
+ if(window.PEPlannerSyncClient){loadStage6UxAddon();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);return;}
+ const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261114-stage6-client';
  script.async=true;
- script.onload=()=>{connectSyntheticSyncButton();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);};
- script.onerror=()=>console.warn('Stage4 planner sync addon unavailable; existing local study planner remains usable.');
+ script.onload=()=>{loadStage6UxAddon();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);};
+ script.onerror=()=>console.warn('Planner sync addon unavailable; existing local study planner remains usable.');
  document.head.appendChild(script);
 }
 window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus};
