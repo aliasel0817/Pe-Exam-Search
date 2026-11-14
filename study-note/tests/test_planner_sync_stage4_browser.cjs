@@ -173,8 +173,12 @@ async function selectTopic(page,id,date){
   const before=memory.calls;
   assert.equal((await pc.evaluate(()=>StudyPlanner.sync())).state,'migration-required');
   assert.equal(memory.calls,before,'migration block must make zero server calls');
+  await pc.waitForFunction(()=>window.PEPlannerSyncUX&&document.getElementById('plannerSyncDetails')&&
+   document.getElementById('syncLearningBtn').dataset.plannerSyncBridge==='installed',{timeout:8000});
   await pc.click('#syncLearningBtn');
   await pc.waitForFunction(()=>window.__legacySyncCount===1,{timeout:4000});
+  await pc.waitForFunction(()=>document.getElementById('plannerSyncAreaLegacy').textContent.includes('미확인'),{timeout:6000});
+  assert((await pc.$eval('#plannerSyncAreaPlan',e=>e.textContent)).includes('최초 통합'));
   assert.equal(memory.calls,before,'legacy sync button must not bypass first-migration gate');
   await migrateMock(pc);
   await pc.click('#plannerManage');
@@ -218,6 +222,9 @@ async function selectTopic(page,id,date){
   const clash=await tab.evaluate(()=>StudyPlanner.sync());assert.equal(clash.state,'partial');
   assert((await values(tab)).conflicts.some(x=>x.kind==='progress'));
   assert((await values(tab)).pending.some(x=>x.state==='conflict'));
+  await tab.waitForSelector('#plannerSyncDetails',{timeout:8000});
+  await tab.evaluate(()=>StudyPlanner.syncStatus());
+  assert((await tab.$eval('#plannerSyncAreaProgress',e=>e.textContent)).includes('충돌'));
   assert.equal(memory.progress.get(planId).filter(x=>x.date==='2026-11-13').at(-1).status,'miss');
   await selectTopic(pc,planId,'2026-11-14');await pc.evaluate(()=>StudyPlanner.record('T0001','암기'));
   await pc.evaluate(()=>fetch('/__drop',{method:'POST'}));
@@ -237,6 +244,8 @@ async function selectTopic(page,id,date){
   mobile.on('dialog',d=>d.accept());mobile.on('pageerror',e=>pageErrors.push(String(e)));
   await navigate(mobile,origin);
   await mobile.waitForSelector('#plannerFirstSyncWizard',{timeout:10000});
+  assert.equal(await mobile.$eval('#plannerMigSteps li',els=>els.length),7,'7 accessible migration steps');
+  assert.equal((await mobile.$eval('#plannerMigCompare',e=>e.disabled)),true);
   await mobile.evaluate(()=>{
    PEPlannerMigration.downloadBackup=file=>{window.__stage5SavedFile=JSON.stringify(file);};
   });
@@ -261,7 +270,44 @@ async function selectTopic(page,id,date){
   assert(mobileData.plans.some(p=>p.id===planId),'third profile must import server plan');
   assert(mobileData.progress.some(p=>p.planId===planId),'third profile must import server progress');
   assert(mobileData.meta.some(x=>x.key==='migration'&&x.state==='ready'));
+  const layouts=[];
+  for(const width of [1366,768,390]){
+   await mobile.setViewport({width,height:880});
+   const info=await mobile.evaluate(()=>{
+    const panel=document.getElementById('studyPlannerPanel'),wizard=document.getElementById('plannerFirstSyncWizard'),
+     fieldset=document.getElementById('plannerMigChoices'),bounds=panel.getBoundingClientRect();
+    return {viewport:window.innerWidth,panelWidth:bounds.width,bodyScroll:document.scrollingElement.scrollWidth,
+     wizardScroll:wizard.scrollWidth,wizardWidth:wizard.clientWidth,fieldsetScroll:fieldset.scrollWidth,fieldsetWidth:fieldset.clientWidth,
+     status:document.getElementById('plannerSyncDetails').getBoundingClientRect().width};
+   });
+   assert.equal(info.viewport,width);
+   assert(info.bodyScroll<=width+3,'horizontal document overflow '+width+' '+JSON.stringify(info));
+   assert(info.wizardScroll<=info.wizardWidth+5,'wizard overflow '+width+' '+JSON.stringify(info));
+   assert(info.fieldsetScroll<=info.fieldsetWidth+7,'fieldset overflow '+width+' '+JSON.stringify(info));
+   layouts.push({width,bodyScroll:info.bodyScroll,status:Math.round(info.status)});
+  }
+  assert((await mobile.$eval('#plannerMigSteps',e=>e.textContent)).includes('최종 검증'));
+  // A different existing device can inspect BOTH sources without writing over either.
+  await tab.waitForSelector('#plannerFirstSyncWizard',{timeout:10000});
+  await tab.evaluate(()=>{PEPlannerMigration.downloadBackup=file=>{window.__stage6ConflictFile=JSON.stringify(file)};});
+  await tab.$eval('#plannerManagement',e=>{e.open=true;});
+  await tab.click('#plannerMigBackup');
+  await tab.waitForFunction(()=>Boolean(window.__stage6ConflictFile),{timeout:12000});
+  await tab.evaluate(()=>{
+   const selection=new DataTransfer();
+   selection.items.add(new File([window.__stage6ConflictFile],'existing-device-full-backup.json',{type:'application/json'}));
+   const input=document.getElementById('plannerMigVerify');input.files=selection.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  await tab.waitForFunction(()=>!document.getElementById('plannerMigCompare').disabled,{timeout:15000});
+  await tab.click('#plannerMigCompare');
+  await tab.waitForFunction(()=>!document.getElementById('plannerMigConflictDetails').hidden,{timeout:30000});
+  const conflictText=await tab.$eval('#plannerMigConflictRows',e=>e.textContent);
+  assert(conflictText.includes('로컬 기록')&&conflictText.includes('서버 기록'),'both conflict sources visible');
+  assert(conflictText.includes('rowRevision'),'server revision visible for conflict');
+  assert((await tab.$eval('#plannerMigApprove',e=>e.disabled))===false,'safe preview allows selective approval');
   assert.deepEqual(pageErrors,[]);
+  console.log('STAGE6_UI_BROWSER_PASS',JSON.stringify({areaReceiptsSeparated:true,legacyNotFalseSuccess:true,
+    conflictBothSources:true,sevenSteps:true,viewports:layouts,operatingHtmlUntouched:true}));
   console.log('STAGE5_UI_BROWSER_PASS',JSON.stringify({downloadReselected:true,previewRequired:true,approved:true,thirdProfile:true,slotsPreserved:mobileData.plans.length}));
   await mobileCtx.close();
   console.log('STAGE4_BROWSER_PASS',JSON.stringify({v1Preserved:true,stores:snap.names.length,crossDevice:true,offline:true,conflictHeld:true,ackReplay:true,mockCalls:memory.calls,planId}));
