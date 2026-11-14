@@ -1,0 +1,46 @@
+name: Planner Sync Stage6 UX Synthetic Browser
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/study-planner.js'
+      - 'study-note/study-planner-sync.js'
+      - 'study-note/study-planner-sync-ux.js'
+      - 'study-note/study-planner-migration-ui.js'
+      - 'study-note/tests/test_planner_sync_stage6_ux.cjs'
+      - 'study-note/tests/test_planner_sync_stage4_browser.cjs'
+      - '.github/workflows/planner-sync-stage6-ux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage6-synthetic-ux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated synthetic test dependencies
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund fake-indexeddb@6 puppeteer-core@24.31.0
+      - name: Source syntax checks
+        run: |
+          node --check study-note/study-planner.js
+          node --check study-note/study-planner-sync.js
+          node --check study-note/study-planner-sync-ux.js
+          node --check study-note/study-planner-migration-ui.js
+          node --check study-note/study-planner-migration.js
+          node --check study-note/tests/test_planner_sync_stage6_ux.cjs
+          node --check study-note/tests/test_planner_sync_stage4_browser.cjs
+      - name: Verify accurate three-domain sync receipts and error text
+        run: node study-note/tests/test_planner_sync_stage6_ux.cjs
+      - name: Regression Stage5 first-migration synthetic safety
+        run: node study-note/tests/test_planner_sync_stage5_migration.cjs
+      - name: Three independent Chromium profiles with responsive 1366/768/390 layouts
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          node study-note/tests/test_planner_sync_stage4_browser.cjs
