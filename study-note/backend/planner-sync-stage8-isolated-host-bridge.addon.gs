@@ -17,10 +17,10 @@ function PS8_action_(action){
   return String(action||'').toLowerCase();
 }
 function PS8_isPlannerGet_(action){
-  return !!PS8_PLANNER_GET_ACTIONS_[PS8_action_(action)];
+  return Object.prototype.hasOwnProperty.call(PS8_PLANNER_GET_ACTIONS_,PS8_action_(action));
 }
 function PS8_isPlannerPost_(action){
-  return !!PS8_PLANNER_POST_ACTIONS_[PS8_action_(action)];
+  return Object.prototype.hasOwnProperty.call(PS8_PLANNER_POST_ACTIONS_,PS8_action_(action));
 }
 function PS8_requireIsolated_(){
   if(typeof PropertiesService==='undefined'||!PropertiesService.getScriptProperties||
