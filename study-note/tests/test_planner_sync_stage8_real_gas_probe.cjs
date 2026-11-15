@@ -44,6 +44,28 @@ vm.runInContext(source,sandbox,{filename:'stage8-real-gas-probe.gs'});
  assert(day);
  assert.equal(sandbox.PS8R_chunksEquivalent_({...day,round:day.round+1},day),false);
  assert.equal(standard.chunks.length,101);
+
+ // A real Google Sheets commit may complete while its response is lost.
+ // The next request returns duplicate:true without 'entries'. Acceptance
+ // requires a fresh active-plan hash/count check (never only a success flag).
+ const stageState={planId:id,operationId:'op-replay-test',stageId:'stage-replay-test',
+   snapshotHash:standard.snapshotHash,status:'READY',nextOffset:101,chunkCount:101,
+   timings:{beginMs:1,puts:[],commitMs:null,verifyMs:null}};
+ sandbox.PS8R_check_=()=>true;
+ sandbox.PS8R_getState_=()=>stageState;
+ sandbox.PS8R_saveState_=next=>Object.assign(stageState,next);
+ sandbox.PS8R_log_=(_name,payload)=>payload;
+ sandbox.PS3_post_=()=>({ok:true,duplicate:true,activeRevision:1,activeHash:standard.snapshotHash});
+ sandbox.PS3_get_=()=>({plans:[{planId:id,activeRevision:1,activeHash:standard.snapshotHash,slotCount:19060}]});
+ const acknowledged=sandbox.PS8R_commit();
+ assert.equal(acknowledged.duplicate,true);
+ assert.equal(stageState.status,'COMMITTED');
+ stageState.status='READY';
+ sandbox.PS3_get_=()=>({plans:[{planId:id,activeRevision:1,activeHash:'0'.repeat(64),slotCount:19060}]});
+ assert.throws(()=>sandbox.PS8R_commit(),/duplicate commit had no matching persisted active snapshot/);
+ assert.equal(stageState.status,'READY');
+ assert.match(source,/function PS8R_runEditorBatch\s*\(/);
+
  assert.match(source,/PS3_context_\(\)/);
  assert.match(source,/ISOLATED_TEST/);
  assert.doesNotMatch(source,/function\s+do(Get|Post)\s*\(/);
