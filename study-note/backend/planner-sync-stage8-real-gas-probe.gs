@@ -86,6 +86,17 @@ function PS8R_chunks_(p){
   return {meta:{planId:p.id,name:p.name,start:p.start,end:p.end,rounds:p.rounds},
     chunks:chunks,snapshotHash:PS3_sha_(PS8R_canonical_(p))};
 }
+function PS8R_wireChunk_(c){
+  return {chunkKey:c.chunkKey,kind:c.kind,date:c.date,
+    // Google Sheets returns blank GROUPS round as '', while the client sends null.
+    // This representation-only difference must not invalidate a verified chunk.
+    round:c.kind==='GROUPS'&&c.round===''?null:c.round,
+    partIndex:Number(c.partIndex),partCount:Number(c.partCount),
+    payloadJson:c.payloadJson,chunkHash:c.chunkHash};
+}
+function PS8R_chunksEquivalent_(actual,expected){
+  return JSON.stringify(PS8R_wireChunk_(actual))===JSON.stringify(PS8R_wireChunk_(expected));
+}
 function PS8R_getState_(){
   var v=PropertiesService.getScriptProperties().getProperty(PS8R_STATE_KEY_);
   if(!v)throw new Error('No PS8R run. Execute PS8R_begin first.');
@@ -195,7 +206,7 @@ function PS8R_verify(){
     present[c.chunkKey]=JSON.stringify(c);
   });
   expected.chunks.forEach(function(c){
-    PS8R_assert_(present[c.chunkKey]===JSON.stringify(c),'chunk mismatch '+c.chunkKey);
+    PS8R_assert_(PS8R_chunksEquivalent_(JSON.parse(present[c.chunkKey]),c),'chunk mismatch '+c.chunkKey);
   });
   PS8R_assert_(all.length===expected.chunks.length,'incomplete download');
   var elapsedMs=Date.now()-start;
