@@ -10,6 +10,7 @@ on:
       - 'study-note/study-planner.js'
       - 'study-note/study-planner-migration-ui.js'
       - 'study-note/tests/test_planner_sync_stage9_prod_bridge.cjs'
+      - 'study-note/tests/test_planner_sync_stage7_integration.cjs'
       - '.github/workflows/planner-sync-stage9-bridge.yml'
   workflow_dispatch:
 
@@ -41,6 +42,16 @@ jobs:
           node study-note/tests/test_planner_sync_stage3_synthetic.cjs
           STAGE3_TEST_FILE=study-note/tests/test_planner_sync_stage3_synthetic.cjs node study-note/tests/test_planner_sync_stage7_integration.cjs
           node study-note/tests/test_planner_sync_stage8_signed_host.cjs
+      - name: MuPDF immutable v21 backend and AGPL evidence regression
+        run: |
+          test "$(git hash-object study-note/mupdf-migration/r5/source/Code.js)" = "9457b67d61742fce1e70f2ce18f6c386a478b9ee"
+          npm --prefix study-note/mupdf-migration/m2 ci --ignore-scripts --no-audit --no-fund
+          npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+          node --test \
+            study-note/mupdf-migration/r5/tests/r5.test.mjs \
+            study-note/mupdf-migration/r7/tests/r7-source-package.test.cjs \
+            study-note/mupdf-migration/r8/tests/r8-agpl-evidence.test.cjs \
+            study-note/mupdf-migration/r9/tests/r9-release.test.cjs
       - name: Explicit release block without real server evidence
         run: |
           echo "STAGE9_CODE_CANDIDATE_ONLY_PASS"
