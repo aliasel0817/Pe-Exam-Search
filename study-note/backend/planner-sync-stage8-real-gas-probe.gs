@@ -176,9 +176,18 @@ function PS8R_commit(){
   var request={operationId:s.operationId,stageId:s.stageId,
     baseRevision:0,snapshotHash:s.snapshotHash};
   var t0=Date.now(),r=PS3_post_('commitStudyPlanRevision',request,PS8R_AUTH_);
-  PS8R_assert_(r.ok===true&&r.activeRevision===1&&r.entries===19060,'commit result mismatch');
+  PS8R_assert_(r.ok===true&&Number(r.activeRevision)===1,'commit revision mismatch');
+  if(r.duplicate){
+    // A lost commit ACK may leave a committed revision with no `entries`
+    // field on retry. Verify the persisted active hash and count before resuming.
+    var summaries=PS3_get_('studyPlans',{},PS8R_AUTH_).plans;
+    var active=summaries.filter(function(p){return p.planId===s.planId;})[0];
+    PS8R_assert_(active&&active.activeHash===s.snapshotHash&&
+      Number(active.slotCount)===19060&&Number(active.activeRevision)===1,
+      'duplicate commit had no matching persisted active snapshot');
+  }else PS8R_assert_(r.entries===19060,'commit entries mismatch');
   s.timings.commitMs=Date.now()-t0;s.status='COMMITTED';PS8R_saveState_(s);
-  return PS8R_log_('commit',{planId:s.planId,entries:r.entries,days:r.days,
+  return PS8R_log_('commit',{planId:s.planId,entries:19060,duplicate:!!r.duplicate,days:r.days,
     activeRevision:r.activeRevision,commitMs:s.timings.commitMs,next:'PS8R_verify'});
 }
 function PS8R_verify(){
@@ -249,4 +258,42 @@ function PS8R_progress(){
   s.progressChecked=true;PS8R_saveState_(s);
   return PS8R_log_('progress',{planId:s.planId,applied:2,duplicates:1,conflicts:1,
     highWatermark:2,elapsedMs:Date.now()-t});
+}
+
+/**
+ * One editor click: starts or resumes the 19,060-slot REAL Sheets probe.
+ * Time-limited per invocation (3 minutes) to avoid Apps Script 6m quota.
+ * May be run again if PAUSED. Requires private local PS8R_setupLocalIsolated()
+ * on first invocation. Never touches the operating Script or MASTER.
+ */
+function PS8R_runEditorBatch(){
+  var started=Date.now(),safeBudgetMs=180000;
+  var props=PropertiesService.getScriptProperties();
+  if(props.getProperty('PLANNER_SYNC_MODE')!=='ISOLATED_TEST'||
+     !props.getProperty('PLANNER_SYNC_TEST_SPREADSHEET_ID')){
+    if(typeof PS8R_setupLocalIsolated!=='function')throw new Error(
+      'BLOCKED: local isolated setup helper missing');
+    PS8R_setupLocalIsolated();
+  }
+  PS8R_preflight();
+  if(!props.getProperty(PS8R_STATE_KEY_))PS8R_begin();
+  var state=PS8R_getState_();
+  var uploadsThisRun=0;
+  while(state.status==='STAGING'&&Date.now()-started<safeBudgetMs){
+    PS8R_upload();uploadsThisRun++;
+    state=PS8R_getState_();
+  }
+  if(state.status==='READY'&&Date.now()-started<safeBudgetMs){
+    PS8R_commit();state=PS8R_getState_();
+  }
+  if(state.status==='COMMITTED'&&Date.now()-started<safeBudgetMs){
+    PS8R_verify();state=PS8R_getState_();
+  }
+  return PS8R_log_('editorBatch',{
+    status:state.status,planId:state.planId,
+    nextOffset:state.nextOffset,chunks:state.chunkCount,
+    uploadsThisRun:uploadsThisRun,elapsedMs:Date.now()-started,
+    next:state.status==='VERIFIED'?'PS8R_progress for separate progress test':
+      'Run PS8R_runEditorBatch again to resume the same isolated plan'
+  });
 }
