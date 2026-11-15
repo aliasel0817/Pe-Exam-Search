@@ -25,9 +25,12 @@ function harness(){
   PS8R_runEditorBatch:()=>{calls++;
     plan.nextOffset=Math.min(101,plan.nextOffset+12);
     if(plan.nextOffset===101)plan.status='VERIFIED';
+    data.set('PS8R_TEST_STATE',JSON.stringify(plan));
     return {status:plan.status};
   },
-  PS8R_progress:()=>{assert.equal(plan.status,'VERIFIED');progressCalls++;plan.progressChecked=true}
+  PS8R_progress:()=>{assert.equal(plan.status,'VERIFIED');progressCalls++;plan.progressChecked=true;
+    data.set('PS8R_TEST_STATE',JSON.stringify(plan));
+  }
  };
  data.set('PS8R_TEST_STATE',JSON.stringify(plan));
  vm.createContext(sandbox);
