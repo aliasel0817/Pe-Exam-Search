@@ -23,6 +23,7 @@ const contents={
   'Code.gs':built.source,
   'PlannerSyncBackend.gs':src('planner-sync-stage3-isolated.addon.gs'),
   'PlannerSyncSignedBridge.gs':src('planner-sync-stage9-production-bridge.addon.gs'),
+  'PlannerSyncReleaseControl.gs':src('planner-sync-stage9-release-control.addon.gs'),
   'appsscript.json':src('../mupdf-migration/r5/source/appsscript.json')
 };
 const dig=x=>crypto.createHash('sha256').update(x,'utf8').digest('hex');

@@ -5,12 +5,14 @@ on:
     paths:
       - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
       - 'study-note/backend/planner-sync-stage9-production-bridge.addon.gs'
+      - 'study-note/backend/planner-sync-stage9-release-control.addon.gs'
       - 'study-note/backend/build-planner-sync-stage9-*.cjs'
       - 'study-note/mupdf-migration/r5/source/Code.js'
       - 'study-note/study-planner-sync.js'
       - 'study-note/study-planner.js'
       - 'study-note/study-planner-migration-ui.js'
       - 'study-note/tests/test_planner_sync_stage9_prod_bridge.cjs'
+      - 'study-note/tests/test_planner_sync_stage9_release_control.cjs'
       - 'study-note/tests/test_planner_sync_stage7_integration.cjs'
       - '.github/workflows/planner-sync-stage9-bridge.yml'
   workflow_dispatch:
@@ -34,10 +36,12 @@ jobs:
           node --check study-note/mupdf-migration/r5/source/Code.js
           node --check < study-note/backend/planner-sync-stage3-isolated.addon.gs
           node --check < study-note/backend/planner-sync-stage9-production-bridge.addon.gs
+          node --check < study-note/backend/planner-sync-stage9-release-control.addon.gs
           node --check study-note/study-planner-sync.js
           node --check study-note/study-planner.js
           node --check study-note/study-planner-migration-ui.js
           node study-note/tests/test_planner_sync_stage9_prod_bridge.cjs
+          node study-note/tests/test_planner_sync_stage9_release_control.cjs
       - name: Stage3 isolated synthetic, Stage7 large protocol, Stage8 source-level HMAC
         run: |
           node study-note/tests/test_planner_sync_stage3_synthetic.cjs
@@ -49,6 +53,7 @@ jobs:
           node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/Code.gs"
           node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncBackend.gs"
           node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncSignedBridge.gs"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncReleaseControl.gs"
           test -f "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/RELEASE-GATE-READ-ME.json"
       - name: MuPDF immutable v21 backend and AGPL evidence regression
         run: |
