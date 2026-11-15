@@ -19,16 +19,36 @@ function PS3_sha_(s){var b=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA
 function PS3_now_(){return new Date().toISOString();}
 function PS3_length_(s){return Utilities.newBlob(s).getBytes().length;}
 function PS3_context_(){
- var props=PropertiesService.getScriptProperties();
- if(props.getProperty('PLANNER_SYNC_MODE')!=='ISOLATED_TEST')PS3_fail_('ISOLATION_REQUIRED','격리 시험 모드만 허용합니다.');
- var id=props.getProperty('PLANNER_SYNC_TEST_SPREADSHEET_ID');
- var live=props.getProperty('STUDY_NOTE_SPREADSHEET_ID')||props.getProperty('PLANNER_SYNC_PRODUCTION_SPREADSHEET_ID');
- if(!id||id===live)PS3_fail_('LIVE_BLOCKED','시험용 ID가 없거나 운영 원장과 같습니다.');
- var ss=SpreadsheetApp.openById(id);
- if(!/격리시험용/.test(ss.getName())||/topic_study_data/i.test(ss.getName()))PS3_fail_('LIVE_BLOCKED','격리시험용 원장이 아닙니다.');
- var proof=ss.getSheetByName('테스트토픽');
- if(!proof||PS3_str_(proof.getRange(2,4).getValue()).indexOf('TEST ONLY')<0)PS3_fail_('TEST_MARKER_MISSING','합성 데이터 검증 마커 없음');
- return ss;
+ var props=PropertiesService.getScriptProperties(),mode=props.getProperty('PLANNER_SYNC_MODE');
+ if(mode==='ISOLATED_TEST'){
+  var id=props.getProperty('PLANNER_SYNC_TEST_SPREADSHEET_ID');
+  var live=props.getProperty('STUDY_NOTE_SPREADSHEET_ID')||props.getProperty('PLANNER_SYNC_PRODUCTION_SPREADSHEET_ID');
+  if(!id||id===live)PS3_fail_('LIVE_BLOCKED','시험용 ID가 없거나 운영 원장과 같습니다.');
+  var ss=SpreadsheetApp.openById(id);
+  if(!/격리시험용/.test(ss.getName())||/topic_study_data/i.test(ss.getName()))PS3_fail_('LIVE_BLOCKED','격리시험용 원장이 아닙니다.');
+  var proof=ss.getSheetByName('테스트토픽');
+  if(!proof||PS3_str_(proof.getRange(2,4).getValue()).indexOf('TEST ONLY')<0)PS3_fail_('TEST_MARKER_MISSING','합성 데이터 검증 마커 없음');
+  return ss;
+ }
+ if(mode==='PRODUCTION'){
+  // Second independent gate: never touch the live MASTER until approved
+  // plan-only tables exist and an explicit READY:<sheetId> flag is set.
+  var liveId=props.getProperty('STUDY_NOTE_SPREADSHEET_ID');
+  var ready=props.getProperty('PLANNER_SYNC_PRODUCTION_READY');
+  if(!liveId||ready!=='READY:'+liveId)PS3_fail_('RELEASE_BLOCKED','운영 신규 계획 저장소 승인 필요');
+  var target=SpreadsheetApp.openById(liveId);
+  if(target.getName()!=='topic_study_data'||!target.getSheetByName('암기장'))
+    PS3_fail_('RELEASE_BLOCKED','MASTER 운영 원장 식별 실패');
+  Object.keys(PS3_TABS_).forEach(function(kind){
+   var sheet=target.getSheetByName(PS3_TABS_[kind]),header=PS3_HEADERS_[kind];
+   if(!sheet)PS3_fail_('SCHEMA_MISSING','승인된 계획 전용 시트 누락: '+kind);
+   var actual=sheet.getRange(1,1,1,header.length).getValues()[0];
+   if(JSON.stringify(actual)!==JSON.stringify(header))
+     PS3_fail_('SCHEMA_MISMATCH','계획 저장소 헤더 불일치: '+kind);
+  });
+  return target;
+ }
+ PS3_fail_('ISOLATION_REQUIRED','계획 동기화는 명시적으로 활성화된 환경에서만 허용합니다.');
 }
 function PS3_table_(ss,kind){
  var sheet=ss.getSheetByName(PS3_TABS_[kind]);if(!sheet)PS3_fail_('SCHEMA_MISSING',kind+' 탭 없음');
