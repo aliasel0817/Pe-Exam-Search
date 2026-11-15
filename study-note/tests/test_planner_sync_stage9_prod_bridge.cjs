@@ -4,7 +4,11 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const get=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const gs=get('backend/planner-sync-stage3-isolated.addon.gs');
 const bridge=get('backend/planner-sync-stage9-production-bridge.addon.gs');
-const host=get('mupdf-migration/r5/source/Code.js');
+const approvedHost=get('mupdf-migration/r5/source/Code.js');
+const build=require('../backend/build-planner-sync-stage9-host-candidate.cjs');
+const {source:host,baselineSha256,candidateSha256}=build.buildSignedPlannerHost(approvedHost);
+assert.equal(baselineSha256,build.APPROVED_V21_SHA256);
+assert.notEqual(candidateSha256,baselineSha256);
 const planner=get('study-planner.js'),ui=get('study-planner-migration-ui.js');
 const csrc=get('study-planner-sync.js');
 assert(host.includes("if (typeof PS9_isPlannerGet_ === 'function' && PS9_isPlannerGet_(action))"));
