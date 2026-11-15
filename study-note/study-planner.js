@@ -626,9 +626,30 @@ async function plannerSync(){
  await plannerSyncStatus();
  return result;
 }
+async function connectProductionPlannerTransport(){
+ const client=window.PEPlannerSyncClient;
+ if(!client||client.testEnabled()||window.location.hostname!=='aliasel0817.github.io')return false;
+ // An authenticated read-only server roundtrip is mandatory. The caller may
+ // never infer activation from a local switch or from an untrusted response.
+ if(typeof getApiUrl!=='function'||typeof buildSignedGetUrl!=='function'||typeof sendSecureMutation!=='function')return false;
+ try{
+  const transport=client.makeSignedTransport({apiUrl:getApiUrl(),buildSignedGetUrl,sendSecureMutation});
+  const result=await transport.get('studyPlans',{});
+  if(!result?.ok||result.plannerSyncVersion!==1||!Array.isArray(result.plans))
+    throw Error('계획 동기화 서버 인증/버전 확인 실패');
+  window.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT=transport;
+  window.PE_PLANNER_SYNC_SERVER_VERIFIED=true;
+  return true;
+ }catch(error){
+  window.PE_PLANNER_SYNC_SERVER_VERIFIED=false;
+  delete window.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT;
+  console.warn('학습계획 서버 미확인 · 기존 로컬 기록 보존:',error?.message||error);
+  return false;
+ }
+}
 function connectSyntheticSyncButton(){
  const client=window.PEPlannerSyncClient;
- if(!client?.testEnabled()||!window.PEPlannerSyncUX||typeof syncLearningStates!=='function')return;
+ if(!client?.enabled()||!window.PEPlannerSyncUX||typeof syncLearningStates!=='function')return;
  const button=$('syncLearningBtn');
  if(!button||button.dataset.plannerSyncBridge==='installed')return;
  // Only in loopback/synthetic testing; the unmodified legacy handler remains in production.
@@ -655,7 +676,7 @@ function connectSyntheticSyncButton(){
 }
 function loadStage5FirstMigrationAddon(){
  const client=window.PEPlannerSyncClient;
- if(!client?.testEnabled()||document.getElementById('plannerFirstSyncWizard'))return;
+ if(!client?.enabled()||document.getElementById('plannerFirstSyncWizard'))return;
  const done=async()=>{
   if(!loaded)await load();
   plans=await all(PLAN);
@@ -676,15 +697,17 @@ function loadStage5FirstMigrationAddon(){
  document.head.appendChild(script);
 }
 function loadStage6UxAddon(){
- const ready=()=>{
+ const ready=async()=>{
   window.PEPlannerSyncUX?.mount();
+  await connectProductionPlannerTransport();
   connectSyntheticSyncButton();
-  plannerSyncStatus().catch(console.error);
+  loadStage5FirstMigrationAddon();
+  await plannerSyncStatus();
  };
- if(window.PEPlannerSyncUX){ready();return;}
+ if(window.PEPlannerSyncUX){ready().catch(console.error);return;}
  const ui=document.createElement('script');
  ui.src='./study-planner-sync-ux.js?v=20261114-stage6';
- ui.async=true;ui.onload=ready;
+ ui.async=true;ui.onload=()=>ready().catch(console.error);
  ui.onerror=()=>console.warn('Stage6 status UX unavailable; existing local study planner remains usable.');
  document.head.appendChild(ui);
 }
@@ -696,6 +719,6 @@ function loadSyntheticSyncAddon(){
  script.onerror=()=>console.warn('Planner sync addon unavailable; existing local study planner remains usable.');
  document.head.appendChild(script);
 }
-window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus};
+window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus,connectServer:connectProductionPlannerTransport};
 window.addEventListener('DOMContentLoaded',()=>{initUi();load().catch(console.error);loadSyntheticSyncAddon();});
 })();
