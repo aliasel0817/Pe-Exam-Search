@@ -105,7 +105,7 @@ function mount({db,onApplied,transport}){
   }
   finally{busy=false;await syncPhase().catch(console.error);update();}
  };}
- const ownTransport=()=>transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT;
+ const ownTransport=()=>transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT||root.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT;
  const readJson=async file=>{
   if(!file||!file.name.toLowerCase().endsWith('.json')||file.size>25*1024*1024)throw Error('25MB 이하 JSON 백업 파일만 선택하세요.');
   return JSON.parse((await file.text()).replace(/^\uFEFF/,''));
