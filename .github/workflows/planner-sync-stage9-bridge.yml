@@ -5,6 +5,7 @@ on:
     paths:
       - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
       - 'study-note/backend/planner-sync-stage9-production-bridge.addon.gs'
+      - 'study-note/backend/build-planner-sync-stage9-*.cjs'
       - 'study-note/mupdf-migration/r5/source/Code.js'
       - 'study-note/study-planner-sync.js'
       - 'study-note/study-planner.js'
@@ -42,6 +43,13 @@ jobs:
           node study-note/tests/test_planner_sync_stage3_synthetic.cjs
           STAGE3_TEST_FILE=study-note/tests/test_planner_sync_stage3_synthetic.cjs node study-note/tests/test_planner_sync_stage7_integration.cjs
           node study-note/tests/test_planner_sync_stage8_signed_host.cjs
+      - name: Build isolated review-only operating Apps Script candidate (NOT deployed)
+        run: |
+          node study-note/backend/build-planner-sync-stage9-release-package.cjs --output "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/Code.gs"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncBackend.gs"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncSignedBridge.gs"
+          test -f "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/RELEASE-GATE-READ-ME.json"
       - name: MuPDF immutable v21 backend and AGPL evidence regression
         run: |
           test "$(git hash-object study-note/mupdf-migration/r5/source/Code.js)" = "9457b67d61742fce1e70f2ce18f6c386a478b9ee"
