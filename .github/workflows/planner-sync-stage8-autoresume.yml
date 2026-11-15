@@ -1,0 +1,40 @@
+name: Planner Sync Isolated Auto-Resume Safety (NO DEPLOY)
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/backend/planner-sync-stage8-autoresume.gs'
+      - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
+      - 'study-note/tests/test_planner_sync_stage8_real_sheets_dates.cjs'
+      - 'study-note/tests/test_planner_sync_stage8_autoresume.cjs'
+      - '.github/workflows/planner-sync-stage8-autoresume.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-only-trigger-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax validation
+        run: |
+          node --check < study-note/backend/planner-sync-stage8-autoresume.gs
+          node --check study-note/tests/test_planner_sync_stage8_autoresume.cjs
+      - name: Single trigger, stop-on-error, non-production resume test
+        run: |
+          node study-note/tests/test_planner_sync_stage8_autoresume.cjs
+          node study-note/tests/test_planner_sync_stage8_real_sheets_dates.cjs
+      - name: Explicit release gate
+        run: |
+          echo "AUTOMATION=ISOLATED_GOOGLE_SHEETS_BENCHMARK_ONLY"
+          echo "ACTUAL_GAS_EDITOR_START=REQUIRES_ONE_USER_AUTHORIZATION"
+          echo "REAL_HMAC_NONCE=UNVERIFIED"
+          echo "PRODUCTION_MAIN_DEPLOY=BLOCKED"
