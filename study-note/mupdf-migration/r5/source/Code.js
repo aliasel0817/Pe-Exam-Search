@@ -457,11 +457,6 @@ function doGet(e) {
       const verified = validateSignedGet_(params, ['ACTIVE']);
       return jsonOutput_(buildAnnotationSyncPayload_(verified.data));
     }
-    // Planner routes remain inert until deployed with the separate bridge
-    // and the explicit production storage gate. No legacy GET behavior changes.
-    if (typeof PS9_isPlannerGet_ === 'function' && PS9_isPlannerGet_(action)) {
-      return jsonOutput_(PS9_signedPlannerGet_(params));
-    }
     if (action === 'mutationstatus') return jsonOutput_(getMutationStatus_(params.requestId, params.pollKey));
     return jsonOutput_({ ok: false, message: `지원하지 않는 action: ${action}` });
   } catch (error) {
@@ -507,10 +502,6 @@ function doPost(e) {
       else if (action === 'approvedevice') result = approveSecurityDevice_(payload, authContext);
       else if (action === 'revokedevice') result = revokeSecurityDevice_(payload, authContext);
       else if (action === 'renamedevice') result = renameSecurityDevice_(payload, authContext);
-      else if (typeof PS9_isPlannerPost_ === 'function' && PS9_isPlannerPost_(action)) {
-        // validated by the existing ACTIVE HMAC, nonce and mutation poll code
-        result = PS9_verifiedPlannerPost_(action, verified);
-      }
       else throw new Error(`지원하지 않는 쓰기 action: ${action}`);
 
       if (!['savelearningstates','saveannotations'].includes(action)) {
