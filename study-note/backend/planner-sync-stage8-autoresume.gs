@@ -53,7 +53,7 @@ function PS8R_autoStart() {
   if(existing.length>1)throw new Error('AUTO_DUPLICATE_TRIGGER_BLOCKED');
   if(existing.length===1) {
     if(prev&&prev.status==='RUNNING'&&prev.planId===plan.planId)
-      return PS8R_autoStatus(); // idempotent start, never create a second trigger
+      return {status:'RUNNING',planId:plan.planId,nextOffset:plan.nextOffset,alreadyRunning:true}; // no duplicate trigger
     throw new Error('AUTO_TRIGGER_OWNERSHIP_CONFLICT');
   }
   if(prev&&prev.status==='RUNNING'&&prev.planId!==plan.planId)
