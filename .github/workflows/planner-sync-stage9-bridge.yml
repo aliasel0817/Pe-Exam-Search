@@ -1,0 +1,50 @@
+name: Planner Sync Stage9 Production Bridge Preflight (NO DEPLOY)
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
+      - 'study-note/backend/planner-sync-stage9-production-bridge.addon.gs'
+      - 'study-note/mupdf-migration/r5/source/Code.js'
+      - 'study-note/study-planner-sync.js'
+      - 'study-note/study-planner.js'
+      - 'study-note/study-planner-migration-ui.js'
+      - 'study-note/tests/test_planner_sync_stage9_prod_bridge.cjs'
+      - '.github/workflows/planner-sync-stage9-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage9-prod-bridge-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax + isolated/pinned bridge guard
+        run: |
+          node --check study-note/mupdf-migration/r5/source/Code.js
+          node --check < study-note/backend/planner-sync-stage3-isolated.addon.gs
+          node --check < study-note/backend/planner-sync-stage9-production-bridge.addon.gs
+          node --check study-note/study-planner-sync.js
+          node --check study-note/study-planner.js
+          node --check study-note/study-planner-migration-ui.js
+          node study-note/tests/test_planner_sync_stage9_prod_bridge.cjs
+      - name: Stage3 isolated synthetic, Stage7 large protocol, Stage8 source-level HMAC
+        run: |
+          node study-note/tests/test_planner_sync_stage3_synthetic.cjs
+          STAGE3_TEST_FILE=study-note/tests/test_planner_sync_stage3_synthetic.cjs node study-note/tests/test_planner_sync_stage7_integration.cjs
+          node study-note/tests/test_planner_sync_stage8_signed_host.cjs
+      - name: Explicit release block without real server evidence
+        run: |
+          echo "STAGE9_CODE_CANDIDATE_ONLY_PASS"
+          echo "REAL_GAS_19060_SHEETS=UNVERIFIED"
+          echo "REAL_HMAC_NONCE_ACTIVE=UNVERIFIED"
+          echo "RELEASE_READY=false"
+          echo "NO_MAIN_MERGE_NO_DEPLOY_NO_USER_FIRST_SYNC"
