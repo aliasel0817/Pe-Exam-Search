@@ -1,10 +1,14 @@
 // Study planner additive rollout; keep existing shell caching semantics.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-9-device-list-filter-image-webp98';
+const CACHE_NAME = 'pe-study-note-shell-v4-6-9-planner-sync-final-20261115';
 const APP_SHELL = [
   './study-note.html',
   './image-upload-optimizer.js',
   './manifest.webmanifest',
   './study-planner.js',
+  './study-planner-sync.js',
+  './study-planner-sync-ux.js',
+  './study-planner-migration.js',
+  './study-planner-migration-ui.js',
   './study-plans/pe141-100days.json'
 ];
 
@@ -35,7 +39,9 @@ self.addEventListener('fetch', event => {
 
   const isStudyNoteHtml = url.pathname.endsWith('/study-note.html');
   const isManifest = url.pathname.endsWith('/manifest.webmanifest');
-  const isPlannerAsset = url.pathname.endsWith('/study-planner.js') || url.pathname.endsWith('/study-plans/pe141-100days.json');
+  const isPlannerAsset = ['/study-planner.js','/study-planner-sync.js','/study-planner-sync-ux.js',
+    '/study-planner-migration.js','/study-planner-migration-ui.js',
+    '/study-plans/pe141-100days.json'].some(asset => url.pathname.endsWith(asset));
   const isImageOptimizerAsset = url.pathname.endsWith('/image-upload-optimizer.js');
   if (!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isImageOptimizerAsset) return;
 
