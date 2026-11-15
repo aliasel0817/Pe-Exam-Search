@@ -35,6 +35,14 @@ vm.runInContext(source,sandbox,{filename:'stage8-real-gas-probe.gs'});
    assert.equal(JSON.stringify(a),JSON.stringify(b),'chunk '+i);
    assert(Buffer.byteLength(a.payloadJson,'utf8')<=8192);
  }
+ // Real SpreadsheetApp.getValues converts blank GROUPS round from null to ''.
+ const group=standard.chunks.find(x=>x.kind==='GROUPS');
+ assert(group&&group.round===null);
+ assert.equal(sandbox.PS8R_chunksEquivalent_({...group,round:''},group),true);
+ assert.equal(sandbox.PS8R_chunksEquivalent_({...group,chunkHash:'0'.repeat(64)},group),false);
+ const day=standard.chunks.find(x=>x.kind==='DAY');
+ assert(day);
+ assert.equal(sandbox.PS8R_chunksEquivalent_({...day,round:day.round+1},day),false);
  assert.equal(standard.chunks.length,101);
  assert.match(source,/PS3_context_\(\)/);
  assert.match(source,/ISOLATED_TEST/);
