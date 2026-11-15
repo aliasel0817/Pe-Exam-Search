@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'study-note/backend/planner-sync-stage8-autoresume.gs'
+      - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
+      - 'study-note/tests/test_planner_sync_stage8_real_sheets_dates.cjs'
       - 'study-note/tests/test_planner_sync_stage8_autoresume.cjs'
       - '.github/workflows/planner-sync-stage8-autoresume.yml'
   workflow_dispatch:
@@ -27,7 +29,9 @@ jobs:
           node --check < study-note/backend/planner-sync-stage8-autoresume.gs
           node --check study-note/tests/test_planner_sync_stage8_autoresume.cjs
       - name: Single trigger, stop-on-error, non-production resume test
-        run: node study-note/tests/test_planner_sync_stage8_autoresume.cjs
+        run: |
+          node study-note/tests/test_planner_sync_stage8_autoresume.cjs
+          node study-note/tests/test_planner_sync_stage8_real_sheets_dates.cjs
       - name: Explicit release gate
         run: |
           echo "AUTOMATION=ISOLATED_GOOGLE_SHEETS_BENCHMARK_ONLY"
