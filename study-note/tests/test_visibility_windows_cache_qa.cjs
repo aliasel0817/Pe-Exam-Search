@@ -21,6 +21,10 @@ const swSource = fs.readFileSync(path.join(root,"service-worker.js"),"utf8");
 const imageOptimizerJs = fs.readFileSync(path.join(root,"image-upload-optimizer.js"),"utf8");
 const manifest = fs.readFileSync(path.join(root,"manifest.webmanifest"),"utf8");
 const plannerJs = fs.readFileSync(path.join(root,"study-planner.js"),"utf8");
+const plannerAuxFiles=Object.fromEntries([
+ "study-planner-sync.js","study-planner-sync-ux.js",
+ "study-planner-migration.js","study-planner-migration-ui.js"
+].map(name=>["/"+name,fs.readFileSync(path.join(root,name),"utf8")]));
 const plannerJson = fs.readFileSync(path.join(root,"study-plans","pe141-100days.json"),"utf8");
 assert(source.includes("window.addEventListener('DOMContentLoaded', init);"));
 assert(swSource.includes("fetch(event.request, { cache: 'no-store' })"));
@@ -79,6 +83,10 @@ const server=http.createServer((req,res)=>{
  if(pathname==="/study-planner.js"){
   res.writeHead(200,{"Content-Type":"text/javascript; charset=utf-8"});
   return res.end(plannerJs);
+ }
+ if(Object.prototype.hasOwnProperty.call(plannerAuxFiles,pathname)){
+  res.writeHead(200,{"Content-Type":"text/javascript; charset=utf-8"});
+  return res.end(plannerAuxFiles[pathname]);
  }
  if(pathname==="/image-upload-optimizer.js"){
   res.writeHead(200,{"Content-Type":"text/javascript; charset=utf-8"});
