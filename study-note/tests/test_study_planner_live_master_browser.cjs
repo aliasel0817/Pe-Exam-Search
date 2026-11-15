@@ -47,7 +47,14 @@ async function dbSnapshot(page){
   await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('계획 '),{timeout:15000});
   await page.evaluate(()=>document.querySelector('[data-learning-view="plan"]').click());
   await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('시작 2026-10-22'),{timeout:12000});
-  assert((await page.$eval('#plannerStats',e=>e.textContent)).includes('23/100일차'),'Compact stats should include Korean day number');
+  // Day index is KST-relative; a fixed 23/100 assumption expires after 2026-11-13.
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const kv=Object.fromEntries(parts.map(x=>[x.type,x.value]));
+  const todayKst=[kv.year,kv.month,kv.day].join('-');
+  const number=Math.round((Date.parse(todayKst+'T00:00:00Z')-Date.parse('2026-10-22T00:00:00Z'))/86400000)+1;
+  const progressDay=number<1?'시작 전':number>100?'종료':number+'/100일차';
+  assert((await page.$eval('#plannerStats',e=>e.textContent)).includes('오늘 '+progressDay),
+    'Compact stats must show the correct Asia/Seoul day number: '+progressDay);
   const day=plan.days.find(x=>x.date==='2026-11-13');
   assert(day,'fixture day exists');
   const key=planId+'|2026-11-13|'+day.ids[0];

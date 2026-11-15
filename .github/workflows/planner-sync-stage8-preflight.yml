@@ -1,0 +1,86 @@
+name: Planner Sync Stage8 Isolated Release Preflight (NO DEPLOY)
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/planner-sync/**'
+      - 'study-note/backend/planner-sync-stage*.gs'
+      - 'study-note/study-planner*.js'
+      - 'study-note/tests/test_planner_sync_stage*.cjs'
+      - 'study-note/tests/test_study_planner*.cjs'
+      - 'study-note/tests/test_reference_pdf*.cjs'
+      - 'study-note/tests/test_technical_readability.cjs'
+      - '.github/workflows/planner-sync-stage8-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage8-synthetic-regression-and-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact Stage8 candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser/IndexedDB and PDF test libraries
+        run: |
+          npm install --prefix .qa-browser --no-save --no-audit --no-fund fake-indexeddb@6 puppeteer-core@24.31.0 pdf-lib@1.17.1
+          command -v google-chrome || command -v chromium || command -v chromium-browser
+      - name: Syntax validation
+        run: |
+          node --check < study-note/backend/planner-sync-stage3-isolated.addon.gs
+          node --check < study-note/backend/planner-sync-stage8-isolated-host-bridge.addon.gs
+          node --check study-note/study-planner.js
+          node --check study-note/study-planner-sync.js
+          node --check study-note/study-planner-migration.js
+          node --check study-note/tests/test_planner_sync_stage8_signed_host.cjs
+          node --check study-note/tests/test_planner_sync_stage7_integration.cjs
+      - name: Stage3 + Stage7 real-source synthetic contract, SHA and 19060 slots
+        run: |
+          node study-note/tests/test_planner_sync_stage3_synthetic.cjs
+          STAGE3_TEST_FILE=study-note/tests/test_planner_sync_stage3_synthetic.cjs node study-note/tests/test_planner_sync_stage7_integration.cjs
+      - name: Execute existing trusted-device HMAC/nonce validators in synthetic VM
+        run: node study-note/tests/test_planner_sync_stage8_signed_host.cjs
+      - name: Stage5 backup/restore/conflict and Stage6 status regression
+        run: |
+          node study-note/tests/test_planner_sync_stage5_migration.cjs
+          node study-note/tests/test_planner_sync_stage6_ux.cjs
+      - name: Stage4/5/6 three-profile Chromium and responsive first migration
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node study-note/tests/test_planner_sync_stage4_browser.cjs
+      - name: Existing planner MASTER + management synthetic/browser regression
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node study-note/tests/test_study_planner_live_master.cjs
+          node study-note/tests/test_study_planner_management_qa.cjs
+          node study-note/tests/test_study_planner_live_master_browser.cjs
+      - name: Preserve PDF/attachment/signed-backend and technical readability
+        env:
+          NODE_PATH: .qa-browser/node_modules
+        run: |
+          node study-note/tests/test_reference_pdf_multipage.cjs
+          node study-note/tests/test_pdf_vector_sharp_qa.cjs
+          node study-note/tests/test_reference_pdf_signed_backend.cjs
+          node --test study-note/tests/test_technical_readability.cjs
+      - name: Prove protected operating source files unchanged from main
+        run: |
+          test "$(git hash-object study-note/study-note.html)" = "74f35aff44bd1b0521dcbb8244d3c859a1538adc"
+          test "$(git hash-object study-note/service-worker.js)" = "a0290738b2a29dc951bbe693008985d32f0ffb21"
+          test "$(git hash-object study-note/mupdf-migration/r5/source/Code.js)" = "9457b67d61742fce1e70f2ce18f6c386a478b9ee"
+          git diff --exit-code
+          echo "STAGE8_PROTECTED_SOURCE_UNCHANGED_PASS"
+      - name: Hard block release without real Apps Script, Sheets and device evidence
+        run: |
+          echo "STAGE8_SYNTHETIC_PREFLIGHT_ONLY_PASS"
+          echo "RELEASE_READY=false"
+          echo "REAL_GAS_HMAC_NONCE=UNVERIFIED"
+          echo "REAL_19060_SHEETS_PERFORMANCE=UNVERIFIED"
+          echo "REAL_DEVICE_FIRST_MIGRATION=UNVERIFIED"
+          echo "NO_MAIN_MERGE_NO_PAGES_DEPLOY_NO_APPS_SCRIPT_WRITE"

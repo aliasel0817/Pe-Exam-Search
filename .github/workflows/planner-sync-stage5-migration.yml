@@ -1,0 +1,40 @@
+name: Planner Sync Stage5 First Migration Synthetic
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/study-planner-migration.js'
+      - 'study-note/study-planner-migration-ui.js'
+      - 'study-note/study-planner.js'
+      - 'study-note/tests/test_planner_sync_stage5_migration.cjs'
+      - '.github/workflows/planner-sync-stage5-migration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-device-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated test dependencies
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund fake-indexeddb@6 puppeteer-core@24.31.0
+      - name: Check JavaScript syntax
+        run: |
+          node --check study-note/study-planner-migration.js
+          node --check study-note/study-planner-migration-ui.js
+          node --check study-note/study-planner-sync.js
+          node --check study-note/study-planner.js
+          node --check study-note/tests/test_planner_sync_stage5_migration.cjs
+      - name: Verify backup, 3-way merge, CAS conflict, replay, restoration
+        run: node study-note/tests/test_planner_sync_stage5_migration.cjs
+      - name: Ensure Stage4 synthetic browser sync remains intact
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          node study-note/tests/test_planner_sync_stage4_browser.cjs

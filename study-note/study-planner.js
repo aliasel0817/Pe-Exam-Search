@@ -11,7 +11,7 @@ if(!PAGE_SIZES.includes(pageSize))pageSize=10;
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const openDb=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>{let d=r.result;d.createObjectStore(PLAN,{keyPath:'id'});d.createObjectStore(PROGRESS,{keyPath:'key'});};r.onerror=()=>reject(r.error);r.onsuccess=()=>resolve(r.result)});
+const openDb=()=>new Promise((resolve,reject)=>{const r=indexedDB.open(DB,2);r.onupgradeneeded=()=>{const d=r.result;const stores=[[PLAN,'id'],[PROGRESS,'key'],['syncMeta','key'],['pendingOps','id'],['syncConflicts','id'],['preSyncSnapshots','id']];for(const [name,key] of stores)if(!d.objectStoreNames.contains(name))d.createObjectStore(name,{keyPath:key});};r.onerror=()=>reject(r.error);r.onblocked=()=>console.warn('학습계획 DB v2 업그레이드 대기: 다른 탭을 닫고 다시 열어 주세요.');r.onsuccess=()=>resolve(r.result)});
 function all(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 function put(store,object){return new Promise((resolve,reject)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(object);r.onsuccess=resolve;r.onerror=()=>reject(r.error)})}
 function normalise(item){
@@ -37,10 +37,11 @@ function initUi(){
  const pane=document.createElement('section');pane.id='studyPlannerPanel';pane.className='hidden';pane.innerHTML=`
  <div class="planner-toolbar"><select id="plannerSelect" aria-label="학습계획 선택"></select><input id="plannerDate" type="date" aria-label="학습일 선택"><button type="button" id="plannerToday" class="btn">오늘</button><button type="button" id="plannerManage" class="btn" title="새 계획 등록, 작성 양식 다운로드, 회독별 진도 백업 및 복원" aria-controls="plannerManagement" aria-expanded="false">계획 추가 · 진도 관리</button></div>
  <div id="plannerStats" class="planner-stats"></div>
+  <p id="plannerSyncStatus" class="planner-sync-state" role="status" aria-live="polite">학습계획은 아직 이 기기에만 저장됩니다.</p>
  <details id="plannerManagement" class="planner-manager">
   <summary>학습계획 추가 · 진도 백업/복원 사용 안내</summary>
-  <p class="planner-local-info">학습계획별 진도는 현재 기기에만 저장되며 기기 간 자동 동기화되지 않습니다. 기기를 변경하거나 브라우저 데이터를 삭제하기 전에는 아래에서 진도를 백업하세요.</p>
-  <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼을 누르면 이 영역이 열리거나 닫힙니다. 여기서는 <strong>새 계획 등록</strong>과 <strong>회독별 진도 파일 백업/복원</strong>을 할 수 있습니다. 학습노트 MASTER 내용은 수정하지 않습니다.</p>
+  <p id="plannerStorageExplanation" class="planner-local-info">현재 운영 서비스에서는 학습계획·회독별 진도가 기기별로 보관됩니다. 신뢰기기 사이의 공유는 전체 백업과 최초 통합 승인, 서버 응답 검증을 마친 후에만 가능합니다. 오프라인에서 작성한 미전송 기록은 기기에 남으며, JSON 백업은 동기화와 별개의 안전장치입니다.</p>
+  <p class="planner-help">위의 <strong>계획 추가 · 진도 관리</strong> 버튼으로 이 영역을 여닫습니다. ① 신규 토픽 5회 편입 · ② 새 계획 자동 생성 · ③ CSV/JSON 등록 · ④ 진도 JSON 백업 · ⑤ 진도 복원 · ⑥ 최초 전체 백업·기기 간 통합(격리 시험)을 각각 구분합니다. 일반 학습정보의 암기/미암기와 회독별 완료/다시보기 기록은 서로 다른 데이터입니다. MASTER 원문은 수정하지 않습니다.</p>
 
   <section class="planner-manage-section" aria-labelledby="plannerExtendTitle">
     <h4 id="plannerExtendTitle">① 기존 계획에 신규 토픽 자동 편입</h4>
@@ -86,12 +87,12 @@ function initUi(){
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerBackupTitle">
     <h4 id="plannerBackupTitle">④ 진도 백업 — 이 기기의 학습 진행상태 저장</h4>
-    <p>여기서 <strong>진도</strong>란 계획별·날짜별 토픽의 <strong>완료(기억함) / 다시보기</strong> 기록입니다. 아래 버튼을 누르면 이 기기의 진도를 JSON 파일로 저장합니다. 브라우저 데이터 초기화나 다른 기기 사용 전 보관하세요. 원본 MASTER나 Google Sheets 학습정보를 내려받는 기능은 아닙니다.</p>
+    <p>여기서 <strong>진도</strong>란 계획별·날짜별 토픽의 <strong>완료(기억함) / 다시보기</strong> 기록입니다. 이 버튼은 <strong>진도만 JSON으로 백업</strong>하며, 계획 파일이나 미전송 작업은 포함하지 않습니다. 기존 계획·진도·미전송·충돌을 모두 보관하려면 ⑥의 전체 백업을 사용하세요. 원본 MASTER나 Google Sheets 일반 학습정보를 내려받는 기능은 아닙니다.</p>
     <div class="planner-manager-actions"><button id="plannerExport" class="btn" type="button">진도 기록 백업 JSON 다운로드</button></div>
   </section>
   <section class="planner-manage-section" aria-labelledby="plannerRestoreTitle">
     <h4 id="plannerRestoreTitle">⑤ 진도 복원 — 전에 백업한 기록 불러오기</h4>
-    <p>④에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일을 선택하면 이 기기에 진도를 복원합니다. 같은 계획·날짜·토픽에 이미 기록이 있으면 확인 후 덮어쓰므로 주의하세요. 새로운 학습계획 등록 파일과는 다릅니다.</p>
+    <p>④에서 내려받은 <strong>study-plan-progress-backup.json</strong> 파일로 이 기기의 진도를 복원합니다. 기존 기록과 같은 키는 <strong>사용자 확인 후 덮어쓸 수 있으므로</strong> 주의하세요. ⑥의 전체 백업 안전 복원은 다르게 작동하여 기존 키를 덮어쓰지 않고 충돌로 보류합니다. 기기 간 동기화나 신규 계획 등록 파일과 구별하세요.</p>
     <label for="plannerRestore" class="planner-file-label">진도 백업 파일 선택 — 완료/다시보기 복원용 (.json)</label>
     <input id="plannerRestore" type="file" accept=".json,application/json" aria-label="기존 진도 백업 JSON 파일 선택하여 복원">
   </section>
@@ -103,7 +104,7 @@ function initUi(){
 `;
  document.querySelector('.learning-view-tabs').after(pane);
  const style=document.createElement('style');style.textContent=`
- #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:8px 10px;border-radius:8px;line-height:1.5;margin:8px 0;font-size:.8rem;color:#334155}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:8px 0;padding:7px 10px;background:#f8fafc;border-radius:9px}.planner-manager>summary{font-size:.75rem;line-height:1.35;font-weight:600;color:#475569;cursor:pointer}.planner-manager:not([open]){margin-bottom:8px}.planner-manager:not([open])>:not(summary){display:none!important}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}
+ #studyPlannerPanel{padding:12px 0}#studyPlannerPanel.hidden{display:none!important}.planner-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.planner-toolbar input,.planner-toolbar select{font:inherit;min-height:36px;border:1px solid #dbe2ea;background:#fff;color:#172033;border-radius:8px;padding:6px 8px;max-width:100%}#plannerSelect,#plannerSearch{flex:1;min-width:175px}.planner-stats{background:#f1f5f9;padding:8px 10px;border-radius:8px;line-height:1.5;margin:8px 0;font-size:.8rem;color:#334155}.planner-group{border:1px solid #dbe2ea;border-radius:10px;margin:8px 0;overflow:hidden}.planner-group summary{cursor:pointer;padding:12px;background:#f8fafc;font-weight:600}.planner-topic{display:flex;width:100%;text-align:left;justify-content:space-between;gap:10px;padding:10px 12px;border:0;border-top:1px solid #e2e8f0;background:#fff;cursor:pointer;color:#172033}.planner-topic small{color:#64748b;display:block;margin-top:4px}.planner-local-info,.planner-sync-state{font-size:.8rem;line-height:1.5;color:#64748b;margin:8px 2px}.planner-size-label{color:var(--muted);font-size:.78rem;white-space:nowrap}.planner-pager{margin-top:14px;margin-bottom:12px}.planner-pager .btn{min-width:74px}.planner-pager .pager-range{font-size:.75rem}.planner-manager{margin:8px 0;padding:7px 10px;background:#f8fafc;border-radius:9px}.planner-manager>summary{font-size:.75rem;line-height:1.35;font-weight:600;color:#475569;cursor:pointer}.planner-manager:not([open]){margin-bottom:8px}.planner-manager:not([open])>:not(summary){display:none!important}.planner-manager input{display:block;max-width:100%;margin:12px 0}.planner-topic:hover{background:#eff6ff}
  #plannerGroup{flex:1 1 185px;min-width:135px;max-width:365px}
  .planner-create-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:10px 0}.planner-create-grid label{font-size:.78rem;font-weight:600;color:#475569}.planner-create-grid input,.planner-create-grid select{display:block;width:100%;margin-top:4px}.planner-create-ids{box-sizing:border-box;width:100%;font:inherit;font-size:.85rem;padding:8px;border:1px solid #dbe2ea;border-radius:8px}.planner-create-ids[hidden],#plannerCreateIdsLabel[hidden]{display:none}
  .planner-control-label{color:var(--muted);font-size:.8rem;white-space:nowrap}
@@ -133,6 +134,7 @@ function initUi(){
  $('plannerManage').onclick=()=>{
   const panel=$('plannerManagement');
   panel.open=!panel.open;
+  $('plannerManage').setAttribute('aria-expanded',String(panel.open));
   if(panel.open)panel.scrollIntoView({block:'nearest',behavior:'smooth'});
  };
  $('plannerManagement').addEventListener('toggle',()=>{
@@ -148,7 +150,7 @@ function initUi(){
    const knownIds=new Set((typeof allTopics!=='undefined'?allTopics:[]).map(t=>t.topicId));
    const missing=[...new Set(imported.days.flatMap(d=>d.ids))].filter(id=>knownIds.size&&!knownIds.has(id));
    if(missing.length)throw Error('MASTER에 없는 통합ID '+missing.length+'개: '+missing.slice(0,8).join(', '));
-   await put(PLAN,imported);
+   await (window.PEPlannerSyncClient?window.PEPlannerSyncClient.queuePlan(db,imported):put(PLAN,imported));
    plans.push(imported);active=imported.id;page=1;group='all';
    localStorage.setItem(PREF,active);dayKey=imported.days[0].date;await render();
    $('plannerNotice').textContent='새 학습계획 "'+imported.name+'" 등록 완료: '+imported.entries+'건. 기존 계획·MASTER·학습기록은 변경하지 않았습니다.';
@@ -159,7 +161,7 @@ function initUi(){
   try{
    const progress=await all(PROGRESS);
    download('study-plan-progress-backup.json',JSON.stringify({format:'study-planner-progress-v1',progress},null,2));
-   $('plannerNotice').textContent='진도 '+progress.length+'건을 JSON 파일로 백업했습니다. 다른 기기에서는 먼저 학습계획을 등록한 후 ③ 진도 복원으로 불러오세요.';
+   $('plannerNotice').textContent='진도 '+progress.length+'건을 JSON 파일로 백업했습니다. 다른 기기에서는 먼저 해당 학습계획을 등록한 후 ⑤ 진도 복원에서 불러오세요.';
   }catch(err){$('plannerNotice').textContent='진도 백업 실패: '+err.message}
  };
  $('plannerRestore').onchange=async e=>{
@@ -242,10 +244,10 @@ function initUi(){
      if(pending.masterSignature!==plannerMasterSignature(plannerMasterTopics()))throw Error('MASTER가 변경되었습니다. 다시 미리보기하세요.');
      if(plans.some(p=>p.id===pending.plan.id))throw Error('계획 ID 충돌입니다. 다시 미리보기하세요.');
      if(!window.confirm('새 계획 "'+pending.plan.name+'"을 별도 저장할까요? 기존 계획·진도는 그대로 유지됩니다.'))return;
-     await put(PLAN,pending.plan);
+     await (window.PEPlannerSyncClient?window.PEPlannerSyncClient.queuePlan(db,pending.plan):put(PLAN,pending.plan));
      plans.push(pending.plan);active=pending.plan.id;dayKey=pending.plan.days[0].date;page=1;group='all';
      localStorage.setItem(PREF,active);invalidateNewPlan();await render();
-     $('plannerNotice').textContent='새 계획 저장 완료: '+pending.plan.entries+'건. 기기별로 저장되므로 계획과 진도 백업을 권장합니다.';
+     $('plannerNotice').textContent='새 계획 저장 완료: '+pending.plan.entries+'건. 서버 공유 전에는 이 기기의 JSON 백업을 보관하세요.';
    }catch(error){invalidateNewPlan();$('plannerNotice').textContent='새 계획 저장 실패: '+error.message}
  };
 }
@@ -361,7 +363,7 @@ async function restoreProgressUpload(file){
  if(!file.name.toLowerCase().endsWith('.json'))throw Error('진도 복원에는 백업 JSON 파일만 선택하세요.');
  if(file.size>12*1024*1024)throw Error('백업 파일 크기는 12MB 이하만 지원합니다.');
  const obj=JSON.parse((await file.text()).replace(/^\uFEFF/,''));
- if(obj?.format!=='study-planner-progress-v1'||!Array.isArray(obj.progress))throw Error('올바른 진도 백업 파일이 아닙니다. ② 진도 백업에서 받은 파일을 사용하세요.');
+ if(obj?.format!=='study-planner-progress-v1'||!Array.isArray(obj.progress))throw Error('올바른 진도 백업 파일이 아닙니다. ④ 진도 백업에서 받은 파일을 사용하세요.');
  const keys=new Set(),unknownPlans=new Set();
  for(const row of obj.progress){
   if(!row||typeof row.planId!=='string'||typeof row.date!=='string'||typeof row.topicId!=='string'||
@@ -378,7 +380,7 @@ async function restoreProgressUpload(file){
   const ok=window.confirm('이미 저장된 진도 '+overlaps+'건이 있습니다.\n이 파일의 동일 계획·날짜·토픽 기록으로 덮어쓸까요?\n다른 기록과 기존 MASTER는 유지됩니다.');
   if(!ok){$('plannerNotice').textContent='진도 복원이 취소되었습니다. 기존 기록은 그대로입니다.';return}
  }
- await putMany(PROGRESS,obj.progress);
+ await (window.PEPlannerSyncClient?window.PEPlannerSyncClient.queueProgressBatch(db,obj.progress):putMany(PROGRESS,obj.progress));
  $('plannerNotice').textContent='진도 '+obj.progress.length+'건을 복원했습니다.'+(overlaps?' (기존 '+overlaps+'건 덮어씀)':'')+' 기존 MASTER/학습정보는 변경하지 않았습니다.';
  await render();
 }
@@ -507,6 +509,7 @@ function plannerCreateAutoPlan(options,master){
  return normalise({id,name:name.trim(),start,end,rounds,groups,days});
 }
 function plannerReplaceIfUnchanged(id,previous,next){
+ if(window.PEPlannerSyncClient)return window.PEPlannerSyncClient.queuePlan(db,next,previous);
  return new Promise((resolve,reject)=>{
   const tx=db.transaction(PLAN,'readwrite'),store=tx.objectStore(PLAN),req=store.get(id);
   let fail=null;
@@ -554,6 +557,7 @@ async function render(){
  const legacyList=$('learningList');if(legacyList)legacyList.classList.toggle('hidden',activeTab);
  const pager=$('learningPager');if(pager)pager.classList.toggle('hidden',activeTab);
  if(!activeTab)return;
+ await plannerSyncStatus();
  document.querySelectorAll('[data-learning-view]').forEach(b=>b.classList.toggle('active',b.dataset.learningView==='plan'));
  $('plannerSelect').innerHTML=plans.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>').join('');$('plannerSelect').value=active;$('plannerDate').value=dayKey;
  const p=plans.find(p=>p.id===active);if(!p){$('plannerGroups').textContent='등록된 학습계획이 없습니다. CSV 또는 JSON 계획 파일을 등록하세요.';$('plannerStats').textContent='';$('plannerGroup').innerHTML='<option value="all">전체 그룹</option>';$('plannerPager').classList.add('hidden');return}
@@ -595,8 +599,103 @@ async function record(topicId,result){
  const day=plan?.days.find(d=>d.date===selected.date);
  if(!day?.ids.includes(topicId))return;
  const key=selected.planId+'|'+selected.date+'|'+topicId;
- await put(PROGRESS,{key,planId:selected.planId,date:selected.date,topicId,status:result==='암기'?'done':'miss',updatedAt:new Date().toISOString()});
+ const row={key,planId:selected.planId,date:selected.date,topicId,status:result==='암기'?'done':'miss',updatedAt:new Date().toISOString()};
+ if(window.PEPlannerSyncClient)await window.PEPlannerSyncClient.queueProgress(db,row);
+ else await put(PROGRESS,row);
 }
-window.StudyPlanner={render,record};
-window.addEventListener('DOMContentLoaded',()=>{initUi();load().catch(console.error)});
+async function plannerSyncStatus(){
+ const label=$('plannerSyncStatus');if(!label||!db)return;
+ try{
+  const client=window.PEPlannerSyncClient;
+  if(!client){label.textContent='학습계획 동기화 기능 준비 중 · 현재 기기에만 저장됩니다.';return}
+  const s=await client.status(db);
+  if(window.PEPlannerSyncUX){window.PEPlannerSyncUX.publish({backend:s});return;}
+  const prefix=!s.enabled?'서버 연동 준비 중 · 이 기기에 보관':s.migration!=='ready'?'첫 통합 전에 기기별 백업·확인이 필요합니다':s.conflicts?'충돌 '+s.conflicts+'건 · 확인 필요':s.pending?'미전송 '+s.pending+'건 · 기기에 보관':'서버 동기화 준비됨';
+  label.textContent=prefix+(s.pending?' · 미전송 '+s.pending+'건':'')+(s.lastSuccess?' · 마지막 동기화 '+s.lastSuccess.slice(0,16).replace('T',' '):'');
+ }catch(err){label.textContent='학습계획 동기화 상태 확인 실패 · 현재 기기 기록은 보존됩니다.';}
+}
+async function plannerSync(){
+ if(!loaded)await load();
+ const client=window.PEPlannerSyncClient;if(!client)return {state:'disabled'};
+ const result=await client.sync(db);
+ if(result.state!=='disabled'&&result.state!=='migration-required'){
+  plans=await all(PLAN);
+  if(!plans.some(p=>p.id===active)){active=plans[0]?.id||'';localStorage.setItem(PREF,active);}
+  await render();
+ }
+ await plannerSyncStatus();
+ return result;
+}
+function connectSyntheticSyncButton(){
+ const client=window.PEPlannerSyncClient;
+ if(!client?.testEnabled()||!window.PEPlannerSyncUX||typeof syncLearningStates!=='function')return;
+ const button=$('syncLearningBtn');
+ if(!button||button.dataset.plannerSyncBridge==='installed')return;
+ // Only in loopback/synthetic testing; the unmodified legacy handler remains in production.
+ button.removeEventListener('click',syncLearningStates);
+ button.dataset.plannerSyncBridge='installed';
+ let busy=false;
+ button.addEventListener('click',async()=>{
+  if(busy)return;busy=true;
+  try{
+   const report=await window.PEPlannerSyncUX.syncCombined({
+    legacy:syncLearningStates,planner:plannerSync,getStatus:()=>client.status(db)
+   });
+   if(typeof showToast==='function'){
+    const plan=report.display?.plans?.label||'확인 필요';
+    const progress=report.display?.progress?.label||'확인 필요';
+    const legacy=report.display?.legacy?.label||'기록 미확인';
+    showToast('일반 학습정보: '+legacy+' · 계획: '+plan+' · 회독 진도: '+progress);
+   }
+  }catch(error){
+   console.error('격리 학습계획 동기화 실패',error);
+   if(typeof showToast==='function')showToast('일부 동기화 확인 불가 · '+(window.PEPlannerSyncUX?.classifyError(error)||error.message));
+  }finally{busy=false;await plannerSyncStatus();}
+ });
+}
+function loadStage5FirstMigrationAddon(){
+ const client=window.PEPlannerSyncClient;
+ if(!client?.testEnabled()||document.getElementById('plannerFirstSyncWizard'))return;
+ const done=async()=>{
+  if(!loaded)await load();
+  plans=await all(PLAN);
+  if(!plans.find(p=>p.id===active)){active=plans[0]?.id||'';localStorage.setItem(PREF,active);}
+  await render();
+ };
+ const mountUi=async()=>{if(!loaded)await load();window.PEPlannerMigrationUI?.mount({db,onApplied:done});};
+ const loadUi=()=>{
+  if(window.PEPlannerMigrationUI){mountUi().catch(console.error);return;}
+  const ui=document.createElement('script');ui.src='./study-planner-migration-ui.js?v=20261113-stage5-test';
+  ui.onload=()=>mountUi().catch(console.error);
+  ui.onerror=()=>console.warn('Stage5 wizard UI is unavailable. No data modified.');
+  document.head.appendChild(ui);
+ };
+ if(window.PEPlannerMigration){loadUi();return;}
+ const script=document.createElement('script');script.src='./study-planner-migration.js?v=20261113-stage5-test';
+ script.onload=loadUi;script.onerror=()=>console.warn('Stage5 first migration candidate unavailable. Existing records preserved.');
+ document.head.appendChild(script);
+}
+function loadStage6UxAddon(){
+ const ready=()=>{
+  window.PEPlannerSyncUX?.mount();
+  connectSyntheticSyncButton();
+  plannerSyncStatus().catch(console.error);
+ };
+ if(window.PEPlannerSyncUX){ready();return;}
+ const ui=document.createElement('script');
+ ui.src='./study-planner-sync-ux.js?v=20261114-stage6';
+ ui.async=true;ui.onload=ready;
+ ui.onerror=()=>console.warn('Stage6 status UX unavailable; existing local study planner remains usable.');
+ document.head.appendChild(ui);
+}
+function loadSyntheticSyncAddon(){
+ if(window.PEPlannerSyncClient){loadStage6UxAddon();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);return;}
+ const script=document.createElement('script');script.src='./study-planner-sync.js?v=20261114-stage6-client';
+ script.async=true;
+ script.onload=()=>{loadStage6UxAddon();loadStage5FirstMigrationAddon();plannerSyncStatus().catch(console.error);};
+ script.onerror=()=>console.warn('Planner sync addon unavailable; existing local study planner remains usable.');
+ document.head.appendChild(script);
+}
+window.StudyPlanner={render,record,sync:plannerSync,syncStatus:plannerSyncStatus};
+window.addEventListener('DOMContentLoaded',()=>{initUi();load().catch(console.error);loadSyntheticSyncAddon();});
 })();
