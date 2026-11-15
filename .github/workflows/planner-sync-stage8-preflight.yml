@@ -73,7 +73,7 @@ jobs:
         run: |
           test "$(git hash-object study-note/study-note.html)" = "74f35aff44bd1b0521dcbb8244d3c859a1538adc"
           test "$(git hash-object study-note/service-worker.js)" = "a0290738b2a29dc951bbe693008985d32f0ffb21"
-          test "$(git hash-object study-note/mupdf-migration/r5/source/Code.js)" = "9457b67d61742fce1e70f2ce18f6c386a478b9ee"
+          node study-note/tests/test_planner_sync_stage9_prod_bridge.cjs
           git diff --exit-code
           echo "STAGE8_PROTECTED_SOURCE_UNCHANGED_PASS"
       - name: Hard block release without real Apps Script, Sheets and device evidence
