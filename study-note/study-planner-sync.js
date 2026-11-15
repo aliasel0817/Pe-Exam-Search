@@ -121,6 +121,13 @@ function testEnabled(){
   root.PE_PLANNER_SYNC_TEST_TRANSPORT &&
   typeof root.PE_PLANNER_SYNC_TEST_TRANSPORT.get==='function'&&typeof root.PE_PLANNER_SYNC_TEST_TRANSPORT.post==='function';
 }
+function productionEnabled(){
+ const transport=root.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT;
+ return root.location?.hostname==='aliasel0817.github.io' &&
+  root.PE_PLANNER_SYNC_SERVER_VERIFIED===true &&
+  Boolean(transport&&typeof transport.get==='function'&&typeof transport.post==='function');
+}
+function enabled(){return Boolean(testEnabled()||productionEnabled());}
 async function queuePlan(db,plan,expectedJson){
  const copy=clone(plan),id=operationId();
  return transaction(db,[STORES.plan,STORES.outbox],'readwrite',(tx,finish)=>{
@@ -171,7 +178,7 @@ async function status(db){
   progressWaiting=waiting.filter(x=>x.kind==='progress'),
   planConflicts=conflicts.filter(x=>x.kind==='plan'),progressConflicts=conflicts.filter(x=>x.kind==='progress');
  const planReceipt=await get(db,STORES.meta,'lastPlanSyncAt'),progressReceipt=await get(db,STORES.meta,'lastProgressSyncAt');
- return {enabled:Boolean(testEnabled()),migration:m.state,online:root.navigator?.onLine!==false,
+ return {enabled:enabled(),migration:m.state,online:root.navigator?.onLine!==false,
   pending:waiting.length,conflicts:conflicts.length,planPending:planWaiting.length,progressPending:progressWaiting.length,
   planConflicts:planConflicts.length,progressConflicts:progressConflicts.length,
   planResult:planReceipt?.at?{state:'confirmed',at:planReceipt.at}:null,
@@ -311,11 +318,11 @@ async function pushProgress(db,transport,planId){
 }
 let activeSync=null;
 async function runSync(db,transport){
- if(!testEnabled())return {...await status(db),state:'disabled'};
+ if(!enabled())return {...await status(db),state:'disabled'};
  const ready=await migration(db);
  if(ready.state!=='ready')return {...await status(db),state:'migration-required'};
  if(!root.navigator?.onLine)return {...await status(db),state:'offline'};
- if(!transport)transport=root.PE_PLANNER_SYNC_TEST_TRANSPORT;
+ if(!transport)transport=testEnabled()?root.PE_PLANNER_SYNC_TEST_TRANSPORT:root.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT;
  const result={state:'syncing',plansUploaded:0,plansDownloaded:0,progressUploaded:0,progressDownloaded:0,conflicts:0};
  const list=await transport.get('studyPlans',{});
  if(!list?.ok||list.plannerSyncVersion!==VERSION||!Array.isArray(list.plans))throw Error('격리 서버 동기화 버전 불일치');
@@ -373,7 +380,7 @@ function makeSignedTransport({apiUrl,buildSignedGetUrl,sendSecureMutation,fetchI
  };
 }
 const api={STORES,canonicalPlan,planChunks,parseChunks,sha256,queuePlan,queueProgress,queueProgressBatch,
- status,migration,sync,testEnabled,makeSignedTransport};
+ status,migration,sync,testEnabled,productionEnabled,enabled,makeSignedTransport};
 root.PEPlannerSyncClient=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
