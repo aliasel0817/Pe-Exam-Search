@@ -55,6 +55,23 @@ function PS3_table_(ss,kind){
  var h=PS3_HEADERS_[kind],actual=sheet.getRange(1,1,1,h.length).getValues()[0];
  if(JSON.stringify(actual)!==JSON.stringify(h))PS3_fail_('SCHEMA_MISMATCH',kind+' 헤더 불일치');
  var last=sheet.getLastRow(),rows=last>1?sheet.getRange(2,1,last-1,h.length).getValues():[];
+ // SpreadsheetApp.getValues() may turn yyyy-mm-dd strings into Date objects.
+ // Normalize ONLY known calendar date columns using the workbook's timezone.
+ // Never coerce timestamps, payload JSON or arbitrary user-learning fields.
+ var dateColumns=kind==='plans'?[2,3]:kind==='schedule'?[4]:kind==='progress'?[2]:[];
+ if(dateColumns.length&&rows.length){
+  var timezone=typeof ss.getSpreadsheetTimeZone==='function'?
+    ss.getSpreadsheetTimeZone():'Etc/UTC';
+  rows.forEach(function(row){
+   dateColumns.forEach(function(col){
+    var value=row[col];
+    if(Object.prototype.toString.call(value)==='[object Date]' &&
+       Number.isFinite(value.getTime())){
+      row[col]=Utilities.formatDate(value,timezone,'yyyy-MM-dd');
+    }
+   });
+  });
+ }
  return {sheet:sheet,rows:rows};
 }
 function PS3_row_(sheet,values){sheet.getRange(sheet.getLastRow()+1,1,1,values.length).setValues([values]);}
