@@ -60,8 +60,8 @@ function PS3_table_(ss,kind){
  // Never coerce timestamps, payload JSON or arbitrary user-learning fields.
  var dateColumns=kind==='plans'?[2,3]:kind==='schedule'?[4]:kind==='progress'?[2]:[];
  if(dateColumns.length&&rows.length){
-  var timezone=typeof ss.getSpreadsheetTimeZone==='function'?
-    ss.getSpreadsheetTimeZone():'Etc/UTC';
+  var timezone=String((typeof ss.getSpreadsheetTimeZone==='function'?
+    ss.getSpreadsheetTimeZone():null)||'Etc/GMT');
   rows.forEach(function(row){
    dateColumns.forEach(function(col){
     var value=row[col];
