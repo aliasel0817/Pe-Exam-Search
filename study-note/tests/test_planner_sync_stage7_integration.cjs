@@ -16,7 +16,10 @@ if(!fs.existsSync(testFile))throw Error('Pinned Stage 3 synthetic fixture checko
 const originalFixture=fs.readFileSync(testFile,'utf8');
 const anchor="const code=fs.readFileSync(path.join(__dirname,'../backend/planner-sync-stage3-isolated.addon.gs'),'utf8');";
 assert(originalFixture.includes(anchor),'Stage3 pinned fixture changed; review test harness first');
-const source=originalFixture.replace(anchor,"const code=fs.readFileSync(path.resolve('study-note/backend/planner-sync-stage3-isolated.addon.gs'),'utf8');");
+const oldGate="properties.PLANNER_SYNC_MODE='PRODUCTION';ok('ISOLATION_REQUIRED',()=>fn('get')('studyPlans',{},A));properties.PLANNER_SYNC_MODE='ISOLATED_TEST';";
+const newGate="properties.PLANNER_SYNC_MODE='DISABLED';ok('ISOLATION_REQUIRED',()=>fn('get')('studyPlans',{},A));\nproperties.PLANNER_SYNC_MODE='PRODUCTION';ok('RELEASE_BLOCKED',()=>fn('get')('studyPlans',{},A));\nproperties.PLANNER_SYNC_MODE='ISOLATED_TEST';";
+assert(originalFixture.includes(oldGate),'Pinned Stage3 production-negative fixture changed; review first');
+const source=originalFixture.replace(anchor,"const code=fs.readFileSync(path.resolve('study-note/backend/planner-sync-stage3-isolated.addon.gs'),'utf8');").replace(oldGate,newGate);
 
 function stage7Assertions(){
  return (async()=>{
