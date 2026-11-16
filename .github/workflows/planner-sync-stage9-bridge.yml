@@ -1,0 +1,74 @@
+name: Planner Sync Stage9 Production Bridge Preflight (NO DEPLOY)
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/backend/planner-sync-stage3-isolated.addon.gs'
+      - 'study-note/backend/planner-sync-stage9-production-bridge.addon.gs'
+      - 'study-note/backend/planner-sync-stage9-release-control.addon.gs'
+      - 'study-note/backend/build-planner-sync-stage9-*.cjs'
+      - 'study-note/mupdf-migration/r5/source/Code.js'
+      - 'study-note/study-planner-sync.js'
+      - 'study-note/study-planner.js'
+      - 'study-note/study-planner-migration-ui.js'
+      - 'study-note/tests/test_planner_sync_stage9_prod_bridge.cjs'
+      - 'study-note/tests/test_planner_sync_stage9_release_control.cjs'
+      - 'study-note/tests/test_planner_sync_stage7_integration.cjs'
+      - '.github/workflows/planner-sync-stage9-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage9-prod-bridge-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax + isolated/pinned bridge guard
+        run: |
+          node --check study-note/mupdf-migration/r5/source/Code.js
+          node --check < study-note/backend/planner-sync-stage3-isolated.addon.gs
+          node --check < study-note/backend/planner-sync-stage9-production-bridge.addon.gs
+          node --check < study-note/backend/planner-sync-stage9-release-control.addon.gs
+          node --check study-note/study-planner-sync.js
+          node --check study-note/study-planner.js
+          node --check study-note/study-planner-migration-ui.js
+          node study-note/tests/test_planner_sync_stage9_prod_bridge.cjs
+          node study-note/tests/test_planner_sync_stage9_release_control.cjs
+      - name: Stage3 isolated synthetic, Stage7 large protocol, Stage8 source-level HMAC
+        run: |
+          node study-note/tests/test_planner_sync_stage3_synthetic.cjs
+          STAGE3_TEST_FILE=study-note/tests/test_planner_sync_stage3_synthetic.cjs node study-note/tests/test_planner_sync_stage7_integration.cjs
+          node study-note/tests/test_planner_sync_stage8_signed_host.cjs
+      - name: Build isolated review-only operating Apps Script candidate (NOT deployed)
+        run: |
+          node study-note/backend/build-planner-sync-stage9-release-package.cjs --output "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/Code.gs"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncBackend.gs"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncSignedBridge.gs"
+          node --check < "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/PlannerSyncReleaseControl.gs"
+          test -f "$RUNNER_TEMP/stage9-review-$GITHUB_RUN_ID/RELEASE-GATE-READ-ME.json"
+      - name: MuPDF immutable v21 backend and AGPL evidence regression
+        run: |
+          test "$(git hash-object study-note/mupdf-migration/r5/source/Code.js)" = "9457b67d61742fce1e70f2ce18f6c386a478b9ee"
+          npm --prefix study-note/mupdf-migration/m2 ci --ignore-scripts --no-audit --no-fund
+          npm --prefix study-note/mupdf-migration/m3 ci --ignore-scripts --no-audit --no-fund
+          node --test \
+            study-note/mupdf-migration/r5/tests/r5.test.mjs \
+            study-note/mupdf-migration/r7/tests/r7-source-package.test.cjs \
+            study-note/mupdf-migration/r8/tests/r8-agpl-evidence.test.cjs \
+            study-note/mupdf-migration/r9/tests/r9-release.test.cjs
+      - name: Explicit release block without real server evidence
+        run: |
+          echo "STAGE9_CODE_CANDIDATE_ONLY_PASS"
+          echo "REAL_GAS_19060_SHEETS=UNVERIFIED"
+          echo "REAL_HMAC_NONCE_ACTIVE=UNVERIFIED"
+          echo "RELEASE_READY=false"
+          echo "NO_MAIN_MERGE_NO_DEPLOY_NO_USER_FIRST_SYNC"

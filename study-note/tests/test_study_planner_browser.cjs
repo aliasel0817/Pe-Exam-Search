@@ -23,6 +23,8 @@ const server=http.createServer((req,res)=>{
  await page.waitForFunction(()=>!!window.StudyPlanner&&!!document.querySelector('[data-learning-view="plan"]'),{timeout:20000});
  await page.evaluate(()=>document.querySelector('#learningBtn').click());
  await page.evaluate(()=>document.querySelector('[data-learning-view="plan"]').click());
+ // Historical fixture is pinned to 2026-10-23, independent of current KST day.
+ await page.$eval('#plannerDate', el=>{el.value='2026-10-23';el.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('137'),{timeout:20000});
  const before=await page.evaluate(()=>({stats:document.getElementById('plannerStats').textContent,day:document.getElementById('plannerDate').value,visible:!document.getElementById('studyPlannerPanel').classList.contains('hidden'),count:document.querySelectorAll('.planner-topic').length,pages:Number(document.getElementById('plannerTotalPages').textContent),size:Number(document.getElementById('plannerPageSize').value),range:document.getElementById('plannerPageRange').textContent}));
  assert.equal(before.day,'2026-10-23');assert.equal(before.count,10);assert.equal(before.pages,14);assert.equal(before.size,10);assert.equal(before.range,'1–10 / 137개');assert.equal(before.visible,true);
@@ -106,6 +108,7 @@ const server=http.createServer((req,res)=>{
  await page.reload({waitUntil:'domcontentloaded'});
  await page.waitForFunction(()=>!!window.StudyPlanner&&!!document.querySelector('[data-learning-view="plan"]'),{timeout:12000});
  await page.evaluate(()=>document.querySelector('#learningBtn').click());
+ await page.$eval('#plannerDate', el=>{el.value='2026-10-23';el.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.waitForFunction(()=>document.querySelector('#plannerStats')?.textContent.includes('137'),{timeout:12000});
  const offline={controller:await page.evaluate(()=>!!navigator.serviceWorker.controller),stats:await page.evaluate(()=>document.querySelector('#plannerStats').textContent)};
  await page.setOfflineMode(false);
@@ -118,6 +121,8 @@ const server=http.createServer((req,res)=>{
  await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('계획 1개'),{timeout:10000});
  const second={optionCount:await page.evaluate(()=>document.querySelectorAll('#plannerSelect option').length),stats:await page.evaluate(()=>document.getElementById('plannerStats').textContent)};
  await page.evaluate(()=>{document.getElementById('plannerSelect').value='pe141-100d-2026';document.getElementById('plannerSelect').dispatchEvent(new Event('change',{bubbles:true}))});
+ await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('제141회'),{timeout:10000});
+ await page.$eval('#plannerDate',el=>{el.value='2026-10-23';el.dispatchEvent(new Event('change',{bubbles:true}));});
  await page.waitForFunction(()=>document.getElementById('plannerStats')?.textContent.includes('계획 137개'),{timeout:10000});
  fs.rmSync(fixtureDir,{recursive:true,force:true});
  const result={before,views,offline,second,passed:true,errors};

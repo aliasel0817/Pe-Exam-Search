@@ -1,0 +1,36 @@
+name: Planner Sync Stage8 Real GAS Fixture Synthetic Contract (NO DEPLOY)
+
+on:
+  pull_request:
+    paths:
+      - 'study-note/backend/planner-sync-stage8-real-gas-probe.gs'
+      - 'study-note/tests/test_planner_sync_stage8_real_gas_probe.cjs'
+      - '.github/workflows/planner-sync-stage8-real-gas-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage8-real-sheets-fixture-synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax only; the test file is not a deployed Apps Script endpoint
+        run: |
+          node --check < study-note/backend/planner-sync-stage8-real-gas-probe.gs
+          node --check study-note/tests/test_planner_sync_stage8_real_gas_probe.cjs
+      - name: Verify 100 days, 19,060 slots, canonical SHA, 101 client-identical chunks
+        run: node study-note/tests/test_planner_sync_stage8_real_gas_probe.cjs
+      - name: Fail closed until the real Google Apps Script run is measured
+        run: |
+          echo "EDITOR_BASED_REAL_GAS_CHECK=NOT_EXECUTED_BY_CI"
+          echo "REAL_GOOGLE_SHEETS_LATENCY=UNVERIFIED"
+          echo "HMAC_NONCE_ACTIVE=UNVERIFIED"
+          echo "RELEASE_READY=false"
