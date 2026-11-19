@@ -123,6 +123,14 @@ test('M6 excludes hover-only pen down, retains actual pressed pen and prevents p
  assert.equal(isM6LikelyPalmNearActiveStylus({pointerType:'touch',width:1,height:1},true),true);
  assert.equal(isM6LikelyPalmNearActiveStylus({pointerType:'touch',width:12,height:9},false),false);
 });
+// Optional read-only progress may vary; the original authenticated media
+// endpoint, no-store fetch and server response validation remain byte-exact.
+function withoutProgressRead(source) {
+ return source.replace("  const onProgress = arguments[2]?.onProgress;\n","")
+  .replace("  const json = onProgress && response.body?.getReader\n" +
+   "    ? await readMediaJsonWithByteProgress(response, { signal, onProgress })\n" +
+   "    : await response.json();","  const json = await response.json();");
+}
 test('No existing annotation schema, persistence/API endpoints or mutation path was changed',()=>{
  const segments=[
  ['function annotationSurfaceKey(', 'function annotationBitmapSize('],
@@ -133,7 +141,11 @@ test('No existing annotation schema, persistence/API endpoints or mutation path 
  ['function scheduleAnnotationPersist(', 'function '],
  ['function setAttachmentPdfZoomFactor(', 'async function deactivateCurrentTopic('],
  ];
- for(const [a,b]of segments)assert.equal(before(html,a,b),before(prior,a,b),a);
+ for(const [a,b]of segments){
+  const current=before(html,a,b);
+  assert.equal(a.startsWith('async function fetchMediaContent(') ? withoutProgressRead(current) : current,
+    before(prior,a,b),a);
+ }
  assert(html.includes('const ANNOTATION_SCHEMA_VERSION = 3;'));
  assert(html.includes("coordinateSpace: 'normalized-0-1'"));
  assert(!m5.includes('sendMutation('));

@@ -305,10 +305,41 @@ test('legacy reference renderer and annotation schemas remain intact',()=>{
    assert(j>i,'R18 PDF load end required');
    return input.slice(0,i)+'[R18-ATTACHMENT-PDF-LOAD-FOCUSED]\n'+input.slice(j);
  };
+ // Read-only media progress is the sole permitted change to these UI/readers;
+ // M4/M5/M6/R2 assertions continue enforcing signed GET and annotation invariants.
+ const maskMediaProgress = input => {
+   let s=input;
+   const drop=(start,end)=>{
+     const a=s.indexOf(start);
+     if(a<0)return;
+     const b=s.indexOf(end,a+start.length);
+     assert(b>a,'Invalid feature-only media progress section: '+start);
+     s=s.slice(0,a)+s.slice(b);
+   };
+   drop('/* 자료 보기 전용, 비차단 진행 표시.', '.loading-overlay {');
+   drop('  <div id="mediaLoadProgress"', '  <div id="loadingOverlay"');
+   drop('// 오직 서브노트/교재/이미지/첨부 PDF 보기의 표시 상태만 관리한다.', 'function setLoading(show');
+   const focused=[
+     ['async function fetchMediaContent(', 'function normalizeAttachmentDataset('],
+     ['async function openReferencePdfViewer(', 'function renderReferencePdfRegisteredOptions('],
+     ['function closeReferencePdfViewer()', 'function driveViewUrl('],
+     ['function loadReferencePdfPage(', 'function getTopicAttachments('],
+     ['async function loadCachedImageBlob(', 'function cancelImageViewerPendingLoads('],
+     ['function cleanupMediaViewerObjects()', 'function updateImageViewerZoomUi('],
+     ['function renderImageViewer(', 'function installAttachmentImageZoom('],
+   ];
+   for(let i=0;i<focused.length;i++){
+     const [start,end]=focused[i],a=s.indexOf(start),b=s.indexOf(end,a+start.length);
+     assert(a>=0&&b>a,'Missing protected media reader section: '+start);
+     s=s.slice(0,a)+'[MEDIA-PROGRESS-FOCUSED-'+i+']\n'+s.slice(b);
+   }
+   return s;
+ };
  let restoredHtml=removed;
  for(const restore of [stripR17,stripR14,stripR13,stripR12,stripR11,stripR10,
    stripAttachmentPdfPerf,stripR6,maskR2,maskAttachmentPdfLoad]) restoredHtml=restore(restoredHtml);
- const referenceHtml=maskAttachmentPdfLoad(maskR2(old));
+ const referenceHtml=maskMediaProgress(maskAttachmentPdfLoad(maskR2(old)));
+ restoredHtml=maskMediaProgress(restoredHtml);
  if(restoredHtml!==referenceHtml){
    let i=0;while(i<Math.min(restoredHtml.length,referenceHtml.length)&&restoredHtml[i]===referenceHtml[i])i++;
    console.error('R11_STRICT_DIFF_POSITION',i,JSON.stringify(restoredHtml.slice(Math.max(0,i-100),i+140)),JSON.stringify(referenceHtml.slice(Math.max(0,i-100),i+140)));

@@ -107,7 +107,7 @@ test('R2 abort controller is canceled on page reset and shared by both renderer 
   for(const part of [legacy,m4]){
     assert.match(part,/referencePdfSourceAbort\?\.abort\(\)/);
     assert.match(part,/new AbortController\(\)/);
-    assert.match(part,/fetchReferencePdfBytesFromServer\(page,\s*\{signal: sourceAbort\.signal\}\)/);
+    assert.match(part,/fetchReferencePdfBytesFromServer\(page,\s*\{signal: sourceAbort\.signal,\s*onProgress:/);
     assert.match(part,/sourceAbort\.signal\.aborted/);
   }
 });

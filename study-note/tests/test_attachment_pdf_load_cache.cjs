@@ -31,7 +31,7 @@ assert.equal(call('getCachedAttachmentPdfBytes(item)'),null,'security session cl
 assert(html.includes('attachmentPdfFetchAbort?.abort()'));
 assert(html.includes('renderActiveAttachmentPdfCanvas({ preserveCenter: false, scheduleRender: false })'));
 assert(html.includes('if (scheduleRender) repaintAttachmentPdfAtZoom()'));
-assert(html.includes('fetchMediaContent(getApiUrl(), item.attachmentId, { signal: fetchAbort.signal })'));
+assert.match(html,/fetchMediaContent\(getApiUrl\(\), item\.attachmentId, \{ signal: fetchAbort\.signal,\s*onProgress:/);
 assert.equal(call('attachmentPdfBytesCacheTotal'),0);
 const scriptBlockStart = html.lastIndexOf('<script>', html.indexOf('async function fetchMediaContent('));
 const scriptBlockEnd = html.indexOf('</script>', scriptBlockStart);
