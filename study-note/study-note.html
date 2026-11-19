@@ -15674,7 +15674,7 @@ async function readMediaJsonWithByteProgress(response, { signal, onProgress } = 
   const totalBytes = Number.isSafeInteger(rawTotal) && rawTotal > 0 ? rawTotal : 0;
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let jsonText = '';
+  const textChunks = [];
   let loadedBytes = 0;
   try {
     while (true) {
@@ -15683,13 +15683,13 @@ async function readMediaJsonWithByteProgress(response, { signal, onProgress } = 
       if (done) break;
       if (value?.byteLength) {
         loadedBytes += value.byteLength;
-        jsonText += decoder.decode(value, { stream: true });
+        textChunks.push(decoder.decode(value, { stream: true }));
         onProgress({ loadedBytes, totalBytes });
       }
     }
-    jsonText += decoder.decode();
+    textChunks.push(decoder.decode());
     if (signal?.aborted) throw new DOMException('파일 요청 취소', 'AbortError');
-    return JSON.parse(jsonText);
+    return JSON.parse(textChunks.join(''));
   } finally {
     reader.releaseLock();
   }
