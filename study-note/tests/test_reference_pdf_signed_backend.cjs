@@ -278,6 +278,10 @@ async function testPDFJsUsesServerWithoutDriveOAuth() {
     repaintReferencePdfAtZoom:async()=>{repainted++;ctx.activeReferencePdfVectorReady=true;},
     resetReferencePdfHighQualityRenderer:()=>{},
     setReferencePdfSourceStatus:()=>{},
+    // The progress HUD is presentation-only; isolate it from this signed GET test.
+    startMediaLoadProgress:()=>1,
+    updateMediaLoadProgress:()=>{},
+    settleMediaLoadProgress:()=>{},
     showToast:message=>errors.push(message),
     els:{referencePdfViewerModal:{classList:{contains:()=>false}}},
     Date,
