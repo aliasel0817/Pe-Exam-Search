@@ -34,6 +34,14 @@ test('M5 explicitly rejects public, remote and partial local flag URLs',()=>{
  ];
  for(const [uri,expected]of cases)assert.equal(isM5LocalOptIn(uri),expected,uri);
 });
+// Optional read-only progress may vary; the original authenticated media
+// endpoint, no-store fetch and server response validation remain byte-exact.
+function withoutProgressRead(source) {
+ return source.replace("  const onProgress = arguments[2]?.onProgress;\n","")
+  .replace("  const json = onProgress && response.body?.getReader\n" +
+   "    ? await readMediaJsonWithByteProgress(response, { signal, onProgress })\n" +
+   "    : await response.json();","  const json = await response.json();");
+}
 test('Unchanged public read API, attachment records and mutation handlers',()=>{
  for(const [a,b]of [
   ['async function fetchMediaContent(', 'function normalizeAttachmentDataset('],
@@ -43,7 +51,9 @@ test('Unchanged public read API, attachment records and mutation handlers',()=>{
   ['function computeAttachmentPdfRenderMetrics(', 'async function repaintAttachmentPdfAtZoom('],
   ['function setAttachmentPdfZoomFactor(', 'async function deactivateCurrentTopic('],
  ]){
-  assert.equal(section(html,a,b),section(baseline,a,b),a);
+  const current=section(html,a,b);
+  assert.equal(a.startsWith('async function fetchMediaContent(') ? withoutProgressRead(current) : current,
+    section(baseline,a,b),a);
  }
  assert(section(html,'async function fetchMediaContent(', 'function normalizeAttachmentDataset(')
   .includes("action=mediaContent&attachmentId="));
@@ -53,7 +63,7 @@ test('Unchanged public read API, attachment records and mutation handlers',()=>{
 test('Legacy PDF.js preserves PDF opening, navigation and security with isolated load optimizations',()=>{
  const now=section(html,'  if (!activePdfAttachments.length) return;','async function loadAttachmentPdfPage(');
  assert(now.includes('attachmentPdfFetchAbort?.abort()'));
- assert(now.includes('fetchMediaContent(getApiUrl(), item.attachmentId, { signal: fetchAbort.signal })'));
+ assert.match(now,/fetchMediaContent\(getApiUrl\(\), item\.attachmentId, \{ signal: fetchAbort\.signal,\s*onProgress:/);
  assert(now.includes('await Promise.all([bytesPromise, ensurePdfJsLoaded()])'));
  assert(now.includes('pdfjsLib.getDocument({ data: bytes })'));
  assert(now.includes('await loadAttachmentPdfPage(1, { serial })'));
