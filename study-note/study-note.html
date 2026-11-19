@@ -9406,6 +9406,8 @@ async function openReferencePdfViewer(sourceType) {
   refreshReferencePdfBackendSourceCapability().then(ready => {
     if (els.referencePdfViewerModal.classList.contains('hidden')) return;
     if (!ready) {
+      const preview = els.referencePdfFrameWrap.querySelector('.reference-pdf-preview-image');
+      if (preview?.complete && preview.naturalWidth) settleMediaLoadProgress(mediaLoadProgressActive, true, '미리보기 표시 완료');
       setReferencePdfSourceStatus('preview',
         hasActiveSecuritySession() ? '미리보기 · 원본 서버 확인 필요' : '미리보기 · 신뢰기기 인증 필요',
         hasActiveSecuritySession() ? '원본 PDF 서버 지원 여부를 확인할 수 없습니다.' :
@@ -9431,6 +9433,7 @@ function renderReferencePdfRegisteredOptions() {
 }
 
 function closeReferencePdfViewer() {
+  cancelMediaLoadProgress();
   flushPendingAnnotationSaves();
   els.referencePdfViewerModal.classList.add('hidden');
   destroyAnnotationSurfacesWithin(els.referencePdfFrameWrap);
@@ -13890,16 +13893,18 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
   referencePdfSourceAbort = sourceAbort;
   referencePdfQualityPending = true;
   setReferencePdfSourceStatus('loading', '원본 PDF 불러오는 중');
+  const progressToken = startMediaLoadProgress(`${page.sourceType || activeReferencePdfSourceType} 고화질 PDF`, 'PDF 원본 요청 중...');
   try {
     const [pdfjsLib, bytes] = await Promise.all([
       ensurePdfJsLoaded(),
-      fetchReferencePdfBytesFromServer(page, {signal: sourceAbort.signal}),
+      fetchReferencePdfBytesFromServer(page, {signal: sourceAbort.signal, onProgress: info => updateMediaLoadProgress(progressToken, '원본 PDF 데이터 수신 중', info)}),
     ]);
     if (bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') {
       throw new Error('원본 파일에서 올바른 PDF 데이터를 받지 못했습니다.');
     }
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
     const doc = await pdfjsLib.getDocument({ data: bytes }).promise;
+    updateMediaLoadProgress(progressToken, '고화질 PDF 페이지 렌더링 중...');
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) {
       try { await doc.destroy(); } catch (_) { /* no-op */ }
       return;
@@ -13911,10 +13916,12 @@ async function loadReferencePdfHighQuality(page, loadSerial = referencePdfLoadSe
     if (!activeReferencePdfVectorReady && loadSerial === referencePdfLoadSerial) {
       throw new Error('PDF 원본 렌더링을 완료하지 못했습니다.');
     }
+    settleMediaLoadProgress(progressToken, true, '고화질 원본 PDF 표시 완료');
   } catch (error) {
     if (sourceAbort.signal.aborted || error?.name === 'AbortError') return;
     if (loadSerial === referencePdfLoadSerial) {
       console.warn('서브노트 원본 PDF 자동 렌더링 실패:', error?.code || error?.name || 'PDF_ERROR');
+      settleMediaLoadProgress(progressToken, false, error.message || '원본 PDF 불러오기 실패');
       // A failed page must not disable every subsequent PDF for two minutes.
       // Keep the backend capability; each new page gets a fresh signed request.
       if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
@@ -13998,15 +14005,19 @@ async function m4LoadReferencePdfHighQuality(page, loadSerial = referencePdfLoad
   referencePdfSourceAbort = sourceAbort;
   referencePdfQualityPending = true;
   setReferencePdfSourceStatus('loading', 'MuPDF 원본 PDF 불러오는 중');
+  const progressToken = startMediaLoadProgress(`${page.sourceType || activeReferencePdfSourceType} 고화질 PDF`, '원본 데이터 요청 중...');
   try {
     // Explicitly reuse the existing signed GET path; no local authentication override.
-    const bytes = await fetchReferencePdfBytesFromServer(page, {signal: sourceAbort.signal});
+    const bytes = await fetchReferencePdfBytesFromServer(page, {signal: sourceAbort.signal, onProgress: info => updateMediaLoadProgress(progressToken, '원본 PDF 데이터 수신 중', info)});
+    updateMediaLoadProgress(progressToken, 'MuPDF 원본 렌더링 중...');
     if (sourceAbort.signal.aborted) return;
     await m4InstallReferenceFromBytes(page, bytes, loadSerial);
+    settleMediaLoadProgress(progressToken, true, '고화질 PDF 표시 완료');
   } catch (error) {
     if (sourceAbort.signal.aborted || error?.name === 'AbortError') return;
     if (loadSerial === referencePdfLoadSerial) {
       console.warn('M4 비운영 원본 PDF 렌더링 실패:', error?.code || error?.name || 'PDF_ERROR');
+      settleMediaLoadProgress(progressToken, false, error.message || '원본 PDF 불러오기 실패');
       if (!activeReferencePdfVectorReady) resetReferencePdfHighQualityRenderer();
       setReferencePdfSourceStatus('preview', '미리보기 · 원본 조회 실패',
         error?.message || '원본 PDF 렌더링에 실패했습니다.');
@@ -14247,6 +14258,7 @@ function renderReferencePdfFallback(page) {
 function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
   if (!page || !page.driveFileId) return;
   const loadSerial = ++referencePdfLoadSerial;
+  const progressToken = startMediaLoadProgress(`${page.sourceType || activeReferencePdfSourceType} 원본 PDF`, 'PDF 미리보기 요청 중...');
   resetReferencePdfHighQualityRenderer();
   activeReferencePdfCurrentPage = page;
   setReferencePdfSelectForCurrentPage(page, registeredIndex);
@@ -14282,11 +14294,13 @@ function loadReferencePdfPage(page, { registeredIndex = null } = {}) {
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
     if (loading) loading.remove();
     if (!activeReferencePdfVectorReady) renderActiveReferencePdfImage({ preserveCenter: false });
+    if (!referencePdfBackendSourceReady && !referencePdfQualityPending) settleMediaLoadProgress(progressToken, true, '원본 PDF 미리보기 표시 완료');
   }, { once: true });
   image.addEventListener('error', () => {
     if (loadSerial !== referencePdfLoadSerial || els.referencePdfViewerModal.classList.contains('hidden')) return;
     console.warn('원본 PDF 썸네일 불러오기 실패: 앱 내부 PDF.js 렌더링을 사용할 수 있습니다.');
     if (!activeReferencePdfVectorReady) renderReferencePdfFallback(page);
+    if (!referencePdfBackendSourceReady && !referencePdfQualityPending) settleMediaLoadProgress(progressToken, false, '원본 PDF 미리보기 실패');
   }, { once: true });
   image.src = driveThumbnailUrl(page.driveFileId);
   // All newly opened pages are rendered at high resolution once signed backend support is available.
@@ -14522,10 +14536,10 @@ function imageBase64ToBlob(base64, mime) {
   return new Blob(parts, { type: mime || 'application/octet-stream' });
 }
 
-async function loadCachedImageBlob(item, signal) {
+async function loadCachedImageBlob(item, signal, onProgress) {
   const cached = cachedImageBlob(item);
   if (cached) return cached;
-  const payload = await fetchMediaContent(getApiUrl(), item.attachmentId, { signal });
+  const payload = await fetchMediaContent(getApiUrl(), item.attachmentId, { signal, onProgress });
   if (signal?.aborted) throw new DOMException('이미지 불러오기 취소', 'AbortError');
   const blob = imageBase64ToBlob(payload.base64, payload.mime);
   if (signal?.aborted) throw new DOMException('이미지 불러오기 취소', 'AbortError');
@@ -14596,6 +14610,7 @@ function closeMediaViewer() {
 }
 
 function cleanupMediaViewerObjects() {
+  cancelMediaLoadProgress();
   if (typeof M5_ATTACHMENT_DEV_ENABLED !== 'undefined' && M5_ATTACHMENT_DEV_ENABLED) m5DisposeAttachmentViewer();
   cancelImageViewerPendingLoads();
   attachmentPdfLoadSerial++;
@@ -14675,10 +14690,12 @@ function renderImageViewer(items) {
     if (!item || !placeholder) return;
     figure.dataset.loading = '1';
     placeholder.textContent = '이미지 불러오는 중...';
+    const progressToken = startMediaLoadProgress(`이미지 ${figures.indexOf(figure) + 1} / ${items.length}`, '이미지 데이터 요청 중...');
     const controller = new AbortController();
     mediaImageAbortControllers.add(controller);
     try {
-      const { blob, fileName } = await loadCachedImageBlob(item, controller.signal);
+      const { blob, fileName } = await loadCachedImageBlob(item, controller.signal, info => updateMediaLoadProgress(progressToken, '이미지 수신 중', info));
+      updateMediaLoadProgress(progressToken, '이미지 화면 표시 준비 중...');
       if (!isCurrent() || !figure.isConnected || controller.signal.aborted) return;
       const url = URL.createObjectURL(blob);
       mediaViewerObjectUrls.push(url);
@@ -14689,6 +14706,7 @@ function renderImageViewer(items) {
       img.addEventListener('error', () => {
         if (!isCurrent() || !figure.isConnected) return;
         evictCachedImageBlob(item.attachmentId);
+        settleMediaLoadProgress(progressToken, false, '이미지 표시 실패');
         const fallback = document.createElement('div');
         fallback.className = 'media-placeholder';
         fallback.textContent = '이미지를 표시할 수 없습니다. 다시 열어 주세요.';
@@ -14713,12 +14731,14 @@ function renderImageViewer(items) {
           intrinsicHeight: img.naturalHeight,
         });
       };
-      if (img.complete && img.naturalWidth) installAnnotation();
-      else img.addEventListener('load', installAnnotation, { once: true });
+      const finishImage = () => { installAnnotation(); settleMediaLoadProgress(progressToken, true, '이미지 표시 완료'); };
+      if (img.complete && img.naturalWidth) finishImage();
+      else img.addEventListener('load', finishImage, { once: true });
       figure.dataset.loaded = '1';
     } catch (error) {
       if (isCurrent() && figure.isConnected && error?.name !== 'AbortError' && placeholder.isConnected) {
         placeholder.textContent = `불러오기 실패 · ${error.message || error}`;
+        settleMediaLoadProgress(progressToken, false, error.message || '이미지 불러오기 실패');
       }
     } finally {
       mediaImageAbortControllers.delete(controller);
@@ -14965,6 +14985,7 @@ async function loadPdfAtIndex(index) {
   const wrap = els.mediaViewerBody.querySelector('#pdfViewerFrameWrap');
   destroyAnnotationSurfacesWithin(wrap);
   const serial = ++attachmentPdfLoadSerial;
+  const progressToken = startMediaLoadProgress(`첨부 PDF ${activePdfIndex + 1} / ${activePdfAttachments.length}`, 'PDF 데이터를 불러오는 중...');
   attachmentPdfFetchAbort?.abort();
   attachmentPdfFetchAbort = null;
   if (activeAttachmentPdfRenderTask) {
@@ -14988,7 +15009,8 @@ async function loadPdfAtIndex(index) {
   if (fetchAbort) attachmentPdfFetchAbort = fetchAbort;
   try {
     const bytesPromise = cachedBytes ? Promise.resolve(cachedBytes)
-      : fetchMediaContent(getApiUrl(), item.attachmentId, { signal: fetchAbort.signal })
+      : fetchMediaContent(getApiUrl(), item.attachmentId, { signal: fetchAbort.signal,
+          onProgress: info => updateMediaLoadProgress(progressToken, 'PDF 데이터 수신 중', info) })
         .then(payload => {
           if (fetchAbort.signal.aborted) throw new DOMException('PDF 요청 취소', 'AbortError');
           const bytes = base64ToUint8Array(payload.base64);
@@ -14998,6 +15020,7 @@ async function loadPdfAtIndex(index) {
           return bytes;
         });
     const [bytes, pdfjsLib] = await Promise.all([bytesPromise, ensurePdfJsLoaded()]);
+    updateMediaLoadProgress(progressToken, 'PDF 분석 및 페이지 준비 중...');
     if (serial !== attachmentPdfLoadSerial || els.mediaViewerModal.classList.contains('hidden') || item.attachmentId !== activePdfAttachments[activePdfIndex]?.attachmentId) return;
     const loadingTask = pdfjsLib.getDocument({ data: bytes });
     const pdfDocument = await loadingTask.promise;
@@ -15010,9 +15033,14 @@ async function loadPdfAtIndex(index) {
     activeAttachmentPdfPageNumber = 1;
     updateAttachmentPdfViewerUi();
     await loadAttachmentPdfPage(1, { serial });
+    if (serial === attachmentPdfLoadSerial) {
+      const ready = !!wrap.querySelector('.attachment-pdf-canvas') && !wrap.querySelector('.attachment-pdf-loading');
+      settleMediaLoadProgress(progressToken, ready, ready ? 'PDF 첫 페이지 표시 완료' : 'PDF 렌더링 실패');
+    }
   } catch (error) {
     if (error?.name === 'AbortError' || serial !== attachmentPdfLoadSerial) return;
     console.error('첨부 PDF 앱 내부 렌더링 실패:', error);
+    settleMediaLoadProgress(progressToken, false, error.message || 'PDF 불러오기 실패');
     wrap.innerHTML = `<div class="media-placeholder">PDF 불러오기 실패 · ${escapeHtml(error.message || String(error))}</div>`;
   } finally {
     if (attachmentPdfFetchAbort === fetchAbort) attachmentPdfFetchAbort = null;
