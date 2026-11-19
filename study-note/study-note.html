@@ -4196,11 +4196,14 @@ function reconcileReferencePdfLinks(topics, links, pageFiles = []) {
   return { links: validLinks, expectedCount, missingCount, staleCount };
 }
 
-async function fetchMediaContent(apiUrl, attachmentId, { signal, onProgress } = {}) {
+async function fetchMediaContent(apiUrl, attachmentId, { signal } = {}) {
+  const onProgress = arguments[2]?.onProgress;
   const url = `${normalizeApiUrl(apiUrl)}?action=mediaContent&attachmentId=${encodeURIComponent(attachmentId)}&_=${Date.now()}`;
   const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow', signal });
   if (!response.ok) throw new Error(`첨부파일 조회 실패: HTTP ${response.status}`);
-  const json = await readMediaJsonWithByteProgress(response, { signal, onProgress });
+  const json = onProgress && response.body?.getReader
+    ? await readMediaJsonWithByteProgress(response, { signal, onProgress })
+    : await response.json();
   if (!json || json.ok !== true) throw new Error(json?.message || '첨부파일 응답이 올바르지 않습니다.');
   return json;
 }
@@ -13781,7 +13784,8 @@ async function refreshReferencePdfBackendSourceCapability({ force = false } = {}
   finally { referencePdfBackendSourceCheckPromise = null; }
 }
 
-async function fetchReferencePdfBytesFromServer(page, { signal, onProgress } = {}) {
+async function fetchReferencePdfBytesFromServer(page, { signal } = {}) {
+  const onProgress = arguments[1]?.onProgress;
   // This endpoint MUST be backed by the existing ACTIVE-device signed GET
   // validator; never send a bare Drive file ID or trust caller-supplied URLs.
   if (!referencePdfBackendSourceReady || !hasActiveSecuritySession()) {
@@ -13801,7 +13805,9 @@ async function fetchReferencePdfBytesFromServer(page, { signal, onProgress } = {
     referrerPolicy: 'no-referrer', signal,
   });
   if (!response.ok) throw new Error('원본 PDF 서버 조회 실패 (HTTP ' + response.status + ')');
-  const payload = await readMediaJsonWithByteProgress(response, { signal, onProgress });
+  const payload = onProgress && response.body?.getReader
+    ? await readMediaJsonWithByteProgress(response, { signal, onProgress })
+    : await response.json();
   if (signal?.aborted) throw new DOMException('원본 PDF 요청이 취소되었습니다.', 'AbortError');
   if (!payload || payload.ok !== true) throw new Error(payload?.message || '원본 PDF 서버 응답을 확인할 수 없습니다.');
   if (payload.sourceType !== sourceType || payload.pageToken !== pageToken || payload.mime !== 'application/pdf') {
