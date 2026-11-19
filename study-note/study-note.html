@@ -665,6 +665,35 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 
+/* 자료 보기 전용, 비차단 진행 표시. 실제 수신량을 모를 때는 퍼센트를 추정하지 않는다. */
+.media-load-progress {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 190;
+  width: min(470px, calc(100vw - 24px));
+  padding: 11px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 12px 35px rgba(15,23,42,.22);
+  pointer-events: none;
+}
+.media-load-progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.media-load-progress-heading strong { min-width: 0; font-size: .83rem; overflow-wrap: anywhere; }
+.media-load-progress-number { flex: 0 0 auto; color: #1d4ed8; font-size: .82rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.media-load-progress-track { height: 8px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: #e2e8f0; }
+.media-load-progress-fill { width: 0; height: 100%; border-radius: inherit; background: var(--primary); transition: width .15s ease; }
+.media-load-progress-fill.indeterminate { width: 35%; animation: media-load-slide 1.25s ease-in-out infinite; }
+.media-load-progress-caption { margin: 6px 0 0; color: #475569; font-size: .72rem; line-height: 1.35; overflow-wrap: anywhere; }
+.media-load-progress.error .media-load-progress-fill { background: var(--danger); }
+@keyframes media-load-slide { from { transform: translateX(-105%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) {
+  .media-load-progress-fill.indeterminate { animation: none; }
+}
+.media-inline-download-progress { display: block; width: min(300px, 100%); height: 9px; margin: 7px auto 0; accent-color: var(--primary); }
+
 .loading-overlay {
   position: fixed;
   inset: 0;
@@ -3171,6 +3200,17 @@ button { -webkit-tap-highlight-color: transparent; }
     </div>
   </div>
 
+  <div id="mediaLoadProgress" class="media-load-progress hidden" role="status" aria-live="polite" aria-label="자료 불러오기 상태">
+    <div class="media-load-progress-heading">
+      <strong id="mediaLoadProgressTitle">자료 불러오는 중</strong>
+      <span id="mediaLoadProgressNumber" class="media-load-progress-number">진행 중</span>
+    </div>
+    <div id="mediaLoadProgressTrack" class="media-load-progress-track" role="progressbar" aria-label="파일 데이터 수신률" aria-valuemin="0" aria-valuemax="100" aria-valuetext="진행 중">
+      <div id="mediaLoadProgressFill" class="media-load-progress-fill indeterminate"></div>
+    </div>
+    <p id="mediaLoadProgressCaption" class="media-load-progress-caption">파일을 확인하는 중...</p>
+  </div>
+
   <div id="loadingOverlay" class="loading-overlay hidden" aria-live="assertive">
     <div class="spinner" aria-hidden="true"></div>
     <strong id="loadingMessage">처리 중...</strong>
@@ -4156,11 +4196,11 @@ function reconcileReferencePdfLinks(topics, links, pageFiles = []) {
   return { links: validLinks, expectedCount, missingCount, staleCount };
 }
 
-async function fetchMediaContent(apiUrl, attachmentId, { signal } = {}) {
+async function fetchMediaContent(apiUrl, attachmentId, { signal, onProgress } = {}) {
   const url = `${normalizeApiUrl(apiUrl)}?action=mediaContent&attachmentId=${encodeURIComponent(attachmentId)}&_=${Date.now()}`;
   const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow', signal });
   if (!response.ok) throw new Error(`첨부파일 조회 실패: HTTP ${response.status}`);
-  const json = await response.json();
+  const json = await readMediaJsonWithByteProgress(response, { signal, onProgress });
   if (!json || json.ok !== true) throw new Error(json?.message || '첨부파일 응답이 올바르지 않습니다.');
   return json;
 }
@@ -13738,7 +13778,7 @@ async function refreshReferencePdfBackendSourceCapability({ force = false } = {}
   finally { referencePdfBackendSourceCheckPromise = null; }
 }
 
-async function fetchReferencePdfBytesFromServer(page, { signal } = {}) {
+async function fetchReferencePdfBytesFromServer(page, { signal, onProgress } = {}) {
   // This endpoint MUST be backed by the existing ACTIVE-device signed GET
   // validator; never send a bare Drive file ID or trust caller-supplied URLs.
   if (!referencePdfBackendSourceReady || !hasActiveSecuritySession()) {
@@ -13758,7 +13798,7 @@ async function fetchReferencePdfBytesFromServer(page, { signal } = {}) {
     referrerPolicy: 'no-referrer', signal,
   });
   if (!response.ok) throw new Error('원본 PDF 서버 조회 실패 (HTTP ' + response.status + ')');
-  const payload = await response.json();
+  const payload = await readMediaJsonWithByteProgress(response, { signal, onProgress });
   if (signal?.aborted) throw new DOMException('원본 PDF 요청이 취소되었습니다.', 'AbortError');
   if (!payload || payload.ok !== true) throw new Error(payload?.message || '원본 PDF 서버 응답을 확인할 수 없습니다.');
   if (payload.sourceType !== sourceType || payload.pageToken !== pageToken || payload.mime !== 'application/pdf') {
@@ -15526,6 +15566,105 @@ function openSidebar() {
 function closeSidebar() {
   els.sidebar.classList.remove('open');
   els.sidebarBackdrop.classList.remove('open');
+}
+
+// 오직 서브노트/교재/이미지/첨부 PDF 보기의 표시 상태만 관리한다.
+// 다운로드 크기를 알 수 없을 때는 움직이는 진행바와 실제 수신 바이트만 표시한다.
+let mediaLoadProgressSequence = 0;
+let mediaLoadProgressActive = 0;
+let mediaLoadProgressHideTimer = 0;
+function startMediaLoadProgress(title, stage = '파일을 불러오는 중...') {
+  clearTimeout(mediaLoadProgressHideTimer);
+  const token = ++mediaLoadProgressSequence;
+  mediaLoadProgressActive = token;
+  const root = document.getElementById('mediaLoadProgress');
+  if (root) {
+    root.classList.remove('hidden', 'error');
+    document.getElementById('mediaLoadProgressTitle').textContent = title;
+  }
+  updateMediaLoadProgress(token, stage);
+  return token;
+}
+function updateMediaLoadProgress(token, stage, { loadedBytes = 0, totalBytes = 0 } = {}) {
+  if (token !== mediaLoadProgressActive) return;
+  const root = document.getElementById('mediaLoadProgress');
+  if (!root) return;
+  const track = document.getElementById('mediaLoadProgressTrack');
+  const fill = document.getElementById('mediaLoadProgressFill');
+  const number = document.getElementById('mediaLoadProgressNumber');
+  const caption = document.getElementById('mediaLoadProgressCaption');
+  const loaded = Math.max(0, Number(loadedBytes) || 0);
+  const total = Number(totalBytes) || 0;
+  const known = Number.isFinite(total) && total > 0;
+  fill.classList.toggle('indeterminate', !known);
+  if (known) {
+    const percent = Math.min(99, Math.floor(loaded * 100 / total));
+    fill.style.width = percent + '%';
+    number.textContent = percent + '%';
+    track.setAttribute('aria-valuenow', String(percent));
+    track.removeAttribute('aria-valuetext');
+    caption.textContent = stage + ' · ' + formatFileSize(loaded) + ' / ' + formatFileSize(total);
+  } else {
+    fill.style.width = '';
+    number.textContent = '진행 중';
+    track.removeAttribute('aria-valuenow');
+    track.setAttribute('aria-valuetext', '진행 중');
+    caption.textContent = stage + (loaded ? ' · ' + formatFileSize(loaded) + ' 수신' : '');
+  }
+}
+function settleMediaLoadProgress(token, success, message) {
+  if (token !== mediaLoadProgressActive) return;
+  const root = document.getElementById('mediaLoadProgress');
+  if (!root) return;
+  const track = document.getElementById('mediaLoadProgressTrack');
+  const fill = document.getElementById('mediaLoadProgressFill');
+  fill.classList.remove('indeterminate');
+  fill.style.width = success ? '100%' : '0%';
+  root.classList.toggle('error', !success);
+  document.getElementById('mediaLoadProgressNumber').textContent = success ? '100%' : '오류';
+  document.getElementById('mediaLoadProgressCaption').textContent = message || (success ? '화면 표시 완료' : '파일을 불러오지 못했습니다.');
+  track.removeAttribute('aria-valuetext');
+  if (success) track.setAttribute('aria-valuenow', '100');
+  else track.removeAttribute('aria-valuenow');
+  clearTimeout(mediaLoadProgressHideTimer);
+  mediaLoadProgressHideTimer = setTimeout(() => cancelMediaLoadProgress(token), success ? 850 : 3200);
+}
+function cancelMediaLoadProgress(token = mediaLoadProgressActive) {
+  if (!token || token !== mediaLoadProgressActive) return;
+  clearTimeout(mediaLoadProgressHideTimer);
+  mediaLoadProgressActive = 0;
+  document.getElementById('mediaLoadProgress')?.classList.add('hidden');
+}
+
+// Apps Script는 JSON/Base64를 반환한다. Content-Length가 공개된 경우에만
+// 실제 응답 수신 바이트로 진행률을 계산하며, 인증/응답 검증은 기존 경로를 유지한다.
+async function readMediaJsonWithByteProgress(response, { signal, onProgress } = {}) {
+  if (typeof onProgress !== 'function' || !response.body?.getReader) return response.json();
+  const lengthHeader = response.headers.get('content-length') || '';
+  const contentEncoding = (response.headers.get('content-encoding') || 'identity').toLowerCase();
+  const rawTotal = /^\d+$/.test(lengthHeader) && contentEncoding === 'identity' ? Number(lengthHeader) : 0;
+  const totalBytes = Number.isSafeInteger(rawTotal) && rawTotal > 0 ? rawTotal : 0;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let jsonText = '';
+  let loadedBytes = 0;
+  try {
+    while (true) {
+      if (signal?.aborted) throw new DOMException('파일 요청 취소', 'AbortError');
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value?.byteLength) {
+        loadedBytes += value.byteLength;
+        jsonText += decoder.decode(value, { stream: true });
+        onProgress({ loadedBytes, totalBytes });
+      }
+    }
+    jsonText += decoder.decode();
+    if (signal?.aborted) throw new DOMException('파일 요청 취소', 'AbortError');
+    return JSON.parse(jsonText);
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function setLoading(show, message = '처리 중...') {
