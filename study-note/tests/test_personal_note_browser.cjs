@@ -60,9 +60,25 @@ const server=http.createServer((req,res)=>{
       const tx=db.transaction(['papers','settings'],'readonly');
       const get=(store,key)=>new Promise((resolve,reject)=>{const q=tx.objectStore(store).get(key);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
       const paper=await get('papers','T9876'),global=await get('settings','global');
-      return {pages:paper.pages.length,strokes:paper.pages[0].objects.length,background:!!global.background,enabled:global.enabled};
+      return {pages:paper.pages.length,strokes:paper.pages[0].objects.length,background:!!global.background,enabled:global.enabled,pending:paper.syncPending};
     });
-    assert.deepEqual(saved,{pages:2,strokes:1,background:true,enabled:true});
+    assert.deepEqual(saved,{pages:2,strokes:1,background:true,enabled:true,pending:true});
+    // Reconnection retry is only a synthetic capability mock, never a real server call.
+    await page.waitForFunction(()=>!document.querySelector('#pnSave').disabled);
+    await page.evaluate(()=>{
+      window.PEPersonalNoteCloud.push=async (topicId,pages,bg,enabled,meta)=>({available:true,meta:{...meta}});
+      window.dispatchEvent(new Event('online'));
+    });
+    await page.waitForFunction(()=>document.querySelector('#pnStatus').textContent.includes('서버 저장 완료'));
+    const afterReconnect=await page.evaluate(async()=>{
+      const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('pe-personal-note-db');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+      return await new Promise((resolve,reject)=>{
+        const r=db.transaction('papers','readonly').objectStore('papers').get('T9876');
+        r.onsuccess=()=>resolve({pending:r.result.syncPending,pages:r.result.pages.length,strokes:r.result.pages[0].objects.length});
+        r.onerror=()=>reject(r.error);
+      });
+    });
+    assert.deepEqual(afterReconnect,{pending:false,pages:2,strokes:1});
     await page.mouse.click(3,3);
     assert.equal(await page.$eval('#personalNoteModal',el=>el.hidden),false,'outside click unexpectedly closed modal');
     await page.keyboard.press('Escape');
