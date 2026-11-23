@@ -13,6 +13,7 @@ on:
       - 'study-note/tests/test_personal_note_isolated_backend.cjs'
       - 'study-note/tests/test_personal_note_cloud_synthetic.cjs'
       - 'study-note/personal-note.css'
+      - 'study-note/assets/personal-note-answer-sheet-a4.svg'
       - 'study-note/tests/personal-note-basic.test.mjs'
       - '.github/workflows/study-note-personal-note.yml'
   workflow_dispatch:
