@@ -234,6 +234,7 @@ function onPointerDown(ev) {
     const i=hit(p);
     selectedObjectIndex=i;
     selectDrag=i<0?null:{index:i,from:p,initial:clone(page().objects[i]),changed:false,kind:'move'};
+    if(selectDrag)try{canvas.setPointerCapture(ev.pointerId);}catch(_){}
     render();return;
   }
   if(currentTool==='eraser') {
@@ -402,6 +403,13 @@ function createUi() {
   canvas.addEventListener('pointerup',onPointerUp);
   canvas.addEventListener('pointercancel',onPointerUp);
   window.addEventListener('keydown',handleKeys,true);
+  layer.addEventListener('paste',ev=>{
+    if(!isOpen()||ev.target.closest('input,textarea,[contenteditable]'))return;
+    const item=[...(ev.clipboardData?.items||[])].find(x=>ALLOWED_TYPES.has(x.type));
+    if(!item)return;
+    const file=item.getAsFile();if(!file)return;
+    ev.preventDefault();loadPhoto(file,false);
+  });
   if(typeof ResizeObserver!=='undefined'){stageObserver=new ResizeObserver(()=>{if(isOpen())render();});stageObserver.observe(q('#pnStage'));}
 }
 function close() {
