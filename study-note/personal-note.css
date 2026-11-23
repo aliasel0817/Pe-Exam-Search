@@ -42,3 +42,47 @@
   .personal-note-toolbar { max-height: 150px; overflow-y: auto; }
   .personal-note-footer { flex-wrap: wrap; }
 }
+
+/* A4 viewport / desktop to phone density, without mutating native scroll or canvas coordinates. */
+.personal-note-card { gap:6px; padding:9px; height:min(97dvh,1200px); }
+.personal-note-header { min-height:38px; padding:4px 7px; gap:6px; }
+.personal-note-header button, .personal-note-pages button,
+.personal-note-toolbar button, .personal-note-footer button {
+  min-height:29px; padding:3px 6px; font-size:12px; line-height:1.2;
+}
+.personal-note-pages { gap:4px; min-height:32px; }
+.personal-note-zoom { display:inline-flex; align-items:center; gap:3px; margin-left:auto; }
+.personal-note-zoom #pnZoomLabel { font-weight:700; font-size:12px; min-width:42px; text-align:center; }
+.personal-note-zoom button { padding:3px 6px; }
+.personal-note-stage {
+  display:block; min-width:0; overflow:auto; scrollbar-gutter:stable;
+  padding:6px; min-height:0; overscroll-behavior:contain; touch-action:pan-x pan-y;
+}
+.personal-note-paper {
+  display:block; flex:none; width:794px; max-width:none;
+  aspect-ratio:794 / 1123; margin:0 auto; overflow:visible;
+}
+.personal-note-paper canvas { display:block; width:100%; height:auto; aspect-ratio:794 / 1123; }
+.personal-note-paper canvas[data-tool="pan"] { cursor:grab; touch-action:none; }
+.personal-note-toolbar { gap:4px; padding:2px 0; max-height:100px; overflow:auto; }
+.personal-note-toolbar label { font-size:11px; }
+.personal-note-toolbar select { height:29px; font-size:11px; }
+.personal-note-toolbar input[type="color"] { width:29px; height:27px; }
+.personal-note-toolbar-head button { font-size:11px; padding:3px 6px; }
+.personal-note-footer { gap:4px; }
+.personal-note-footer .personal-note-status { font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.personal-note-hint { font-size:10px; line-height:1.25; }
+@media (max-width:760px) {
+  #personalNoteModal { padding:2px; }
+  .personal-note-card { height:calc(100dvh - 4px); padding:5px; gap:4px; }
+  .personal-note-header { padding:3px 5px; }
+  .personal-note-topic { font-size:11px; }
+  .personal-note-header button, .personal-note-pages button,
+  .personal-note-toolbar button, .personal-note-footer button { font-size:11px; min-height:27px; padding:3px 5px; }
+  .personal-note-zoom { margin-left:0; }
+  .personal-note-stage { padding:3px; }
+  .personal-note-toolbar { max-height:75px; }
+  .personal-note-toolbar-head .personal-note-toolbar-status { display:none; }
+  .personal-note-footer .personal-note-status { flex-basis:100%; }
+  .personal-note-hint { font-size:9px; }
+}
