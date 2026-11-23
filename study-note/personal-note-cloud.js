@@ -147,12 +147,12 @@ async function pull(topicId,localPaper,localGlobal,localMeta={},force=false) {
   }
   const remoteDiffers=index.exists&&(!localMeta[indexKey]||localMeta[indexKey].revision!==index.revision
     ||pageDocs.some(p=>!localMeta[p.data.key]||localMeta[p.data.key].revision!==p.revision));
-  if(!force&&existing&&localDirty&&remoteDiffers)return {available:true,conflict:true,reason:'토픽별 로컬 변경 내용과 서버 버전이 달라 자동 덮어쓰지 않았습니다.'};
+  if(!force&&existing&&localDirty&&index.exists)return {available:true,conflict:true,reason:'서버 노트를 불러오면 이 기기의 미동기화 변경 내용이 손실될 수 있어 중단했습니다.'};
   const localBackgroundChanged=localGlobal!=null
     && (!localMeta.global||localMeta.global.hash!==await hash(encode({
       key:'global',schemaVersion:1,background:localGlobal.background||null,enabled:localGlobal.enabled!==false})));
   const remoteBgChanged=global.exists && (!localMeta.global||localMeta.global.revision!==global.revision);
-  if(!force&&localBackgroundChanged&&remoteBgChanged)return {available:true,conflict:true,reason:'공통 배경 이미지가 기기별로 달라 덮어쓰지 않았습니다.'};
+  if(!force&&localBackgroundChanged&&global.exists)return {available:true,conflict:true,reason:'이 기기의 공통 배경 설정이 서버와 동기화되지 않아 덮어쓰지 않았습니다.'};
   return {
     available:true,conflict:false,hasRemoteIndex:index.exists,hasRemoteGlobal:global.exists,
     pages:index.exists?pageDocs.map(p=>p.data.page):null,
