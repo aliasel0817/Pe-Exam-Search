@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1822" height="2646" viewBox="0 0 1822 2646">
+  <!-- Faithful line-only rendition of the uploaded exam answer sheet; original marks '번호' and '1쪽' are omitted. -->
+  <rect width="1822" height="2646" fill="#fff"/>
+  <path d="M75 123 H1732 V2532 H75 Z" stroke="#111" stroke-width="5.5" fill="none"/>
+  <path d="M86 134 H1722 V2523 H86 Z" stroke="#666" stroke-width="2" fill="none"/>
+  <g stroke="#666" stroke-width="2.6" stroke-dasharray="2 3">
+    <path d="M182 136 V2522 M250 136 V2522 M318 136 V2522"/>
+  </g>
+  <line x1="87" y1="242" x2="1721" y2="242" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="352" x2="1721" y2="352" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="460" x2="1721" y2="460" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="568" x2="1721" y2="568" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="678" x2="1721" y2="678" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="786" x2="1721" y2="786" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="894" x2="1721" y2="894" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1003" x2="1721" y2="1003" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1111" x2="1721" y2="1111" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1220" x2="1721" y2="1220" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1328" x2="1721" y2="1328" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1436" x2="1721" y2="1436" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1546" x2="1721" y2="1546" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1654" x2="1721" y2="1654" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1762" x2="1721" y2="1762" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1872" x2="1721" y2="1872" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="1980" x2="1721" y2="1980" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="2089" x2="1721" y2="2089" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="2197" x2="1721" y2="2197" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="2305" x2="1721" y2="2305" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+  <line x1="87" y1="2414" x2="1721" y2="2414" stroke="#555" stroke-width="2.6" stroke-dasharray="2 3"/>
+</svg>
