@@ -8,6 +8,8 @@ on:
       - 'study-note/backend/personal-note-sync-isolated.addon.gs'
       - 'study-note/backend/personal-note-sync-signed-bridge.addon.gs'
       - 'study-note/tests/test_personal_note_browser.cjs'
+      - 'study-note/tests/test_personal_note_full_app.cjs'
+      - 'study-note/service-worker.js'
       - 'study-note/tests/test_personal_note_isolated_backend.cjs'
       - 'study-note/tests/test_personal_note_cloud_synthetic.cjs'
       - 'study-note/personal-note.css'
@@ -52,3 +54,4 @@ jobs:
             export CHROME_BIN
           fi
           node study-note/tests/test_personal_note_browser.cjs
+          node study-note/tests/test_personal_note_full_app.cjs
