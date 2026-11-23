@@ -1,49 +1,59 @@
-# 개인 노트(그림판) 기능 개발 인계서 — 2026-11-23
+# 학습노트 — 개인 노트(그림판) 후속 개발 인계서 v2 (2026-11-23)
 
-## 구분
-- 상태: **독립 브랜치 개발 1차 완료, 운영 미반영**
-- 원칙: 개발 80% / 필수검수 20%; 비필수 검수 생략; 실사용 오류 발생 시 추가 수정
-- 대상: aliasel0817/Pe-Exam-Search, `study-note` 학습노트
-- 기준 main SHA: `2a906718d62d5e930793d3f097922a53729afe57`
+## 변경 관리 (사실 기준)
+- 저장소: aliasel0817/Pe-Exam-Search
+- 운영 기준 main: `2a906718d62d5e930793d3f097922a53729afe57` (2026-11-23 조회 당시)
 - 작업 브랜치: `feature/personal-note-paint-local-v1-20261123`
 - Draft PR: https://github.com/aliasel0817/Pe-Exam-Search/pull/96
-- 승인 없는 main 병합, Pages/Apps Script 배포, LIVE MASTER 데이터 변경 금지
-- 원격 PC 2대 오프라인: PC/태블릿/스마트폰 실기기 검수 미수행
+- 최근 기능·구문 수정 커밋: `5bcff5d9b3dd573eda8fba941771f6b17142791c` (이 문서 갱신 이전)
+- 운영 main 병합: 하지 않음. GitHub Pages/Apps Script 배포: 하지 않음. Google Sheets LIVE MASTER 학습원문 변경: 하지 않음.
+- 원격 장비 `DESKTOP-5H5J4TU`, `aliasel`: 2026-11-23 조회 시 모두 Offline. 실제 기기 검사 미완료.
+- 원격 PC 공용 세션/PID/파일 삭제 또는 종료 명령은 실행하지 않음.
 
-## 사용자 확정 요구
-1. 메인 개인메모의 메모 저장 줄 왼쪽에 '개인 노트' 버튼
-2. 토픽 제목, 공통 배경 이미지 등록, 모든 토픽 공통 체크(기본 ON)
-3. 팝업의 편집 레이어 및 도구바(펜/형광펜/도형/글자/사진)
-4. 개인 노트 팝업은 외부 클릭 및 Escape 등으로 닫히지 않고 취소 버튼으로만 종료
-5. 토픽 통합ID별 노트 독립 관리, 토픽당 여러 페이지
-6. 저장·다시 열기·수정, 필기/배경 별도 보존
-7. 기존 MASTER 학습 원문, PDF, 첨부, 기존 주석, 동기화, 보안 유지
+## 사용자가 확정한 요구사항
+1. 기존 개인메모 입력창과 메모 저장 버튼 유지, 버튼 왼쪽에 개인 노트 추가.
+2. 팝업 상단 현재 토픽명/공통 배경 체크/이미지 등록, 중간 그림판, 하단 접이식 도구/취소/저장.
+3. 배경 이미지와 체크 여부 모든 토픽·모든 페이지 공통, 체크 기본 ON.
+4. 토픽 통합ID마다 독립 다중 페이지.
+5. 펜, 형광펜, 도형, 텍스트, 사진 추가·붙여넣기, 이동·크기, 지우개, 되돌리기.
+6. 팝업은 외부 클릭·ESC로 닫지 않고 취소로만 닫기, 저장 시 팝업 유지.
+7. 토픽·페이지 저장, 다시 열기·수정, 데이터 무손실, PC/태블릿/폰 간 동기화 목표.
+8. 개발 80% : 필수 검수 20%, 비필수 검사 생략.
 
-## 이번 채팅 실제 변경 파일
-- `study-note/study-note.html`: CSS/JS 참조 및 개인 노트 버튼·클릭 연결만 추가
-- `study-note/personal-note.css`: 독립 반응형 팝업 UI
-- `study-note/personal-note.js`: 새 독립 IndexedDB, 종이/페이지/캔버스 도구/사진/배경/저장/PNG
-- `study-note/tests/personal-note-basic.test.mjs`: 필수 연결·데이터 분리 검사
-- `.github/workflows/study-note-personal-note.yml`: NO DEPLOY Node 구문/테스트
+## 실제 개발 완료 — 브랜치에 코드 작성됨
+- `study-note/study-note.html`: 개인 노트 버튼·독립 CSS/JS 로드.
+- `study-note/personal-note.css`: PC·모바일 반응형 노트 팝업.
+- `study-note/personal-note.js`: Canvas 그림판, 토픽별 복수 페이지, 공통 배경, 사진, 로컬 IndexedDB 분리 저장, JSON 전체 백업 및 가져오기, 서버 복원 버튼, 명시 저장/취소 보호, 원격 데이터 검사.
+- `study-note/personal-note-cloud.js`: 기존 `buildSignedGetUrl`, `sendSecureMutation`, `hasActiveSecuritySession` 사용. REST-like signed API를 통하여 Base64url 분할/합치기, SHA-256, CAS 업로드, 서버 조회, 로컬 충돌 시 덮어쓰기 차단.
+- `study-note/backend/personal-note-sync-isolated.addon.gs`: Google Apps Script용 독립 사설 Drive 폴더 시험 저장소. `PERSONAL_NOTE_SYNC_MODE=ISOLATED_TEST`, 승인 폴더 ID/READY/마커가 모두 없으면 fail-closed.
+- `study-note/backend/personal-note-sync-signed-bridge.addon.gs`: 기존 서명 GET/POST 검증 뒤만 호출하는 API 게이트 후보. **실제 운영 Code.gs에는 병합·삽입하지 않음.**
+- `study-note/backend/PERSONAL-NOTE-SIGNED-SYNC-DESIGN-20261123.md`: 명세, 보안·릴리스 차단, 백엔드 통합 위치.
+- 테스트 `study-note/tests/personal-note-basic.test.mjs`, `study-note/tests/test_personal_note_browser.cjs`, `study-note/tests/test_personal_note_cloud_synthetic.cjs`, `study-note/tests/test_personal_note_isolated_backend.cjs`.
+- CI `.github/workflows/study-note-personal-note.yml`는 GitHub Actions용 필수 검사만, **NO DEPLOY**.
 
-## 구현 범위와 제한
-- 구현: 로컬 브라우저 편집기, 개별 토픽 다중 페이지, 전역 배경(등록·표시), 펜·형광펜·직선·화살표·사각형·타원·글자·사진(파일/클립보드), 객체 이동/사진 크기, 지우개, 실행취소/다시실행, PNG 추출, 명시적 저장, 미저장 취소 확인
-- 미구현: 기기 간 클라우드 저장·동기화, 서버 이미지 저장·인증 API, 실기기 호환 확정, PDF 내보내기, 페이지 복제·순서 변경
-- 저장소: `pe-personal-note-db`, `papers`와 `settings`, 기존 `pe-study-note-db`와 완전 분리
-- **사용자에게 기기 간 공유 기능이 구현되었다고 절대 주장하지 말 것**
-- 저장은 현재 브라우저 전용이며 브라우저 데이터 삭제 시 복원이 어려움. 운영 반영 전 서버 저장 및 백업이 필요함.
-- 현 단계에서는 로컬 저장조차 물리 브라우저에서 기능 테스트하지 못했으므로 CI 통과를 실제 동작 검증으로 해석하지 말 것.
+## 검증 팩트
+- 이전 커밋 `78f9357df3bb14d51df7b9f9899c85dc4ab6ccd2`의 전용 정적/서버 합성 테스트 PASS.
+- 전용 합성 Chromium 브라우저 필기·다중 페이지·공통 배경·로컬 저장·다시 열기·팝업 종료 방지 PASS (전용 브라우저 테스트).
+- 위 검사는 실제 운영 페이지/운영 Apps Script/실제 Galaxy Tab S11/iPhone Safari PASS가 아님.
+- 마지막 이미지 URL 검증식 수정 후 `5bcff5d9b3dd573eda8fba941771f6b17142791c`의 전용 CI 최종 결과는 다시 조회할 것 (이 문서 작성 시 큐 대기).
 
-## 다음 작업
-1. PR #96의 CI 결과 확인 및 필수 오류만 수정
-2. 화면/모달/필기/페이지/배경/저장/다시열기 테스트를 안전한 미배포 브라우저에서 실행
-3. 현행 Apps Script 운영 소스/보안/동기화 API를 **읽기 전용**으로 확인 후 별도 사용자 데이터 저장 스키마 설계
-4. 기존 주석 Schema 3을 무단 변경하지 말고 새로운 종이 데이터/이미지와 안전하게 분리, ACTIVE 신뢰기기 인증·동시 수정 충돌 방지
-5. 클라우드 동기화까지 완료되면 PC Chrome/Tab S11/iPhone Safari에서 필요한 실제 검수만 진행
-6. 별도 승인 전까지 main 병합 및 운영 배포 금지
+## 미완료 — 절대 완료로 주장 금지
+1. 현재 운영 Apps Script **최신 실제 코드** 확보 및 배포중인 원본과의 비교. `study-note/mupdf-migration/r5/source/Code.js`는 과거 v21 참조 소스일 뿐 실제 v23 전체 소스가 아님.
+2. 실제 사설 테스트용 Drive 폴더/마커/Script Properties 준비 및 Apps Script API 연동·서명 GET/POST 실측.
+3. 합성 2기기 테스트는 있지만 **ACTIVE 신뢰기기 2대의 실제 Google 서버 동기화 왕복** 미검증.
+4. 페이지별 대량 이미지 데이터·DriveApp quota·동시 세션 충돌 및 오프라인 처리 실측.
+5. 운영 안전 패치와 프로덕션 스키마/연동(현재 서버 애드온은 의도적으로 테스트 모드만 지원).
+6. 기존 학습 원문/PDF/주석/첨부와의 전체 통합 실기기 회귀검증.
+7. 사용자가 명시 승인하기 전 운영 main 병합·GitHub Pages 배포·운영 Apps Script 수정 절대 금지.
 
-## 다중 채팅 보호
-시작 전 최신 main/작업 브랜치 SHA, 운영 파일, 열린 PR, 로컬 변경사항을 확인. 원격 PC 작업 전 PC 이름·절대경로·repo·프로세스 소유권 확인. 다른 채팅 프로세스 종료, git reset, 강제 덮어쓰기 금지.
+## 다음 우선작업 (8:2)
+1. 현재 main/PR #96/마지막 CI 정확한 SHA·상태 다시 확인.
+2. 필수 CI 오류만 수정. 브라우저/동기화 데이터 무손실·인증 위반은 필수 검사로 유지.
+3. 실제 운영 Apps Script 최신 서버 소스를 **읽기 전용**으로 확보하여 서명 경로/기존 기능/스키마 대조. 확보 불가면 섣불리 서버 통합하지 않음.
+4. 운영 원장/Drive와 전혀 다른 사설 시험용 폴더에서 ACTIVE/HMAC 서명, nonce 재사용 거부, 2기기 동시 편집/충돌, 여러 페이지·공통 배경 왕복 **필수 검증**.
+5. 그 결과로 운영용 분기와 기능 활성화 게이트를 별도 브랜치/PR에서 준비, user 승인 전 deploy 금지.
+6. PC Chrome/태블릿 S Pen/iPhone Safari 필수 확인. 장비 오프라인이면 '미검증'으로 보고.
+7. 작업 종료 때마다 완료/진행필요/미검증 + 새 채팅 복사용 요청서 제공.
 
-## 차기 채팅 복사용 지시
-"개인 노트(그림판) 기능 PR #96 작업을 이어서 진행해줘. 브랜치 feature/personal-note-paint-local-v1-20261123, 이 문서의 완료·미완료 내용을 실제 소스로 다시 확인하고 착수해. 목표는 클라우드 저장·기기 간 동기화 포함 기능 완성. 기존 main/MASTER/주석/보안 보존, 독립 브랜치와 PR, 개발:필수검수=8:2. 승인 전 배포 절대 금지. 실행 완료/미완료/미검증을 구분하고 복사 가능한 다음 작업요청서를 매번 알려줘." 
+## 복사해 사용할 다음 채팅 작업요청서
+개인 노트(그림판) PR #96를 이어서 개발해줘. GitHub aliasel0817/Pe-Exam-Search의 feature/personal-note-paint-local-v1-20261123 브랜치와 최신 main/미병합 PR을 먼저 비교하고, 실제 작업 파일·CI 결과를 검증해줘. 현재 브랜치는 로컬 그림판 및 다중 페이지, 공통 배경, 사진, JSON 백업/복원, 별도 클라우드 동기화 클라이언트와 격리 Google Apps Script 서버 후보를 작성한 상태지만, 실제 최신 운영 서버 소스/서버 연동/ACTIVE 실기기 왕복은 아직 확인되지 않았어. 다음 우선순위는 실제 운영 Apps Script 최신 원본 읽기 전용 확보, 독립 사설 시험 저장소에서 서명 API 통합 검증, 안전한 운영 연결 후보 마무리야. 개발:필수검수=8:2, 비필수 검수 생략, 학습 원문/PDF/첨부/주석/보안 기존 기능 보존. 사용자 승인 없는 main 병합/운영 배포 절대 금지. 각 작업 완료마다 실제 완료·미완료·미검증·브랜치/PR/SHA와 복사용 차기 작업요청서를 제공해줘.
