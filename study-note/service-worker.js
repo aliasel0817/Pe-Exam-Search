@@ -1,5 +1,5 @@
 // Study planner additive rollout; keep existing shell caching semantics.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-10-personal-notes-20261123';
+const CACHE_NAME = 'pe-study-note-shell-v4-6-11-personal-note-a4-20261123';
 const APP_SHELL = [
   './study-note.html',
   './image-upload-optimizer.js',
