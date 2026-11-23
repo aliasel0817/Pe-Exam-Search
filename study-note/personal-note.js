@@ -25,6 +25,8 @@ let viewWidth = PAPER_WIDTH;
 let currentTool = 'pen';
 let stroke = null;
 let selectDrag = null;
+let selectedObjectIndex = -1;
+let stageObserver = null;
 let dirty = false;
 let history = [];
 let redo = [];
@@ -192,8 +194,8 @@ function render() {
   canvas.width=PAPER_WIDTH;canvas.height=PAPER_HEIGHT;
   ctx=canvas.getContext('2d');
   renderTo(ctx,page().objects,pendingBackground,pendingEnabled);
-  if(selectDrag&&selectDrag.index>=0) {
-    const obj=page().objects[selectDrag.index],b=obj&&getObjectBounds(obj);
+  if(selectedObjectIndex>=0) {
+    const obj=page().objects[selectedObjectIndex],b=obj&&getObjectBounds(obj);
     if(b) {ctx.save();ctx.strokeStyle='#2563eb';ctx.setLineDash([7,5]);ctx.lineWidth=2;
       ctx.strokeRect(b.x*PAPER_WIDTH-5,b.y*PAPER_HEIGHT-5,b.w*PAPER_WIDTH+10,b.h*PAPER_HEIGHT+10);ctx.restore();}
   }
@@ -215,7 +217,7 @@ function updateUi() {
 }
 function chooseTool(tool) {
   if(!tools.includes(tool))return;
-  currentTool=tool;selectDrag=null;render();
+  currentTool=tool;selectDrag=null;if(tool!=='select')selectedObjectIndex=-1;render();
 }
 function onPointerDown(ev) {
   if(ev.pointerType==='mouse'&&ev.button!==0)return;
@@ -230,6 +232,7 @@ function onPointerDown(ev) {
   }
   if(currentTool==='select') {
     const i=hit(p);
+    selectedObjectIndex=i;
     selectDrag=i<0?null:{index:i,from:p,initial:clone(page().objects[i]),changed:false,kind:'move'};
     render();return;
   }
@@ -369,20 +372,20 @@ function createUi() {
   backgroundInput.addEventListener('change',async()=>{if(backgroundInput.files?.[0])await loadPhoto(backgroundInput.files[0],true);backgroundInput.value='';});
   fileInput.addEventListener('change',async()=>{if(fileInput.files?.[0])await loadPhoto(fileInput.files[0],false);fileInput.value='';});
   q('#pnBackgroundEnabled').addEventListener('change',ev=>{pendingEnabled=ev.target.checked;refreshDirty();render();});
-  q('#pnPrev').addEventListener('click',()=>{if(activePage>0){activePage--;selectDrag=null;render();}});
-  q('#pnNext').addEventListener('click',()=>{if(activePage<pages.length-1){activePage++;selectDrag=null;render();}});
-  q('#pnAdd').addEventListener('click',()=>{if(pages.length>=MAX_PAGES)return;recordHistory();pages.splice(activePage+1,0,newPage());activePage++;refreshDirty();render();});
+  q('#pnPrev').addEventListener('click',()=>{if(activePage>0){activePage--;selectDrag=null;selectedObjectIndex=-1;render();}});
+  q('#pnNext').addEventListener('click',()=>{if(activePage<pages.length-1){activePage++;selectDrag=null;selectedObjectIndex=-1;render();}});
+  q('#pnAdd').addEventListener('click',()=>{if(pages.length>=MAX_PAGES)return;recordHistory();pages.splice(activePage+1,0,newPage());activePage++;selectedObjectIndex=-1;refreshDirty();render();});
   q('#pnDelete').addEventListener('click',()=>{
     if(pages.length<=1)return;
     if(!confirm('현재 페이지를 삭제하시겠습니까? (저장 전까지는 실행 취소 가능)'))return;
-    recordHistory();pages.splice(activePage,1);activePage=Math.min(activePage,pages.length-1);refreshDirty();render();
+    recordHistory();pages.splice(activePage,1);activePage=Math.min(activePage,pages.length-1);selectedObjectIndex=-1;refreshDirty();render();
   });
   q('#pnTools').addEventListener('click',ev=>{const tool=ev.target.closest('[data-pn-tool]');if(tool)chooseTool(tool.dataset.pnTool);});
   q('#pnToggleTools').addEventListener('click',()=>{const t=q('#pnTools');t.hidden=!t.hidden;q('#pnToggleTools').textContent=t.hidden?'도구 펼치기 ▼':'도구 접기 ▲';});
   q('#pnUndo').addEventListener('click',undoAction);q('#pnRedo').addEventListener('click',redoAction);
   q('#pnResizeImage').addEventListener('click',()=>{
-    if(!selectDrag||selectDrag.index<0||page().objects[selectDrag.index]?.type!=='image'){alert('먼저 선택(↖) 도구로 사진을 선택하세요.');return;}
-    const obj=page().objects[selectDrag.index];const pct=prompt('사진 너비 (%): 10~95',Math.round(obj.w*100));
+    if(selectedObjectIndex<0||page().objects[selectedObjectIndex]?.type!=='image'){alert('먼저 선택(↖) 도구로 사진을 선택하세요.');return;}
+    const obj=page().objects[selectedObjectIndex];const pct=prompt('사진 너비 (%): 10~95',Math.round(obj.w*100));
     if(pct==null)return;const next=Number(pct);
     if(!Number.isFinite(next)||next<10||next>95){alert('10~95 사이 숫자를 입력하세요.');return;}
     recordHistory();const ratio=obj.h/obj.w;obj.w=next/100;obj.h=clamp(obj.w*ratio,.03,.95);refreshDirty();render();
@@ -399,12 +402,12 @@ function createUi() {
   canvas.addEventListener('pointerup',onPointerUp);
   canvas.addEventListener('pointercancel',onPointerUp);
   window.addEventListener('keydown',handleKeys,true);
-  if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{if(isOpen())render();}).observe(q('#pnStage'));
+  if(typeof ResizeObserver!=='undefined'){stageObserver=new ResizeObserver(()=>{if(isOpen())render();});stageObserver.observe(q('#pnStage'));}
 }
 function close() {
   if(!popup)return;
-  popup.hidden=true;canvas=null;popup.remove();popup=null;current=null;
-  history=[];redo=[];stroke=null;selectDrag=null;imageCache.clear();
+  popup.hidden=true;stageObserver?.disconnect();stageObserver=null;window.removeEventListener('keydown',handleKeys,true);canvas=null;popup.remove();popup=null;current=null;
+  history=[];redo=[];stroke=null;selectDrag=null;selectedObjectIndex=-1;imageCache.clear();
   if(lastFocus?.isConnected)lastFocus.focus();
 }
 function cancel() {
@@ -429,7 +432,7 @@ async function open(topicId,topicName) {
     savedBackground=pendingBackground;
     pendingEnabled=global?.enabled!==false;
     savedEnabled=pendingEnabled;
-    dirty=false;history=[];redo=[];saving=false;currentTool='pen';
+    dirty=false;history=[];redo=[];saving=false;currentTool='pen';selectedObjectIndex=-1;
     createUi();q('#pnTopic').textContent=current.topicName+' · 개인 노트';
     popup.hidden=false;q('#pnCancel').focus();
     setStatus(stored?'저장된 노트 불러옴 · 로컬 저장':'새 개인 노트 · 로컬 저장');
