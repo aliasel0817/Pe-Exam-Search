@@ -368,7 +368,7 @@ function createUi() {
       <button type="button" id="pnCancel">취소</button>
       <button type="button" id="pnSave">저장</button>
     </footer>
-    <div class="personal-note-hint">현재 버전은 이 기기의 브라우저에 저장됩니다. 다른 기기와의 공유는 아직 지원하지 않습니다.</div>
+    <div class="personal-note-hint">개인 노트는 이 기기에 먼저 저장됩니다. 인증된 개인 노트 서버 지원 시 동기화하며, 미지원 시 로컬만 보존합니다.</div>
     <input type="file" class="personal-note-file-input" id="pnBackgroundFile" accept="image/png,image/jpeg,image/webp">
     <input type="file" class="personal-note-file-input" id="pnImageFile" accept="image/png,image/jpeg,image/webp">
   </section>`;
