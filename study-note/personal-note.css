@@ -1,0 +1,44 @@
+/* Personal Note editor: isolated from the existing attachment/PDF annotation UI. */
+#personalNoteBtn { margin-right: auto; }
+#personalNoteModal { position: fixed; inset: 0; z-index: 2600; display: flex; align-items: center; justify-content: center; padding: 10px; background: rgba(15,23,42,.68); }
+#personalNoteModal[hidden] { display: none !important; }
+#personalNoteModal * { box-sizing: border-box; }
+.personal-note-card { width: min(1120px, 100%); height: min(96dvh, 1100px); display: flex; flex-direction: column; gap: 10px; background: #fff; border-radius: 12px; padding: 14px; color: #172033; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.personal-note-header { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 12px; border: 1px solid #d7e0ec; padding: 8px 10px; min-height: 56px; }
+.personal-note-topic { font-weight: 750; font-size: .94rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.personal-note-check { display: inline-flex; gap: 5px; align-items: center; font-size: .8rem; white-space: nowrap; }
+.personal-note-check input { width: 17px; height: 17px; accent-color: #2563eb; }
+.personal-note-file-input { position: absolute; height: 1px; width: 1px; opacity: 0; pointer-events: none; }
+.personal-note-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.personal-note-pages .pn-page-label { min-width: 80px; text-align: center; font-weight: 700; font-size: .81rem; }
+.personal-note-pages button, .personal-note-toolbar button, .personal-note-footer button, .personal-note-header button { border: 1px solid #a9b7c8; border-radius: 6px; padding: 6px 9px; background: #fff; color: #172033; font-weight: 650; cursor: pointer; min-height: 34px; }
+.personal-note-pages button:disabled, .personal-note-toolbar button:disabled { opacity: .4; cursor: default; }
+.personal-note-pages button:hover:not(:disabled), .personal-note-toolbar button:hover:not(:disabled) { background: #eff6ff; }
+.personal-note-stage { flex: 1; min-height: 0; border: 1px solid #d7e0ec; background: #ebeff5; overflow: auto; overscroll-behavior: contain; display: flex; justify-content: safe center; align-items: flex-start; padding: 14px; }
+.personal-note-paper { position: relative; flex: 0 0 auto; width: 100%; background: white; box-shadow: 0 1px 7px rgba(0,0,0,.2); }
+.personal-note-paper canvas { width: 100%; display: block; height: auto; touch-action: none; cursor: crosshair; }
+.personal-note-paper canvas[data-tool="pan"] { touch-action: pan-x pan-y; cursor: grab; }
+.personal-note-toolbar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.personal-note-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 4px 0; }
+.personal-note-toolbar[hidden] { display: none !important; }
+.personal-note-toolbar button[aria-pressed="true"] { background: #dbeafe; border-color: #2563eb; color: #1d4ed8; }
+.personal-note-toolbar label { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: .78rem; }
+.personal-note-toolbar select, .personal-note-toolbar input[type="text"] { height: 34px; border: 1px solid #a9b7c8; border-radius: 5px; font-size: .85rem; }
+.personal-note-toolbar input[type="color"] { width: 34px; height: 32px; padding: 1px; border: 1px solid #a9b7c8; border-radius: 5px; }
+.personal-note-text-options[hidden] { display: none !important; }
+.personal-note-toolbar-status { font-size: .73rem; color: #667085; }
+.personal-note-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.personal-note-footer .personal-note-status { margin-right: auto; min-width: 0; font-size: .75rem; color: #555; }
+.personal-note-footer #pnSave { border-color: #2563eb; color: white; background: #2563eb; min-width: 80px; }
+.personal-note-footer #pnCancel { min-width: 80px; }
+.personal-note-footer #pnExport { margin-right: auto; }
+.personal-note-hint { font-size: .71rem; color: #64748b; }
+@media (max-width: 760px) {
+  #personalNoteModal { padding: 3px; }
+  .personal-note-card { height: calc(100dvh - 6px); border-radius: 6px; padding: 8px; gap: 7px; }
+  .personal-note-header { grid-template-columns: minmax(0,1fr) auto; gap: 5px; padding: 5px; }
+  .personal-note-topic { grid-column: 1 / -1; font-size: .83rem; }
+  .personal-note-stage { padding: 6px; }
+  .personal-note-toolbar { max-height: 150px; overflow-y: auto; }
+  .personal-note-footer { flex-wrap: wrap; }
+}

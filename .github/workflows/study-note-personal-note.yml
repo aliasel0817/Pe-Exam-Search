@@ -1,0 +1,57 @@
+name: Personal Note minimal checks (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/personal-note.js'
+      - 'study-note/personal-note-cloud.js'
+      - 'study-note/backend/personal-note-sync-isolated.addon.gs'
+      - 'study-note/backend/personal-note-sync-signed-bridge.addon.gs'
+      - 'study-note/tests/test_personal_note_browser.cjs'
+      - 'study-note/tests/test_personal_note_full_app.cjs'
+      - 'study-note/service-worker.js'
+      - 'study-note/tests/test_personal_note_isolated_backend.cjs'
+      - 'study-note/tests/test_personal_note_cloud_synthetic.cjs'
+      - 'study-note/personal-note.css'
+      - 'study-note/tests/personal-note-basic.test.mjs'
+      - '.github/workflows/study-note-personal-note.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  personal-note-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax - personal note
+        run: node --check study-note/personal-note.js
+      - name: Essential wiring and data-boundary checks
+        run: |
+          node --check study-note/personal-note-cloud.js
+          node --check study-note/tests/test_personal_note_browser.cjs
+          node --test study-note/tests/personal-note-basic.test.mjs
+          node study-note/tests/test_personal_note_isolated_backend.cjs
+          node study-note/tests/test_personal_note_cloud_synthetic.cjs
+  browser-essentials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser driver
+        run: npm install --prefix .qa-browser --no-save --no-audit --no-fund puppeteer-core@24.31.0
+      - name: Run Chrome essentials (synthetic only)
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: |
+          if [ ! -x "$CHROME_BIN" ]; then
+            CHROME_BIN="$(command -v chromium || command -v chromium-browser)"
+            export CHROME_BIN
+          fi
+          node study-note/tests/test_personal_note_browser.cjs
+          node study-note/tests/test_personal_note_full_app.cjs

@@ -1,0 +1,69 @@
+'use strict';
+/* Synthetic Chromium essentials: no LIVE MASTER, Apps Script or network credentials. */
+const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');
+const puppeteer=require(process.env.QA_PUPPETEER_CORE||path.resolve(__dirname,'../../.qa-browser/node_modules/puppeteer-core'));
+const root=path.resolve(__dirname,'..');
+const html='<!doctype html><html lang="ko"><head><meta charset="UTF-8"><link rel="stylesheet" href="/personal-note.css"></head><body><button id="entry">개인 노트</button><script src="/personal-note-cloud.js"></script><script src="/personal-note.js"></script></body></html>';
+const server=http.createServer((req,res)=>{
+  const pathname=new URL(req.url,'http://127.0.0.1').pathname;
+  if(pathname==='/fixture'){res.setHeader('Content-Type','text/html;charset=utf-8');res.end(html);return;}
+  const target=path.resolve(root,'.'+pathname);
+  if(!target.startsWith(root+path.sep)||!fs.existsSync(target)){res.writeHead(404);res.end();return;}
+  res.setHeader('Content-Type',target.endsWith('.css')?'text/css':'application/javascript');
+  res.end(fs.readFileSync(target));
+});
+(async()=>{
+  let browser;
+  try {
+    await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+    browser=await puppeteer.launch({headless:true,executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',args:['--no-sandbox','--disable-dev-shm-usage']});
+    const page=await browser.newPage(),errors=[];
+    page.on('pageerror',err=>errors.push(String(err)));
+    await page.goto('http://127.0.0.1:'+server.address().port+'/fixture',{waitUntil:'load'});
+    await page.evaluate(()=>PEPersonalNote.open('T9876','합성 SDN 토픽'));
+    await page.waitForSelector('#personalNoteModal:not([hidden])');
+    assert.equal(await page.$eval('#pnBackgroundEnabled',el=>el.checked),true);
+    const canvas=await page.$('#pnCanvas'),rect=await canvas.boundingBox();
+    await page.mouse.move(rect.x+50,rect.y+60);await page.mouse.down();
+    await page.mouse.move(rect.x+150,rect.y+130,{steps:5});await page.mouse.up();
+    await page.waitForFunction(()=>document.querySelector('#pnStatus').textContent.includes('변경'));
+    await page.click('#pnAdd');
+    assert.equal(await page.$eval('#pnPageLabel',el=>el.textContent),'2 / 2 페이지');
+    const pixel='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8HgAAAABJRU5ErkJggg==';
+    await page.evaluate(base64=>{
+      const bin=atob(base64),bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+      const file=new File([bytes],'test.png',{type:'image/png'});
+      const dt=new DataTransfer();dt.items.add(file);
+      const input=document.querySelector('#pnBackgroundFile');
+      input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+    },pixel);
+    await page.waitForFunction(()=>document.querySelector('#pnStatus').textContent.includes('공통 배경 변경됨'));
+    await page.click('#pnSave');
+    await page.waitForFunction(()=>document.querySelector('#pnStatus').textContent.includes('로컬 저장 완료'));
+    const saved=await page.evaluate(async()=>{
+      const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('pe-personal-note-db');q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+      const tx=db.transaction(['papers','settings'],'readonly');
+      const get=(store,key)=>new Promise((resolve,reject)=>{const q=tx.objectStore(store).get(key);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});
+      const paper=await get('papers','T9876'),global=await get('settings','global');
+      return {pages:paper.pages.length,strokes:paper.pages[0].objects.length,background:!!global.background,enabled:global.enabled};
+    });
+    assert.deepEqual(saved,{pages:2,strokes:1,background:true,enabled:true});
+    await page.mouse.click(3,3);
+    assert.equal(await page.$eval('#personalNoteModal',el=>el.hidden),false,'outside click unexpectedly closed modal');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.$eval('#personalNoteModal',el=>el.hidden),false,'Escape unexpectedly closed modal');
+    await page.click('#pnCancel');
+    assert.equal(await page.$('#personalNoteModal'),null);
+    await page.evaluate(()=>PEPersonalNote.open('T9876','합성 SDN 토픽'));
+    await page.waitForSelector('#personalNoteModal:not([hidden])');
+    assert.equal(await page.$eval('#pnPageLabel',el=>el.textContent),'1 / 2 페이지');
+    assert.equal(await page.$eval('#pnBackgroundEnabled',el=>el.checked),true);
+    await page.click('#pnCancel');
+    await page.evaluate(()=>PEPersonalNote.open('T9877','합성 NFV 토픽'));
+    await page.waitForSelector('#personalNoteModal:not([hidden])');
+    assert.equal(await page.$eval('#pnPageLabel',el=>el.textContent),'1 / 1 페이지');
+    assert.equal(await page.$eval('#pnBackgroundEnabled',el=>el.checked),true);
+    assert.deepEqual(errors,[]);
+    console.log('PERSONAL_NOTE_BROWSER_ESSENTIALS_PASS',JSON.stringify({saved,distinctTopics:true,modalGuard:true,errors:errors.length}));
+  } finally {if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
+})().catch(e=>{console.error('PERSONAL_NOTE_BROWSER_ESSENTIALS_FAIL',e.stack||e);process.exitCode=1;server.close();});

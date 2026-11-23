@@ -9,6 +9,7 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232563eb%22%2F%3E%3Cpath%20d%3D%22M17%2015h25a5%205%200%200%201%205%205v29H22a5%205%200%200%201-5-5V15Z%22%20fill%3D%22white%22%2F%3E%3Cpath%20d%3D%22M24%2024h16M24%2031h16M24%2038h11%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="stylesheet" href="./personal-note.css">
   <style>
 :root {
   --bg: #f4f7fb;
@@ -2493,6 +2494,7 @@ button { -webkit-tap-highlight-color: transparent; }
             <div class="card-head"><h3>개인메모</h3></div>
             <textarea id="personalMemoInput" class="textarea-field preserve-lines" placeholder="이 토픽에 대한 개인 메모를 입력하세요."></textarea>
             <div class="memo-actions">
+              <button id="personalNoteBtn" class="btn" type="button">개인 노트</button>
               <span id="memoStatus" class="memo-status">저장된 메모 없음</span>
               <button id="saveMemoBtn" class="btn" type="button">메모 저장</button>
             </div>
@@ -15766,6 +15768,19 @@ if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
 <script src="./study-planner.js?v=20261023-4-compact-help"></script>
+<script src="./personal-note-cloud.js"></script>
+<script src="./personal-note.js"></script>
+<script>
+(function bindPersonalNoteEntry() {
+  const button = document.getElementById("personalNoteBtn");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    const topicId = typeof currentTopicId === "string" ? currentTopicId : "";
+    const topicName = document.getElementById("detailTitle")?.textContent || topicId;
+    window.PEPersonalNote?.open(topicId, topicName);
+  });
+})();
+</script>
 <!-- R4_LICENSE_NOTICE_PRIVATE_START: local M4 only, never external deployment -->
 <script>
 if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED) {
