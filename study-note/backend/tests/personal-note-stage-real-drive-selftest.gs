@@ -122,5 +122,8 @@ function PN1_stageRealDriveSelfTest() {
       result.cleanup=true;
     }
     lock.releaseLock();
+    // Editor Run does not display return values; print a non-sensitive verdict.
+    console.log('PERSONAL_NOTE_STAGE_REAL_DRIVE_'+
+      (result.success && result.cleanup ? 'PASS' : 'INCOMPLETE')+' '+JSON.stringify(result));
   }
 }
