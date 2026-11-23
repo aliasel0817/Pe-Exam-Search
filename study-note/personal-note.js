@@ -18,7 +18,8 @@ const ZOOM_STEP = 25;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PAGES = 100;
 const ALLOWED_TYPES = new Set(['image/png','image/jpeg','image/webp']);
-const tools = ['pen','highlighter','line','arrow','rect','ellipse','text','image','select','eraser','pan'];
+const shapeTools = ['line','arrow','rect','ellipse','triangle','square','pentagon','hexagon','circle','diamond','star'];
+const tools = ['pen','highlighter',...shapeTools,'text','image','select','eraser','pan'];
 let databasePromise = null;
 let current = null;
 let popup = null;
@@ -187,9 +188,27 @@ function renderTo(target, items, background, enabled) {
     } else if(obj.type==='shape') {
       const x=obj.start.x*W,y=obj.start.y*H,dx=(obj.end.x-obj.start.x)*W,dy=(obj.end.y-obj.start.y)*H;
       target.beginPath();
-      if(obj.shape==='rect')target.rect(x,y,dx,dy);
-      else if(obj.shape==='ellipse')target.ellipse(x+dx/2,y+dy/2,Math.max(.1,Math.abs(dx)/2),Math.max(.1,Math.abs(dy)/2),0,0,Math.PI*2);
-      else {target.moveTo(x,y);target.lineTo(x+dx,y+dy);}
+      if(obj.shape==='rect'||obj.shape==='square') {
+        if(obj.shape==='square') {
+          const side=Math.min(Math.abs(dx),Math.abs(dy));
+          target.rect(x,y,Math.sign(dx||1)*side,Math.sign(dy||1)*side);
+        } else target.rect(x,y,dx,dy);
+      } else if(obj.shape==='ellipse'||obj.shape==='circle') {
+        const rx=Math.max(.1,obj.shape==='circle'?Math.min(Math.abs(dx),Math.abs(dy))/2:Math.abs(dx)/2);
+        const ry=Math.max(.1,obj.shape==='circle'?rx:Math.abs(dy)/2);
+        target.ellipse(x+dx/2,y+dy/2,rx,ry,0,0,Math.PI*2);
+      } else if(['triangle','pentagon','hexagon','diamond','star'].includes(obj.shape)) {
+        const count=obj.shape==='triangle'?3:obj.shape==='pentagon'?5:obj.shape==='hexagon'?6:obj.shape==='diamond'?4:10;
+        const centerX=x+dx/2,centerY=y+dy/2;
+        for(let i=0;i<count;i++){
+          const angle=-Math.PI/2+i*2*Math.PI/count;
+          const inner=obj.shape==='star'&&i%2===1?.45:1;
+          const px=centerX+Math.cos(angle)*dx/2*inner;
+          const py=centerY+Math.sin(angle)*dy/2*inner;
+          if(i===0)target.moveTo(px,py);else target.lineTo(px,py);
+        }
+        target.closePath();
+      } else {target.moveTo(x,y);target.lineTo(x+dx,y+dy);}
       target.stroke();
       if(obj.shape==='arrow') {
         const angle=Math.atan2(dy,dx),size=Math.max(12,target.lineWidth*5);
@@ -239,6 +258,7 @@ function updateUi() {
   q('#pnCloudRestore').disabled = !cloudCapability;
   q('#pnBackgroundEnabled').disabled=false;
   popup.querySelectorAll('[data-pn-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pnTool===currentTool)));
+  if(shapeTools.includes(currentTool))q('#pnShape').value=currentTool;
   canvas.dataset.tool=currentTool;
 }
 function setZoom(next) {
@@ -413,8 +433,17 @@ function createUi() {
       <button type="button" data-pn-tool="highlighter" aria-pressed="false" title="형광펜">🖍</button>
       <button type="button" data-pn-tool="line" aria-pressed="false" title="직선">／</button>
       <button type="button" data-pn-tool="arrow" aria-pressed="false" title="화살표">➜</button>
-      <button type="button" data-pn-tool="rect" aria-pressed="false" title="사각형">□</button>
-      <button type="button" data-pn-tool="ellipse" aria-pressed="false" title="타원">○</button>
+      <button type="button" data-pn-tool="rect" aria-pressed="false" title="사각형">▭</button>
+      <button type="button" data-pn-tool="ellipse" aria-pressed="false" title="타원">⬭</button>
+      <label title="PDF/교재/서브노트와 동일한 도형 선택">도형
+        <select id="pnShape" aria-label="도형 종류">
+          <option value="arrow">➜ 화살표</option><option value="triangle">△ 삼각형</option>
+          <option value="rect">▭ 사각형</option><option value="square">□ 정사각형</option>
+          <option value="pentagon">⬠ 오각형</option><option value="hexagon">⬡ 육각형</option>
+          <option value="ellipse">⬭ 타원</option><option value="circle">○ 원</option>
+          <option value="diamond">◇ 마름모</option><option value="star">☆ 별</option>
+        </select>
+      </label>
       <button type="button" data-pn-tool="text" aria-pressed="false" title="글자">T</button>
       <button type="button" data-pn-tool="image" aria-pressed="false" title="사진 첨부·붙여넣기">▣</button>
       <button type="button" data-pn-tool="select" aria-pressed="false" title="객체 선택 및 이동">↖</button>
@@ -456,6 +485,7 @@ function createUi() {
     recordHistory();pages.splice(activePage,1);activePage=Math.min(activePage,pages.length-1);selectedObjectIndex=-1;refreshDirty();render();
   });
   q('#pnTools').addEventListener('click',ev=>{const tool=ev.target.closest('[data-pn-tool]');if(tool)chooseTool(tool.dataset.pnTool);});
+  q('#pnShape').addEventListener('change',ev=>chooseTool(ev.target.value));
   q('#pnToggleTools').addEventListener('click',()=>{const t=q('#pnTools');t.hidden=!t.hidden;q('#pnToggleTools').textContent=t.hidden?'도구 펼치기 ▲':'도구 접기 ▼';});
   q('#pnZoomOut').addEventListener('click',()=>setZoom(zoomPercent-ZOOM_STEP));
   q('#pnZoomIn').addEventListener('click',()=>setZoom(zoomPercent+ZOOM_STEP));
@@ -525,7 +555,7 @@ function validatePage(record) {
       if(!Array.isArray(obj.points)||obj.points.length<1||obj.points.length>50000
         ||obj.points.some(p=>!validUnit(p.x)||!validUnit(p.y)))throw new Error('개인 노트 필기 좌표 오류');
     } else if(obj.type==='shape') {
-      if(!['line','arrow','rect','ellipse'].includes(obj.shape)||!obj.start||!obj.end
+      if(!shapeTools.includes(obj.shape)||!obj.start||!obj.end
         ||!validUnit(obj.start.x)||!validUnit(obj.start.y)
         ||!validUnit(obj.end.x)||!validUnit(obj.end.y))throw new Error('개인 노트 도형 좌표 오류');
     } else if(obj.type==='text') {
