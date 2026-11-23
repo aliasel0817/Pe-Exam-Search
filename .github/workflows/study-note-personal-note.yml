@@ -1,0 +1,24 @@
+name: Personal Note minimal checks (NO DEPLOY)
+on:
+  pull_request:
+    paths:
+      - 'study-note/study-note.html'
+      - 'study-note/personal-note.js'
+      - 'study-note/personal-note.css'
+      - 'study-note/tests/personal-note-basic.test.mjs'
+      - '.github/workflows/study-note-personal-note.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  personal-note-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax - personal note
+        run: node --check study-note/personal-note.js
+      - name: Essential wiring and data-boundary checks
+        run: node --test study-note/tests/personal-note-basic.test.mjs
