@@ -8,8 +8,13 @@ const DB_NAME = 'pe-personal-note-db';
 const DB_VERSION = 1;
 const PAPER_STORE = 'papers';
 const SETTINGS_STORE = 'settings';
-const PAPER_WIDTH = 900;
-const PAPER_HEIGHT = 1200;
+const PAPER_WIDTH = 794; // A4, 210 mm at 96 CSS pixels per inch
+const PAPER_HEIGHT = 1123; // A4, 297 mm at 96 CSS pixels per inch
+const LEGACY_PAPER_WIDTH = 900;
+const DEFAULT_BACKGROUND = './assets/personal-note-answer-sheet-a4.svg';
+const MIN_ZOOM = 25;
+const MAX_ZOOM = 300;
+const ZOOM_STEP = 25;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PAGES = 100;
 const ALLOWED_TYPES = new Set(['image/png','image/jpeg','image/webp']);
@@ -21,7 +26,8 @@ let canvas = null;
 let ctx = null;
 let fileInput = null;
 let backgroundInput = null;
-let viewWidth = PAPER_WIDTH;
+let zoomPercent = 100;
+let panDrag = null;
 let currentTool = 'pen';
 let stroke = null;
 let selectDrag = null;
@@ -143,12 +149,25 @@ function drawImageSafe(src,x,y,w,h,targetCtx) {
   }
   if(img.complete&&img.naturalWidth)targetCtx.drawImage(img,x,y,w,h);
 }
+function drawBackgroundContain(src,W,H,target) {
+  let img=imageCache.get(src);
+  if(!img){
+    img=new Image();imageCache.set(src,img);
+    img.onload=()=>{if(isOpen())render();};
+    img.onerror=()=>imageCache.delete(src);
+    img.src=src;
+  }
+  if(!img.complete || !img.naturalWidth || !img.naturalHeight)return;
+  const factor=Math.min(W/img.naturalWidth,H/img.naturalHeight);
+  const w=img.naturalWidth*factor,h=img.naturalHeight*factor;
+  target.drawImage(img,(W-w)/2,(H-h)/2,w,h);
+}
 function renderTo(target, items, background, enabled) {
   const W=target.canvas.width,H=target.canvas.height;
   target.save();
   target.fillStyle='#fff';
   target.fillRect(0,0,W,H);
-  if(enabled && background)drawImageSafe(background,0,0,W,H,target);
+  if(enabled && background)drawBackgroundContain(background,W,H,target);
   for(const obj of items) {
     target.save();
     target.globalAlpha=obj.opacity??1;
@@ -192,9 +211,10 @@ function renderTo(target, items, background, enabled) {
 }
 function render() {
   if(!canvas||!isOpen()||!pages.length)return;
-  const width=Math.max(260,Math.floor(q('#pnStage').clientWidth-28));
-  viewWidth=Math.min(PAPER_WIDTH,width);
-  canvas.style.width=viewWidth+'px';
+  const displayWidth=Math.round(PAPER_WIDTH*zoomPercent/100);
+  const paper=q('#pnPaper');
+  paper.style.width=displayWidth+'px';
+  canvas.style.width='100%';
   canvas.width=PAPER_WIDTH;canvas.height=PAPER_HEIGHT;
   ctx=canvas.getContext('2d');
   renderTo(ctx,page().objects,pendingBackground,pendingEnabled);
@@ -215,19 +235,41 @@ function updateUi() {
   q('#pnUndo').disabled=history.length===0;
   q('#pnRedo').disabled=redo.length===0;
   q('#pnBackgroundEnabled').checked=pendingEnabled;
+  q('#pnZoomLabel').textContent=zoomPercent+'%';
   q('#pnCloudRestore').disabled = !cloudCapability;
   q('#pnBackgroundEnabled').disabled=false;
   popup.querySelectorAll('[data-pn-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pnTool===currentTool)));
   canvas.dataset.tool=currentTool;
 }
+function setZoom(next) {
+  const stage=q('#pnStage');
+  const oldWidth=PAPER_WIDTH*zoomPercent/100;
+  const centerX=stage.scrollLeft+stage.clientWidth/2;
+  const centerY=stage.scrollTop+stage.clientHeight/2;
+  const nx=centerX/oldWidth,ny=centerY/(oldWidth*PAPER_HEIGHT/PAPER_WIDTH);
+  zoomPercent=clamp(Math.round(Number(next)/ZOOM_STEP)*ZOOM_STEP,MIN_ZOOM,MAX_ZOOM);
+  render();
+  const newWidth=PAPER_WIDTH*zoomPercent/100;
+  stage.scrollLeft=Math.max(0,nx*newWidth-stage.clientWidth/2);
+  stage.scrollTop=Math.max(0,ny*newWidth*PAPER_HEIGHT/PAPER_WIDTH-stage.clientHeight/2);
+}
 function chooseTool(tool) {
   if(!tools.includes(tool))return;
-  currentTool=tool;selectDrag=null;if(tool!=='select')selectedObjectIndex=-1;render();
+  currentTool=tool;selectDrag=null;panDrag=null;
+  if(tool!=='select')selectedObjectIndex=-1;
+  render();
 }
 function onPointerDown(ev) {
   if(saving)return;
   if(ev.pointerType==='mouse'&&ev.button!==0)return;
-  if(currentTool==='pan'||(ev.pointerType==='touch'&&ev.isPrimary===false))return;
+  if(ev.pointerType==='touch'&&ev.isPrimary===false)return;
+  if(currentTool==='pan'){
+    ev.preventDefault();
+    const stage=q('#pnStage');
+    panDrag={pointerId:ev.pointerId,x:ev.clientX,y:ev.clientY,left:stage.scrollLeft,top:stage.scrollTop};
+    try{canvas.setPointerCapture(ev.pointerId);}catch(_){}
+    return;
+  }
   const p=pointerPoint(ev);if(!p)return;
   ev.preventDefault();
   if(currentTool==='image') {q('#pnImageFile').click();return;}
@@ -260,6 +302,13 @@ function onPointerDown(ev) {
 }
 function onPointerMove(ev) {
   if(saving)return;
+  if(panDrag && panDrag.pointerId===ev.pointerId){
+    ev.preventDefault();
+    const stage=q('#pnStage');
+    stage.scrollLeft=panDrag.left+panDrag.x-ev.clientX;
+    stage.scrollTop=panDrag.top+panDrag.y-ev.clientY;
+    return;
+  }
   const p=pointerPoint(ev);if(!p)return;
   if(stroke&&stroke.pointerId===ev.pointerId) {
     ev.preventDefault();
@@ -273,13 +322,18 @@ function onPointerMove(ev) {
     if(!obj)return;
     if(!selectDrag.changed){recordHistory();selectDrag.changed=true;}
     const initial=clone(selectDrag.initial);
-    if(initial.type==='image'||initial.type==='text') {initial.x=clamp(initial.x+dx,0,1);initial.y=clamp(initial.y+dy,0,1);}
+    if(initial.type==='image') {
+      initial.x=clamp(initial.x+dx,0,Math.max(0,1-initial.w));
+      initial.y=clamp(initial.y+dy,0,Math.max(0,1-initial.h));
+    }
+    if(initial.type==='text') {initial.x=clamp(initial.x+dx,0,1);initial.y=clamp(initial.y+dy,0,1);}
     if(initial.type==='shape') {for(const k of ['start','end']) {initial[k].x=clamp(initial[k].x+dx,0,1);initial[k].y=clamp(initial[k].y+dy,0,1);}}
     if(initial.type==='stroke')initial.points.forEach(pt=>{pt.x=clamp(pt.x+dx,0,1);pt.y=clamp(pt.y+dy,0,1);});
     page().objects[selectDrag.index]=initial;render();
   }
 }
 function onPointerUp(ev) {
+  if(panDrag&&panDrag.pointerId===ev.pointerId)panDrag=null;
   if(stroke&&stroke.pointerId===ev.pointerId){stroke=null;refreshDirty();render();}
   if(selectDrag&&selectDrag.pointerId===ev.pointerId){if(selectDrag.changed)refreshDirty();selectDrag=null;render();}
 }
@@ -343,9 +397,17 @@ function createUi() {
       <button type="button" id="pnNext" aria-label="다음 페이지">▶</button>
       <button type="button" id="pnAdd" title="새 페이지">＋ 페이지</button>
       <button type="button" id="pnDelete" title="현재 페이지 삭제">삭제</button>
+      <div class="personal-note-zoom" role="group" aria-label="A4 페이지 배율">
+        <button type="button" id="pnZoomOut" aria-label="축소" title="축소">−</button>
+        <span id="pnZoomLabel" aria-live="polite">100%</span>
+        <button type="button" id="pnZoomIn" aria-label="확대" title="확대">＋</button>
+        <button type="button" id="pnZoomReset" title="100%로 복원">100%</button>
+      </div>
     </div>
-    <div class="personal-note-stage" id="pnStage"><div class="personal-note-paper"><canvas id="pnCanvas" width="900" height="1200" aria-label="개인 노트 그림판"></canvas></div></div>
-    <div class="personal-note-toolbar-head"><button type="button" id="pnToggleTools">도구 접기 ▲</button><span class="personal-note-toolbar-status">선택 도구로 개별 객체를 이동할 수 있습니다.</span></div>
+    <div class="personal-note-stage" id="pnStage" tabindex="0" aria-label="A4 개인 노트 화면, 스크롤로 이동">
+      <div class="personal-note-paper" id="pnPaper"><canvas id="pnCanvas" width="794" height="1123" aria-label="A4 개인 노트 그림판"></canvas></div>
+    </div>
+    <div class="personal-note-toolbar-head"><button type="button" id="pnToggleTools">도구 접기 ▼</button><span class="personal-note-toolbar-status">선택 도구로 개별 객체를 이동할 수 있습니다.</span></div>
     <div class="personal-note-toolbar" id="pnTools" role="toolbar" aria-label="그림판 도구">
       <button type="button" data-pn-tool="pen" aria-pressed="true" title="펜">✏</button>
       <button type="button" data-pn-tool="highlighter" aria-pressed="false" title="형광펜">🖍</button>
@@ -354,7 +416,7 @@ function createUi() {
       <button type="button" data-pn-tool="rect" aria-pressed="false" title="사각형">□</button>
       <button type="button" data-pn-tool="ellipse" aria-pressed="false" title="타원">○</button>
       <button type="button" data-pn-tool="text" aria-pressed="false" title="글자">T</button>
-      <button type="button" data-pn-tool="image" aria-pressed="false" title="사진 붙여넣기">🖼</button>
+      <button type="button" data-pn-tool="image" aria-pressed="false" title="사진 첨부·붙여넣기">▣</button>
       <button type="button" data-pn-tool="select" aria-pressed="false" title="객체 선택 및 이동">↖</button>
       <button type="button" data-pn-tool="eraser" aria-pressed="false" title="객체 지우개">⌫</button>
       <button type="button" data-pn-tool="pan" aria-pressed="false" title="화면 스크롤">✋</button>
@@ -394,14 +456,19 @@ function createUi() {
     recordHistory();pages.splice(activePage,1);activePage=Math.min(activePage,pages.length-1);selectedObjectIndex=-1;refreshDirty();render();
   });
   q('#pnTools').addEventListener('click',ev=>{const tool=ev.target.closest('[data-pn-tool]');if(tool)chooseTool(tool.dataset.pnTool);});
-  q('#pnToggleTools').addEventListener('click',()=>{const t=q('#pnTools');t.hidden=!t.hidden;q('#pnToggleTools').textContent=t.hidden?'도구 펼치기 ▼':'도구 접기 ▲';});
+  q('#pnToggleTools').addEventListener('click',()=>{const t=q('#pnTools');t.hidden=!t.hidden;q('#pnToggleTools').textContent=t.hidden?'도구 펼치기 ▲':'도구 접기 ▼';});
+  q('#pnZoomOut').addEventListener('click',()=>setZoom(zoomPercent-ZOOM_STEP));
+  q('#pnZoomIn').addEventListener('click',()=>setZoom(zoomPercent+ZOOM_STEP));
+  q('#pnZoomReset').addEventListener('click',()=>setZoom(100));
   q('#pnUndo').addEventListener('click',undoAction);q('#pnRedo').addEventListener('click',redoAction);
   q('#pnResizeImage').addEventListener('click',()=>{
     if(selectedObjectIndex<0||page().objects[selectedObjectIndex]?.type!=='image'){alert('먼저 선택(↖) 도구로 사진을 선택하세요.');return;}
     const obj=page().objects[selectedObjectIndex];const pct=prompt('사진 너비 (%): 10~95',Math.round(obj.w*100));
     if(pct==null)return;const next=Number(pct);
     if(!Number.isFinite(next)||next<10||next>95){alert('10~95 사이 숫자를 입력하세요.');return;}
-    recordHistory();const ratio=obj.h/obj.w;obj.w=next/100;obj.h=clamp(obj.w*ratio,.03,.95);refreshDirty();render();
+    recordHistory();const ratio=obj.h/obj.w;obj.w=next/100;obj.h=clamp(obj.w*ratio,.03,.95);
+    obj.x=clamp(obj.x,0,Math.max(0,1-obj.w));obj.y=clamp(obj.y,0,Math.max(0,1-obj.h));
+    refreshDirty();render();
   });
   q('#pnExport').addEventListener('click',()=>{
     const out=document.createElement('canvas');out.width=PAPER_WIDTH;out.height=PAPER_HEIGHT;
@@ -431,7 +498,7 @@ function createUi() {
 function close() {
   if(!popup)return;
   popup.hidden=true;stageObserver?.disconnect();stageObserver=null;window.removeEventListener('keydown',handleKeys,true);canvas=null;popup.remove();popup=null;current=null;
-  history=[];redo=[];stroke=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;imageCache.clear();
+  history=[];redo=[];stroke=null;panDrag=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;imageCache.clear();
   if(lastFocus?.isConnected)lastFocus.focus();
 }
 function cancel() {
@@ -443,6 +510,7 @@ function validUnit(value) { return Number.isFinite(value) && value>=0 && value<=
 function validateBackgroundAsset(value) {
   if(value==null || value==='')return null;
   const pattern=new RegExp('^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$');
+  if(value===DEFAULT_BACKGROUND)return value;
   if(typeof value!=='string' || value.length>9*1024*1024 || !pattern.test(value))
     throw new Error('이미지 데이터 형식이 유효하지 않습니다. 원본을 덮어쓰지 않습니다.');
   return value;
@@ -481,12 +549,12 @@ async function open(topicId,topicName) {
     const [stored,global]=await Promise.all([dbRead(PAPER_STORE,topicId),dbRead(SETTINGS_STORE,'global')]);
     pages=(Array.isArray(stored?.pages)&&stored.pages.length?stored.pages:[newPage()]).slice(0,MAX_PAGES).map(validatePage);
     activePage=0;current={topicId,topicName:String(topicName||topicId)};
-    pendingBackground=global?.background||null;
+    pendingBackground=global?.background||DEFAULT_BACKGROUND;
     cloudMeta={...(stored?.cloudMeta||{}),...(global?.cloudMeta||{})};
     savedBackground=pendingBackground;
     pendingEnabled=global?.enabled!==false;
     savedEnabled=pendingEnabled;
-    dirty=false;editSerial=0;history=[];redo=[];saving=false;cloudCapability=false;currentTool='pen';selectedObjectIndex=-1;
+    dirty=false;editSerial=0;history=[];redo=[];saving=false;cloudCapability=false;currentTool='pen';selectedObjectIndex=-1;zoomPercent=100;panDrag=null;
     createUi();q('#pnTopic').textContent=current.topicName+' · 개인 노트';
     popup.hidden=false;q('#pnCancel').focus();
     setStatus(stored?'저장된 노트 불러옴 · 로컬 저장':'새 개인 노트 · 로컬 저장');
