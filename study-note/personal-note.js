@@ -38,6 +38,9 @@ let pages = [];
 let activePage = 0;
 let lastFocus = null;
 let saving = false;
+let opening = false;
+let cloudMeta = {};
+let editSerial = 0;
 
 function id() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -66,11 +69,11 @@ function dbRead(store,key) {
     req.onerror=()=>reject(req.error);
   }));
 }
-function persistAll(topicId, rows, config) {
+function persistAll(topicId, rows, config, meta = {}) {
   return openDb().then(db => new Promise((resolve,reject)=>{
     const tx = db.transaction([PAPER_STORE,SETTINGS_STORE],'readwrite');
-    tx.objectStore(PAPER_STORE).put({topicId,version:1,pages:rows,updatedAt:new Date().toISOString()});
-    tx.objectStore(SETTINGS_STORE).put({key:'global',version:1,background:config.background,enabled:config.enabled,updatedAt:new Date().toISOString()});
+    tx.objectStore(PAPER_STORE).put({topicId,version:1,pages:rows,cloudMeta:meta,updatedAt:new Date().toISOString()});
+    tx.objectStore(SETTINGS_STORE).put({key:'global',version:1,background:config.background,enabled:config.enabled,cloudMeta:meta,updatedAt:new Date().toISOString()});
     tx.oncomplete=resolve;
     tx.onerror=()=>reject(tx.error||new Error('저장 실패'));
     tx.onabort=()=>reject(tx.error||new Error('저장 취소'));
@@ -83,7 +86,7 @@ function newPage() { return {id:id(),objects:[]}; }
 function isOpen() { return !!popup && !popup.hidden; }
 function q(selector) { return popup.querySelector(selector); }
 function setStatus(msg) { const el=q('#pnStatus'); if(el) el.textContent=msg; }
-function refreshDirty() { dirty=true; setStatus('저장하지 않은 변경 사항'); updateUi(); }
+function refreshDirty() { dirty=true; editSerial++; setStatus('저장하지 않은 변경 사항'); updateUi(); }
 function recordHistory() {
   history.push(clone(pages)); if(history.length>40) history.shift();
   redo.length=0;
@@ -92,13 +95,13 @@ function undoAction() {
   if(!history.length)return;
   redo.push(clone(pages));pages=history.pop();
   activePage=clamp(activePage,0,pages.length-1);
-  refreshDirty();render();
+  selectedObjectIndex=-1;refreshDirty();render();
 }
 function redoAction() {
   if(!redo.length)return;
   history.push(clone(pages));pages=redo.pop();
   activePage=clamp(activePage,0,pages.length-1);
-  refreshDirty();render();
+  selectedObjectIndex=-1;refreshDirty();render();
 }
 function pointerPoint(event) {
   const rect=canvas.getBoundingClientRect();
@@ -220,6 +223,7 @@ function chooseTool(tool) {
   currentTool=tool;selectDrag=null;if(tool!=='select')selectedObjectIndex=-1;render();
 }
 function onPointerDown(ev) {
+  if(saving)return;
   if(ev.pointerType==='mouse'&&ev.button!==0)return;
   if(currentTool==='pan'||(ev.pointerType==='touch'&&ev.isPrimary===false))return;
   const p=pointerPoint(ev);if(!p)return;
@@ -233,7 +237,7 @@ function onPointerDown(ev) {
   if(currentTool==='select') {
     const i=hit(p);
     selectedObjectIndex=i;
-    selectDrag=i<0?null:{index:i,from:p,initial:clone(page().objects[i]),changed:false,kind:'move'};
+    selectDrag=i<0?null:{index:i,pointerId:ev.pointerId,from:p,initial:clone(page().objects[i]),changed:false,kind:'move'};
     if(selectDrag)try{canvas.setPointerCapture(ev.pointerId);}catch(_){}
     render();return;
   }
@@ -253,13 +257,14 @@ function onPointerDown(ev) {
   render();
 }
 function onPointerMove(ev) {
+  if(saving)return;
   const p=pointerPoint(ev);if(!p)return;
   if(stroke&&stroke.pointerId===ev.pointerId) {
     ev.preventDefault();
     if(stroke.obj.type==='stroke')stroke.obj.points.push(p);else stroke.obj.end=p;
     render();return;
   }
-  if(selectDrag) {
+  if(selectDrag && selectDrag.pointerId===ev.pointerId) {
     ev.preventDefault();
     const dx=p.x-selectDrag.from.x,dy=p.y-selectDrag.from.y;
     const obj=page().objects[selectDrag.index];
@@ -274,7 +279,7 @@ function onPointerMove(ev) {
 }
 function onPointerUp(ev) {
   if(stroke&&stroke.pointerId===ev.pointerId){stroke=null;refreshDirty();render();}
-  if(selectDrag){if(selectDrag.changed)refreshDirty();selectDrag=null;render();}
+  if(selectDrag&&selectDrag.pointerId===ev.pointerId){if(selectDrag.changed)refreshDirty();selectDrag=null;render();}
 }
 function imageFromFile(file) {
   if(!file||!ALLOWED_TYPES.has(file.type)||file.size>MAX_IMAGE_BYTES)throw new Error('PNG/JPG/WebP 이미지 5MB 이하만 지원합니다.');
@@ -295,6 +300,7 @@ async function loadPhoto(file,background) {
   try {
     const data=await imageFromFile(file);
     const size=await getImageSize(data);
+    if(!isOpen()||!current||saving)return;
     if(background) {
       pendingBackground=data;
       refreshDirty();render();
@@ -358,6 +364,7 @@ function createUi() {
     <footer class="personal-note-footer">
       <span id="pnStatus" class="personal-note-status">로컬 노트</span>
       <button type="button" id="pnExport">PNG 저장</button>
+      <button type="button" id="pnBackup" title="편집 가능한 전체 노트와 배경 JSON 백업">JSON 백업</button>
       <button type="button" id="pnCancel">취소</button>
       <button type="button" id="pnSave">저장</button>
     </footer>
@@ -396,6 +403,7 @@ function createUi() {
     renderTo(out.getContext('2d'),page().objects,pendingBackground,pendingEnabled);
     const link=document.createElement('a');link.href=out.toDataURL('image/png');link.download='personal-note-'+current.topicId+'-'+(activePage+1)+'.png';link.click();
   });
+  q('#pnBackup').addEventListener('click',exportBackup);
   q('#pnCancel').addEventListener('click',cancel);
   q('#pnSave').addEventListener('click',save);
   canvas.addEventListener('pointerdown',onPointerDown);
@@ -415,7 +423,7 @@ function createUi() {
 function close() {
   if(!popup)return;
   popup.hidden=true;stageObserver?.disconnect();stageObserver=null;window.removeEventListener('keydown',handleKeys,true);canvas=null;popup.remove();popup=null;current=null;
-  history=[];redo=[];stroke=null;selectDrag=null;selectedObjectIndex=-1;imageCache.clear();
+  history=[];redo=[];stroke=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};imageCache.clear();
   if(lastFocus?.isConnected)lastFocus.focus();
 }
 function cancel() {
@@ -429,23 +437,27 @@ function validatePage(record) {
   return {id:String(record.id||id()),objects:safe};
 }
 async function open(topicId,topicName) {
-  if(isOpen())return;
+  if(isOpen()||opening)return;
   if(!topicId){alert('먼저 토픽을 선택하세요.');return;}
+  opening=true;
   try {
     lastFocus=document.activeElement;
     const [stored,global]=await Promise.all([dbRead(PAPER_STORE,topicId),dbRead(SETTINGS_STORE,'global')]);
     pages=(Array.isArray(stored?.pages)&&stored.pages.length?stored.pages:[newPage()]).slice(0,MAX_PAGES).map(validatePage);
     activePage=0;current={topicId,topicName:String(topicName||topicId)};
     pendingBackground=global?.background||null;
+    cloudMeta={...(stored?.cloudMeta||{}),...(global?.cloudMeta||{})};
     savedBackground=pendingBackground;
     pendingEnabled=global?.enabled!==false;
     savedEnabled=pendingEnabled;
-    dirty=false;history=[];redo=[];saving=false;currentTool='pen';selectedObjectIndex=-1;
+    dirty=false;editSerial=0;history=[];redo=[];saving=false;currentTool='pen';selectedObjectIndex=-1;
     createUi();q('#pnTopic').textContent=current.topicName+' · 개인 노트';
     popup.hidden=false;q('#pnCancel').focus();
     setStatus(stored?'저장된 노트 불러옴 · 로컬 저장':'새 개인 노트 · 로컬 저장');
     render();
+    void refreshFromCloud(topicId,stored,global);
   }catch(error){if(isOpen())close();alert('개인 노트 열기 실패: '+(error.message||error));}
+  finally{opening=false;}
 }
 async function save() {
   if(saving||!current)return;
