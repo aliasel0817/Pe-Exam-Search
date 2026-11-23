@@ -437,10 +437,38 @@ function cancel() {
   if(dirty&&!confirm('저장하지 않은 개인 노트 변경 사항이 있습니다. 저장하지 않고 닫으시겠습니까?'))return;
   close();
 }
+function validUnit(value) {return Number.isFinite(value)&&value>=0&&value<=1;}
+function validateBackgroundAsset(value) {
+  if(value==null||value==='')return null;
+  if(typeof value!=='string'||value.length>9*1024*1024
+    ||!/^data:image\\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value))
+    throw new Error('이미지 데이터 형식이 유효하지 않습니다. 원본을 덮어쓰지 않습니다.');
+  return value;
+}
 function validatePage(record) {
-  if(!record||typeof record!=='object'||!Array.isArray(record.objects))return newPage();
-  const safe=record.objects.filter(o=>o&&typeof o==='object'&&['stroke','shape','text','image'].includes(o.type));
-  return {id:String(record.id||id()),objects:safe};
+  if(!record||typeof record!=='object'||!/^[A-Za-z0-9_-]{1,80}$/.test(String(record.id||''))
+    ||!Array.isArray(record.objects)||record.objects.length>5000)
+    throw new Error('저장된 개인 노트 페이지 스키마가 올바르지 않습니다.');
+  for(const obj of record.objects){
+    if(!obj||typeof obj!=='object'||typeof obj.id!=='string')throw new Error('개인 노트 객체 ID 오류');
+    if(obj.type==='stroke'){
+      if(!Array.isArray(obj.points)||obj.points.length<1||obj.points.length>50000
+        ||obj.points.some(p=>!validUnit(p.x)||!validUnit(p.y)))throw new Error('개인 노트 필기 좌표 오류');
+    }else if(obj.type==='shape'){
+      if(!['line','arrow','rect','ellipse'].includes(obj.shape)
+        ||!obj.start||!obj.end||!validUnit(obj.start.x)||!validUnit(obj.start.y)
+        ||!validUnit(obj.end.x)||!validUnit(obj.end.y))throw new Error('개인 노트 도형 좌표 오류');
+    }else if(obj.type==='text'){
+      if(typeof obj.text!=='string'||obj.text.length>2000||!validUnit(obj.x)||!validUnit(obj.y)
+        ||!Number.isFinite(obj.size)||obj.size<1||obj.size>200)
+        throw new Error('개인 노트 글자 객체 오류');
+    }else if(obj.type==='image'){
+      validateBackgroundAsset(obj.src);
+      if(!validUnit(obj.x)||!validUnit(obj.y)||!validUnit(obj.w)||!validUnit(obj.h)||obj.w<=0||obj.h<=0)
+        throw new Error('개인 노트 사진 위치 오류');
+    }else throw new Error('지원하지 않는 개인 노트 객체 형식');
+  }
+  return {id:String(record.id),objects:clone(record.objects)};
 }
 async function open(topicId,topicName) {
   if(isOpen()||opening)return;
@@ -488,9 +516,7 @@ async function importBackup(file) {
     if(data?.kind!=='personal-note-backup'||data.schemaVersion!==1
       ||data.topicId!==current.topicId||!Array.isArray(data.pages)
       ||data.pages.length<1||data.pages.length>MAX_PAGES)throw new Error('현재 토픽의 개인 노트 백업이 아닙니다.');
-    const restored=data.pages.map(validatePage),background=data.background||null;
-    if(background && !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(background))
-      throw new Error('백업 이미지 형식이 올바르지 않습니다.');
+    const restored=data.pages.map(validatePage),background=validateBackgroundAsset(data.background);
     if(!isOpen()||saving)return;
     if(!confirm('현재 개인 노트 페이지를 JSON 백업 내용으로 교체할까요? 저장 전에는 취소할 수 있습니다.'))return;
     recordHistory();pages=restored;activePage=0;selectedObjectIndex=-1;
@@ -515,7 +541,7 @@ async function restoreFromCloud() {
     if(!isOpen()||current?.topicId!==topicId)throw new Error('개인 노트 화면이 변경되었습니다.');
     const nextPages=result.pages.map(validatePage);
     if(!nextPages.length)throw new Error('서버 페이지가 비어 있습니다.');
-    const bg=result.hasRemoteGlobal?result.background:pendingBackground;
+    const bg=result.hasRemoteGlobal?validateBackgroundAsset(result.background):pendingBackground;
     const en=result.hasRemoteGlobal?result.enabled:pendingEnabled;
     await persistAll(topicId,clone(nextPages),{background:bg,enabled:en},result.meta);
     pages=nextPages;activePage=0;selectedObjectIndex=-1;pendingBackground=bg;pendingEnabled=en;
@@ -539,7 +565,7 @@ async function refreshFromCloud(topicId,stored,global) {
     }
     const nextPages=result.hasRemoteIndex?result.pages.map(validatePage):clone(pages);
     if(!nextPages.length)nextPages.push(newPage());
-    const nextBackground=result.hasRemoteGlobal?result.background:pendingBackground;
+    const nextBackground=result.hasRemoteGlobal?validateBackgroundAsset(result.background):pendingBackground;
     const nextEnabled=result.hasRemoteGlobal?result.enabled:pendingEnabled;
     const nextMeta=result.meta||{};
     // Never replace in-memory edits made while awaiting network reads.
