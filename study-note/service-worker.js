@@ -6,6 +6,7 @@ const APP_SHELL = [
   './personal-note.js',
   './personal-note.css',
   './personal-note-cloud.js',
+  './assets/personal-note-answer-sheet-a4.svg',
   './manifest.webmanifest',
   './study-planner.js',
   './study-planner-sync.js',
