@@ -5,7 +5,7 @@
 - 운영 기준 main: `2a906718d62d5e930793d3f097922a53729afe57` (2026-11-23 조회 당시)
 - 작업 브랜치: `feature/personal-note-paint-local-v1-20261123`
 - Draft PR: https://github.com/aliasel0817/Pe-Exam-Search/pull/96
-- 최근 기능·구문 수정 커밋: `5bcff5d9b3dd573eda8fba941771f6b17142791c` (이 문서 갱신 이전)
+- 최근 핵심 코드 커밋: `eba1a1acee46303414285dd3127258156f1c4839` (객체 검증 구문 및 백업/복원), 최신 필수 테스트 보정 커밋: `5c2b22bf5316f5cf2f086009dcc6037f35cec59d`
 - 운영 main 병합: 하지 않음. GitHub Pages/Apps Script 배포: 하지 않음. Google Sheets LIVE MASTER 학습원문 변경: 하지 않음.
 - 원격 장비 `DESKTOP-5H5J4TU`, `aliasel`: 2026-11-23 조회 시 모두 Offline. 실제 기기 검사 미완료.
 - 원격 PC 공용 세션/PID/파일 삭제 또는 종료 명령은 실행하지 않음.
@@ -35,7 +35,7 @@
 - 이전 커밋 `78f9357df3bb14d51df7b9f9899c85dc4ab6ccd2`의 전용 정적/서버 합성 테스트 PASS.
 - 전용 합성 Chromium 브라우저 필기·다중 페이지·공통 배경·로컬 저장·다시 열기·팝업 종료 방지 PASS (전용 브라우저 테스트).
 - 위 검사는 실제 운영 페이지/운영 Apps Script/실제 Galaxy Tab S11/iPhone Safari PASS가 아님.
-- 마지막 이미지 URL 검증식 수정 후 `5bcff5d9b3dd573eda8fba941771f6b17142791c`의 전용 CI 최종 결과는 다시 조회할 것 (이 문서 작성 시 큐 대기).
+- 전용 GitHub Actions **Run 45122772901**에서 `personal-note-checks` **SUCCESS**, `browser-essentials` **SUCCESS** (코드 기준 커밋 `5c2b22bf5316f5cf2f086009dcc6037f35cec59d`). 이는 독립 합성검증이며 운영 서버/실기기 검증을 대체하지 않음.
 
 ## 미완료 — 절대 완료로 주장 금지
 1. 현재 운영 Apps Script **최신 실제 코드** 확보 및 배포중인 원본과의 비교. `study-note/mupdf-migration/r5/source/Code.js`는 과거 v21 참조 소스일 뿐 실제 v23 전체 소스가 아님.
