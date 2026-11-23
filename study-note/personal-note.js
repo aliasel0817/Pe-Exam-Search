@@ -459,15 +459,84 @@ async function open(topicId,topicName) {
   }catch(error){if(isOpen())close();alert('개인 노트 열기 실패: '+(error.message||error));}
   finally{opening=false;}
 }
+function exportBackup() {
+  if(!current)return;
+  try {
+    const payload={schemaVersion:1,kind:'personal-note-backup',topicId:current.topicId,
+      topicName:current.topicName,exportedAt:new Date().toISOString(),
+      pages:clone(pages),background:pendingBackground,enabled:pendingEnabled};
+    const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='personal-note-'+current.topicId+'-backup.json';
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    setStatus('개인 노트 JSON 백업 다운로드 요청됨 · 실제 파일 저장 여부를 확인하세요');
+  }catch(error){alert('개인 노트 백업 실패: '+(error.message||error));}
+}
+async function refreshFromCloud(topicId,stored,global) {
+  const cloud=window.PEPersonalNoteCloud;
+  if(!cloud)return;
+  const canApply=()=>isOpen()&&current?.topicId===topicId&&!dirty&&!saving;
+  try {
+    const result=await cloud.pull(topicId,stored,global,cloudMeta);
+    if(!canApply())return;
+    if(!result.available){setStatus('로컬 노트 · 서버 동기화 미활성/오프라인');return;}
+    if(result.conflict){setStatus('⚠ '+result.reason+' JSON 백업 후 확인 필요');return;}
+    if(!result.hasRemoteIndex&&!result.hasRemoteGlobal){
+      setStatus('서버에 개인 노트 없음 · 저장하면 서버로 전송');return;
+    }
+    const nextPages=result.hasRemoteIndex?result.pages.map(validatePage):clone(pages);
+    if(!nextPages.length)nextPages.push(newPage());
+    const nextBackground=result.hasRemoteGlobal?result.background:pendingBackground;
+    const nextEnabled=result.hasRemoteGlobal?result.enabled:pendingEnabled;
+    const nextMeta=result.meta||{};
+    // Never replace in-memory edits made while awaiting network reads.
+    if(!canApply())return;
+    await persistAll(topicId,clone(nextPages),{background:nextBackground,enabled:nextEnabled},nextMeta);
+    if(!canApply())return;
+    pages=nextPages;activePage=0;selectedObjectIndex=-1;
+    pendingBackground=nextBackground;savedBackground=nextBackground;
+    pendingEnabled=nextEnabled;savedEnabled=nextEnabled;cloudMeta=nextMeta;
+    render();
+    setStatus('서버 개인 노트 확인·복원 완료 · 이 기기 로컬에도 저장됨');
+  }catch(error){if(canApply())setStatus('로컬 노트 유지 · 서버 조회 오류: '+(error.message||error));}
+}
 async function save() {
   if(saving||!current)return;
-  saving=true;q('#pnSave').disabled=true;setStatus('저장 중...');
+  const topicId=current.topicId,rows=clone(pages),background=pendingBackground,enabled=pendingEnabled;
+  const config={background,enabled};
+  const serial=editSerial,controls=[...popup.querySelectorAll('button,input,select')];
+  saving=true;controls.forEach(el=>el.disabled=true);setStatus('로컬 저장 중...');
   try {
-    await persistAll(current.topicId,clone(pages),{background:pendingBackground,enabled:pendingEnabled});
-    dirty=false;savedBackground=pendingBackground;savedEnabled=pendingEnabled;
-    setStatus('저장 완료 · 이 기기 브라우저');
-  }catch(error){setStatus('저장 실패 · 다시 시도해 주세요');alert('개인 노트 저장 실패: '+(error.message||error));}
-  finally{saving=false;if(isOpen())q('#pnSave').disabled=false;}
+    await persistAll(topicId,rows,config,cloudMeta);
+    if(serial===editSerial)dirty=false;
+    savedBackground=background;savedEnabled=enabled;
+    setStatus('로컬 저장 완료 · 서버 저장 여부 확인 중...');
+    const cloud=window.PEPersonalNoteCloud;
+    if(!cloud){setStatus('로컬 저장 완료 · 서버 동기화 모듈 없음');return;}
+    try {
+      const result=await cloud.push(topicId,rows,background,enabled,cloudMeta,async (next)=>{
+        cloudMeta={...next};
+        await persistAll(topicId,rows,config,cloudMeta);
+      });
+      if(result.available){
+        cloudMeta={...result.meta};
+        await persistAll(topicId,rows,config,cloudMeta);
+        setStatus('로컬 및 서버 저장 완료 · 검증된 동기화 응답');
+      }else{
+        setStatus('로컬 저장 완료 · 서버 동기화 미지원/오프라인 (추후 재저장 필요)');
+      }
+    }catch(error){
+      setStatus('⚠ 로컬 저장 완료 · 서버 동기화 실패: '+(error.message||error));
+      if(error.conflict)alert('다른 기기의 변경 내용과 충돌하여 서버를 덮어쓰지 않았습니다. 로컬 데이터는 유지됩니다. JSON 백업 후 동기화를 확인해 주세요.');
+    }
+  }catch(error){
+    setStatus('저장 실패 · 로컬 내용은 편집기에 유지됨');
+    alert('개인 노트 로컬 저장 실패: '+(error.message||error));
+  }finally{
+    saving=false;
+    if(isOpen()){controls.forEach(el=>el.disabled=false);updateUi();}
+  }
 }
 window.PEPersonalNote = {open, isOpen};
 })();
