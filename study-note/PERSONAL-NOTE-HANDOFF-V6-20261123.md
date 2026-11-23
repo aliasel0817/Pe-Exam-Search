@@ -15,6 +15,12 @@
 - `.github/workflows/study-note-personal-note.yml`: SVG 파일 변경을 전용 CI 감시 대상으로 추가.
 - 별도 로컬 산출물: 업로드된 PDF의 `번호`, `1쪽`만 제거한 A4 300dpi 실제 이미지 `/mnt/data/answer_sheet_A4_clean_300dpi.png`, `/mnt/data/answer_sheet_A4_clean.pdf`; GitHub에는 현재 선 구조 재현 SVG만 반영됨. 다운로드 링크는 현재 채팅 세션에서만 검증됨.
 
+## 필수 자동검사 최종 근거
+- 개인 노트 전용 GitHub Actions run `45140006327`: `personal-note-checks` SUCCESS, `browser-essentials` SUCCESS.
+- 브라우저 합성검사는 A4 794x1123, 기본 100% 및 125% 왕복, 도구 펼침 방향, 도형 선택, 모바일 390px 화면 가로 스크롤 및 손 도구 이동, 개인 노트 저장/불러오기 확인.
+- 이번 작업에 펜 유형(연필·볼펜·붓펜·만년필) 선택 UI도 추가됨. 기존 도구 엔진 자체를 통째로 이식한 것은 아니며 UI/지원 범위 확장임.
+- 실제 ACTIVE 구글 서버 연결, iPhone Safari/S Pen 실제 사용자 검수 및 운영 Pages 실행은 **하지 않았음**. 합성 검사를 실기기 검수로 보고하지 말 것.
+
 ## 실행/검증 상태
 - GitHub 독립 브랜치 생성 확인. 실제 운영 main은 수정하지 않음.
 - 전용 CI 초기 변경 커밋 PASS; 가장 최신 코드에 대한 Actions Run 상태는 후속 확인할 것.
