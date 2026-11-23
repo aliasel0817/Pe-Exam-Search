@@ -48,7 +48,7 @@ assert.throws(()=>signed('personalnotestatus'),/격리 시험용으로 활성화
 properties.PERSONAL_NOTE_SYNC_MODE='ISOLATED_TEST';
 assert.equal(signed('personalnotestatus').personalNoteSyncReady,true);
 assert.throws(()=>signed('personalnotestatus',{}, {status:'PENDING'}),/HOST_SIGNATURE_OR_STATUS_REQUIRED/);
-assert.throws(()=>ctx.PN1_verifiedPost_('personalnotebegin',{auth:{...hostActive,status:'REVOKED'},data:{}}),/HOST_AUTH_MISSING/);
+assert.throws(()=>ctx.PN1_verifiedPost_('personalnotebegin',{auth:{...hostActive,status:'REVOKED'},data:{}}),e=>e.code==='HOST_AUTH_MISSING');
 assert.throws(()=>signed('unexpected',{}),/허용하지 않은/);
 assert.equal(ctx.PN1_isPost_('constructor'),false);
 const hashId=digest('T9991');
@@ -73,7 +73,7 @@ for(let i=0;i<meta.totalChunks;i++)joined+=signed('personalnotedoc',{key,mode:'c
 assert.equal(digest(joined),sha);
 assert.deepEqual(JSON.parse(Buffer.from(joined,'base64url').toString('utf8')),doc);
 assert.equal(call('personalnotebegin',{key,baseRevision:0,hash:sha,totalChunks:n,length:encoded.length}).conflict,true);
-assert.throws(()=>signed('personalnotedoc',{key,mode:'chunk',revision:0,index:0}),/REVISION_CHANGED/);
+assert.throws(()=>signed('personalnotedoc',{key,mode:'chunk',revision:0,index:0}),e=>e.code==='REVISION_CHANGED');
 const replacement={...doc,pageIds:['page-a']};
 const encoded2=Buffer.from(JSON.stringify(replacement)).toString('base64url');
 const sha2=digest(encoded2),n2=Math.ceil(encoded2.length/ctx.PN1_CHUNK_SIZE_);
@@ -86,7 +86,7 @@ assert.equal(signed('personalnotedoc',{key,mode:'meta'}).revision,2);
 const wrong=start(2);assert(wrong.uploadId);
 for(let i=0;i<n2;i++)call('personalnotepart',{uploadId:wrong.uploadId,index:i,chunk:encoded2.slice(i*ctx.PN1_CHUNK_SIZE_,(i+1)*ctx.PN1_CHUNK_SIZE_)});
 const fake='A'+encoded2.slice(1);
-assert.throws(()=>call('personalnotepart',{uploadId:wrong.uploadId,index:0,chunk:fake}),/CHUNK_CONFLICT/);
+assert.throws(()=>call('personalnotepart',{uploadId:wrong.uploadId,index:0,chunk:fake}),e=>e.code==='CHUNK_CONFLICT');
 assert.throws(()=>ctx.PN1_signedGet_({action:'personalnotedoc',data:{key},token:'BAD'}),/HOST_SIGNATURE_OR_STATUS_REQUIRED/);
 console.log('PERSONAL_NOTE_ISOLATED_SERVER_PASS',JSON.stringify({
  mode:'ISOLATED_TEST',backend:'synthetic',liveSheetWrites:0,activeRequired:true,
