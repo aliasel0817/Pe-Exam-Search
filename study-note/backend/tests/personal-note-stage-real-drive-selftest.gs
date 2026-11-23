@@ -113,10 +113,8 @@ function PN1_stageRealDriveSelfTest() {
     return result;
   } finally {
     // Clean *only* our own newly created isolated artifacts; never touch other folders.
-    for(var k=0;k<protectedKeys.length;k++) {
-      if(createdId && props.getProperty('PERSONAL_NOTE_SYNC_FOLDER_ID')===createdId) {
-        props.deleteProperty(protectedKeys[k]);
-      }
+    if(createdId && props.getProperty('PERSONAL_NOTE_SYNC_FOLDER_ID')===createdId) {
+      for(var k=0;k<protectedKeys.length;k++)props.deleteProperty(protectedKeys[k]);
     }
     if(folder && createdId && folder.getId()===createdId
         && folder.getName().indexOf('PERSONAL_NOTE_ISOLATED_TEST_ONLY_')===0) {
