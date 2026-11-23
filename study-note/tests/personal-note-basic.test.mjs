@@ -17,6 +17,7 @@ test('personal-note entry is in memo actions and existing save button remains', 
 test('isolated assets and entry callback are wired', () => {
   assert.match(html, /href="\.\/personal-note\.css"/);
   assert.match(html, /src="\.\/personal-note\.js"/);
+  assert.match(html, /src="\.\/personal-note-cloud\.js"/);
   assert.match(html, /window\.PEPersonalNote\?\.open\(topicId, topicName\)/);
   assert.match(js, /window\.PEPersonalNote = \{open, isOpen\}/);
 });
@@ -25,7 +26,7 @@ test('separate local database and two stores protect existing MASTER/ink records
   assert.match(js, /const PAPER_STORE = 'papers'/);
   assert.match(js, /const SETTINGS_STORE = 'settings'/);
   assert.doesNotMatch(js, /sendSecureMutation|updateLearningState|replaceAllTopics|pe-study-note-db/);
-  assert.match(js, /persistAll\(current\.topicId,clone\(pages\)/);
+  assert.match(js, /persistAll\(topicId,rows,config,cloudMeta\)/);
 });
 test('global background and multiple per-topic pages retain editable objects', () => {
   assert.match(js, /key:'global'/);
@@ -41,6 +42,13 @@ test('modal closes only by explicit cancel and has unsaved change guard', () => 
   assert.doesNotMatch(js, /layer\.addEventListener\('click'.*close\(/);
   assert.match(css, /#personalNoteModal\[hidden\]/);
 });
-test('local-only limitation is visible instead of false cross-device claim', () => {
-  assert.match(js, /다른 기기와의 공유는 아직 지원하지 않습니다/);
+test('cloud feature uses server capability gating and local data boundary', () => {
+  const cloud=readFileSync(new URL('../personal-note-cloud.js', import.meta.url), 'utf8');
+  const addon=readFileSync(new URL('../backend/personal-note-sync-isolated.addon.gs', import.meta.url), 'utf8');
+  assert.match(cloud, /personalNoteSyncReady===true/);
+  assert.match(cloud, /hasActiveSecuritySession\(\)/);
+  assert.match(js, /서버 동기화/);
+  assert.match(addon, /PERSONAL_NOTE_SYNC_MODE/);
+  assert.match(addon, /ISOLATED_TEST/);
+  assert.doesNotMatch(addon, /SpreadsheetApp\./);
 });
