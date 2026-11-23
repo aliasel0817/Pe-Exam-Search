@@ -437,11 +437,11 @@ function cancel() {
   if(dirty&&!confirm('저장하지 않은 개인 노트 변경 사항이 있습니다. 저장하지 않고 닫으시겠습니까?'))return;
   close();
 }
-function validUnit(value) {return Number.isFinite(value)&&value>=0&&value<=1;}
+function validUnit(value) { return Number.isFinite(value) && value>=0 && value<=1; }
 function validateBackgroundAsset(value) {
-  if(value==null||value==='')return null;
-  if(typeof value!=='string'||value.length>9*1024*1024
-    ||!new RegExp('^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+
+  if(value==null || value==='')return null;
+  const pattern=new RegExp('^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$');
+  if(typeof value!=='string' || value.length>9*1024*1024 || !pattern.test(value))
     throw new Error('이미지 데이터 형식이 유효하지 않습니다. 원본을 덮어쓰지 않습니다.');
   return value;
 }
@@ -449,201 +449,24 @@ function validatePage(record) {
   if(!record||typeof record!=='object'||!/^[A-Za-z0-9_-]{1,80}$/.test(String(record.id||''))
     ||!Array.isArray(record.objects)||record.objects.length>5000)
     throw new Error('저장된 개인 노트 페이지 스키마가 올바르지 않습니다.');
-  for(const obj of record.objects){
+  for(const obj of record.objects) {
     if(!obj||typeof obj!=='object'||typeof obj.id!=='string')throw new Error('개인 노트 객체 ID 오류');
-    if(obj.type==='stroke'){
+    if(obj.type==='stroke') {
       if(!Array.isArray(obj.points)||obj.points.length<1||obj.points.length>50000
         ||obj.points.some(p=>!validUnit(p.x)||!validUnit(p.y)))throw new Error('개인 노트 필기 좌표 오류');
-    }else if(obj.type==='shape'){
-      if(!['line','arrow','rect','ellipse'].includes(obj.shape)
-        ||!obj.start||!obj.end||!validUnit(obj.start.x)||!validUnit(obj.start.y)
+    } else if(obj.type==='shape') {
+      if(!['line','arrow','rect','ellipse'].includes(obj.shape)||!obj.start||!obj.end
+        ||!validUnit(obj.start.x)||!validUnit(obj.start.y)
         ||!validUnit(obj.end.x)||!validUnit(obj.end.y))throw new Error('개인 노트 도형 좌표 오류');
-    }else if(obj.type==='text'){
-      if(typeof obj.text!=='string'||obj.text.length>2000||!validUnit(obj.x)||!validUnit(obj.y)
-        ||!Number.isFinite(obj.size)||obj.size<1||obj.size>200)
-        throw new Error('개인 노트 글자 객체 오류');
-    }else if(obj.type==='image'){
+    } else if(obj.type==='text') {
+      if(typeof obj.text!=='string'||obj.text.length>2000
+        ||!validUnit(obj.x)||!validUnit(obj.y)
+        ||!Number.isFinite(obj.size)||obj.size<1||obj.size>200)throw new Error('개인 노트 글자 객체 오류');
+    } else if(obj.type==='image') {
       validateBackgroundAsset(obj.src);
-      if(!validUnit(obj.x)||!validUnit(obj.y)||!validUnit(obj.w)||!validUnit(obj.h)||obj.w<=0||obj.h<=0)
-        throw new Error('개인 노트 사진 위치 오류');
-    }else throw new Error('지원하지 않는 개인 노트 객체 형식');
-  }
-  return {id:String(record.id),objects:clone(record.objects)};
-}
-async function open(topicId,topicName) {
-  if(isOpen()||opening)return;
-  if(!topicId){alert('먼저 토픽을 선택하세요.');return;}
-  opening=true;
-  try {
-    lastFocus=document.activeElement;
-    const [stored,global]=await Promise.all([dbRead(PAPER_STORE,topicId),dbRead(SETTINGS_STORE,'global')]);
-    pages=(Array.isArray(stored?.pages)&&stored.pages.length?stored.pages:[newPage()]).slice(0,MAX_PAGES).map(validatePage);
-    activePage=0;current={topicId,topicName:String(topicName||topicId)};
-    pendingBackground=global?.background||null;
-    cloudMeta={...(stored?.cloudMeta||{}),...(global?.cloudMeta||{})};
-    savedBackground=pendingBackground;
-    pendingEnabled=global?.enabled!==false;
-    savedEnabled=pendingEnabled;
-    dirty=false;editSerial=0;history=[];redo=[];saving=false;currentTool='pen';selectedObjectIndex=-1;
-    createUi();q('#pnTopic').textContent=current.topicName+' · 개인 노트';
-    popup.hidden=false;q('#pnCancel').focus();
-    setStatus(stored?'저장된 노트 불러옴 · 로컬 저장':'새 개인 노트 · 로컬 저장');
-    render();
-    void refreshFromCloud(topicId,stored,global);
-  }catch(error){if(isOpen())close();alert('개인 노트 열기 실패: '+(error.message||error));}
-  finally{opening=false;}
-}
-function exportBackup() {
-  if(!current)return;
-  try {
-    const payload={schemaVersion:1,kind:'personal-note-backup',topicId:current.topicId,
-      topicName:current.topicName,exportedAt:new Date().toISOString(),
-      pages:clone(pages),background:pendingBackground,enabled:pendingEnabled};
-    const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
-    const url=URL.createObjectURL(blob),link=document.createElement('a');
-    link.href=url;link.download='personal-note-'+current.topicId+'-backup.json';
-    document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),3000);
-    setStatus('개인 노트 JSON 백업 다운로드 요청됨 · 실제 파일 저장 여부를 확인하세요');
-  }catch(error){alert('개인 노트 백업 실패: '+(error.message||error));}
-}
-
-async function importBackup(file) {
-  if(!current||saving)return;
-  try {
-    if(file.size>25*1024*1024)throw new Error('JSON 백업 크기가 25MB를 초과합니다.');
-    const data=JSON.parse(await file.text());
-    if(data?.kind!=='personal-note-backup'||data.schemaVersion!==1
-      ||data.topicId!==current.topicId||!Array.isArray(data.pages)
-      ||data.pages.length<1||data.pages.length>MAX_PAGES)throw new Error('현재 토픽의 개인 노트 백업이 아닙니다.');
-    const restored=data.pages.map(validatePage),background=validateBackgroundAsset(data.background);
-    if(!isOpen()||saving)return;
-    if(!confirm('현재 개인 노트 페이지를 JSON 백업 내용으로 교체할까요? 저장 전에는 취소할 수 있습니다.'))return;
-    recordHistory();pages=restored;activePage=0;selectedObjectIndex=-1;
-    pendingBackground=background;pendingEnabled=data.enabled!==false;
-    refreshDirty();render();setStatus('백업을 편집기에 불러왔습니다 · 저장을 눌러 확정하세요');
-  }catch(error){alert('JSON 백업 복원 실패: '+(error.message||error));}
-}
-async function restoreFromCloud() {
-  if(!current||saving)return;
-  const cloud=window.PEPersonalNoteCloud;
-  if(!cloud||!await cloud.available()){alert('현재 ACTIVE 인증 또는 개인 노트 서버 연결이 준비되지 않았습니다.');return;}
-  if(!confirm('서버 노트로 복원하기 전에 현재 개인 노트의 JSON 백업을 다운로드하시겠습니까?'))return;
-  exportBackup();
-  if(!confirm('백업 JSON 파일이 기기에 실제로 저장됐는지 확인해 주세요. 계속하면 현재 노트가 서버 저장본으로 대체됩니다.'))return;
-  const topicId=current.topicId,controls=[...popup.querySelectorAll('button,input,select')];
-  saving=true;controls.forEach(el=>el.disabled=true);setStatus('서버 저장본 확인 중...');
-  try {
-    const localPaper={topicId,pages:clone(pages)};
-    const localGlobal={background:pendingBackground,enabled:pendingEnabled};
-    const result=await cloud.pull(topicId,localPaper,localGlobal,cloudMeta,true);
-    if(!result.available||!result.hasRemoteIndex)throw new Error('서버에 이 토픽의 개인 노트가 없습니다.');
-    if(!isOpen()||current?.topicId!==topicId)throw new Error('개인 노트 화면이 변경되었습니다.');
-    const nextPages=result.pages.map(validatePage);
-    if(!nextPages.length)throw new Error('서버 페이지가 비어 있습니다.');
-    const bg=result.hasRemoteGlobal?validateBackgroundAsset(result.background):pendingBackground;
-    const en=result.hasRemoteGlobal?result.enabled:pendingEnabled;
-    await persistAll(topicId,clone(nextPages),{background:bg,enabled:en},result.meta);
-    pages=nextPages;activePage=0;selectedObjectIndex=-1;pendingBackground=bg;pendingEnabled=en;
-    savedBackground=bg;savedEnabled=en;cloudMeta=result.meta;dirty=false;
-    render();setStatus('서버 저장본 복원 및 로컬 저장 완료');
-  }catch(error){setStatus('서버 복원 실패 · 기존 로컬 노트 유지');alert('서버 복원 실패: '+(error.message||error));}
-  finally{saving=false;if(isOpen()){controls.forEach(el=>el.disabled=false);updateUi();}}
-}
-
-async function refreshFromCloud(topicId,stored,global) {
-  const cloud=window.PEPersonalNoteCloud;
-  if(!cloud)return;
-  const canApply=()=>isOpen()&&current?.topicId===topicId&&!dirty&&!saving;
-  try {
-    const result=await cloud.pull(topicId,stored,global,cloudMeta);
-    if(!canApply())return;
-    if(!result.available){setStatus('로컬 노트 · 서버 동기화 미활성/오프라인');return;}
-    if(result.conflict){setStatus('⚠ '+result.reason+' JSON 백업 후 확인 필요');return;}
-    if(!result.hasRemoteIndex&&!result.hasRemoteGlobal){
-      setStatus('서버에 개인 노트 없음 · 저장하면 서버로 전송');return;
-    }
-    const nextPages=result.hasRemoteIndex?result.pages.map(validatePage):clone(pages);
-    if(!nextPages.length)nextPages.push(newPage());
-    const nextBackground=result.hasRemoteGlobal?validateBackgroundAsset(result.background):pendingBackground;
-    const nextEnabled=result.hasRemoteGlobal?result.enabled:pendingEnabled;
-    const nextMeta=result.meta||{};
-    // Never replace in-memory edits made while awaiting network reads.
-    if(!canApply())return;
-    await persistAll(topicId,clone(nextPages),{background:nextBackground,enabled:nextEnabled},nextMeta);
-    if(!canApply())return;
-    pages=nextPages;activePage=0;selectedObjectIndex=-1;
-    pendingBackground=nextBackground;savedBackground=nextBackground;
-    pendingEnabled=nextEnabled;savedEnabled=nextEnabled;cloudMeta=nextMeta;
-    render();
-    setStatus('서버 개인 노트 확인·복원 완료 · 이 기기 로컬에도 저장됨');
-  }catch(error){if(canApply())setStatus('로컬 노트 유지 · 서버 조회 오류: '+(error.message||error));}
-}
-async function save() {
-  if(saving||!current)return;
-  const topicId=current.topicId,rows=clone(pages),background=pendingBackground,enabled=pendingEnabled;
-  const config={background,enabled};
-  const serial=editSerial,controls=[...popup.querySelectorAll('button,input,select')];
-  saving=true;controls.forEach(el=>el.disabled=true);setStatus('로컬 저장 중...');
-  try {
-    await persistAll(topicId,rows,config,cloudMeta);
-    if(serial===editSerial)dirty=false;
-    savedBackground=background;savedEnabled=enabled;
-    setStatus('로컬 저장 완료 · 서버 저장 여부 확인 중...');
-    const cloud=window.PEPersonalNoteCloud;
-    if(!cloud){setStatus('로컬 저장 완료 · 서버 동기화 모듈 없음');return;}
-    try {
-      const result=await cloud.push(topicId,rows,background,enabled,cloudMeta,async (next)=>{
-        cloudMeta={...next};
-        await persistAll(topicId,rows,config,cloudMeta);
-      });
-      if(result.available){
-        cloudMeta={...result.meta};
-        await persistAll(topicId,rows,config,cloudMeta);
-        setStatus('로컬 및 서버 저장 완료 · 검증된 동기화 응답');
-      }else{
-        setStatus('로컬 저장 완료 · 서버 동기화 미지원/오프라인 (추후 재저장 필요)');
-      }
-    }catch(error){
-      setStatus('⚠ 로컬 저장 완료 · 서버 동기화 실패: '+(error.message||error));
-      if(error.conflict)alert('다른 기기의 변경 내용과 충돌하여 서버를 덮어쓰지 않았습니다. 로컬 데이터는 유지됩니다. JSON 백업 후 동기화를 확인해 주세요.');
-    }
-  }catch(error){
-    setStatus('저장 실패 · 로컬 내용은 편집기에 유지됨');
-    alert('개인 노트 로컬 저장 실패: '+(error.message||error));
-  }finally{
-    saving=false;
-    if(isOpen()){controls.forEach(el=>el.disabled=false);updateUi();}
-  }
-}
-window.PEPersonalNote = {open, isOpen};
-})();
-).test(value))
-    throw new Error('이미지 데이터 형식이 유효하지 않습니다. 원본을 덮어쓰지 않습니다.');
-  return value;
-}
-function validatePage(record) {
-  if(!record||typeof record!=='object'||!/^[A-Za-z0-9_-]{1,80}$/.test(String(record.id||''))
-    ||!Array.isArray(record.objects)||record.objects.length>5000)
-    throw new Error('저장된 개인 노트 페이지 스키마가 올바르지 않습니다.');
-  for(const obj of record.objects){
-    if(!obj||typeof obj!=='object'||typeof obj.id!=='string')throw new Error('개인 노트 객체 ID 오류');
-    if(obj.type==='stroke'){
-      if(!Array.isArray(obj.points)||obj.points.length<1||obj.points.length>50000
-        ||obj.points.some(p=>!validUnit(p.x)||!validUnit(p.y)))throw new Error('개인 노트 필기 좌표 오류');
-    }else if(obj.type==='shape'){
-      if(!['line','arrow','rect','ellipse'].includes(obj.shape)
-        ||!obj.start||!obj.end||!validUnit(obj.start.x)||!validUnit(obj.start.y)
-        ||!validUnit(obj.end.x)||!validUnit(obj.end.y))throw new Error('개인 노트 도형 좌표 오류');
-    }else if(obj.type==='text'){
-      if(typeof obj.text!=='string'||obj.text.length>2000||!validUnit(obj.x)||!validUnit(obj.y)
-        ||!Number.isFinite(obj.size)||obj.size<1||obj.size>200)
-        throw new Error('개인 노트 글자 객체 오류');
-    }else if(obj.type==='image'){
-      validateBackgroundAsset(obj.src);
-      if(!validUnit(obj.x)||!validUnit(obj.y)||!validUnit(obj.w)||!validUnit(obj.h)||obj.w<=0||obj.h<=0)
-        throw new Error('개인 노트 사진 위치 오류');
-    }else throw new Error('지원하지 않는 개인 노트 객체 형식');
+      if(!validUnit(obj.x)||!validUnit(obj.y)||!validUnit(obj.w)||!validUnit(obj.h)
+        ||obj.w<=0||obj.h<=0)throw new Error('개인 노트 사진 위치 오류');
+    } else throw new Error('지원하지 않는 개인 노트 객체 형식');
   }
   return {id:String(record.id),objects:clone(record.objects)};
 }
