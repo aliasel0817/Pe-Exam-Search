@@ -26,7 +26,8 @@ test('separate local database and two stores protect existing MASTER/ink records
   assert.match(js, /const PAPER_STORE = 'papers'/);
   assert.match(js, /const SETTINGS_STORE = 'settings'/);
   assert.doesNotMatch(js, /sendSecureMutation|updateLearningState|replaceAllTopics|pe-study-note-db/);
-  assert.match(js, /persistAll\(topicId,rows,config,cloudMeta\)/);
+  assert.match(js, /persistAll\(topicId,rows,config,cloudMeta,true\)/);
+  assert.match(js, /syncPending:true|syncPending=stored\?\.syncPending===true/);
 });
 test('global background and multiple per-topic pages retain editable objects', () => {
   assert.match(js, /key:'global'/);
