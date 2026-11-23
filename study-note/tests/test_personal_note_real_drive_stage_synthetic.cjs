@@ -11,7 +11,7 @@ const script=content('backend/personal-note-sync-isolated.addon.gs')+'\n'+
   content('backend/tests/personal-note-stage-real-drive-selftest.gs');
 const scriptId='FAKE_ISOLATED_SCRIPT_20261123_ABC';
 const store=new Map([['UNRELATED_USER_SETTING','PRESERVE']]);
-const created=[];
+const created=[],messages=[];
 let seq=0;
 class File {
   constructor(name,body){this.name=name;this.body=body;this.trash=false;}
@@ -43,7 +43,7 @@ const lock=(which)=>({waitLock:()=>{
 },releaseLock:()=>{
   if(which==='user')userLockTaken=false;else scriptLockTaken=false;
 }});
-const ctx={JSON,Math,Date,Number,String,Array,Object,RegExp,Error,parseInt,isNaN,isFinite,
+const ctx={console:{log:(message)=>messages.push(String(message))},JSON,Math,Date,Number,String,Array,Object,RegExp,Error,parseInt,isNaN,isFinite,
  MimeType:{PLAIN_TEXT:'text/plain'},ScriptApp:{getScriptId:()=>scriptId},
  DriveApp:{
    createFolder:name=>{assert.match(name,/^PERSONAL_NOTE_ISOLATED_TEST_ONLY_/);const x=new Folder(name);created.push(x);return x;},
@@ -67,6 +67,7 @@ assert.equal(r.roundtrip,true);
 assert.equal(r.invalidStatusDenied,true);
 assert.equal(r.casConflict,true);
 assert.equal(r.cleanup,true);
+assert.match(messages.join('\n'),/PERSONAL_NOTE_STAGE_REAL_DRIVE_PASS/);
 assert.equal(created.length,1);
 assert.equal(created[0].trash,true);
 assert.equal(created[0].files.filter(x=>!x.trash&&x.name.startsWith('pn1-doc-')).length,4);
