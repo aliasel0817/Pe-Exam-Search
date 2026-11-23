@@ -42,6 +42,12 @@ test('modal closes only by explicit cancel and has unsaved change guard', () => 
   assert.doesNotMatch(js, /layer\.addEventListener\('click'.*close\(/);
   assert.match(css, /#personalNoteModal\[hidden\]/);
 });
+test('PWA caches editor assets for offline use', () => {
+  const sw=readFileSync(new URL('../service-worker.js',import.meta.url),'utf8');
+  for(const asset of ['personal-note.js','personal-note.css','personal-note-cloud.js'])
+    assert.match(sw,new RegExp(asset.replaceAll('.','\\.')));
+  assert.match(sw,/isPersonalNoteAsset/);
+});
 test('cloud feature uses server capability gating and local data boundary', () => {
   const cloud=readFileSync(new URL('../personal-note-cloud.js', import.meta.url), 'utf8');
   const addon=readFileSync(new URL('../backend/personal-note-sync-isolated.addon.gs', import.meta.url), 'utf8');
