@@ -175,7 +175,8 @@ function renderTo(target, items, background, enabled) {
     target.strokeStyle=obj.color||'#172033';
     target.fillStyle=obj.color||'#172033';
     target.lineCap='round';target.lineJoin='round';
-    target.lineWidth=(obj.width||4)*W/PAPER_WIDTH;
+    target.lineWidth=(obj.width||4)*W/PAPER_WIDTH *
+      (obj.type==='stroke'&&obj.penStyle==='brush'?1.6:obj.type==='stroke'&&obj.penStyle==='fountain'?1.3:1);
     if(obj.type==='stroke') {
       const points=obj.points||[];
       if(points.length) {
@@ -311,7 +312,10 @@ function onPointerDown(ev) {
     return;
   }
   recordHistory();
-  const common={id:id(),color:color(),width:lineWidth(),opacity:currentTool==='highlighter'?.35:1};
+  const penStyle=q('#pnPenStyle').value;
+  const common={id:id(),color:color(),width:lineWidth(),
+    penStyle:currentTool==='pen'?penStyle:'highlighter',
+    opacity:currentTool==='highlighter'?.35:currentTool==='pen'&&penStyle==='pencil'?.85:1};
   let obj;
   if(currentTool==='pen'||currentTool==='highlighter')obj={...common,type:'stroke',points:[p]};
   else obj={...common,type:'shape',shape:currentTool,start:p,end:p};
@@ -431,6 +435,12 @@ function createUi() {
     <div class="personal-note-toolbar" id="pnTools" role="toolbar" aria-label="그림판 도구">
       <button type="button" data-pn-tool="pen" aria-pressed="true" title="펜">✏</button>
       <button type="button" data-pn-tool="highlighter" aria-pressed="false" title="형광펜">🖍</button>
+      <label title="기존 PDF·교재·서브노트 필기 도구와 같은 펜 유형">펜
+        <select id="pnPenStyle" aria-label="펜 종류">
+          <option value="pencil">연필</option><option value="ballpoint" selected>볼펜</option>
+          <option value="brush">붓펜</option><option value="fountain">만년필</option>
+        </select>
+      </label>
       <button type="button" data-pn-tool="line" aria-pressed="false" title="직선">／</button>
       <button type="button" data-pn-tool="arrow" aria-pressed="false" title="화살표">➜</button>
       <button type="button" data-pn-tool="rect" aria-pressed="false" title="사각형">▭</button>
