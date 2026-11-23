@@ -41,6 +41,7 @@ let saving = false;
 let opening = false;
 let cloudMeta = {};
 let editSerial = 0;
+let cloudCapability = false;
 
 function id() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -214,6 +215,7 @@ function updateUi() {
   q('#pnUndo').disabled=history.length===0;
   q('#pnRedo').disabled=redo.length===0;
   q('#pnBackgroundEnabled').checked=pendingEnabled;
+  q('#pnCloudRestore').disabled = !cloudCapability;
   q('#pnBackgroundEnabled').disabled=false;
   popup.querySelectorAll('[data-pn-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pnTool===currentTool)));
   canvas.dataset.tool=currentTool;
@@ -366,11 +368,11 @@ function createUi() {
       <button type="button" id="pnExport">PNG 저장</button>
       <button type="button" id="pnBackup" title="편집 가능한 전체 노트와 배경 JSON 백업">JSON 백업</button>
       <button type="button" id="pnImport" title="JSON 백업 파일 불러오기">JSON 복원</button>
-      <button type="button" id="pnCloudRestore" title="로컬 노트 백업 확인 후 서버 저장본으로 복원">서버 복원</button>
+      <button type="button" id="pnCloudRestore" title="인증된 개인 노트 서버가 활성화된 경우에만 사용 가능" disabled>서버 복원</button>
       <button type="button" id="pnCancel">취소</button>
       <button type="button" id="pnSave">저장</button>
     </footer>
-    <div class="personal-note-hint">개인 노트는 이 기기에 먼저 저장됩니다. 인증된 개인 노트 서버 지원 시 동기화하며, 미지원 시 로컬만 보존합니다.</div>
+    <div class="personal-note-hint">현재 개인 노트는 이 기기의 브라우저에 저장됩니다. 다른 기기와 자동 공유되지 않으므로 중요한 노트는 JSON 백업을 보관하세요. 서버 동기화는 운영 서버에서 지원할 때만 활성화됩니다.</div>
     <input type="file" class="personal-note-file-input" id="pnBackgroundFile" accept="image/png,image/jpeg,image/webp">
     <input type="file" class="personal-note-file-input" id="pnImageFile" accept="image/png,image/jpeg,image/webp">
     <input type="file" class="personal-note-file-input" id="pnBackupFile" accept="application/json,.json">
@@ -429,7 +431,7 @@ function createUi() {
 function close() {
   if(!popup)return;
   popup.hidden=true;stageObserver?.disconnect();stageObserver=null;window.removeEventListener('keydown',handleKeys,true);canvas=null;popup.remove();popup=null;current=null;
-  history=[];redo=[];stroke=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};imageCache.clear();
+  history=[];redo=[];stroke=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;imageCache.clear();
   if(lastFocus?.isConnected)lastFocus.focus();
 }
 function cancel() {
@@ -484,7 +486,7 @@ async function open(topicId,topicName) {
     savedBackground=pendingBackground;
     pendingEnabled=global?.enabled!==false;
     savedEnabled=pendingEnabled;
-    dirty=false;editSerial=0;history=[];redo=[];saving=false;currentTool='pen';selectedObjectIndex=-1;
+    dirty=false;editSerial=0;history=[];redo=[];saving=false;cloudCapability=false;currentTool='pen';selectedObjectIndex=-1;
     createUi();q('#pnTopic').textContent=current.topicName+' · 개인 노트';
     popup.hidden=false;q('#pnCancel').focus();
     setStatus(stored?'저장된 노트 불러옴 · 로컬 저장':'새 개인 노트 · 로컬 저장');
@@ -559,6 +561,7 @@ async function refreshFromCloud(topicId,stored,global) {
     const result=await cloud.pull(topicId,stored,global,cloudMeta);
     if(!canApply())return;
     if(!result.available){setStatus('로컬 노트 · 서버 동기화 미활성/오프라인');return;}
+    cloudCapability=true;updateUi();
     if(result.conflict){setStatus('⚠ '+result.reason+' JSON 백업 후 확인 필요');return;}
     if(!result.hasRemoteIndex&&!result.hasRemoteGlobal){
       setStatus('서버에 개인 노트 없음 · 저장하면 서버로 전송');return;
@@ -598,6 +601,7 @@ async function save() {
         await persistAll(topicId,rows,config,cloudMeta);
       });
       if(result.available){
+        cloudCapability=true;
         cloudMeta={...result.meta};
         await persistAll(topicId,rows,config,cloudMeta);
         setStatus('로컬 및 서버 저장 완료 · 검증된 동기화 응답');
