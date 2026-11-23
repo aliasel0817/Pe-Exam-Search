@@ -32,7 +32,7 @@ test('global background and multiple per-topic pages retain editable objects', (
   assert.match(js, /key:'global'/);
   assert.match(js, /background:config\.background,enabled:config\.enabled/);
   assert.match(js, /pages\.splice\(activePage\+1,0,newPage\(\)\)/);
-  assert.match(js, /\['stroke','shape','text','image'\]/);
+  for (const t of ['stroke','shape','text','image']) assert.match(js, new RegExp("obj\\.type==='" + t + "'"));
   assert.match(js, /q\('#pnBackgroundEnabled'\)\.addEventListener\('change'/);
 });
 test('modal closes only by explicit cancel and has unsaved change guard', () => {
