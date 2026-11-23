@@ -1,8 +1,11 @@
 // Study planner additive rollout; keep existing shell caching semantics.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-9-planner-sync-final-20261115';
+const CACHE_NAME = 'pe-study-note-shell-v4-6-10-personal-notes-20261123';
 const APP_SHELL = [
   './study-note.html',
   './image-upload-optimizer.js',
+  './personal-note.js',
+  './personal-note.css',
+  './personal-note-cloud.js',
   './manifest.webmanifest',
   './study-planner.js',
   './study-planner-sync.js',
@@ -43,10 +46,12 @@ self.addEventListener('fetch', event => {
     '/study-planner-migration.js','/study-planner-migration-ui.js',
     '/study-plans/pe141-100days.json'].some(asset => url.pathname.endsWith(asset));
   const isImageOptimizerAsset = url.pathname.endsWith('/image-upload-optimizer.js');
-  if (!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isImageOptimizerAsset) return;
+  const isPersonalNoteAsset = ['/personal-note.js','/personal-note.css','/personal-note-cloud.js']
+    .some(asset => url.pathname.endsWith(asset));
+  if (!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isImageOptimizerAsset && !isPersonalNoteAsset) return;
 
   // HTML은 network-first: GitHub에 새 버전을 올리면 다음 접속/새로고침에서 우선 최신 파일을 사용한다.
-  if (isStudyNoteHtml || isPlannerAsset || isImageOptimizerAsset) {
+  if (isStudyNoteHtml || isPlannerAsset || isImageOptimizerAsset || isPersonalNoteAsset) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
         .then(response => {
