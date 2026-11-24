@@ -7,12 +7,16 @@ on:
       - 'study-note/personal-note-cloud.js'
       - 'study-note/backend/personal-note-sync-isolated.addon.gs'
       - 'study-note/backend/personal-note-sync-signed-bridge.addon.gs'
+      - 'study-note/backend/tools/patch_personal_note_v23_host.cjs'
       - 'study-note/tests/test_personal_note_browser.cjs'
       - 'study-note/tests/test_personal_note_full_app.cjs'
       - 'study-note/service-worker.js'
       - 'study-note/tests/test_personal_note_isolated_backend.cjs'
       - 'study-note/tests/test_personal_note_cloud_synthetic.cjs'
       - 'study-note/tests/test_personal_note_real_code_contract.cjs'
+      - 'study-note/tests/test_personal_note_production_gate.cjs'
+      - 'study-note/tests/test_personal_note_sealed_release.cjs'
+      - 'study-note/tests/test_personal_note_v23_host_patch.cjs'
       - 'study-note/tests/test_personal_note_real_drive_stage_synthetic.cjs'
       - 'study-note/backend/tests/personal-note-stage-real-drive-selftest.gs'
       - 'study-note/personal-note.css'
@@ -41,6 +45,9 @@ jobs:
           node study-note/tests/test_personal_note_cloud_synthetic.cjs
           node study-note/tests/test_personal_note_real_code_contract.cjs
           node study-note/tests/test_personal_note_real_drive_stage_synthetic.cjs
+          node study-note/tests/test_personal_note_production_gate.cjs
+          node study-note/tests/test_personal_note_sealed_release.cjs
+          node study-note/tests/test_personal_note_v23_host_patch.cjs
   browser-essentials:
     runs-on: ubuntu-latest
     timeout-minutes: 8

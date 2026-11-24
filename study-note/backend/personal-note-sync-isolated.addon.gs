@@ -9,12 +9,26 @@
  *  PERSONAL_NOTE_SYNC_READY=READY:<same folder id>
  * The folder MUST contain a marker named PERSONAL_NOTE_ISOLATED_TEST_ONLY.
  * Never point to a live content/PDF/learning Drive folder.
+ *
+ * PRODUCTION is fail-closed until a separate explicit approval of a NEW private
+ * Drive folder named PeExamPersonalNotesProduction with one marker file named
+ * PERSONAL_NOTE_PRODUCTION_ONLY containing that same text. Separate properties:
+ *  PERSONAL_NOTE_SYNC_MODE=PRODUCTION
+ *  PERSONAL_NOTE_SYNC_FOLDER_ID=<new private folder id>
+ *  PERSONAL_NOTE_SYNC_READY=READY:<same id>
+ *  PERSONAL_NOTE_SYNC_PRODUCTION_APPROVED=APPROVED:<same id>
+ *  PERSONAL_NOTE_SYNC_WRITE_ENABLED=ENABLED:<same id>
+ * This source addition does NOT create the folder or set any properties.
+ * NEVER add these properties or deploy this server without an additional
+ * explicit user authorization after real ACTIVE/HMAC testing.
  */
 var PN1_MAX_ENCODED_LENGTH_ = 8 * 1024 * 1024;
 var PN1_CHUNK_SIZE_ = 16384;
 var PN1_MAX_CHUNKS_ = 512;
 var PN1_STAGE_TTL_MS_ = 60 * 60 * 1000;
 var PN1_MARKER_ = 'PERSONAL_NOTE_ISOLATED_TEST_ONLY';
+var PN1_PRODUCTION_MARKER_ = 'PERSONAL_NOTE_PRODUCTION_ONLY';
+var PN1_PRODUCTION_FOLDER_NAME_ = 'PeExamPersonalNotesProduction';
 
 function PN1_error_(code, message) {
   var error = new Error(message || code);
@@ -102,16 +116,88 @@ function PN1_validatePayload_(payload, key) {
     } else PN1_error_('INVALID_PAYLOAD');
   }
 }
+// Optional, sealed release configuration is generated ONLY into the operating
+// Apps Script during authorized rollout. No ID or secret is stored in GitHub.
+// A signed ACTIVE request can initialize the five *personal-note-only* properties
+// once after strict independent Drive folder verification. No MASTER writes.
+function PN1_bootstrapSealedRelease_() {
+  if (typeof PN1_SEALED_RELEASE_CONFIG_ === 'undefined') return false;
+  var cfg=PN1_SEALED_RELEASE_CONFIG_;
+  if (!cfg || cfg.approved !== true || !/^[A-Za-z0-9_-]{20,}$/.test(PN1_clean_(cfg.folderId))
+      || !/^[A-Za-z0-9_-]{20,}$/.test(PN1_clean_(cfg.expectedScriptId))) PN1_error_('RELEASE_BLOCKED');
+  if (typeof ScriptApp === 'undefined' || ScriptApp.getScriptId()!==cfg.expectedScriptId)
+    PN1_error_('RELEASE_BLOCKED', '승인된 운영 스크립트가 아닙니다.');
+  var keys=['PERSONAL_NOTE_SYNC_MODE','PERSONAL_NOTE_SYNC_FOLDER_ID','PERSONAL_NOTE_SYNC_READY',
+    'PERSONAL_NOTE_SYNC_PRODUCTION_APPROVED','PERSONAL_NOTE_SYNC_WRITE_ENABLED'];
+  var props=PropertiesService.getScriptProperties();
+  var lock=LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    // Refuse any partially configured or externally modified release state.
+    var current=keys.map(function(k){return PN1_clean_(props.getProperty(k));});
+    if (current.some(Boolean)) PN1_error_('RELEASE_BLOCKED', '기존 개인 노트 설정이 있어 자동 변경하지 않습니다.');
+    if (cfg.folderId === PN1_clean_(props.getProperty('STUDY_NOTE_SPREADSHEET_ID'))
+        || cfg.folderId === PN1_clean_(props.getProperty('PLANNER_SYNC_TEST_SPREADSHEET_ID'))
+        || cfg.folderId === PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_TEST_FOLDER_ID')))
+      PN1_error_('WRONG_FOLDER');
+    var folder=DriveApp.getFolderById(cfg.folderId);
+    if (!folder || folder.getName()!==PN1_PRODUCTION_FOLDER_NAME_ || folder.getFilesByName(PN1_MARKER_).hasNext())
+      PN1_error_('FOLDER_NOT_APPROVED');
+    var markers=folder.getFilesByName(PN1_PRODUCTION_MARKER_);
+    if(!markers.hasNext())PN1_error_('FOLDER_NOT_APPROVED');
+    var m=markers.next();
+    if(markers.hasNext() || m.getBlob().getDataAsString('UTF-8').trim()!==PN1_PRODUCTION_MARKER_)
+      PN1_error_('FOLDER_NOT_APPROVED');
+    var approved={};
+    approved.PERSONAL_NOTE_SYNC_MODE='PRODUCTION';
+    approved.PERSONAL_NOTE_SYNC_FOLDER_ID=cfg.folderId;
+    approved.PERSONAL_NOTE_SYNC_READY='READY:'+cfg.folderId;
+    approved.PERSONAL_NOTE_SYNC_PRODUCTION_APPROVED='APPROVED:'+cfg.folderId;
+    approved.PERSONAL_NOTE_SYNC_WRITE_ENABLED='ENABLED:'+cfg.folderId;
+    props.setProperties(approved,false);
+    return true;
+  } finally {lock.releaseLock();}
+}
 function PN1_folder_() {
   var props = PropertiesService.getScriptProperties();
   var mode = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_MODE'));
+  // This function is reached only after PN1_auth_ accepts a signed ACTIVE
+  // device. Never auto-provision on an unauthenticated request.
+  if (!mode) { PN1_bootstrapSealedRelease_(); mode = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_MODE')); }
   var id = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_FOLDER_ID'));
-  var approved = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_READY'));
-  if (mode !== 'ISOLATED_TEST' || !/^[A-Za-z0-9_-]{20,}$/.test(id) || approved !== 'READY:' + id) {
-    PN1_error_('DISABLED', '개인 노트 저장소가 격리 시험용으로 활성화되지 않았습니다.');
+  var ready = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_READY'));
+  if (!/^[A-Za-z0-9_-]{20,}$/.test(id) || ready !== 'READY:' + id)
+    PN1_error_('DISABLED', '승인된 개인 노트 저장소가 없습니다.');
+  if (mode !== 'ISOLATED_TEST' && mode !== 'PRODUCTION')
+    PN1_error_('DISABLED', '개인 노트 서버 기능이 비활성화되어 있습니다.');
+  // A production folder must be explicitly approved IN ADDITION TO the normal
+  // folder/READY properties. Never convert an old planner/annotation folder.
+  if (mode === 'PRODUCTION') {
+    if (PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_PRODUCTION_APPROVED')) !== 'APPROVED:' + id
+        || PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_WRITE_ENABLED')) !== 'ENABLED:' + id)
+      PN1_error_('RELEASE_BLOCKED', '개인 노트 서버의 별도 운영 승인 및 쓰기 활성화가 필요합니다.');
+    if (id === PN1_clean_(props.getProperty('STUDY_NOTE_SPREADSHEET_ID'))
+        || id === PN1_clean_(props.getProperty('PLANNER_SYNC_TEST_SPREADSHEET_ID'))
+        || id === PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_TEST_FOLDER_ID')))
+      PN1_error_('WRONG_FOLDER', '기존 운영/시험 저장소는 개인 노트 저장소로 사용할 수 없습니다.');
   }
   var folder = DriveApp.getFolderById(id);
-  if (!folder || !folder.getFilesByName(PN1_MARKER_).hasNext()) PN1_error_('FOLDER_NOT_APPROVED', '격리 시험용 폴더 확인 실패');
+  if (!folder) PN1_error_('FOLDER_NOT_APPROVED');
+  if (mode === 'ISOLATED_TEST') {
+    if (!folder.getFilesByName(PN1_MARKER_).hasNext())
+      PN1_error_('FOLDER_NOT_APPROVED', '격리 시험용 마커가 없습니다.');
+    return folder;
+  }
+  if (typeof folder.getName !== 'function' || folder.getName() !== PN1_PRODUCTION_FOLDER_NAME_)
+    PN1_error_('FOLDER_NOT_APPROVED', '개인 노트 운영 폴더 이름이 일치하지 않습니다.');
+  if (folder.getFilesByName(PN1_MARKER_).hasNext())
+    PN1_error_('FOLDER_NOT_APPROVED', '격리 시험용 폴더는 운영에 사용할 수 없습니다.');
+  var it=folder.getFilesByName(PN1_PRODUCTION_MARKER_);
+  if (!it.hasNext()) PN1_error_('FOLDER_NOT_APPROVED', '운영 전용 마커가 없습니다.');
+  var marker=it.next();
+  if (it.hasNext() || !marker || typeof marker.getBlob !== 'function'
+      || marker.getBlob().getDataAsString('UTF-8').trim() !== 'PERSONAL_NOTE_PRODUCTION_ONLY')
+    PN1_error_('FOLDER_NOT_APPROVED', '운영 마커 내용이 불일치하거나 중복되었습니다.');
   return folder;
 }
 function PN1_file_(folder, name) {

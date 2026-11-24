@@ -44,7 +44,7 @@ const ctx={
 };
 vm.createContext(ctx);vm.runInContext(addon+'\n'+bridge,ctx);
 const signed=(action,data={},device={})=>ctx.PN1_signedGet_({action,data,token:'VALID_SYNTHETIC_SIGNED',...device});
-assert.throws(()=>signed('personalnotestatus'),/격리 시험용으로 활성화되지/);
+assert.throws(()=>signed('personalnotestatus'),e=>e.code==='DISABLED');
 properties.PERSONAL_NOTE_SYNC_MODE='ISOLATED_TEST';
 assert.equal(signed('personalnotestatus').personalNoteSyncReady,true);
 assert.throws(()=>signed('personalnotestatus',{}, {status:'PENDING'}),/HOST_SIGNATURE_OR_STATUS_REQUIRED/);
