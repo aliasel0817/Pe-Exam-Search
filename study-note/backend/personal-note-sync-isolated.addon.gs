@@ -34,13 +34,73 @@ function PN1_auth_(auth) {
 }
 function PN1_key_(value) {
   var s = PN1_clean_(value);
-  if (s === 'global') return s;
-  if (!/^(?:index|page):[A-Za-z0-9_-]{1,64}(?::[A-Za-z0-9_-]{1,80})?$/.test(s)) {
-    PN1_error_('INVALID_KEY', '잘못된 개인 노트 문서 키');
+  // Topic key must be SHA-256(topicId); never let a client choose an arbitrary file name.
+  if (s === 'global' || /^index:[0-9a-f]{64}$/.test(s)
+      || /^page:[0-9a-f]{64}:[A-Za-z0-9_-]{1,80}$/.test(s)) return s;
+  PN1_error_('INVALID_KEY', '잘못된 개인 노트 문서 키');
+}
+function PN1_validUnit_(v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1; }
+function PN1_asset_(value) {
+  if (value === null || value === undefined) return;
+  if (value === './assets/personal-note-answer-sheet-a4.svg') return;
+  if (typeof value !== 'string' || value.length > 8 * 1024 * 1024
+      || !new RegExp('^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$').test(value)) {
+    PN1_error_('INVALID_PAYLOAD', '개인 노트 이미지 형식이 올바르지 않습니다.');
   }
-  if (s.indexOf('index:') === 0 && s.split(':').length !== 2) PN1_error_('INVALID_KEY');
-  if (s.indexOf('page:') === 0 && s.split(':').length !== 3) PN1_error_('INVALID_KEY');
-  return s;
+}
+function PN1_validatePayload_(payload, key) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)
+      || payload.key !== key || payload.schemaVersion !== 1) PN1_error_('INVALID_PAYLOAD');
+  if (key === 'global') {
+    PN1_asset_(payload.background);
+    if (typeof payload.enabled !== 'boolean') PN1_error_('INVALID_PAYLOAD');
+    return;
+  }
+  var parts = key.split(':');
+  if (typeof payload.topicId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(payload.topicId)
+      || PN1_sha_(payload.topicId) !== parts[1]) PN1_error_('TOPIC_KEY_MISMATCH', '토픽 키 불일치');
+  if (parts[0] === 'index') {
+    var ids=payload.pageIds;
+    if (!Array.isArray(ids) || ids.length < 1 || ids.length > 100) PN1_error_('INVALID_PAYLOAD');
+    var seen={};
+    for (var i=0;i<ids.length;i++) {
+      var id=ids[i];
+      if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(id)
+          || Object.prototype.hasOwnProperty.call(seen,id)) PN1_error_('INVALID_PAYLOAD');
+      seen[id]=true;
+    }
+    return;
+  }
+  var page=payload.page;
+  if (!page || page.id !== parts[2] || !Array.isArray(page.objects)
+      || page.objects.length > 5000) PN1_error_('INVALID_PAYLOAD');
+  var shapes={line:1,arrow:1,rect:1,ellipse:1,triangle:1,square:1,pentagon:1,hexagon:1,circle:1,diamond:1,star:1};
+  for (var j=0;j<page.objects.length;j++) {
+    var obj=page.objects[j];
+    if (!obj || typeof obj !== 'object' || typeof obj.id !== 'string'
+        || !/^[A-Za-z0-9_-]{1,80}$/.test(obj.id)) PN1_error_('INVALID_PAYLOAD');
+    if (obj.type === 'stroke') {
+      if (!Array.isArray(obj.points) || obj.points.length < 1 || obj.points.length > 50000
+          || obj.points.some(function(p){return !p || !PN1_validUnit_(p.x) || !PN1_validUnit_(p.y);}))
+        PN1_error_('INVALID_PAYLOAD');
+    } else if (obj.type === 'shape') {
+      if (!Object.prototype.hasOwnProperty.call(shapes,obj.shape)
+          || !obj.start || !obj.end
+          || !PN1_validUnit_(obj.start.x) || !PN1_validUnit_(obj.start.y)
+          || !PN1_validUnit_(obj.end.x) || !PN1_validUnit_(obj.end.y))
+        PN1_error_('INVALID_PAYLOAD');
+    } else if (obj.type === 'text') {
+      if (typeof obj.text !== 'string' || obj.text.length > 2000
+          || !PN1_validUnit_(obj.x) || !PN1_validUnit_(obj.y)
+          || typeof obj.size !== 'number' || !isFinite(obj.size) || obj.size < 1 || obj.size > 200)
+        PN1_error_('INVALID_PAYLOAD');
+    } else if (obj.type === 'image') {
+      PN1_asset_(obj.src);
+      if (typeof obj.src !== 'string' || !PN1_validUnit_(obj.x)
+          || !PN1_validUnit_(obj.y) || !PN1_validUnit_(obj.w) || !PN1_validUnit_(obj.h)
+          || obj.w <= 0 || obj.h <= 0) PN1_error_('INVALID_PAYLOAD');
+    } else PN1_error_('INVALID_PAYLOAD');
+  }
 }
 function PN1_folder_() {
   var props = PropertiesService.getScriptProperties();
@@ -157,8 +217,7 @@ function PN1_finish_(d,deviceId,folder) {
     var payload;
     try {payload=JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(encoded)).getDataAsString('UTF-8'));}
     catch(e){PN1_error_('INVALID_PAYLOAD','개인 노트 JSON 복원 실패');}
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)
-        || PN1_clean_(payload.key)!==stage.key || Number(payload.schemaVersion)!==1) PN1_error_('INVALID_PAYLOAD');
+    PN1_validatePayload_(payload,stage.key);
     var old = PN1_getDoc_(folder,stage.key),revision = old?old.revision:0;
     if (revision!==stage.baseRevision) return {ok:true,conflict:true,key:stage.key,serverRevision:revision};
     var next={key:stage.key,revision:revision+1,hash:stage.hash,

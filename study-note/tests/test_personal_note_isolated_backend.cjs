@@ -88,6 +88,24 @@ for(let i=0;i<n2;i++)call('personalnotepart',{uploadId:wrong.uploadId,index:i,ch
 const fake='A'+encoded2.slice(1);
 assert.throws(()=>call('personalnotepart',{uploadId:wrong.uploadId,index:0,chunk:fake}),e=>e.code==='CHUNK_CONFLICT');
 assert.throws(()=>ctx.PN1_signedGet_({action:'personalnotedoc',data:{key},token:'BAD'}),/HOST_SIGNATURE_OR_STATUS_REQUIRED/);
+// Enforce topic key = SHA256(topicId), page ID, supported shapes and safe image data.
+assert.throws(()=>ctx.PN1_key_('index:abc'),e=>e.code==='INVALID_KEY');
+assert.throws(()=>ctx.PN1_validatePayload_({...doc,topicId:'OTHER'},key),e=>e.code==='TOPIC_KEY_MISMATCH');
+assert.throws(()=>ctx.PN1_validatePayload_({key:'global',schemaVersion:1,background:'https://bad.example/pixel',enabled:true},'global'),e=>e.code==='INVALID_PAYLOAD');
+assert.doesNotThrow(()=>ctx.PN1_validatePayload_({key:'global',schemaVersion:1,background:'./assets/personal-note-answer-sheet-a4.svg',enabled:true},'global'));
+const testPageKey='page:'+digest('T9991')+':page-a';
+const imageData='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL8HgAAAABJRU5ErkJggg==';
+const validPage={key:testPageKey,schemaVersion:1,topicId:'T9991',
+ page:{id:'page-a',objects:[
+  {id:'p-1',type:'stroke',points:[{x:0.2,y:0.5},{x:0.7,y:0.5}]},
+  {id:'p-2',type:'shape',shape:'triangle',start:{x:0.1,y:0.1},end:{x:0.8,y:0.8}},
+  {id:'p-3',type:'image',src:imageData,x:0.1,y:0.1,w:0.4,h:0.2}
+ ]}};
+assert.doesNotThrow(()=>ctx.PN1_validatePayload_(validPage,testPageKey));
+const mutatedPage=JSON.parse(JSON.stringify(validPage));
+mutatedPage.page.objects[0].points[0].x=1.5;
+assert.throws(()=>ctx.PN1_validatePayload_(mutatedPage,testPageKey),e=>e.code==='INVALID_PAYLOAD');
+assert.throws(()=>ctx.PN1_validatePayload_({...validPage,page:{...validPage.page,id:'page-b'}},testPageKey),e=>e.code==='INVALID_PAYLOAD');
 console.log('PERSONAL_NOTE_ISOLATED_SERVER_PASS',JSON.stringify({
  mode:'ISOLATED_TEST',backend:'synthetic',liveSheetWrites:0,activeRequired:true,
  shaValidated:true,concurrentCASProtected:true,chunkStorage:true,production:'NOT_TESTED'

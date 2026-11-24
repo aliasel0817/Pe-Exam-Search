@@ -12,6 +12,9 @@ on:
       - 'study-note/service-worker.js'
       - 'study-note/tests/test_personal_note_isolated_backend.cjs'
       - 'study-note/tests/test_personal_note_cloud_synthetic.cjs'
+      - 'study-note/tests/test_personal_note_real_code_contract.cjs'
+      - 'study-note/tests/test_personal_note_real_drive_stage_synthetic.cjs'
+      - 'study-note/backend/tests/personal-note-stage-real-drive-selftest.gs'
       - 'study-note/personal-note.css'
       - 'study-note/assets/personal-note-answer-sheet-a4.svg'
       - 'study-note/tests/personal-note-basic.test.mjs'
@@ -36,6 +39,8 @@ jobs:
           node --test study-note/tests/personal-note-basic.test.mjs
           node study-note/tests/test_personal_note_isolated_backend.cjs
           node study-note/tests/test_personal_note_cloud_synthetic.cjs
+          node study-note/tests/test_personal_note_real_code_contract.cjs
+          node study-note/tests/test_personal_note_real_drive_stage_synthetic.cjs
   browser-essentials:
     runs-on: ubuntu-latest
     timeout-minutes: 8

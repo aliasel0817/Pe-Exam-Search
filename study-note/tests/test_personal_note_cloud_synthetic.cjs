@@ -59,6 +59,10 @@ function device(){
  assert.equal(incoming.conflict,false);
  assert.equal(incoming.pages.length,1);
  assert.equal(incoming.background,bg);
+ const identicalDefault=await b.pull(topicId,null,{background:bg,enabled:true},{});
+ assert.equal(identicalDefault.conflict,false,'same local default background on a fresh device should not block sync');
+ const differentDefault=await b.pull(topicId,null,{background:'data:image/png;base64,RElGRg==',enabled:true},{});
+ assert.equal(differentDefault.conflict,true,'different unshared background must not be overwritten');
  assert.equal(incoming.pages[0].objects[0].id,'stroke-a');
  const changed=JSON.parse(JSON.stringify(incoming.pages));
  changed[0].objects.push({id:'shape-b',type:'shape',shape:'rect',start:{x:0,y:0},end:{x:.5,y:.5}});

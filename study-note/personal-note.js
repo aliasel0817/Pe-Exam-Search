@@ -49,6 +49,7 @@ let opening = false;
 let cloudMeta = {};
 let editSerial = 0;
 let cloudCapability = false;
+let syncPending = false;
 
 function id() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -77,10 +78,10 @@ function dbRead(store,key) {
     req.onerror=()=>reject(req.error);
   }));
 }
-function persistAll(topicId, rows, config, meta = {}) {
+function persistAll(topicId, rows, config, meta = {}, pendingCloud = false) {
   return openDb().then(db => new Promise((resolve,reject)=>{
     const tx = db.transaction([PAPER_STORE,SETTINGS_STORE],'readwrite');
-    tx.objectStore(PAPER_STORE).put({topicId,version:1,pages:rows,cloudMeta:meta,updatedAt:new Date().toISOString()});
+    tx.objectStore(PAPER_STORE).put({topicId,version:1,pages:rows,cloudMeta:meta,syncPending:!!pendingCloud,updatedAt:new Date().toISOString()});
     tx.objectStore(SETTINGS_STORE).put({key:'global',version:1,background:config.background,enabled:config.enabled,cloudMeta:meta,updatedAt:new Date().toISOString()});
     tx.oncomplete=resolve;
     tx.onerror=()=>reject(tx.error||new Error('저장 실패'));
@@ -538,7 +539,7 @@ function createUi() {
 function close() {
   if(!popup)return;
   popup.hidden=true;stageObserver?.disconnect();stageObserver=null;window.removeEventListener('keydown',handleKeys,true);canvas=null;popup.remove();popup=null;current=null;
-  history=[];redo=[];stroke=null;panDrag=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;imageCache.clear();
+  history=[];redo=[];stroke=null;panDrag=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;syncPending=false;imageCache.clear();
   if(lastFocus?.isConnected)lastFocus.focus();
 }
 function cancel() {
@@ -591,6 +592,7 @@ async function open(topicId,topicName) {
     activePage=0;current={topicId,topicName:String(topicName||topicId)};
     pendingBackground=global?.background||DEFAULT_BACKGROUND;
     cloudMeta={...(stored?.cloudMeta||{}),...(global?.cloudMeta||{})};
+    syncPending=stored?.syncPending===true;
     savedBackground=pendingBackground;
     pendingEnabled=global?.enabled!==false;
     savedEnabled=pendingEnabled;
@@ -599,7 +601,8 @@ async function open(topicId,topicName) {
     popup.hidden=false;q('#pnCancel').focus();
     setStatus(stored?'저장된 노트 불러옴 · 로컬 저장':'새 개인 노트 · 로컬 저장');
     render();
-    void refreshFromCloud(topicId,stored,global);
+    if(syncPending) void retryPendingSync();
+    else void refreshFromCloud(topicId,stored,global);
   }catch(error){if(isOpen())close();alert('개인 노트 열기 실패: '+(error.message||error));}
   finally{opening=false;}
 }
@@ -653,7 +656,8 @@ async function restoreFromCloud() {
     if(!nextPages.length)throw new Error('서버 페이지가 비어 있습니다.');
     const bg=result.hasRemoteGlobal?validateBackgroundAsset(result.background):pendingBackground;
     const en=result.hasRemoteGlobal?result.enabled:pendingEnabled;
-    await persistAll(topicId,clone(nextPages),{background:bg,enabled:en},result.meta);
+    await persistAll(topicId,clone(nextPages),{background:bg,enabled:en},result.meta,false);
+    syncPending=false;
     pages=nextPages;activePage=0;selectedObjectIndex=-1;pendingBackground=bg;pendingEnabled=en;
     savedBackground=bg;savedEnabled=en;cloudMeta=result.meta;dirty=false;
     render();setStatus('서버 저장본 복원 및 로컬 저장 완료');
@@ -681,7 +685,8 @@ async function refreshFromCloud(topicId,stored,global) {
     const nextMeta=result.meta||{};
     // Never replace in-memory edits made while awaiting network reads.
     if(!canApply())return;
-    await persistAll(topicId,clone(nextPages),{background:nextBackground,enabled:nextEnabled},nextMeta);
+    await persistAll(topicId,clone(nextPages),{background:nextBackground,enabled:nextEnabled},nextMeta,false);
+    syncPending=false;
     if(!canApply())return;
     pages=nextPages;activePage=0;selectedObjectIndex=-1;
     pendingBackground=nextBackground;savedBackground=nextBackground;
@@ -690,6 +695,14 @@ async function refreshFromCloud(topicId,stored,global) {
     setStatus('서버 개인 노트 확인·복원 완료 · 이 기기 로컬에도 저장됨');
   }catch(error){if(canApply())setStatus('로컬 노트 유지 · 서버 조회 오류: '+(error.message||error));}
 }
+// Retry only a locally saved snapshot. Per-document server CAS protects remote edits.
+async function retryPendingSync() {
+  if(!isOpen()||!current||!syncPending||saving||dirty)return;
+  const cloud=window.PEPersonalNoteCloud;
+  if(!cloud||!navigator.onLine)return;
+  await save();
+}
+window.addEventListener('online',()=>{void retryPendingSync();});
 async function save() {
   if(saving||!current)return;
   const topicId=current.topicId,rows=clone(pages),background=pendingBackground,enabled=pendingEnabled;
@@ -697,7 +710,8 @@ async function save() {
   const serial=editSerial,controls=[...popup.querySelectorAll('button,input,select')];
   saving=true;controls.forEach(el=>el.disabled=true);setStatus('로컬 저장 중...');
   try {
-    await persistAll(topicId,rows,config,cloudMeta);
+    await persistAll(topicId,rows,config,cloudMeta,true);
+    syncPending=true;
     if(serial===editSerial)dirty=false;
     savedBackground=background;savedEnabled=enabled;
     setStatus('로컬 저장 완료 · 서버 저장 여부 확인 중...');
@@ -706,15 +720,16 @@ async function save() {
     try {
       const result=await cloud.push(topicId,rows,background,enabled,cloudMeta,async (next)=>{
         cloudMeta={...next};
-        await persistAll(topicId,rows,config,cloudMeta);
+        await persistAll(topicId,rows,config,cloudMeta,true);
       });
       if(result.available){
         cloudCapability=true;
         cloudMeta={...result.meta};
-        await persistAll(topicId,rows,config,cloudMeta);
+        await persistAll(topicId,rows,config,cloudMeta,false);
+        syncPending=false;
         setStatus('로컬 및 서버 저장 완료 · 검증된 동기화 응답');
       }else{
-        setStatus('로컬 저장 완료 · 서버 동기화 미지원/오프라인 (추후 재저장 필요)');
+        setStatus('로컬 저장 완료 · 서버 미지원/오프라인 (재연결 시 자동 재시도)');
       }
     }catch(error){
       setStatus('⚠ 로컬 저장 완료 · 서버 동기화 실패: '+(error.message||error));
