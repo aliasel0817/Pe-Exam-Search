@@ -15,6 +15,7 @@ on:
       - 'study-note/tests/test_personal_note_cloud_synthetic.cjs'
       - 'study-note/tests/test_personal_note_real_code_contract.cjs'
       - 'study-note/tests/test_personal_note_production_gate.cjs'
+      - 'study-note/tests/test_personal_note_sealed_release.cjs'
       - 'study-note/tests/test_personal_note_v23_host_patch.cjs'
       - 'study-note/tests/test_personal_note_real_drive_stage_synthetic.cjs'
       - 'study-note/backend/tests/personal-note-stage-real-drive-selftest.gs'
@@ -45,6 +46,7 @@ jobs:
           node study-note/tests/test_personal_note_real_code_contract.cjs
           node study-note/tests/test_personal_note_real_drive_stage_synthetic.cjs
           node study-note/tests/test_personal_note_production_gate.cjs
+          node study-note/tests/test_personal_note_sealed_release.cjs
           node study-note/tests/test_personal_note_v23_host_patch.cjs
   browser-essentials:
     runs-on: ubuntu-latest
