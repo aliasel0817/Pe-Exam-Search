@@ -116,9 +116,54 @@ function PN1_validatePayload_(payload, key) {
     } else PN1_error_('INVALID_PAYLOAD');
   }
 }
+// Optional, sealed release configuration is generated ONLY into the operating
+// Apps Script during authorized rollout. No ID or secret is stored in GitHub.
+// A signed ACTIVE request can initialize the five *personal-note-only* properties
+// once after strict independent Drive folder verification. No MASTER writes.
+function PN1_bootstrapSealedRelease_() {
+  if (typeof PN1_SEALED_RELEASE_CONFIG_ === 'undefined') return false;
+  var cfg=PN1_SEALED_RELEASE_CONFIG_;
+  if (!cfg || cfg.approved !== true || !/^[A-Za-z0-9_-]{20,}$/.test(PN1_clean_(cfg.folderId))
+      || !/^[A-Za-z0-9_-]{20,}$/.test(PN1_clean_(cfg.expectedScriptId))) PN1_error_('RELEASE_BLOCKED');
+  if (typeof ScriptApp === 'undefined' || ScriptApp.getScriptId()!==cfg.expectedScriptId)
+    PN1_error_('RELEASE_BLOCKED', '승인된 운영 스크립트가 아닙니다.');
+  var keys=['PERSONAL_NOTE_SYNC_MODE','PERSONAL_NOTE_SYNC_FOLDER_ID','PERSONAL_NOTE_SYNC_READY',
+    'PERSONAL_NOTE_SYNC_PRODUCTION_APPROVED','PERSONAL_NOTE_SYNC_WRITE_ENABLED'];
+  var props=PropertiesService.getScriptProperties();
+  var lock=LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    // Refuse any partially configured or externally modified release state.
+    var current=keys.map(function(k){return PN1_clean_(props.getProperty(k));});
+    if (current.some(Boolean)) PN1_error_('RELEASE_BLOCKED', '기존 개인 노트 설정이 있어 자동 변경하지 않습니다.');
+    if (cfg.folderId === PN1_clean_(props.getProperty('STUDY_NOTE_SPREADSHEET_ID'))
+        || cfg.folderId === PN1_clean_(props.getProperty('PLANNER_SYNC_TEST_SPREADSHEET_ID'))
+        || cfg.folderId === PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_TEST_FOLDER_ID')))
+      PN1_error_('WRONG_FOLDER');
+    var folder=DriveApp.getFolderById(cfg.folderId);
+    if (!folder || folder.getName()!==PN1_PRODUCTION_FOLDER_NAME_ || folder.getFilesByName(PN1_MARKER_).hasNext())
+      PN1_error_('FOLDER_NOT_APPROVED');
+    var markers=folder.getFilesByName(PN1_PRODUCTION_MARKER_);
+    if(!markers.hasNext())PN1_error_('FOLDER_NOT_APPROVED');
+    var m=markers.next();
+    if(markers.hasNext() || m.getBlob().getDataAsString('UTF-8').trim()!==PN1_PRODUCTION_MARKER_)
+      PN1_error_('FOLDER_NOT_APPROVED');
+    var approved={};
+    approved.PERSONAL_NOTE_SYNC_MODE='PRODUCTION';
+    approved.PERSONAL_NOTE_SYNC_FOLDER_ID=cfg.folderId;
+    approved.PERSONAL_NOTE_SYNC_READY='READY:'+cfg.folderId;
+    approved.PERSONAL_NOTE_SYNC_PRODUCTION_APPROVED='APPROVED:'+cfg.folderId;
+    approved.PERSONAL_NOTE_SYNC_WRITE_ENABLED='ENABLED:'+cfg.folderId;
+    props.setProperties(approved,false);
+    return true;
+  } finally {lock.releaseLock();}
+}
 function PN1_folder_() {
   var props = PropertiesService.getScriptProperties();
   var mode = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_MODE'));
+  // This function is reached only after PN1_auth_ accepts a signed ACTIVE
+  // device. Never auto-provision on an unauthenticated request.
+  if (!mode) { PN1_bootstrapSealedRelease_(); mode = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_MODE')); }
   var id = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_FOLDER_ID'));
   var ready = PN1_clean_(props.getProperty('PERSONAL_NOTE_SYNC_READY'));
   if (!/^[A-Za-z0-9_-]{20,}$/.test(id) || ready !== 'READY:' + id)
