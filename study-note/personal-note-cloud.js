@@ -152,7 +152,14 @@ async function pull(topicId,localPaper,localGlobal,localMeta={},force=false) {
     && (!localMeta.global||localMeta.global.hash!==await hash(encode({
       key:'global',schemaVersion:1,background:localGlobal.background||null,enabled:localGlobal.enabled!==false})));
   const remoteBgChanged=global.exists && (!localMeta.global||localMeta.global.revision!==global.revision);
-  if(!force&&localBackgroundChanged&&global.exists)return {available:true,conflict:true,reason:'이 기기의 공통 배경 설정이 서버와 동기화되지 않아 덮어쓰지 않았습니다.'};
+  // A fresh device can already have the same default background asset locally.
+  // Identical content is safe to adopt even without a prior cloud revision.
+  // Distinct unsynced backgrounds must still trigger a conflict, never overwrite.
+  const localGlobalHash=localGlobal==null?null:await hash(encode({
+    key:'global',schemaVersion:1,background:localGlobal.background||null,enabled:localGlobal.enabled!==false
+  }));
+  if(!force&&localBackgroundChanged&&global.exists&&localGlobalHash!==global.hash)
+    return {available:true,conflict:true,reason:'이 기기의 공통 배경 설정이 서버와 동기화되지 않아 덮어쓰지 않았습니다.'};
   return {
     available:true,conflict:false,hasRemoteIndex:index.exists,hasRemoteGlobal:global.exists,
     pages:index.exists?pageDocs.map(p=>p.data.page):null,
