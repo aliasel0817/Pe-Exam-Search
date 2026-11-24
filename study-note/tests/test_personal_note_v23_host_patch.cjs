@@ -24,7 +24,7 @@ const orig=[
 const patched=createCandidate(orig);
 assert.equal((patched.match(/PN1_isGet_/g)||[]).length,1);
 assert.equal((patched.match(/PN1_isPost_/g)||[]).length,1);
-assert.equal((patched.match(/validateSignedMutation_/g)||[]).length,2); // existing + additive COMMENT
+assert.equal((patched.match(/validateSignedMutation_/g)||[]).length,3); // existing function, call, comment
 assert.equal((patched.match(/'personalnotepart'\]\.includes/g)||[]).length,2);
 assert.ok(patched.indexOf("PN1_verifiedPost_(action, verified)")>patched.indexOf('PS9_verifiedPlannerPost_'));
 assert.equal(patched.match(/function doPost\(e\)/g).length,1);
