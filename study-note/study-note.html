@@ -10,6 +10,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232563eb%22%2F%3E%3Cpath%20d%3D%22M17%2015h25a5%205%200%200%201%205%205v29H22a5%205%200%200%201-5-5V15Z%22%20fill%3D%22white%22%2F%3E%3Cpath%20d%3D%22M24%2024h16M24%2031h16M24%2038h11%22%20stroke%3D%22%232563eb%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E">
   <link rel="stylesheet" href="./personal-note.css">
+  <link rel="stylesheet" href="./text-highlight.css?v=20261126-1">
   <style>
 :root {
   --bg: #f4f7fb;
@@ -3643,6 +3644,7 @@ function applyAnnotationSyncCapability({ ready = false, serverSchema = 0 } = {})
   annotationCloudSyncState.serverSchema = Number(serverSchema) || 0;
   annotationCloudSyncState.supported = annotationCloudSyncState.serverSchema >= ANNOTATION_SYNC_MIN_SERVER_SCHEMA;
   annotationCloudSyncState.ready = Boolean(ready && annotationCloudSyncState.supported);
+  window.StudyTextHighlights?.refresh();
   return annotationCloudSyncState.ready;
 }
 
@@ -3709,6 +3711,7 @@ function annotationDocumentForCloud(documentData, { force = false } = {}) {
 async function persistAnnotationCloudMetadata(documentData) {
   const database = db || await ensureDatabaseReady();
   await putAnnotationDocuments(database, [annotationDocumentForStorage(documentData)]);
+  window.StudyTextHighlights?.refresh();
 }
 
 async function applyAnnotationCloudDocument(serverDocument) {
@@ -3782,6 +3785,7 @@ async function syncAnnotationCloud({ manual = false } = {}) {
   annotationCloudSyncState.lastAttemptAt = Date.now();
   annotationCloudSyncState.lastError = '';
   const apiUrl = getApiUrl();
+  window.StudyTextHighlights?.refresh();
   const stats = { pushed: 0, pulled: 0, conflicts: 0 };
   try {
     const dirtyDocuments = [...annotationDocuments.values()].filter(documentData => documentData.cloudDirty);
@@ -3892,6 +3896,7 @@ async function syncAnnotationCloud({ manual = false } = {}) {
       annotationCloudSyncState.rerunRequested = false;
       scheduleAnnotationCloudSync({ delayMs: 1200 });
     }
+    window.StudyTextHighlights?.refresh();
   }
 }
 
@@ -4566,7 +4571,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.21-pdf-source-clarity';
+const APP_VERSION = '4.6.22-text-highlights';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4941,6 +4946,7 @@ async function init() {
     allReferencePdfPages = await getAllReferencePdfPages(db);
     await hydrateAnnotationDocuments(db);
     annotationCloudSyncState.hydrated = true;
+    window.StudyTextHighlights?.refresh();
     refreshAnnotationCloudCapability({ force: false }).then(ready => {
       if (ready) scheduleAnnotationCloudSync({ delayMs: 2200 });
     });
@@ -10246,6 +10252,7 @@ function toggleAnnotationPageFlag(context, field) {
 }
 
 function syncAnnotationStudyUi() {
+  window.StudyTextHighlights?.refresh();
   document.querySelectorAll('[data-annotation-study-nav]').forEach(nav => {
     const context = nav.dataset.annotationStudyNav;
     const surface = annotationStudySurface(context);
@@ -11137,6 +11144,7 @@ function handleAnnotationShortcutKeyUp(event) {
 }
 
 function syncAnnotationToolbarUi() {
+  window.StudyTextHighlights?.refresh();
   const settings = annotationActiveSettings();
   document.querySelectorAll('[data-annotation-toolbar]').forEach(toolbar => {
     toolbar.querySelectorAll('[data-annotation-tool]').forEach(button => {
@@ -15770,6 +15778,45 @@ if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
 <script src="./study-planner.js?v=20261023-4-compact-help"></script>
 <script src="./personal-note-cloud.js"></script>
 <script src="./personal-note.js"></script>
+<script src="./text-highlight-core.js?v=20261126-1"></script>
+<script src="./text-highlight-storage.js?v=20261126-1"></script>
+<script src="./text-highlights.js?v=20261126-1"></script>
+<script>
+// Reuse the signed Google annotation transport with one isolated document per mark.
+// Text and context remain personal annotation data; LIVE MASTER is never edited.
+window.StudyTextHighlights?.mount({
+  topicId: () => currentTopicId || '',
+  documents: () => annotationDocuments,
+  getDocument: key => getAnnotationDocument(key),
+  ready: () => annotationCloudSyncState.hydrated,
+  cloudState: () => annotationCloudSyncState,
+  conflicts: () => annotationCloudConflicts,
+  toast: text => showToast(text),
+  persist: async documentData => {
+    const timer = annotationPersistTimers.get(documentData.key);
+    if (timer) clearTimeout(timer);
+    annotationPersistTimers.delete(documentData.key);
+    documentData.cloudDirty = true;
+    documentData.cloudMutationSerial = (Number(documentData.cloudMutationSerial) || 0) + 1;
+    documentData.saveState = 'dirty';
+    documentData.saveError = '';
+    await persistAnnotationDocument(documentData);
+    window.StudyTextHighlights?.refresh();
+    if (documentData.saveState !== 'saved') {
+      throw new Error(documentData.saveError || '형광펜 기기 저장을 다시 시도하고 있습니다.');
+    }
+  },
+  requestSync: () => {
+    if (!navigator.onLine) return;
+    refreshAnnotationCloudCapability({ force: false }).then(ready => {
+      if (ready) scheduleAnnotationCloudSync({ delayMs: 1800 });
+      window.StudyTextHighlights?.refresh();
+    }).catch(() => window.StudyTextHighlights?.refresh());
+  },
+  sync: () => syncAnnotationCloud({ manual: true }),
+  openConflicts: () => openAnnotationCloudConflictManager()
+});
+</script>
 <script>
 (function bindPersonalNoteEntry() {
   const button = document.getElementById("personalNoteBtn");
