@@ -104,7 +104,61 @@ const study=(db,id,result,at)=>client.queue(db,id,s=>client.progressPatch(s,resu
  data[0][10]=header;
  // Unsupported capability must never invoke mutation.
  let unexpectedPost=0;await assert.rejects(client.sync(a,{get:async()=>({version:0,rows:[]}),post:async()=>{unexpectedPost++;}}),/서버가 확인되지/);assert.equal(unexpectedPost,0);
+ // Favorite lane is independent of a conflicting memo on the same topic.
+ seed('T0007',{personalMemo:'shared memo'});
+ seed('T0008',{personalMemo:'server memo must survive'});
+ seed('T0009',{personalMemo:'replay test'});
+ const d=await open('favorite-device-d'),e=await open('favorite-device-e');
+ await sync(d);await sync(e);
+ await client.queue(d,'T0007',{personalMemo:'device d memo'});await sync(d);
+ await client.queue(e,'T0007',{personalMemo:'device e memo',favorite:true});
+ const separate=await sync(e);
+ assert.equal(separate.state,'partial','memo conflict still held');
+ assert.equal(separate.favorite.state,'synced','favorite must finish independently');
+ assert.equal(getState('T0007').favorite,'Y');assert.equal(getState('T0007').personalMemo,'device d memo');
+ assert.equal((await local(e,'T0007')).personalMemo,'device e memo');
+ assert((await local(e,'T0007')).syncV2.conflict);
+ await sync(d);await client.queue(d,'T0007',{favorite:false});await client.syncFavorites(d,transport);
+ const refreshed=await client.syncFavorites(e,transport);
+ assert.equal(refreshed.state,'synced');assert.equal((await local(e,'T0007')).favorite,false);
+ assert.equal((await local(e,'T0007')).personalMemo,'device e memo');
+ assert((await local(e,'T0007')).syncV2.conflict,'favorite-only pull must retain unrelated conflict');
+ // A locally registered legacy favorite is held for explicit import. Only its
+ // favorite field is written, never an old memo or progress snapshot.
+ const legacyFavorite=await open('legacy-favorite-device');
+ await put(legacyFavorite,{...client.blank('T0008'),favorite:true,dirty:false,
+  personalMemo:'legacy local memo',revision:2,updatedAt:baseAt});
+ const wBefore=writes,firstFav=await client.syncFavorites(legacyFavorite,transport);
+ assert.equal(firstFav.state,'partial');assert.equal(firstFav.conflicts,1);assert.equal(writes,wBefore);
+ const oldFav=await local(legacyFavorite,'T0008'),lane=oldFav.syncV2.favoriteLane;
+ assert.equal(oldFav.favorite,true);assert.equal(getState('T0008').favorite,'N');
+ const choice={topicId:'T0008',local:lane.desired,remote:lane.conflict.remote,at:lane.conflict.at,choice:'local'};
+ await client.resolveFavoriteConflicts(legacyFavorite,[choice],transport);
+ await client.syncFavorites(legacyFavorite,{get:transport.get,post:async payload=>{
+  for(const op of payload.changes)assert(client.equal(op.base||client.blank(op.topicId),op.desired,client.GROUPS.personalMemo.concat(client.GROUPS.progress)));
+  return transport.post(payload);
+ }});
+ assert.equal(getState('T0008').favorite,'Y');assert.equal(getState('T0008').personalMemo,'server memo must survive');
+ assert.equal((await local(legacyFavorite,'T0008')).personalMemo,'legacy local memo');
+ // Lost favorite ACK followed by a newer removal must not resurrect the favorite.
+ await sync(d);await sync(e);await client.queue(d,'T0009',{favorite:true});
+ let favoriteLost;
+ await assert.rejects(client.syncFavorites(d,{get:transport.get,post:async payload=>{
+  favoriteLost=clone(payload);await transport.post(payload);throw Error('favorite ACK lost');
+ }}),/favorite ACK lost/);
+ const favoritePending=await local(d,'T0009');
+ assert.equal(favoritePending.syncV2.favoriteLane.attempt.operationId,favoriteLost.changes[0].operationId);
+ await client.syncFavorites(e,transport);assert.equal((await local(e,'T0009')).favorite,true);
+ await client.queue(e,'T0009',{favorite:false});await client.syncFavorites(e,transport);
+ await client.syncFavorites(d,transport);
+ assert.equal(getState('T0009').favorite,'N');assert.equal((await local(d,'T0009')).favorite,false);
+ // New favorites without any previous local row are supported.
+ await client.queue(d,'T0010',{favorite:true});await client.syncFavorites(d,transport);
+ assert.equal(getState('T0010').favorite,'Y');await client.syncFavorites(e,transport);
+ assert.equal((await local(e,'T0010')).favorite,true);
+ // The same favorite operation is never written as a general learning delta.
+ const laneRaw=await local(d,'T0010');assert.equal(laneRaw.dirty,false);
  assert.equal(locked,false);
- a.close();b.close();c.close();
- console.log('LEARNING_SYNC_V2_PASS '+JSON.stringify({twoDevices:true,fieldMerge:true,sameDayDedup:true,distinctDayMerge:true,lostAckReplay:true,conflictPreservation:true,legacyGuard:true,inFlightEdit:true,resetReplayProtection:true,metadataGuard:true,legacyWriteBlocked:true,liveRequests:0}));
+ a.close();b.close();c.close();d.close();e.close();legacyFavorite.close();
+ console.log('LEARNING_SYNC_V2_PASS '+JSON.stringify({twoDevices:true,fieldMerge:true,sameDayDedup:true,distinctDayMerge:true,lostAckReplay:true,conflictPreservation:true,legacyGuard:true,inFlightEdit:true,resetReplayProtection:true,metadataGuard:true,legacyWriteBlocked:true,favoriteIndependentOfMemoConflict:true,legacyFavoriteExplicitImport:true,favoriteReplayAfterRemoval:true,newTopicFavorite:true,liveRequests:0}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
