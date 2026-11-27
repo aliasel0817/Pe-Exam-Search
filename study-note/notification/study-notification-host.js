@@ -58,10 +58,10 @@
    if(s.enabled){
     const status=provider.status(ctx);
     must(approved(owner)&&status.connected&&!status.refreshExpired,'enable gate not ready');
-   }else{
-    // Disable the transport first, even if a later journal write fails.
-    provider.arm(ctx,false);
    }
+   // Disarm before changing settings. A failed save cannot leave the prior
+   // transport armed against a partially changed configuration.
+   provider.arm(ctx,false);
    const result=service.saveSettings(store,owner,data.expectedVersion,s);
    if(result.ok&&s.enabled){
     try{provider.arm(ctx,true);}catch(_){
