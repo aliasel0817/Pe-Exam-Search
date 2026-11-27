@@ -151,7 +151,7 @@ function queueProgressRows(db,input){
    const rows=new Map(pr.result.map(r=>[r.key,r])),ops=new Map(oq.result.map(o=>[o.id,o])),out=[];
    for(const row of copies){
     const prev=rows.get(row.key)||{};
-    if(prev.key&&prev.status===row.status){out.push(prev);continue;}
+    if(prev.key&&prev.dirty&&prev.status===row.status){out.push(prev);continue;}
     // Retain attempted and conflicted operations. Only a never-sent intermediate
     // state can be superseded by a newer choice on this same device.
     for(const op of ops.values())if(op.kind==='progress'&&op.key===row.key&&!op.attempted&&op.state!=='conflict'){
@@ -160,7 +160,8 @@ function queueProgressRows(db,input){
     const id=operationId(),next={...prev,...row,dirty:true,pendingOpId:id,
      serverRowRevision:Number(prev.serverRowRevision||0),serverSeq:Number(prev.serverSeq||0)};
     const op={id,kind:'progress',key:row.key,planId:row.planId,date:row.date,topicId:row.topicId,
-     status:row.status,clientAt:row.updatedAt||now(),createdAt:now(),state:'pending',attempted:false};
+     status:row.status,clientAt:row.updatedAt||now(),createdAt:now(),state:'pending',attempted:false,
+     reassert:Boolean(prev.key&&!prev.dirty&&prev.status===row.status),baseRowRevision:Number(prev.serverRowRevision||0)};
     ps.put(next);pending.put(op);rows.set(row.key,next);ops.set(id,op);out.push(next);
    }
    finish(out);
@@ -334,6 +335,12 @@ async function claimProgressOperation(db,id,planId){
     if(++ready!==3)return;
     if(c.result){finish(null);return;}
     if(!b.result?.revision){tx.abort();return;}
+    // The just-completed remote pull proved this unchanged status. Suppress a
+    // redundant event only now, not at click time (the device could be stale).
+    if(op.reassert&&!op.attempted&&op.baseRowRevision>0&&
+       Number(a.result?.serverRowRevision||0)===op.baseRowRevision&&a.result?.status===op.status&&a.result?.pendingOpId===op.id){
+      tx.objectStore(STORES.progress).put({...a.result,dirty:false,pendingOpId:null});out.delete(op.id);finish(null);return;
+    }
     const expected=op.attempted?op.expectedRowRevision:Number(a.result?.serverRowRevision||0);
     const base=op.attempted?op.planRevisionAtWrite:Number(b.result.revision);
     const claimed={...op,attempted:true,expectedRowRevision:expected,planRevisionAtWrite:base};
