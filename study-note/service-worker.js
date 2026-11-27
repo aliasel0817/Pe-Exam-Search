@@ -60,7 +60,7 @@ self.addEventListener('fetch', event => {
   if (!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isLearningSyncAsset && !isImageOptimizerAsset && !isPersonalNoteAsset && !isTextHighlightAsset) return;
 
   // HTML은 network-first: GitHub에 새 버전을 올리면 다음 접속/새로고침에서 우선 최신 파일을 사용한다.
-  if (isStudyNoteHtml || isPlannerAsset || isImageOptimizerAsset || isPersonalNoteAsset || isTextHighlightAsset) {
+  if (isStudyNoteHtml || isPlannerAsset || isLearningSyncAsset || isImageOptimizerAsset || isPersonalNoteAsset || isTextHighlightAsset) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
         .then(response => {
