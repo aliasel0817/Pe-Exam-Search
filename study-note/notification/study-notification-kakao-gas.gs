@@ -46,6 +46,7 @@ var StudyNotificationKakaoGas=(function(){
    randomState:function(){locked();return hex(Utilities.computeHmacSha256Signature(Utilities.getUuid()+':'+Date.now(),stateSecret,Utilities.Charset.UTF_8));},
    request:request,sleep:function(ms){must(ms>=0&&ms<=1000,'bounded sleep only');Utilities.sleep(ms);},
    approved:function(id){return id===owner&&props.getProperty('PE_NOTIFICATION_RELEASE_APPROVED')==='YES'&&host.approved(id)===true;},
+   testApproved:function(id){return id===owner&&props.getProperty('PE_NOTIFICATION_TEST_APPROVED')==='YES'&&typeof host.testApproved==='function'&&host.testApproved(id)===true;},
    assertLocked:host.assertLocked};
   return StudyNotificationKakao.create({ownerId:owner,clientId:get('KAKAO_CLIENT_ID'),clientSecret:get('KAKAO_CLIENT_SECRET'),appId:get('KAKAO_APP_ID'),
    redirectUri:get('KAKAO_REDIRECT_URI'),linkUrl:get('LINK_URL'),dailyBudget:Number(get('DAILY_BUDGET')),monthlyBudget:Number(get('MONTHLY_BUDGET'))},deps);
