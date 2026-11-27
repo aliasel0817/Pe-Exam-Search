@@ -86,6 +86,7 @@
       const proposal=core.proposeSlot({settings,now,ownerId:owner,plan,records:jobs,claimedSlotKeys:last?[last.claimedKey]:[]});
       if(!['ready','nothing-to-send'].includes(proposal.reason))return {...result,reason:proposal.reason};
       const day=plan.days.find(d=>d.date===slot.date);
+      const deadline=Date.parse(slot.date+'T00:00:00+09:00')+Math.min(1200,slot.scheduledMinute+settings.intervalMinutes)*60000;
       if(deps.isPlanCurrent(owner,plan)!==true)return {...result,reason:'plan-changed'};
       // Only current day's still-assigned pending jobs may resume.
       const due=jobs.filter(j=>j.planId===settings.planId&&j.date===slot.date&&j.round===day.round&&day.ids.includes(j.topicId)&&j.status!=='confirmed');
@@ -105,25 +106,34 @@
         const n=core.slotAt(deps.now(),settings.intervalMinutes);
         return n.inWindow&&n.date===slot.date&&n.index===slot.index&&deps.ready(owner)===true&&deps.isPlanCurrent(owner,plan)===true;
       }
+      function eligibleTopic(id){
+        if(typeof deps.isTopicEligible==='function')return deps.isTopicEligible(owner,id)===true;
+        return deps.loadTopic(owner,id)?.topicId===id;
+      }
       function deliver(job){
         processed++;
+        if(!eligibleTopic(job.topicId)){result.held++;return;}
         const {rows}=recoverJob(tx,job);
         for(const r of rows){
           if(r.value.state==='confirmed')continue;
           if(r.value.state!=='pending'){result.held++;return;}
           if(result.attempted>=settings.maxMessagesPerSlot||!canSend()){stop=true;return;}
+          if(!eligibleTopic(job.topicId)){result.held++;return;}
           // Persist the uncertain marker before the request; on crash never resend blindly.
           tx.commit([patch(r.key,{...r.value,state:'sending'})]);
-          if(!canSend()){
+          if(!canSend()||!eligibleTopic(job.topicId)){
             tx.commit([patch(r.key,{...r.value,state:'pending'})]);
             stop=true;return;
           }
-          result.attempted++;
-          let outcome='unknown';
+          let outcome='unknown',notAttempted=false;
           try{
-            const reply=deps.sendSelf(owner,r.value.message);
-            outcome=core.classifyKakaoOutcome(reply?.httpStatus,reply?.body);
+            const reply=deps.sendSelf(owner,r.value.message,deadline);
+            // Only the trusted transport may certify that no message request was issued.
+            notAttempted=reply?.notAttempted===true;
+            if(!notAttempted)outcome=core.classifyKakaoOutcome(reply?.httpStatus,reply?.body);
           }catch(_){/* request may have reached Kakao; do not retry */}
+          if(notAttempted){tx.commit([patch(r.key,{...r.value,state:'pending'})]);stop=true;return;}
+          result.attempted++;
           tx.commit([patch(r.key,{...r.value,state:outcome})]);
           if(outcome==='confirmed')result.confirmedParts++;
           else {result.held++;recoverJob(tx,job);stop=true;return;}
