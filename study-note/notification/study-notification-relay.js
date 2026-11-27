@@ -4,7 +4,7 @@
  */
 var StudyNotificationRelay=(function(){
  'use strict';
- const ACTIONS=Object.freeze(['snapshot','save','preview','begin','finish','confirm','disconnect','history']);
+ const ACTIONS=Object.freeze(['snapshot','save','preview','begin','finish','confirm','disconnect','history','test']);
  const hex64=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
  const small=(s,n)=>typeof s==='string'&&s.length>0&&s.length<=n;
  const must=(v,m)=>{if(!v)throw Error(m);};
