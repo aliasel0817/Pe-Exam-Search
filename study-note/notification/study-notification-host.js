@@ -45,7 +45,7 @@
   }
   function snapshot(ctx){
    const p=plan(),r=service.readSettings(store,owner),account=provider.status(ctx),date=core.kst(deps.now()).date;
-   const day=p?.days.find(d=>d.date===date),stats=service.status(store,owner,date);
+   const day=p?.days.find(d=>d.date===date),stats=service.status(store,owner,date,day||{round:null,ids:[]});
    return {settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
     account,releaseReady:approved(owner)&&account.connected&&!account.refreshExpired,
     stats:p&&current(p)&&r.settings?.planId===id?{assigned:day?.ids.length||0,confirmed:stats.confirmed,pending:stats.pending,unknown:stats.unknown,rejected:stats.rejected}:null};
