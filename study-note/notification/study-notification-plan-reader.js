@@ -98,7 +98,20 @@
    const text=v=>v==null?'':String(v);
    return {topicId:r[0],topicName:text(r[8]),concept:text(r[9]),keywords:text(r[10]),mnemonic:text(r[11]),relatedTopics:text(r[12]),background:text(r[22]),features:text(r[23]),technicalComponents:text(r[24]),necessity:text(r[25])};
   }
-  return {loadVerifiedPlan,isPlanCurrent:isCurrent,loadTopic};
+  // Fresh exact-ID lookup: a deleted, duplicated or excluded topic must not
+  // resume a previously reserved message. No old source contents are rewritten.
+  function isTopicEligible(_owner,id){
+   must(tid(id),'invalid topic ID');
+   const sh=ss.getSheetByName('암기장');
+   must(sh&&JSON.stringify(sh.getRange(1,1,1,TOPIC_HEADERS.length).getValues()[0])===JSON.stringify(TOPIC_HEADERS),'source schema mismatch');
+   const n=sh.getLastRow();if(n<2)return false;
+   must(n<=20001,'source capacity exceeded');
+   const matches=sh.getRange(2,1,n-1,1).createTextFinder(id).matchEntireCell(true).matchCase(true).useRegularExpression(false).findAll();
+   if(matches.length!==1)return false;
+   const r=sh.getRange(matches[0].getRow(),1,1,21).getValues()[0];
+   return r[0]===id&&r[20]==='Y';
+  }
+  return {loadVerifiedPlan,isPlanCurrent:isCurrent,loadTopic,isTopicEligible};
  }
  return Object.freeze({metadata,verifySnapshot,createGasReader});
 });
