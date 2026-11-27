@@ -125,7 +125,7 @@ function reconcile(db,remoteRows){
     continue;
    }
    if(raw.dirty){
-    if(equal(desired,cloud||blank(id))&&(cloud||!meta.base)){
+    if(!meta.attempt&&equal(desired,cloud||blank(id))&&(cloud||!meta.base)){
      store.put(cleanRow(cloud,raw,id));continue;
     }
     if(!meta.known){
@@ -137,7 +137,7 @@ function reconcile(db,remoteRows){
     continue;
    }
    if(!cloud){
-    if(equal(desired,blank(id))&&!meta.base){
+    if(equal(desired,blank(id))&&(!raw.syncV2||!meta.base)){
      if(!raw.syncV2)store.put(cleanRow(null,raw,id));
     }else{
      store.put(hold(raw,null,['remote-missing'],'서버에 대응하는 학습정보가 없습니다. 자동 재생성하지 않습니다.'));
@@ -208,7 +208,7 @@ function acknowledge(db,batch,reply){
  for(const c of batch){
   const r=replies.get(c.operationId);
   if(!r||r.topicId!==c.topicId||!['applied','unchanged','conflict'].includes(r.status)||!Object.prototype.hasOwnProperty.call(r,'state')||
-   (r.state&&r.state.topicId!==c.topicId))throw Error('서버 변경 확인 응답 불일치');
+   (r.state&&r.state.topicId!==c.topicId)||(r.status==='applied'&&!r.state))throw Error('서버 변경 확인 응답 불일치');
  }
  return txRows(db,'readwrite',(rows,store)=>{
   const by=new Map(rows.map(r=>[r.topicId,r]));
@@ -239,12 +239,20 @@ async function run(db,transport,onPhase){
  const rows=await readRows(db),status=statusOf(rows);
  return {...status,state:status.pending?'partial':'synced',applied,received:rows.length,at:now()};
 }
+function withBrowserLock(task){
+ return root.navigator?.locks?.request
+  ?root.navigator.locks.request('pe-study-note-learning-sync-v2',{mode:'exclusive'},task)
+  :task();
+}
 function sync(db,transport,onPhase){
  if(activeSync)return activeSync;
- activeSync=run(db,transport,onPhase).finally(()=>{activeSync=null;});
+ activeSync=withBrowserLock(()=>run(db,transport,onPhase)).finally(()=>{activeSync=null;});
  return activeSync;
 }
-async function resolveConflict(db,id,choice,shownRemote,transport){
+function resolveConflict(db,id,choice,shownRemote,transport,shownLocal){
+ return withBrowserLock(()=>resolveConflictLocked(db,id,choice,shownRemote,transport,shownLocal));
+}
+async function resolveConflictLocked(db,id,choice,shownRemote,transport,shownLocal){
  const latest=await transport.get();
  if(latest.version!==2)throw Error('안전한 서버 동기화 버전을 확인할 수 없습니다.');
  const cloud=remoteMap(latest.rows).get(id)||null;
@@ -252,7 +260,9 @@ async function resolveConflict(db,id,choice,shownRemote,transport){
  return txRows(db,'readwrite',(rows,store)=>{
   const raw=rows.find(x=>x.topicId===id),conflict=raw?.syncV2?.conflict;
   if(!conflict||!sameRemote(conflict.remote,shownRemote))throw Error('충돌 기록이 변경되었습니다. 다시 확인하세요.');
-  const local=snapshot(raw),next=cleanRow(cloud,raw,id);
+  const local=snapshot(raw);
+  if(shownLocal&&!sameRemote(local,shownLocal))throw Error('기기 기록이 변경되었습니다. 양쪽 기록을 다시 확인하세요.');
+  const next=cleanRow(cloud,raw,id);
   next.syncV2.backup=local;
   if(choice==='server'){store.put(next);return next;}
   if(choice!=='local')throw Error('알 수 없는 충돌 처리 선택');
