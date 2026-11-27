@@ -4877,7 +4877,7 @@ let learningStateMap = new Map();
 let learningSyncReady = false, learningSyncTimer = null, learningSyncRun = null, learningSyncAgain = false;
 let learningSyncPhase = '', learningSyncLastSuccess = '', learningSyncLastAttempt = 0;
 let favoriteSyncPhase = '서버 확인 전', favoriteSyncLastSuccess = '', favoriteSyncLastResult = null;
-let plannerSyncRun = null, plannerSyncSummary = '계획·회독 진도 확인 대기';
+let plannerSyncRun = null, plannerSyncAgain = false, plannerSyncSummary = '계획·회독 진도 확인 대기';
 let memoRenderedTopicId = '', memoRenderedValue = '';
 let recallMode = false;
 let learningView = 'plan';
@@ -7595,8 +7595,9 @@ function renderFavoriteSyncStatus(rows=[...learningStateMap.values()]){
   if(!api?.favoriteStatusOf||!status)return;
   const counts=api.favoriteStatusOf(rows),ids=new Set(allTopics.map(t=>t.topicId));
   const visible=rows.filter(r=>r.favorite&&ids.has(r.topicId)).length;
-  const server=favoriteSyncLastResult||rows.some(r=>r.syncV2?.favoriteLane?.seenAt)?counts.server.toLocaleString()+'개':'미확인';
+  const server=favoriteSyncLastResult&&favoriteSyncLastResult.state!=='error'?favoriteSyncLastResult.server.toLocaleString()+'개':rows.some(r=>r.syncV2?.favoriteLane?.seenAt)?counts.server.toLocaleString()+'개':'미확인';
   const state=!navigator.onLine?'오프라인 · 기기에 보관':
+    /실패|인증 필요/.test(favoriteSyncPhase)?favoriteSyncPhase:
     counts.conflicts?'확인 필요한 즐겨찾기 있음':
     counts.pending?'미전송 변경 있음':favoriteSyncPhase;
   const missing=Math.max(0,counts.local-visible);
@@ -7653,7 +7654,7 @@ function renderFavoriteSyncStatus(rows=[...learningStateMap.values()]){
 }
 async function recordFavoriteReceipt(result){
   favoriteSyncLastResult=result;
-  favoriteSyncPhase=result.state==='synced'?'동기화 완료':'일부 보류 · 비교 확인';
+  favoriteSyncPhase=result.state==='synced'?'동기화 완료':result.state==='error'?'실패 · '+(result.message||'서버 확인 필요'):'일부 보류 · 비교 확인';
   if(result.state==='synced'){
     favoriteSyncLastSuccess=result.at;
     await setMeta(db,'lastFavoriteSyncAt',result.at);
@@ -7661,7 +7662,8 @@ async function recordFavoriteReceipt(result){
   await refreshLearningLocal();
 }
 function launchPlannerSync(){
-  if(plannerSyncRun||!window.StudyPlanner||window.PEPlannerSyncClient?.testEnabled?.())return;
+  if(!window.StudyPlanner||window.PEPlannerSyncClient?.testEnabled?.())return;
+  if(plannerSyncRun){plannerSyncAgain=true;return;}
   plannerSyncSummary='계획·회독 진도 확인 중';
   plannerSyncRun=Promise.resolve().then(()=>StudyPlanner.sync()).then(result=>{
     plannerSyncSummary=({synced:'계획·회독 진도 완료',partial:'계획·회독 진도 일부 보류',
@@ -7674,6 +7676,7 @@ function launchPlannerSync(){
   }).finally(()=>{
     plannerSyncRun=null;
     renderLearningSyncStatus();
+    if(plannerSyncAgain){plannerSyncAgain=false;launchPlannerSync();}
   });
 }
 function scheduleLearningAutoSync(reason='자동 확인',delay=900){
@@ -7737,8 +7740,7 @@ async function syncLearningStates(options={}){
           general=await api.sync(db,transport,phase,receipt);
           if(general.favorite){
             const final=general.favorite;
-            if(final.state!=='synced'||!favoriteConfirmed)await receipt(final);
-            else favorite=final;
+            await receipt(final);
           }
           await refreshLearningLocal();
           if(general.state==='synced'){
@@ -7761,7 +7763,7 @@ async function syncLearningStates(options={}){
       if(!favoriteOnly)launchPlannerSync();
       setLearningSyncPhase(base);
       if(manual)showToast(favoriteOnly?favText:favText+' · '+base);
-      return {state:favoriteOnly?favorite.state:general.state,general,favorite};
+      return {state:favoriteOnly?favorite.state:general.state,general,favorite,planner:{state:plannerSyncRun?'pending':'not-run'}};
     }catch(error){
       console.error(error);if(!favoriteConfirmed)favoriteSyncPhase='실패 · '+(error.message||String(error));
       setLearningSyncPhase('동기화 실패 · '+(error.message||String(error)));
