@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>학습 알림 개발 미리보기 (합성 데이터)</title>
+<style>body{font-family:system-ui,sans-serif;margin:12px;color:#1c2431;background:#fff}*{box-sizing:border-box}</style></head>
+<body><main id="demo"></main><p id="qa-result" role="status">QA not run</p>
+<script src="./study-notification-core.js"></script><script src="./study-notification-panel.js"></script>
+<script>
+(function(){
+'use strict';
+const core=StudyNotificationCore,panel=StudyNotificationPanel;
+const p={id:'synthetic-three-rounds',name:panel.PLAN_NAME,rounds:3,verified:true};
+const copy=v=>JSON.parse(JSON.stringify(v));
+let current={settingsVersion:0,settings:null,plans:[p],account:{connected:false,armed:false},releaseReady:false,stats:{assigned:150,confirmed:0,unknown:0,rejected:0}};
+const transport={
+ snapshot:async()=>copy(current),
+ save:async request=>{
+  if(request.expectedVersion!==current.settingsVersion)return {ok:false,reason:'settings-conflict'};
+  const settings=core.cleanSettings(request.settings);
+  if(settings.enabled)return {ok:false,reason:'demo-no-send'};
+  current.settingsVersion++;current.settings=settings;
+  return {ok:true};
+ },
+ preview:async settings=>({parts:core.prepareTopic({topicId:'T0001',topicName:'합성 토픽',concept:'개발용 개념 예시입니다. 실제 학습 원문이 아닙니다.',keywords:'예시 키워드',mnemonic:'예시 암기법'},settings).parts.map(x=>x.message)})
+};
+const mounted=panel.mount(document.getElementById('demo'),transport,core,{demo:true,confirmDiscard:()=>true});
+function must(v){if(!v)throw Error('assertion');}
+function button(t){return [...document.querySelectorAll('button')].find(b=>b.textContent===t);}
+async function click(t){const b=button(t);must(b&&!b.disabled);b.click();for(let i=0;i<8;i++)await Promise.resolve();}
+async function qa(){
+ try{
+  await mounted.loaded;
+  must(document.querySelectorAll('fieldset input').length===8);
+  must(document.querySelector('input[type=checkbox]').disabled);
+  must(button('카카오 계정 연결').disabled&&button('테스트 발송').disabled);
+  await click('메시지 미리보기');must(document.querySelector('pre').textContent.includes('합성 토픽'));
+  await click('설정 저장');must(current.settingsVersion===1&&current.settings.enabled===false);
+  current.settingsVersion=2;
+  await click('설정 저장');must(button('설정 저장').disabled);
+  await click('최신 설정 조회');must(!button('설정 저장').disabled);
+  current={...current,plans:[],settings:{...current.settings,enabled:true}};
+  await click('최신 설정 조회');
+  must(button('설정 저장').disabled&&!button('자동 발송 중지').disabled);
+  await click('자동 발송 중지');must(current.settings.enabled===false);
+  must(document.documentElement.scrollWidth<=window.innerWidth);
+  document.getElementById('qa-result').textContent='PASS_BROWSER_QA viewport='+window.innerWidth+' scroll='+document.documentElement.scrollWidth;
+ }catch(_){document.getElementById('qa-result').textContent='FAIL_BROWSER_QA';}
+}
+if(location.search==='?qa=1')qa();
+})();
+</script></body></html>
