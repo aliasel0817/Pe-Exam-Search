@@ -12,7 +12,7 @@
  const PATH='/Pe-Exam-Search/study-note/study-note.html';
  const CALLBACK=ORIGIN+'/Pe-Exam-Search/study-note/notification/kakao-callback.html';
  const ACTIONS=Object.freeze({snapshot:'notificationSnapshot',save:'notificationSave',preview:'notificationPreview',
-  begin:'notificationBegin',finish:'notificationFinish',confirm:'notificationConfirm',disconnect:'notificationDisconnect',history:'notificationHistory'});
+  begin:'notificationBegin',finish:'notificationFinish',confirm:'notificationConfirm',disconnect:'notificationDisconnect',history:'notificationHistory',test:'notificationTest'});
  const must=(v,m)=>{if(!v)throw Error(m);};
  function createTransport(host){
   for(const k of ['getApiUrl','ensureActive','sendSecureMutation','location'])must(typeof host[k]==='function','existing host dependency missing');
@@ -30,7 +30,7 @@
    return r.notificationResult;
   }
   return Object.freeze({snapshot:()=>call('snapshot'),save:d=>call('save',d),preview:d=>call('preview',d),begin:()=>call('begin'),
-   finish:d=>call('finish',d),confirm:d=>call('confirm',d),disconnect:()=>call('disconnect'),history:d=>call('history',d)});
+   finish:d=>call('finish',d),confirm:d=>call('confirm',d),disconnect:()=>call('disconnect'),history:d=>call('history',d),test:d=>call('test',{...d,confirm:true})});
  }
  function mount(container,host,core,panel,win=window){
   const transport=createTransport(host);
@@ -85,7 +85,8 @@
   try{
    view=panel.mount(container,transport,core,{prepareAuthorization,navigate,cancelAuthorization:closePopup,
     confirmDiscard:()=>win.confirm('저장하지 않은 변경을 버리고 최신 설정을 조회할까요?'),
-    confirmDisconnect:()=>win.confirm('자동 발송을 중지하고 카카오 계정 연결을 해제할까요?')});
+    confirmDisconnect:()=>win.confirm('자동 발송을 중지하고 카카오 계정 연결을 해제할까요?'),
+    confirmTest:()=>win.confirm('카카오톡 나와의 채팅에 고정 연결 테스트 메시지 1건을 보낼까요? 자동 학습 알림은 시작되지 않습니다.')});
   }catch(e){win.removeEventListener('message',onMessage);closePopup();throw e;}
   return Object.freeze({loaded:view.loaded,unmount(){disposed=true;win.removeEventListener('message',onMessage);closePopup();view.unmount();}});
  }
