@@ -96,7 +96,8 @@ var PN4Dedicated=(function(){
   check('DAILY_BUDGET',Number.isSafeInteger(day)&&day>=1&&day<=30000);
   check('MONTHLY_BUDGET',Number.isSafeInteger(month)&&month>=1&&month<=3000000&&(!read('DAILY_BUDGET')||month>=day));
   const reader=StudyNotificationPlanReader.createGasReader(c.master),date=StudyNotificationCore.kst(Date.now()).date;
-  const plans=reader.inspectExactPlans(read('OWNER_ID'),StudyNotificationHostFactory.NAME,read('TARGET_PLAN_ID'),date);
+  const name=StudyNotificationHostFactory(StudyNotificationCore,StudyNotificationServiceFactory(StudyNotificationCore)).NAME;
+  const plans=reader.inspectExactPlans(read('OWNER_ID'),name,read('TARGET_PLAN_ID'),date);
   const result={ok:true,readOnly:true,date,plans,missingProperties:missing,invalidProperties:invalid,configurationComplete:missing.length===0&&invalid.length===0&&plans.configuredPlanVerified,actualOAuthVerified:false,actualRelayVerified:false,sendFlagsDisabled:true};
   console.log(JSON.stringify(result));return result;
  }
