@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const code=fs.readFileSync(path.resolve(__dirname,'../service-worker.js'),'utf8');
 const events={},cache=new Map();
+const currentCache=code.match(/const CACHE_NAME = '([^']+)'/)[1];
 const hostname='https://aliasel0817.github.io';
 let fetches=0,skipWaitingCalls=0,claimCalls=0,deleted=[];
 const self={location:{origin:hostname},clients:{claim:async()=>{claimCalls++}},skipWaiting:async()=>{skipWaitingCalls++},
@@ -10,7 +11,7 @@ const self={location:{origin:hostname},clients:{claim:async()=>{claimCalls++}},s
 const caches={open:async name=>({
  addAll:async paths=>{for(const p of paths)cache.set(hostname+'/Pe-Exam-Search/study-note/'+p.replace('./',''),{status:200,cached:true})},
  put:async(req,value)=>{cache.set(typeof req==='string'?req:req.url,value)}
-}),keys:async()=>['pe-study-note-shell-OLD','pe-study-note-shell-v4-6-9-planner-sync-final-20261115'],
+}),keys:async()=>['pe-study-note-shell-OLD',currentCache],
  delete:async k=>{deleted.push(k);return true},
  match:async(req,{ignoreSearch}={})=>{
    const uri=typeof req==='string'?req:req.url;
@@ -19,7 +20,7 @@ const caches={open:async name=>({
    return null;
  }};
 vm.runInNewContext(code,{self,caches,URL,fetch:async()=>{fetches++;throw Error('offline')},console,Promise}, {filename:'service-worker.js'});
-const expect=['study-planner.js','study-planner-sync.js','study-planner-sync-ux.js',
+const expect=['learning-sync-v2.js','study-planner.js','study-planner-sync.js','study-planner-sync-ux.js',
  'study-planner-migration.js','study-planner-migration-ui.js','study-plans/pe141-100days.json'];
 const install={waitUntil(p){this.ready=p}};events.install(install);
 (async()=>{
@@ -43,7 +44,7 @@ const install={waitUntil(p){this.ready=p}};events.install(install);
   assert.equal(intercepted,false,'Non-planner route intercepted '+request.url);
  }
  console.log('PLANNER_OFFLINE_CACHE_REGRESSION_PASS',JSON.stringify({
-  version:'20261115',storedModules:expect.length,
+  version:currentCache,storedModules:expect.length,
   offlineNetworkFallback:true,existingPdfRequestsUnaffected:true,
   externalSignedApiNotIntercepted:true,mutationsNotIntercepted:true,
   previousShellEvicted:true}));
