@@ -167,6 +167,24 @@
    if(reply?.httpStatus===401||reply?.httpStatus===403||reply?.httpStatus===429){v.armed=false;write(v);}
    return {httpStatus:reply?.httpStatus||0,body:body&&typeof body==='object'?{result_code:body.result_code,code:body.code}:null};
   }
+  // Separate, explicit test gate. Fixed text only; no automatic send arming.
+  function sendTest(ctx,deadline,guard){
+   auth(ctx);must(Number.isSafeInteger(deadline)&&typeof guard==='function','invalid test request');
+   const skip={notAttempted:true},allow=()=>typeof deps.testApproved==='function'&&deps.testApproved(owner)===true&&guard()===true;
+   deadline=Math.min(deadline,Date.parse(keyDate(clock())+'T20:00:00+09:00'));
+   if(!allow()||!windowOpen(clock())||clock()>=deadline)return skip;
+   const v=read();
+   if(!v.token||!v.boundId||v.token.refreshUntil<=clock()||!remaining(budget(v,clock())))return skip;
+   const t=refresh(v);if(!t||!allow())return skip;
+   const wait=1000-(clock()-budget(v,clock()).lastAt);
+   if(wait>0){if(clock()+wait>=deadline)return skip;deps.sleep(wait);}
+   if(!windowOpen(clock())||clock()>=deadline||!allow())return skip;
+   const template={object_type:'text',text:'학습노트 카카오톡 연결 테스트입니다. 자동 학습 알림과 학습 진도는 변경하지 않았습니다.',link:{web_url:config.linkUrl,mobile_web_url:config.linkUrl},button_title:'학습노트 보기'};
+   const reply=call(v,SEND,'POST',{template_object:JSON.stringify(template)},t.accessToken,deadline,()=>allow()&&windowOpen(clock()));
+   if(reply?.notAttempted===true)return skip;
+   if([401,403,429].includes(reply?.httpStatus)){v.armed=false;write(v);}
+   return {httpStatus:reply?.httpStatus||0,body:reply?.body&&typeof reply.body==='object'?{result_code:reply.body.result_code,code:reply.body.code}:null};
+  }
   function disconnect(ctx){
    auth(ctx);const v=read(),t=v.token,id=v.boundId;
    // Local disable and credential destruction first; do not revive on failure.
@@ -175,7 +193,7 @@
    const r=call(v,UNLINK,'POST',{},t.accessToken);
    return {connected:false,providerRevoked:!!(success(r)&&account(r.body.id)===id)};
   }
-  return Object.freeze({begin,finish,confirm,status,arm,ready,sendSelf,disconnect});
+  return Object.freeze({begin,finish,confirm,status,arm,ready,sendSelf,sendTest,disconnect});
  }
  return Object.freeze({create});
 });
