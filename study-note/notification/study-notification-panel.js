@@ -65,7 +65,7 @@
    buttons.pause.disabled=busy||!snapshot||stale||snapshot.settings?.enabled!==true;
    buttons.connect.disabled=busy||!snapshot||stale||connected||typeof transport.begin!=='function';
    buttons.disconnect.disabled=busy||!snapshot||stale||!connected||typeof transport.disconnect!=='function';
-   buttons.test.disabled=busy||!snapshot||stale||dirty||!allow||typeof transport.test!=='function';
+   buttons.test.disabled=busy||!snapshot||stale||dirty||!hasPlan||!connected||snapshot.testReady!==true||typeof transport.test!=='function';
   }
   function render(s){
    if(!s||!Number.isSafeInteger(s.settingsVersion)||s.settingsVersion<0)throw Error('설정 응답 확인 실패');
@@ -135,6 +135,7 @@
   buttons.test.onclick=()=>perform(async()=>{
    if(typeof options.confirmTest!=='function'||options.confirmTest()!==true)return;
    const r=await transport.test({expectedVersion:snapshot.settingsVersion});
+   render(await transport.snapshot());
    state.textContent=r?.confirmed===true?'테스트 메시지 API 성공 응답 확인':r?.unknown===true?'테스트 발송 결과 불명 · 자동 재전송하지 않습니다.':'테스트 발송 미확인';
   });
   const states={confirmed:'API 수락',pending:'미발송/부분 완료',unknown:'확인 필요',rejected:'거절'};
