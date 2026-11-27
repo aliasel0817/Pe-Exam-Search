@@ -126,7 +126,15 @@
      case 'finish':return provider.finish(ctx,data);
      case 'confirm':return provider.confirm(ctx,data);
      case 'disconnect':return disconnect(ctx);
-     case 'history':return service.history(store,owner,data?.date,data?.offset??0,data?.limit??20);
+     case 'history':{
+      if(data?.scope==='unconfirmed-today'){
+       const today=core.kst(deps.now()).date,p=plan();
+       must(data.date===today&&current(p),'verified current day required');
+       return service.unconfirmedToday(store,owner,p,today,data.offset??0,data.limit??20,tid=>deps.reader.loadTopic(owner,tid));
+      }
+      must(!data?.scope,'unknown history scope');
+      return service.history(store,owner,data?.date,data?.offset??0,data?.limit??20);
+     }
      case 'test':return test(ctx,data);
      default:throw Error('unknown notification action');
     }
