@@ -87,4 +87,32 @@ eligible=false;now+=300000;svc.runTick(store,config.ownerId,dep);assert.equal(co
 assert.equal(svc.status(store,config.ownerId,'2026-11-27').unknown,0);
 // Exact plan name and cloud verification, never fallback to another schedule.
 assert.deepEqual(panel.availablePlans({plans:[{id:'wrong',name:panel.PLAN_NAME,rounds:5,verified:true},{id:'local',name:panel.PLAN_NAME,rounds:3,verified:false},{id:'right',name:panel.PLAN_NAME,rounds:3,verified:true}]}).map(p=>p.id),['right']);
+// Host verifies the signed-context adapter instead of trusting request payloads.
+const hostFactory=require('./study-notification-host.js');
+const hRecords=new Map();let held=false;
+const hStore={exclusive(fn){assert.equal(held,false);held=true;try{return fn({get:k=>hRecords.has(k)?copy(hRecords.get(k)):null,list:p=>[...hRecords].filter(([k])=>k.startsWith(p)).map(([key,value])=>({key,value:copy(value)})),commit:rows=>rows.forEach(r=>hRecords.set(r.key,copy(r.value)))});}finally{held=false;}}};
+let hPlan=null,hApproved=false,hArmed=false,hCalls=0;
+const host=hostFactory.create({ownerId:config.ownerId,targetPlanId:id},{
+ store:hStore,now:()=>start,releaseApproved:()=>hApproved,verifySignedRequest:req=>req==='synthetic-verified-envelope'?ctx:null,
+ reader:{loadVerifiedPlan:()=>hPlan,isPlanCurrent:()=>true,loadTopic:()=>({topicId:'T0001',topicName:'synthetic'}),isTopicEligible:()=>true},
+ createProvider:bridge=>({
+  status:()=>{assert.equal(bridge.assertLocked(),true);return {connected:true,armed:hArmed,refreshExpired:false};},
+  arm:(_ctx,on)=>{assert.equal(bridge.assertLocked(),true);if(on)assert.equal(bridge.approved(config.ownerId),true);hArmed=on;return {ok:true};},
+  ready:()=>hArmed,sendSelf:()=>{hCalls++;return {httpStatus:200,body:{result_code:0}};}
+ })
+});
+const dispatch=(a,d)=>host.dispatch(a,'synthetic-verified-envelope',d);
+assert.throws(()=>host.dispatch('snapshot',{verified:true,ownerId:config.ownerId,sessionBinding:'forged'}),/authenticated/);
+assert.equal(dispatch('snapshot').plans.length,0);
+assert.throws(()=>dispatch('save',{expectedVersion:0,settings}),/enable gate/);
+hPlan={...plan,name:'Wrong plan'};assert.equal(dispatch('snapshot').plans.length,0);
+hPlan={...plan,name:hostFactory.NAME};assert.equal(dispatch('snapshot').plans.length,1);
+assert.throws(()=>dispatch('save',{expectedVersion:0,settings}),/enable gate/);
+hApproved=true;assert.equal(dispatch('save',{expectedVersion:0,settings}).ok,true);assert.equal(hArmed,true);
+assert.equal(dispatch('save',{expectedVersion:0,settings}).reason,'settings-conflict');
+assert.equal(dispatch('preview',settings).parts.length,1);
+assert.equal(host.tick().attempted,1);assert.equal(hCalls,1);
+hPlan=null;assert.equal(dispatch('save',{expectedVersion:1,settings:{...settings,enabled:false}}).ok,true);assert.equal(hArmed,false);
+assert.equal(host.tick().reason,'disabled');
+console.log('PASS: Stage 3 host owner gate, exact plan, shared lock, configuration CAS and activation assertions');
 console.log('PASS: Stage 3 OAuth state/session/replay, account consent/binding, refresh, quota, cutoff, no-send, source eligibility and plan selection assertions');
