@@ -5,7 +5,7 @@
  */
 var StudyNotificationGasStore=(function(){
   'use strict';
-  var NAME='PeExamStudyNotificationPrivate',TAB='NotificationJournal';
+  var NAME='PeExamStudyNotificationPrivate',QA_NAME='PeExamStudyNotificationQA',TAB='NotificationJournal';
   var HEADER=['transactionId','index','count','key','payloadJson','sha256'];
   var MAX_ROWS=150000,MAX_BATCH=5000,MAX_CELL=45000;
   function must(ok,msg){if(!ok)throw Error(msg);}
@@ -32,10 +32,10 @@ var StudyNotificationGasStore=(function(){
     }
     return state;
   }
-  function open(privateId){
+  function open(privateId,expectedName){
     must(typeof privateId==='string'&&/^[A-Za-z0-9_-]{20,}$/.test(privateId),'explicit private spreadsheet ID required');
     var ss=SpreadsheetApp.openById(privateId);
-    must(ss.getName()===NAME,'not notification-only spreadsheet');
+    must(ss.getName()===(expectedName||NAME),'not notification-only spreadsheet');
     // Exact schema and dedicated workbook are mandatory. No automatic initialization.
     must(ss.getSheets().length===1,'unexpected notification workbook tabs');
     var sheet=ss.getSheetByName(TAB);
@@ -43,12 +43,12 @@ var StudyNotificationGasStore=(function(){
     must(JSON.stringify(sheet.getRange(1,1,1,HEADER.length).getValues()[0])===JSON.stringify(HEADER),'notification header mismatch');
     return sheet;
   }
-  function create(privateId){
+  function createInternal(privateId,expectedName){
     return {exclusive:function(work){
       var lock=LockService.getScriptLock();
       must(lock.tryLock(1000),'notification lock busy');
       try{
-        var sheet=open(typeof privateId==='function'?privateId():privateId),last=sheet.getLastRow();
+        var sheet=open(typeof privateId==='function'?privateId():privateId,expectedName),last=sheet.getLastRow();
         must(last>=1&&last<=MAX_ROWS+1,'journal capacity exceeded');
         var rows=last===1?[]:sheet.getRange(2,1,last-1,HEADER.length).getValues();
         var state=replay(rows),sortedKeys=Array.from(state.keys()).sort(),indexDirty=false;
@@ -94,6 +94,10 @@ var StudyNotificationGasStore=(function(){
       }finally{lock.releaseLock();}
     }};
   }
+  function create(privateId){return createInternal(privateId,NAME);}
+  // QA adapter has the identical locking, replay and commit implementation,
+  // but it cannot open the production notification workbook by name.
+  function createQa(privateId){return createInternal(privateId,QA_NAME);}
   // Offline candidate only: produce a verified compacted journal, never write
   // or delete the source. A future generation-switch procedure must lock,
   // verify sourceHash, read back a separate candidate and retain rollback.
@@ -165,5 +169,5 @@ var StudyNotificationGasStore=(function(){
       return {ok:true,switched:true,beforeRows:comp.beforeRows,afterRows:comp.afterRows,archives:next.archives.length};
     }finally{lock.releaseLock();}
   }
-  return Object.freeze({create:create,replay:replay,buildCompaction:buildCompaction,activeId:activeId,compactDisabledProject:compactDisabledProject});
+  return Object.freeze({create:create,createQa:createQa,replay:replay,buildCompaction:buildCompaction,activeId:activeId,compactDisabledProject:compactDisabledProject});
 })();
