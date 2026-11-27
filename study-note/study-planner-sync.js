@@ -420,6 +420,11 @@ async function runSync(db,transport){
   result.progressUploaded+=pushed.applied;result.conflicts+=pushed.conflicts;
   result.progressDownloaded+=await pullProgress(db,transport,info.planId);
  }
+ // Only after the normal server roundtrip, archive known receipt-only collisions.
+ // Older cached clients can still synchronize safely without the optional helper.
+ if(typeof root.PEPlannerMigration?.archiveReceiptConflicts==='function'){
+  try{await root.PEPlannerMigration.archiveReceiptConflicts(db);}catch(error){console.warn('Receipt collision archive deferred:',error?.message||error);}
+ }
  const after=await status(db);
  result.pending=after.pending;result.conflicts=after.conflicts;
  const planOk=after.planPending===0&&after.planConflicts===0&&after.conflicts===after.planConflicts+after.progressConflicts;
