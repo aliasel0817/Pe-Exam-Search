@@ -4,7 +4,7 @@
  */
 var PN4_ACTIONS_=Object.freeze({notificationsnapshot:'snapshot',notificationsave:'save',
  notificationpreview:'preview',notificationbegin:'begin',notificationfinish:'finish',
- notificationconfirm:'confirm',notificationdisconnect:'disconnect',notificationhistory:'history'});
+ notificationconfirm:'confirm',notificationdisconnect:'disconnect',notificationhistory:'history',notificationtest:'test'});
 function PN4_isNotificationPost_(action){
  return Object.prototype.hasOwnProperty.call(PN4_ACTIONS_,String(action||'').toLowerCase());
 }
