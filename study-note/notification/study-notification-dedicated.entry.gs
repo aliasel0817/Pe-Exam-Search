@@ -10,13 +10,12 @@ var PN4Dedicated=(function(){
   return {p,get,owner:get('OWNER_ID')};
  }
  function host(c,verified){
-  const source=c.get('MASTER_ID'),target=c.get('PRIVATE_STORE_ID');
-  must(source!==target,'MASTER cannot be notification storage');
+  const source=c.get('MASTER_ID');
   // The identity object exists only inside this server invocation.
   const marker=Object.freeze({});
   const h=StudyNotificationHostFactory(StudyNotificationCore,StudyNotificationServiceFactory(StudyNotificationCore)).create(
     {ownerId:c.owner,targetPlanId:c.get('TARGET_PLAN_ID')},{
-     store:StudyNotificationGasStore.create(target),
+     store:StudyNotificationGasStore.create(()=>StudyNotificationGasStore.activeId(c.p,source)),
      reader:StudyNotificationPlanReader.createGasReader(source),
      now:()=>Date.now(),
      releaseApproved:owner=>owner===c.owner&&c.p.getProperty('PE_NOTIFICATION_RELEASE_APPROVED')==='YES',
@@ -59,7 +58,7 @@ var PN4Dedicated=(function(){
   must(c.p.getProperty('PE_NOTIFICATION_HTTP_APPROVED')!=='YES'&&c.p.getProperty('PE_NOTIFICATION_RELEASE_APPROVED')!=='YES'&&c.p.getProperty('PE_NOTIFICATION_SCHEDULER_APPROVED')!=='YES','initialization requires disabled project');
   const lock=LockService.getScriptLock();must(lock.tryLock(1000),'notification lock busy');
   try{
-   must(!c.p.getProperty('PE_NOTIFICATION_PRIVATE_STORE_ID'),'private journal already configured; never replace');
+   must(!c.p.getProperty('PE_NOTIFICATION_PRIVATE_STORE_ID')&&!c.p.getProperty('PE_NOTIFICATION_STORE_MANIFEST'),'private journal already configured; never replace');
    const ss=SpreadsheetApp.create('PeExamStudyNotificationPrivate');
    const sh=ss.getSheets()[0];sh.setName('NotificationJournal');
    const header=['transactionId','index','count','key','payloadJson','sha256'];
@@ -70,10 +69,13 @@ var PN4Dedicated=(function(){
    return {ok:true,privateStoreCreated:true};
   }finally{lock.releaseLock();}
  }
- return Object.freeze({post,tick,initializeJournal});
+ function compact(){const c=cfg();return StudyNotificationGasStore.compactDisabledProject(c.p,c.get('MASTER_ID'));}
+ return Object.freeze({post,tick,initializeJournal,compact});
 })();
 function doPost(e){return PN4Dedicated.post(e);}
 function doGet(){return ContentService.createTextOutput('{"ok":false}').setMimeType(ContentService.MimeType.JSON);}
 // Explicit editor-run only; installable trigger must be separately approved.
 function notificationScheduledTick(){return PN4Dedicated.tick();}
 function initializeNotificationPrivateJournal(){return PN4Dedicated.initializeJournal();}
+
+function compactNotificationPrivateJournal(){return PN4Dedicated.compact();}
