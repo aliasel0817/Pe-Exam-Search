@@ -57,11 +57,11 @@
     if(changes.length)tx.commit(changes);
     return {job,rows};
   }
-  function reserve(tx,candidate,prepared,settingsVersion){
+  function reserve(tx,candidate,prepared,settingsVersion,topicName,reservedAt){
     const key=jobKey(candidate.ownerId,candidate.planId,candidate.date,candidate.topicId);
     must(!tx.get(key),'duplicate reservation');
     must(prepared.topicId===candidate.topicId&&prepared.parts.length>0,'message identity mismatch');
-    const job={...candidate,settingsVersion,status:'pending',partCount:prepared.parts.length};
+    const job={...candidate,settingsVersion,status:'pending',partCount:prepared.parts.length,topicName,reservedAt};
     const changes=[patch(key,job)];
     for(const p of prepared.parts)changes.push(patch(partKey(key,p.part),{part:p.part,total:p.total,message:p.message,state:'pending'}));
     tx.commit(changes);
@@ -151,7 +151,7 @@
         if(!topic||topic.topicId!==candidate.topicId){result.held++;continue;}
         const prepared=core.prepareTopic(topic,settings);
         if(!canSend())break;
-        const job=reserve(tx,candidate,prepared,record.version);
+        const job=reserve(tx,candidate,prepared,record.version,topic.topicName,deps.now());
         result.reserved++;
         deliver(job);
       }
@@ -173,5 +173,23 @@
       return result;
     });
   }
-  return Object.freeze({saveSettings,readSettings,runTick,status});
+  function history(store,owner,date,offset=0,limit=20){
+    checkOwner(owner);
+    must(typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date+'T00:00:00Z'))&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date,'valid date required');
+    must(Number.isSafeInteger(offset)&&offset>=0&&Number.isSafeInteger(limit)&&limit>=1&&limit<=25,'invalid history page');
+    return store.exclusive(tx=>{
+      const planId=tx.get(settingsKey(owner))?.settings?.planId;
+      const jobs=listJobs(tx,owner).filter(j=>j.planId===planId&&j.date===date).sort((a,b)=>(a.reservedAt||0)-(b.reservedAt||0)||a.topicId.localeCompare(b.topicId));
+      const rows=jobs.slice(offset,offset+limit).map(j=>{
+        const parts=readParts(tx,j),states=parts.map(r=>r.value.state);
+        const status=states.some(s=>s==='unknown'||s==='sending')?'unknown':states.includes('rejected')?'rejected':states.every(s=>s==='confirmed')?'confirmed':'pending';
+        return {topicId:j.topicId,topicName:j.topicName||j.topicId,round:j.round,date:j.date,status,partCount:j.partCount,confirmedParts:states.filter(s=>s==='confirmed').length,reservedAt:j.reservedAt||null};
+      });
+      return {date,total:jobs.length,rows,nextOffset:offset+rows.length<jobs.length?offset+rows.length:null};
+    });
+  }
+  function nextEligible(store,owner){
+    checkOwner(owner);return store.exclusive(tx=>tx.get(slotKey(owner))?.nextEligibleAt||null);
+  }
+  return Object.freeze({saveSettings,readSettings,runTick,status,history,nextEligible});
 });
