@@ -51,12 +51,20 @@ var StudyNotificationGasStore=(function(){
         var sheet=open(typeof privateId==='function'?privateId():privateId),last=sheet.getLastRow();
         must(last>=1&&last<=MAX_ROWS+1,'journal capacity exceeded');
         var rows=last===1?[]:sheet.getRange(2,1,last-1,HEADER.length).getValues();
-        var state=replay(rows);
+        var state=replay(rows),sortedKeys=Array.from(state.keys()).sort(),indexDirty=false;
+        function lowerBound(prefix){
+          if(indexDirty){sortedKeys=Array.from(state.keys()).sort();indexDirty=false;}
+          var lo=0,hi=sortedKeys.length;
+          while(lo<hi){var mid=(lo+hi)>>>1;if(sortedKeys[mid]<prefix)lo=mid+1;else hi=mid;}
+          return lo;
+        }
         var tx={
           get:function(key){return state.has(key)?copy(state.get(key)):null;},
           list:function(prefix){
             var out=[];
-            state.forEach(function(value,key){if(key.indexOf(prefix)===0)out.push({key:key,value:copy(value)});});
+            for(var i=lowerBound(prefix);i<sortedKeys.length&&sortedKeys[i].indexOf(prefix)===0;i++){
+              var key=sortedKeys[i];out.push({key:key,value:copy(state.get(key))});
+            }
             return out;
           },
           commit:function(changes){
@@ -79,7 +87,7 @@ var StudyNotificationGasStore=(function(){
             // One contiguous batch, verify actual durable readback before permitting a send.
             target.setValues(batch);SpreadsheetApp.flush();
             must(JSON.stringify(target.getValues())===JSON.stringify(batch),'journal write readback mismatch');
-            changes.forEach(function(c){state.set(c.key,copy(c.value));});last=end;
+            changes.forEach(function(c){if(!state.has(c.key))indexDirty=true;state.set(c.key,copy(c.value));});last=end;
           }
         };
         return work(tx);
