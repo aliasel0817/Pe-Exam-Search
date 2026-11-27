@@ -8,7 +8,31 @@ var PN4_ACTIONS_=Object.freeze({notificationsnapshot:'snapshot',notificationsave
 function PN4_isNotificationPost_(action){
  return Object.prototype.hasOwnProperty.call(PN4_ACTIONS_,String(action||'').toLowerCase());
 }
-function PN4_verifiedNotificationPost_(action,verified){
+// The v25 host verifies timestamp/HMAC and consumes a cache nonce. For this
+// new route only, hold a durable, bounded claim for the original signed
+// browser nonce throughout the host's five-minute authentication window.
+// This is not a replacement for validateSignedMutation_ or its other routes.
+function PN6_claimVerifiedNotificationNonce_(p,auth,envelope){
+ const raw=envelope&&envelope.auth,now=Date.now(),skew=300000;
+ const stamp=Number(raw&&raw.timestamp),nonce=String(raw&&raw.nonce||'').trim();
+ if(!raw||String(raw.deviceId||'').trim()!==auth.deviceId||!Number.isSafeInteger(stamp)||
+    Math.abs(now-stamp)>skew||!/^[A-Za-z0-9_-]{16,128}$/.test(nonce))throw Error('verified nonce unavailable');
+ const fingerprint=StudyNotificationRelayGas.hmac(StudyNotificationRelayGas.secret(p),
+   JSON.stringify(['PE_NOTIFY_BROWSER_NONCE_V1',auth.deviceId,nonce]));
+ const lock=LockService.getScriptLock();if(!lock.tryLock(1000))throw Error('notification lock busy');
+ try{
+  const key='PE_NOTIFICATION_BROWSER_NONCES',stored=p.getProperty(key),previous=stored?JSON.parse(stored):[];
+  if(!Array.isArray(previous)||previous.length>80||!previous.every(r=>Array.isArray(r)&&r.length===2&&/^[a-f0-9]{64}$/.test(r[0])&&Number.isSafeInteger(r[1])))throw Error('invalid notification nonce ledger');
+  const rows=previous.filter(r=>r[1]>=now);
+  if(rows.some(r=>r[0]===fingerprint)||rows.length>=80)throw Error('notification nonce held');
+  rows.push([fingerprint,stamp+skew]);
+  const value=JSON.stringify(rows);
+  if(Utilities.newBlob(value).getBytes().length>8500)throw Error('notification nonce capacity');
+  p.setProperty(key,value);
+  if(p.getProperty(key)!==value)throw Error('notification nonce write failed');
+ }finally{lock.releaseLock();}
+}
+function PN4_verifiedNotificationPost_(action,verified,envelope){
  try{
   action=String(action||'').toLowerCase();
   if(!PN4_isNotificationPost_(action))throw Error('invalid action');
@@ -26,6 +50,7 @@ function PN4_verifiedNotificationPost_(action,verified){
   if(typeof deviceKey!=='string'||!deviceKey)throw Error('session unavailable');
   const binding=StudyNotificationRelayGas.hmac(StudyNotificationRelayGas.secret(p),
     JSON.stringify(['PE_NOTIFY_SESSION_V1',auth.deviceId,deviceKey]));
+  PN6_claimVerifiedNotificationNonce_(p,auth,envelope);
   const relay=StudyNotificationRelayGas.create(p,false);
   const request=relay.request(PN4_ACTIONS_[action],binding,data);
   const reply=relay.verifyResponse(request,StudyNotificationRelayGas.safeFetch(get('RELAY_URL'),request));
