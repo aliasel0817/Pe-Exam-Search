@@ -84,6 +84,26 @@
    const p=verifySnapshot(m,read('학습계획일정',CHUNK_HEADERS,[4],50000),sha);
    return isCurrent(owner,p)?p:null;
   }
+  // Editor-only discovery helper: never chooses, edits or creates a plan.
+  // Check the exact name, round count, status and every active snapshot hash.
+  function inspectExactPlans(owner,name,chosenId,date){
+   must(typeof name==='string'&&name.length>0&&isDate(date),'exact plan name/date required');
+   const rows=read('학습계획',PLAN_HEADERS,[2,3],10000);
+   const matches=rows.filter(r=>r[1]===name&&Number(r[4])===3&&r[12]==='ACTIVE');
+   must(matches.length<=20,'too many exact-name plans; review required');
+   const chunks=matches.length?read('학습계획일정',CHUNK_HEADERS,[4],50000):[];
+   const candidates=[];let failed=0;
+   for(const row of matches){
+    try{
+     const m=metadata(rows,row[0]),p=verifySnapshot(m,chunks,sha);
+     must(isCurrent(owner,p),'plan changed');
+     const day=p.days.find(d=>d.date===date);
+     candidates.push({planId:p.id,activeRevision:p.activeRevision,activeHash:p.activeHash,todayAssigned:day?.ids.length||0});
+    }catch(_){failed++;}
+   }
+   return {exactActiveCount:matches.length,verifiedCount:candidates.length,verificationFailures:failed,candidates,
+    configuredPlanVerified:typeof chosenId==='string'&&candidates.some(p=>p.planId===chosenId)};
+  }
   // No caching across invocations: latest source is used for newly reserved topics.
   // Already-reserved parts are intentionally immutable; deleted/excluded topics
   // require an explicit policy check in the production integration.
@@ -111,7 +131,7 @@
    const r=sh.getRange(matches[0].getRow(),1,1,21).getValues()[0];
    return r[0]===id&&r[20]==='Y';
   }
-  return {loadVerifiedPlan,isPlanCurrent:isCurrent,loadTopic,isTopicEligible};
+  return {loadVerifiedPlan,isPlanCurrent:isCurrent,loadTopic,isTopicEligible,inspectExactPlans};
  }
  return Object.freeze({metadata,verifySnapshot,createGasReader});
 });
