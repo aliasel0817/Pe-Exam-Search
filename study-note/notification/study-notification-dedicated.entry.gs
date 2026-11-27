@@ -19,6 +19,7 @@ var PN4Dedicated=(function(){
      reader:StudyNotificationPlanReader.createGasReader(source),
      now:()=>Date.now(),
      releaseApproved:owner=>owner===c.owner&&c.p.getProperty('PE_NOTIFICATION_RELEASE_APPROVED')==='YES',
+     testApproved:owner=>owner===c.owner&&c.p.getProperty('PE_NOTIFICATION_TEST_APPROVED')==='YES',
      createProvider:StudyNotificationKakaoGas.create,
      verifySignedRequest:request=>verified&&request===marker?verified.ctx:null
     });
