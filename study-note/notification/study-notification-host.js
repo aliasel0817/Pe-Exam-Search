@@ -37,7 +37,9 @@
    const p=plan();
    return target===owner&&deps.releaseApproved(owner)===true&&current(p);
   }
-  const provider=deps.createProvider({assertLocked:()=>activeTx!==null,approved});
+  function testApproved(target){return target===owner&&typeof deps.testApproved==='function'&&deps.testApproved(owner)===true&&current(plan());}
+  const provider=deps.createProvider({assertLocked:()=>activeTx!==null,approved,testApproved});
+  const testKey=date=>'test|'+encodeURIComponent(owner)+'|'+date;
   function auth(request){
    const ctx=deps.verifySignedRequest(request);
    must(ctx&&ctx.verified===true&&ctx.ownerId===owner&&typeof ctx.sessionBinding==='string'&&ctx.sessionBinding.length>0,'authenticated owner required');
@@ -50,7 +52,9 @@
    const now=deps.now(),start=Date.parse(date+'T08:30:00+09:00'),end=Date.parse(date+'T20:00:00+09:00');
    const candidate=Math.max(now,start,service.nextEligible(store,owner)||0);
    const nextCheckAt=ready&&account.armed===true&&r.settings?.enabled===true&&day?.ids.length>stats.confirmed&&candidate<end?candidate:null;
-   return {date,nextCheckAt,settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
+   const lastTest=activeTx.get(testKey(date));
+   const testReady=testApproved(owner)&&account.connected&&!account.refreshExpired&&now>=start&&now<end&&(!lastTest||lastTest.state==='not-attempted');
+   return {date,nextCheckAt,testReady,settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
     account,releaseReady:ready,
     stats:p&&current(p)&&r.settings?.planId===id?{assigned:day?.ids.length||0,confirmed:stats.confirmed,pending:stats.pending,unknown:stats.unknown,rejected:stats.rejected}:null};
   }
@@ -84,6 +88,25 @@
    must(topic&&topic.topicId===tid&&deps.reader.isTopicEligible(owner,tid)===true,'topic unavailable');
    return {parts:core.prepareTopic(topic,s).parts.map(x=>x.message)};
   }
+  function test(ctx,data){
+   must(data?.confirm===true&&Number.isSafeInteger(data.expectedVersion),'explicit test confirmation required');
+   const version=service.readSettings(store,owner).version;
+   if(version!==data.expectedVersion)return {ok:false,reason:'settings-conflict'};
+   const n=deps.now(),local=core.kst(n),deadline=Date.parse(local.date+'T20:00:00+09:00');
+   must(testApproved(owner)&&local.minute>=510&&local.minute<1200,'test gate not ready');
+   const account=provider.status(ctx);
+   must(account.connected&&!account.refreshExpired&&typeof provider.sendTest==='function','test account not ready');
+   const key=testKey(local.date),prev=activeTx.get(key);
+   if(prev&&prev.state!=='not-attempted')return {ok:false,reason:'test-already-attempted',confirmed:prev.state==='confirmed',unknown:['sending','unknown'].includes(prev.state)};
+   activeTx.commit([{key,value:{state:'sending',at:n}}]);
+   let state='unknown';
+   try{
+    const reply=provider.sendTest(ctx,deadline,()=>testApproved(owner)&&core.kst(deps.now()).date===local.date&&deps.now()<deadline);
+    state=reply?.notAttempted===true?'not-attempted':core.classifyKakaoOutcome(reply?.httpStatus,reply?.body);
+   }catch(_){}
+   activeTx.commit([{key,value:{state,at:n}}]);
+   return {ok:state==='confirmed',confirmed:state==='confirmed',unknown:state==='unknown',reason:state};
+  }
   function disconnect(ctx){
    // provider disconnect erases local credentials and disarms before any unlink I/O.
    const result=provider.disconnect(ctx),old=service.readSettings(store,owner);
@@ -104,6 +127,7 @@
      case 'confirm':return provider.confirm(ctx,data);
      case 'disconnect':return disconnect(ctx);
      case 'history':return service.history(store,owner,data?.date,data?.offset??0,data?.limit??20);
+     case 'test':return test(ctx,data);
      default:throw Error('unknown notification action');
     }
    });
