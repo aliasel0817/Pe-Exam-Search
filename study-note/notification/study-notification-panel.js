@@ -33,7 +33,7 @@
   const fields=add(panel,'fieldset');add(fields,'legend','발송 항목 · 토픽명 기본 포함');
   const checks=core.FIELDS.map(([id,name])=>{const c=el('input');c.type='checkbox';c.value=id;fields.append(row(name,c));return c;});
   const actions=add(panel,'div');actions.className='actions';
-  const buttons={};for(const [k,name] of [['save','설정 저장'],['refresh','최신 설정 조회'],['preview','메시지 미리보기'],['connect','카카오 계정 연결'],['disconnect','계정 연결 해제'],['test','테스트 발송']]){const b=add(actions,'button',name);b.type='button';buttons[k]=b;}
+  const buttons={};for(const [k,name] of [['save','설정 저장'],['pause','자동 발송 중지'],['refresh','최신 설정 조회'],['preview','메시지 미리보기'],['connect','카카오 계정 연결'],['disconnect','계정 연결 해제'],['test','테스트 발송']]){const b=add(actions,'button',name);b.type='button';buttons[k]=b;}
   const summary=add(panel,'p','오늘의 발송 현황: 확인 중');
   const progress=add(panel,'progress');progress.max=1;progress.value=0;progress.setAttribute('aria-label','오늘의 발송 진행률');
   const preview=add(panel,'pre','미리보기를 선택하면 분할 메시지를 확인할 수 있습니다.');
@@ -53,6 +53,7 @@
    buttons.save.disabled=busy||!snapshot||stale||!hasPlan||(enabled.checked&&!allow);
    buttons.preview.disabled=busy||!snapshot||stale||!hasPlan||typeof transport.preview!=='function';
    buttons.refresh.disabled=busy;
+   buttons.pause.disabled=busy||!snapshot||stale||snapshot.settings?.enabled!==true;
    buttons.connect.disabled=busy||!snapshot||stale||connected||typeof transport.begin!=='function';
    buttons.disconnect.disabled=busy||!snapshot||stale||!connected||typeof transport.disconnect!=='function';
    buttons.test.disabled=busy||!snapshot||stale||dirty||!allow||typeof transport.test!=='function';
@@ -82,7 +83,7 @@
   function edited(){dirty=true;preview.textContent='변경된 설정을 미리보기할 수 있습니다.';updateControls();}
   [plan,enabled,interval,order,...checks].forEach(c=>c.addEventListener('change',edited));
   buttons.refresh.onclick=()=>perform(async()=>{
-   if(dirty&&options.confirmDiscard&&options.confirmDiscard()!==true)return;
+   if(dirty&&(typeof options.confirmDiscard!=='function'||options.confirmDiscard()!==true))return;
    render(await transport.snapshot());
   });
   buttons.save.onclick=()=>perform(async()=>{
@@ -90,6 +91,12 @@
    if(reply?.reason==='settings-conflict'){stale=true;state.textContent='다른 기기에서 설정이 변경되었습니다. 최신 설정 조회 후 다시 수정하세요.';return;}
    if(reply?.ok!==true)throw Error('save failed');
    render(await transport.snapshot());state.textContent='설정 저장 확인 완료';
+  });
+  buttons.pause.onclick=()=>perform(async()=>{
+   const reply=await transport.save({expectedVersion:snapshot.settingsVersion,settings:{...snapshot.settings,enabled:false}});
+   if(reply?.reason==='settings-conflict'){stale=true;state.textContent='다른 기기에서 설정이 변경되었습니다. 최신 설정 조회 후 중지하세요.';return;}
+   if(reply?.ok!==true)throw Error('pause failed');
+   render(await transport.snapshot());state.textContent='자동 발송 중지 설정 저장 확인';
   });
   buttons.preview.onclick=()=>perform(async()=>{
    const res=await transport.preview(settings());
