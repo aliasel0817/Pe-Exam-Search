@@ -84,7 +84,7 @@ function favoriteStatusOf(rows){
   const lane=r.syncV2?.favoriteLane;
   if(snapshot(r).favorite==='Y')local++;
   if(lane?.seenFavorite==='Y')server++;
-  if(lane?.pending||(!lane&&generalDirty(r)&&snapshot(r).favorite!==((r.syncV2?.base?.favorite)||'N')))pending++;
+  if(lane?.pending||(!lane&&(pendingLegacyFavorite(r)||(generalDirty(r)&&snapshot(r).favorite!==((r.syncV2?.base?.favorite)||'N')))))pending++;
   if(lane?.conflict)conflicts++;
   if(!lane||!lane.seenAt)unverified++;
  }
@@ -133,6 +133,7 @@ function adoptFavorite(raw,cloud,verified){
  let lane=raw?createLane(raw,cloud,verified):confirmLane(null,cloud);
  if(!raw&&!verified)lane={known:false,base:null,observed:'N',desired:'N',pending:false,attempt:null,conflict:null,seenAt:''};
  m.favoriteLane=lane;
+ if(raw&&!raw.syncV2){m.legacyUnverified=true;if(raw.dirty){m.known=false;m.base=null;}}
  // Only a favorite-only legacy dirty record with a trustworthy base can be
  // safely removed from the general queue. Unknown legacy ancestry is held.
  let gd=Boolean(raw?.dirty);
@@ -221,10 +222,10 @@ function reconcile(db,remoteRows){
     continue;
    }
    if(generalDirty(raw)){
-    if(!meta.attempt&&equal(desired,cloud||blank(id),keys)&&(cloud||!meta.base)){
+    if(!meta.attempt&&equal(desired,cloud||blank(id),keys)&&(cloud||!meta.base||meta.legacyUnverified)){
      store.put(cleanRow(cloud,raw,id));continue;
     }
-    if(!meta.known){
+    if(!meta.known||meta.legacyUnverified){
      store.put(hold(raw,cloud,['legacy'],'기존 미전송 기록의 공통 기준을 확인할 수 없습니다.'));
     }else if(meta.base&&!cloud){
      store.put(hold(raw,null,['remote-missing'],'서버 기록이 없어 자동 재생성하지 않습니다.'));
@@ -233,25 +234,25 @@ function reconcile(db,remoteRows){
     continue;
    }
    if(!cloud){
-    if(equal(desired,blank(id),keys)&&(!raw.syncV2||!meta.base)){
-     if(!raw.syncV2)store.put(cleanRow(null,raw,id));
+    if(equal(desired,blank(id),keys)&&(!raw.syncV2||!meta.base||meta.legacyUnverified)){
+     if(!raw.syncV2||meta.legacyUnverified)store.put(cleanRow(null,raw,id));
     }else{
      store.put(hold(raw,null,['remote-missing'],'서버에 대응하는 학습정보가 없습니다. 자동 재생성하지 않습니다.'));
     }
     continue;
    }
-   if(raw.syncV2?.known&&meta.base &&
+   if(raw.syncV2?.known&&!meta.legacyUnverified&&meta.base &&
       (cloud.revision<meta.base.revision || (cloud.revision===meta.base.revision&&!equal(cloud,meta.base)))){
     store.put(hold(raw,cloud,['revision'],'서버 수정버전이 이전 기준과 일치하지 않습니다.'));
     continue;
    }
-   if(!raw.syncV2&&!equal(desired,cloud,keys)&&Date.parse(desired.updatedAt)>Date.parse(cloud.updatedAt)){
+   if((!raw.syncV2||meta.legacyUnverified)&&!equal(desired,cloud,keys)&&Date.parse(desired.updatedAt)>Date.parse(cloud.updatedAt)){
     store.put(hold(raw,cloud,['legacy'],'기존 기기 기록이 서버보다 새롭지만 기준을 검증할 수 없습니다.'));
     continue;
    }
    const next=cleanRow(cloud,raw,id);
-   if(!raw.syncV2&&!equal(desired,cloud,keys))next.syncV2.backup=desired;
-   if(!raw.syncV2||!sameRemote(meta.base,cloud)||!equal(desired,cloud,keys))store.put(next);
+   if((!raw.syncV2||meta.legacyUnverified)&&!equal(desired,cloud,keys))next.syncV2.backup=desired;
+   if(!raw.syncV2||meta.legacyUnverified||!sameRemote(meta.base,cloud)||!equal(desired,cloud,keys))store.put(next);
   }
  });
 }
@@ -426,7 +427,7 @@ async function favoritePass(db,transport,onPhase,first){
  }
  if(sent.size){latest=await getVerified(transport);await reconcileFavorites(db,latest.rows);}
  const status=favoriteStatusOf(await readRows(db));
- return {latest,result:{...status,state:status.pending||status.conflicts?'partial':'synced',applied,at:now()}};
+ return {latest,result:{...status,state:status.pending||status.conflicts||status.unverified?'partial':'synced',applied,at:now()}};
 }
 let activeSync=null;
 async function run(db,transport,onPhase,onFavorite){
@@ -452,7 +453,7 @@ async function run(db,transport,onPhase,onFavorite){
  }
  const rows=await readRows(db),status=statusOf(rows),fav=favoriteStatusOf(rows);
  return {...status,state:status.pending?'partial':'synced',applied,received:rows.length,at:now(),
-  favorite:{...favorite.result,...fav,state:fav.pending||fav.conflicts?'partial':'synced'}};
+  favorite:{...favorite.result,...fav,state:fav.pending||fav.conflicts||fav.unverified?'partial':'synced'}};
 }
 function withBrowserLock(task){
  return root.navigator?.locks?.request
@@ -460,12 +461,12 @@ function withBrowserLock(task){
   :task();
 }
 function sync(db,transport,onPhase,onFavorite){
- if(activeSync)return activeSync.then(()=>sync(db,transport,onPhase,onFavorite));
+ if(activeSync)return activeSync.then(()=>sync(db,transport,onPhase,onFavorite),()=>sync(db,transport,onPhase,onFavorite));
  activeSync=withBrowserLock(()=>run(db,transport,onPhase,onFavorite)).finally(()=>{activeSync=null;});
  return activeSync;
 }
 function syncFavorites(db,transport,onPhase){
- if(activeSync)return activeSync.then(()=>syncFavorites(db,transport,onPhase));
+ if(activeSync)return activeSync.then(()=>syncFavorites(db,transport,onPhase),()=>syncFavorites(db,transport,onPhase));
  activeSync=withBrowserLock(async()=>{
   const pass=await favoritePass(db,transport,onPhase);
   return pass.result;
