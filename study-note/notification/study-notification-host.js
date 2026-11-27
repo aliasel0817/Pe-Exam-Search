@@ -50,7 +50,7 @@
    const now=deps.now(),start=Date.parse(date+'T08:30:00+09:00'),end=Date.parse(date+'T20:00:00+09:00');
    const candidate=Math.max(now,start,service.nextEligible(store,owner)||0);
    const nextCheckAt=ready&&account.armed===true&&r.settings?.enabled===true&&day?.ids.length>stats.confirmed&&candidate<end?candidate:null;
-   return {nextCheckAt,settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
+   return {date,nextCheckAt,settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
     account,releaseReady:ready,
     stats:p&&current(p)&&r.settings?.planId===id?{assigned:day?.ids.length||0,confirmed:stats.confirmed,pending:stats.pending,unknown:stats.unknown,rejected:stats.rejected}:null};
   }
