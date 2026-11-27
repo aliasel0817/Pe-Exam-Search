@@ -3168,8 +3168,15 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="resetCurrentLearningBtn" class="btn" type="button">현재 토픽 초기화</button>
         <button id="resetFavoritesBtn" class="btn" type="button">즐겨찾기 초기화</button>
         <button id="resetAllLearningBtn" class="btn danger" type="button">전체 학습 초기화</button>
+        <button id="favoriteSyncBtn" class="btn" type="button">★ 즐겨찾기만 동기화</button>
         <button id="syncLearningBtn" class="btn primary" type="button">↕ 학습정보 동기화</button>
       </div>
+      <p id="favoriteSyncStatus" class="help-text" role="status" aria-live="polite">즐겨찾기 · 서버 확인 전</p>
+      <details id="favoriteSyncConflicts" class="hidden" style="margin:6px 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px;overflow-wrap:anywhere">
+        <summary id="favoriteSyncConflictsTitle">즐겨찾기 기록 비교</summary>
+        <p class="help-text">이 기기에만 있는 즐겨찾기는 삭제하거나 자동으로 서버에 되살리지 않습니다. 원하는 항목만 선택해 반영하세요. 학습상태·메모에는 영향을 주지 않습니다.</p>
+        <div id="favoriteSyncConflictRows"></div>
+      </details>
       <p id="learningSyncLiveStatus" class="help-text" role="status" aria-live="polite">이 기기의 학습정보를 확인하고 있습니다.</p>
       <details id="learningSyncConflicts" class="hidden" style="margin:6px 0 10px;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px;overflow-wrap:anywhere">
         <summary id="learningSyncConflictsTitle">학습정보 충돌 확인</summary>
@@ -4578,7 +4585,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.23-learning-safe-autosync';
+const APP_VERSION = '4.6.24-favorite-priority-sync';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4869,6 +4876,8 @@ const ANNOTATION_HISTORY_LIMIT = 50;
 let learningStateMap = new Map();
 let learningSyncReady = false, learningSyncTimer = null, learningSyncRun = null, learningSyncAgain = false;
 let learningSyncPhase = '', learningSyncLastSuccess = '', learningSyncLastAttempt = 0;
+let favoriteSyncPhase = '서버 확인 전', favoriteSyncLastSuccess = '', favoriteSyncLastResult = null;
+let plannerSyncRun = null, plannerSyncAgain = false, plannerSyncSummary = '계획·회독 진도 확인 대기';
 let memoRenderedTopicId = '', memoRenderedValue = '';
 let recallMode = false;
 let learningView = 'plan';
@@ -4973,7 +4982,9 @@ async function init() {
       if (ready) scheduleAnnotationCloudSync({ delayMs: 2200 });
     });
     learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
-    learningSyncLastSuccess = (await getAllMeta(db)).lastLearningSyncAt || '';
+    const learningMeta=await getAllMeta(db);
+    learningSyncLastSuccess = learningMeta.lastLearningSyncAt || '';
+    favoriteSyncLastSuccess = learningMeta.lastFavoriteSyncAt || '';
     learningSyncReady = true;
     setLearningSyncPhase(navigator.onLine ? '자동 동기화 대기' : '오프라인 · 변경 내용은 기기에 보관');
     recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
@@ -5273,6 +5284,7 @@ function bindEvents() {
   els.resetFavoritesBtn.addEventListener('click', resetAllFavorites);
   els.resetAllLearningBtn.addEventListener('click', resetAllLearningProgress);
   els.syncLearningBtn.addEventListener('click', syncLearningStates);
+  document.getElementById('favoriteSyncBtn')?.addEventListener('click',()=>syncLearningStates({manual:true,favoriteOnly:true,reason:'즐겨찾기 수동 동기화'}));
   els.learningPrevPageBtn.addEventListener('click', () => setLearningPage(learningPage - 1));
   els.learningNextPageBtn.addEventListener('click', () => setLearningPage(learningPage + 1));
   els.learningPageInput.addEventListener('change', () => setLearningPage(Number(els.learningPageInput.value)));
@@ -7261,7 +7273,7 @@ async function toggleFavorite() {
   const id=currentTopicId;
   try {
     const next=await updateLearningState(id, state=>({favorite:state.favorite!=='Y'}));
-    showToast(next.favorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 해제했습니다.');
+    showToast(next.favorite ? '즐겨찾기에 추가했습니다. · 서버 동기화 대기' : '즐겨찾기에서 해제했습니다. · 서버 동기화 대기');
   } catch(error){showToast(error.message||'즐겨찾기 저장 실패');}
 }
 async function recordLearningResult(result) {
@@ -7376,7 +7388,8 @@ function renderLearningDashboard() {
   const studiedCount = targetTopics.filter(topic => (stateById.get(topic.topicId)?.reviewCount || 0) > 0).length;
   const memorizedCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.studyStatus === '암기').length;
   const missedCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.studyStatus === '미암기').length;
-  const favoriteCount = targetTopics.filter(topic => stateById.get(topic.topicId)?.favorite).length;
+  // Match the favorite tab (all cached existing topics), including non-study targets.
+  const favoriteCount = states.filter(state=>state.favorite).length;
   const todayCount = targetTopics.filter(topic => {
     const lastStudiedAt = stateById.get(topic.topicId)?.lastStudiedAt;
     return Boolean(lastStudiedAt) && localDateKey(lastStudiedAt) === todayKey;
@@ -7532,9 +7545,10 @@ function learningSyncTransport(){
 function renderLearningSyncStatus(){
   const status=document.getElementById('learningSyncLiveStatus');
   const rows=[...learningStateMap.values()];
+  renderFavoriteSyncStatus(rows);
   const counts=window.PELearningSyncV2?.statusOf(rows)||{pending:rows.filter(r=>r.dirty).length,conflicts:0};
   const last=learningSyncLastSuccess?'마지막 전체 일반학습 동기화: '+formatDateTime(learningSyncLastSuccess):'일반 학습정보 동기화 이력 없음';
-  const detail=(learningSyncPhase||'자동 동기화 대기')+' · 미전송 '+counts.pending+'건 · 충돌 '+counts.conflicts+'건';
+  const detail=(learningSyncPhase||'자동 동기화 대기')+' · 미전송 '+counts.pending+'건 · 충돌 '+counts.conflicts+'건 / '+plannerSyncSummary;
   if(status)status.textContent=detail;
   if(els.learningSyncLabel)els.learningSyncLabel.textContent=last;
   if(els.syncLearningBtn)els.syncLearningBtn.disabled=Boolean(learningSyncRun);
@@ -7552,8 +7566,8 @@ function renderLearningSyncStatus(){
     const id=row.topicId,conflict=row.syncV2.conflict,local=window.PELearningSyncV2.snapshot(row),remote=conflict.remote;
     const box=document.createElement('details');box.style.cssText='margin:6px 0;padding:6px;border:1px solid var(--line);border-radius:7px;min-width:0';
     const title=document.createElement('summary');title.textContent=id+' · '+(allTopics.find(t=>t.topicId===id)?.topicName||'토픽 확인 필요');box.append(title);
-    const reason=document.createElement('p');reason.className='help-text';reason.textContent=conflict.reason+' ['+(conflict.groups||[]).join(', ')+']';box.append(reason);
-    const describe=s=>s?('상태 '+s.studyStatus+' · 복습 '+s.reviewCount+'회 · 미암기 '+s.missCount+'회 · 즐겨찾기 '+s.favorite+'\n최근 학습 '+(s.lastStudiedAt||'-')+'\n개인메모: '+(s.personalMemo||'(없음)')):'서버 기록 없음';
+    const reason=document.createElement('p');reason.className='help-text';reason.textContent=conflict.reason+' ['+(conflict.groups||[]).join(', ')+']'+(row.syncV2?.favoriteLane?' · 즐겨찾기는 별도로 처리합니다.':'');box.append(reason);
+    const describe=s=>s?('상태 '+s.studyStatus+' · 복습 '+s.reviewCount+'회 · 미암기 '+s.missCount+'회'+(row.syncV2?.favoriteLane?'':' · 즐겨찾기 '+s.favorite)+'\n최근 학습 '+(s.lastStudiedAt||'-')+'\n개인메모: '+(s.personalMemo||'(없음)')):'서버 기록 없음';
     for(const [label,value] of [['이 기기',local],['서버',remote]]){
       const p=document.createElement('div');p.className='help-text';p.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;margin:6px 0';
       p.textContent=label+'\n'+describe(value);box.append(p);
@@ -7576,6 +7590,95 @@ function renderLearningSyncStatus(){
   }
   if(conflicts.length>30){const p=document.createElement('p');p.className='help-text';p.textContent='먼저 표시된 30건을 확인하면 다음 충돌 기록을 확인할 수 있습니다.';host.append(p);}
 }
+function renderFavoriteSyncStatus(rows=[...learningStateMap.values()]){
+  const api=window.PELearningSyncV2,status=document.getElementById('favoriteSyncStatus');
+  if(!api?.favoriteStatusOf||!status)return;
+  const counts=api.favoriteStatusOf(rows),ids=new Set(allTopics.map(t=>t.topicId));
+  const visible=rows.filter(r=>r.favorite&&ids.has(r.topicId)).length;
+  const server=favoriteSyncLastResult&&favoriteSyncLastResult.state!=='error'?favoriteSyncLastResult.server.toLocaleString()+'개':rows.some(r=>r.syncV2?.favoriteLane?.seenAt)?counts.server.toLocaleString()+'개':'미확인';
+  const state=!navigator.onLine?'오프라인 · 기기에 보관':
+    /실패|인증 필요/.test(favoriteSyncPhase)?favoriteSyncPhase:
+    counts.conflicts?'확인 필요한 즐겨찾기 있음':
+    counts.pending?'미전송 변경 있음':favoriteSyncPhase;
+  const missing=Math.max(0,counts.local-visible);
+  const last=favoriteSyncLastSuccess?' · 최근 성공 '+formatShortDateTime(favoriteSyncLastSuccess):'';
+  status.textContent='★ 즐겨찾기: '+state+' · 서버 '+server+' / 이 기기 목록 '+visible.toLocaleString()+
+    '개 · 미전송 '+counts.pending+'건 · 확인 필요 '+counts.conflicts+'건'+(missing?' · MASTER에 없는 기기 기록 '+missing+'건':'')+last;
+  const button=document.getElementById('favoriteSyncBtn');if(button)button.disabled=Boolean(learningSyncRun);
+  const panel=document.getElementById('favoriteSyncConflicts'),host=document.getElementById('favoriteSyncConflictRows');
+  if(!panel||!host)return;
+  const held=rows.filter(r=>r.syncV2?.favoriteLane?.conflict);
+  panel.classList.toggle('hidden',!held.length);
+  document.getElementById('favoriteSyncConflictsTitle').textContent='즐겨찾기 비교 · '+held.length+'건';
+  const stamp=JSON.stringify(held.map(r=>[r.topicId,r.syncV2.favoriteLane.desired,r.syncV2.favoriteLane.conflict.at]));
+  if(host.dataset.stamp===stamp)return;
+  host.dataset.stamp=stamp;host.replaceChildren();
+  const choiceFor=(row,choice)=>{
+    const lane=row.syncV2.favoriteLane;
+    return {topicId:row.topicId,local:lane.desired,remote:lane.conflict.remote,at:lane.conflict.at,choice};
+  };
+  const makeButton=(label,choices,warning)=>{
+    const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=label;
+    b.addEventListener('click',async()=>{
+      if(!window.confirm(warning))return;
+      b.disabled=true;
+      try{
+        if(learningSyncRun)await learningSyncRun;
+        if(!navigator.onLine||!await ensureActiveSecuritySession())throw Error('인터넷 연결 및 신뢰기기 인증이 필요합니다.');
+        await api.resolveFavoriteConflicts(db,choices,learningSyncTransport());
+        await refreshLearningLocal();
+        await syncLearningStates({manual:true,favoriteOnly:true,reason:'즐겨찾기 충돌 확인'});
+      }catch(error){
+        showToast(error.message||'즐겨찾기 확인 실패');
+        scheduleLearningAutoSync('즐겨찾기 충돌 다시 확인',0);
+      }finally{b.disabled=false;}
+    });return b;
+  };
+  const additions=held.filter(r=>r.syncV2.favoriteLane.desired==='Y'&&r.syncV2.favoriteLane.conflict.remote?.favorite!=='Y'&&ids.has(r.topicId));
+  if(additions.length){
+    const p=document.createElement('p');p.className='help-text';p.textContent='서버에 등록되지 않은 이 기기의 즐겨찾기 '+additions.length+'건을 원할 때만 추가할 수 있습니다.';host.append(p);
+    host.append(makeButton('기기에서만 등록된 '+additions.length+'개 추가',additions.map(r=>choiceFor(r,'local')),
+      '다음 '+additions.length+'개 토픽의 즐겨찾기를 서버에 추가할까요? 이전에 의도적으로 해제한 토픽도 포함될 수 있습니다.\n\n'+
+      additions.map(r=>r.topicId+' '+(allTopics.find(t=>t.topicId===r.topicId)?.topicName||'')).join('\n')));
+  }
+  for(const row of held.slice(0,40)){
+    const lane=row.syncV2.favoriteLane,remote=lane.conflict.remote;
+    const wrap=document.createElement('div');wrap.style.cssText='border-top:1px solid var(--line);padding:6px 0;overflow-wrap:anywhere';
+    const p=document.createElement('p');p.className='help-text';p.textContent=row.topicId+' · '+(allTopics.find(t=>t.topicId===row.topicId)?.topicName||'MASTER 확인 필요')+
+      ' / 기기 '+(lane.desired==='Y'?'등록':'해제')+' / 서버 '+(remote?.favorite==='Y'?'등록':'미등록')+' · '+lane.conflict.reason;
+    wrap.append(p,makeButton('서버 상태 사용',[choiceFor(row,'server')],row.topicId+' 서버의 즐겨찾기 상태를 사용할까요? 기존 기기 선택은 복구용으로 보관됩니다.'));
+    if(ids.has(row.topicId))wrap.append(makeButton(lane.desired==='Y'?'서버에 등록':'서버에서 해제',[choiceFor(row,'local')],row.topicId+' 즐겨찾기만 이 기기 선택대로 반영할까요? 다른 학습정보는 유지됩니다.'));
+    host.append(wrap);
+  }
+  if(held.length>40){const p=document.createElement('p');p.className='help-text';p.textContent='처음 40건을 확인하면 남은 항목을 이어서 확인할 수 있습니다.';host.append(p);}
+}
+async function recordFavoriteReceipt(result){
+  favoriteSyncLastResult=result;
+  favoriteSyncPhase=result.state==='synced'?'동기화 완료':result.state==='error'?'실패 · '+(result.message||'서버 확인 필요'):'일부 보류 · 비교 확인';
+  if(result.state==='synced'){
+    favoriteSyncLastSuccess=result.at;
+    await setMeta(db,'lastFavoriteSyncAt',result.at);
+  }
+  await refreshLearningLocal();
+}
+function launchPlannerSync(){
+  if(!window.StudyPlanner||window.PEPlannerSyncClient?.testEnabled?.())return;
+  if(plannerSyncRun){plannerSyncAgain=true;return;}
+  plannerSyncSummary='계획·회독 진도 확인 중';
+  plannerSyncRun=Promise.resolve().then(()=>StudyPlanner.sync()).then(result=>{
+    plannerSyncSummary=({synced:'계획·회독 진도 완료',partial:'계획·회독 진도 일부 보류',
+      'migration-required':'계획·진도 최초 통합 필요',disabled:'계획·진도 서버 연결 확인 필요',
+      offline:'계획·진도 오프라인'})[result?.state]||'계획·진도 확인 필요';
+    return result;
+  }).catch(error=>{
+    console.error(error);plannerSyncSummary='계획·진도 오류 · '+(error.message||'다시 확인 필요');
+    return {state:'error'};
+  }).finally(()=>{
+    plannerSyncRun=null;
+    renderLearningSyncStatus();
+    if(plannerSyncAgain){plannerSyncAgain=false;launchPlannerSync();}
+  });
+}
 function scheduleLearningAutoSync(reason='자동 확인',delay=900){
   if(!learningSyncReady)return;
   if(!navigator.onLine){setLearningSyncPhase('오프라인 · 변경 내용은 기기에 보관');return;}
@@ -7592,53 +7695,78 @@ function scheduleLearningAutoSync(reason='자동 확인',delay=900){
   },delay);
 }
 async function syncLearningStates(options={}){
-  const manual=options.manual!==false;
-  if(learningSyncRun)return learningSyncRun;
+  const manual=options.manual!==false,favoriteOnly=options.favoriteOnly===true;
+  if(learningSyncRun){
+    if(favoriteOnly||options.reason==='학습 화면 열기')learningSyncAgain=true;
+    return learningSyncRun;
+  }
   if(!learningSyncReady){
     if(manual)showToast('학습정보 준비 중입니다. 잠시 후 다시 확인해 주세요.');
     return {state:'not-ready'};
   }
   if(learningSyncTimer){clearTimeout(learningSyncTimer);learningSyncTimer=null;}
   if(!navigator.onLine){
+    favoriteSyncPhase='오프라인 · 기기에 보관';
     setLearningSyncPhase('오프라인 · 변경 내용은 기기에 보관');
     if(manual)showToast('오프라인 상태에서는 동기화할 수 없습니다.');
     return {state:'offline'};
   }
   learningSyncLastAttempt=Date.now();
   learningSyncRun=(async()=>{
-    let general={state:'error'},planner={state:'disabled'};
+    let general={state:'not-run'},favorite={state:'error'},favoriteConfirmed=false;
     try{
       if(!await ensureActiveSecuritySession({openModal:manual})){
+        favoriteSyncPhase='신뢰기기 인증 필요';
         setLearningSyncPhase('신뢰기기 인증 필요 · 변경 내용은 기기에 보관');
         return {state:'auth-required'};
       }
       if(!window.PELearningSyncV2)throw Error('학습정보 동기화 모듈을 불러오지 못했습니다.');
-      setLearningSyncPhase('최신 학습정보 동기화 중');
+      const api=window.PELearningSyncV2,transport=learningSyncTransport();
+      favoriteSyncPhase='최신 정보 확인 중';
+      setLearningSyncPhase(favoriteOnly?'즐겨찾기 독립 동기화 중':'최신 학습정보 동기화 중');
+      const phase=message=>{
+        if(message.startsWith('즐겨찾기'))favoriteSyncPhase=message;
+        setLearningSyncPhase(message);
+      };
+      const receipt=async result=>{
+        favorite=result;favoriteConfirmed=true;
+        await recordFavoriteReceipt(result);
+      };
       try{
-        general=await window.PELearningSyncV2.sync(db,learningSyncTransport(),setLearningSyncPhase);
-        await refreshLearningLocal();
-        if(general.state==='synced'){
-          learningSyncLastSuccess=general.at;
-          await setMeta(db,'lastLearningSyncAt',general.at);
+        if(favoriteOnly){
+          favorite=await api.syncFavorites(db,transport,phase);
+          await receipt(favorite);
+        }else{
+          general=await api.sync(db,transport,phase,receipt);
+          if(general.favorite){
+            const final=general.favorite;
+            await receipt(final);
+          }
+          await refreshLearningLocal();
+          if(general.state==='synced'){
+            learningSyncLastSuccess=general.at;
+            await setMeta(db,'lastLearningSyncAt',general.at);
+          }
+          window.PEPlannerSyncUX?.setLegacyStatus?.({state:general.state==='synced'?'confirmed':'partial',at:general.at,pending:general.pending,conflicts:general.conflicts});
         }
-        window.PEPlannerSyncUX?.setLegacyStatus?.({state:general.state==='synced'?'confirmed':'partial',at:general.at,pending:general.pending,conflicts:general.conflicts});
       }catch(error){
-        console.error(error);general={state:'error',message:error.message||String(error)};
-        window.PEPlannerSyncUX?.setLegacyStatus?.({state:'error'});
+        console.error(error);
+        if(!favoriteConfirmed){favorite={state:'error',message:error.message||String(error)};favoriteSyncPhase='실패 · '+favorite.message;}
+        if(!favoriteOnly){
+          general={state:'error',message:error.message||String(error)};
+          window.PEPlannerSyncUX?.setLegacyStatus?.({state:'error'});
+        }
         await refreshLearningLocal().catch(console.error);
       }
-      // The independent planner must not mask the result of general learning.
-      if(window.StudyPlanner&&!window.PEPlannerSyncClient?.testEnabled?.()){
-        setLearningSyncPhase('학습계획·회독 진도 확인 중');
-        try{planner=await StudyPlanner.sync();}catch(error){planner={state:'error',message:error.message||String(error)};console.error(error);}
-      }
-      const base=general.state==='synced'?'일반 학습정보 동기화 완료':general.state==='partial'?'일반 학습정보 부분 동기화 · 보류 기록 확인':'일반 학습정보 동기화 실패 · '+(general.message||'서버 확인 필요');
-      const planText={synced:'계획·회독 진도 완료',partial:'계획·회독 진도 일부 보류','migration-required':'계획·진도 최초 통합 필요',disabled:'계획·진도 서버 연결 확인 필요',offline:'계획·진도 오프라인',error:'계획·진도 오류 · '+(planner.message||'다시 확인 필요')}[planner.state]||'계획·진도 확인 필요';
-      setLearningSyncPhase(base+' / '+planText);
-      if(manual)showToast(base+' · '+planText);
-      return {state:general.state,general,planner};
+      const favText=favorite.state==='synced'?'즐겨찾기 동기화 완료':favorite.state==='partial'?'즐겨찾기 일부 보류 · 비교 확인':'즐겨찾기 동기화 실패 · '+(favorite.message||'서버 확인 필요');
+      const base=favoriteOnly?favText:general.state==='synced'?'일반 학습정보 동기화 완료':general.state==='partial'?'일반 학습정보 부분 동기화 · 보류 기록 확인':'일반 학습정보 동기화 실패 · '+(general.message||'서버 확인 필요');
+      if(!favoriteOnly)launchPlannerSync();
+      setLearningSyncPhase(base);
+      if(manual)showToast(favoriteOnly?favText:favText+' · '+base);
+      return {state:favoriteOnly?favorite.state:general.state,general,favorite,planner:{state:plannerSyncRun?'pending':'not-run'}};
     }catch(error){
-      console.error(error);setLearningSyncPhase('동기화 실패 · '+(error.message||String(error)));
+      console.error(error);if(!favoriteConfirmed)favoriteSyncPhase='실패 · '+(error.message||String(error));
+      setLearningSyncPhase('동기화 실패 · '+(error.message||String(error)));
       if(manual)showToast(error.message||'학습정보 동기화 실패');
       return {state:'error',message:error.message||String(error)};
     }
@@ -7650,7 +7778,6 @@ async function syncLearningStates(options={}){
     if(learningSyncAgain){learningSyncAgain=false;scheduleLearningAutoSync('미전송 변경 저장',1200);}
   }
 }
-
 function getManageDomainOptions() {
   return [...new Map(allTopics.map(topic => [topic.domain, {
     domain: clean(topic.domain).toUpperCase(),
@@ -15779,7 +15906,7 @@ if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
 }
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
-<script src="./learning-sync-v2.js?v=20261127-1"></script>
+<script src="./learning-sync-v2.js?v=20261127-favorite-priority"></script>
 <script src="./study-planner-sync.js?v=20261127-learning-sync-v2"></script>
 <script src="./study-planner.js?v=20261127-learning-sync-v2"></script>
 <script src="./personal-note-cloud.js"></script>
