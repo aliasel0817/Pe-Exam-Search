@@ -86,3 +86,14 @@
   .personal-note-footer .personal-note-status { flex-basis:100%; }
   .personal-note-hint { font-size:9px; }
 }
+
+/* Personal note: pointer split and compact annotation-style controls. */
+.personal-note-paper canvas { touch-action:none; }
+.personal-note-toolbar select { max-width:100px; }
+.personal-note-toolbar input[type="range"] { width:70px; }
+.pn-color-wrap { position:relative; display:inline-flex; }
+.pn-color-preview { width:15px;height:15px;display:inline-block;vertical-align:middle;border:1px solid #94a3b8;border-radius:3px; }
+.pn-color-menu { position:fixed;z-index:4000;width:205px;padding:8px;border:1px solid #94a3b8;border-radius:7px;background:#fff;box-shadow:0 4px 14px #17203330; }
+.pn-color-menu[hidden],#pnPenStyle[hidden],#pnShape[hidden] { display:none!important; }
+.pn-color-swatches { display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-bottom:7px; }
+.pn-color-swatches button { min-width:0;min-height:25px;border:1px solid #94a3b8;border-radius:4px;padding:0; }

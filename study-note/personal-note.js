@@ -29,6 +29,29 @@ let fileInput = null;
 let backgroundInput = null;
 let zoomPercent = 100;
 let panDrag = null;
+let touchContacts = new Map();
+let touchPinch = null;
+let touchLastAt = 0;
+let eraserActive = null;
+let eraserSize = 18;
+const penDefaults = {pen:{color:'#2563eb',width:4,opacity:1},highlighter:{color:'#facc15',width:18,opacity:.35},shape:{color:'#dc2626',width:4,opacity:1},text:{color:'#111827',width:4,opacity:1}};
+const toolPreferences = JSON.parse(JSON.stringify(penDefaults));
+function toolGroup(tool=currentTool) { return shapeTools.includes(tool)?'shape':tool==='highlighter'?'highlighter':tool==='text'?'text':'pen'; }
+function saveToolPreference() {
+  const group=toolGroup();
+  if(currentTool==='eraser') {eraserSize=Number(q('#pnWidth').value)||18;return;}
+  toolPreferences[group]={color:color(),width:lineWidth(),opacity:Number(q('#pnOpacity').value)/100};
+}
+function restoreToolPreference() {
+  const pref=toolPreferences[toolGroup()];
+  q('#pnColor').value=pref.color;q('#pnWidth').value=String(pref.width);
+  q('#pnOpacity').value=String(Math.round(pref.opacity*100));
+  q('#pnOpacityValue').textContent=Math.round(pref.opacity*100)+'%';
+  q('#pnColorPreview').style.backgroundColor=pref.color;
+  q('#pnWidthLabel').textContent=currentTool==='eraser'?'크기':'굵기';
+  if(currentTool==='eraser')q('#pnWidth').value=String(eraserSize);
+  q('#pnColorMenu').hidden=true;
+}
 let currentTool = 'pen';
 let stroke = null;
 let selectDrag = null;
@@ -261,6 +284,9 @@ function updateUi() {
   q('#pnBackgroundEnabled').disabled=false;
   popup.querySelectorAll('[data-pn-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pnTool===currentTool)));
   if(shapeTools.includes(currentTool))q('#pnShape').value=currentTool;
+  q('#pnPenStyle').hidden=currentTool!=='pen';
+  q('#pnShape').hidden=!shapeTools.includes(currentTool);
+  q('#pnColorPreview').style.backgroundColor=color();
   canvas.dataset.tool=currentTool;
 }
 function setZoom(next) {
@@ -277,14 +303,112 @@ function setZoom(next) {
 }
 function chooseTool(tool) {
   if(!tools.includes(tool))return;
+  if(popup && currentTool!==tool)saveToolPreference();
   currentTool=tool;selectDrag=null;panDrag=null;
+  if(popup)restoreToolPreference();
   if(tool!=='select')selectedObjectIndex=-1;
   render();
 }
+function isTouchMouse(ev) {
+  if(ev.pointerType!=='mouse')return false;
+  return ev.sourceCapabilities?.firesTouchEvents===true
+    || (navigator.maxTouchPoints>0 && Date.now()-touchLastAt<1400);
+}
+function handleFingerDown(ev) {
+  touchLastAt=Date.now();
+  ev.preventDefault();
+  if(ev.width>=44||ev.height>=44||stroke) return;
+  const stage=q('#pnStage');
+  touchContacts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(touchContacts.size===1) {
+    panDrag={pointerId:ev.pointerId,x:ev.clientX,y:ev.clientY,left:stage.scrollLeft,top:stage.scrollTop};
+    touchPinch=null;
+  } else if(touchContacts.size===2) {
+    panDrag=null;
+    const [a,b]=[...touchContacts.values()];
+    const r=stage.getBoundingClientRect();
+    const midX=(a.x+b.x)/2-r.left,midY=(a.y+b.y)/2-r.top;
+    touchPinch={distance:Math.hypot(a.x-b.x,a.y-b.y),zoom:zoomPercent,
+      anchorX:(stage.scrollLeft+midX)/(PAPER_WIDTH*zoomPercent/100),
+      anchorY:(stage.scrollTop+midY)/(PAPER_HEIGHT*zoomPercent/100)};
+  }
+  try{canvas.setPointerCapture(ev.pointerId);}catch(_){}
+}
+function handleFingerMove(ev) {
+  if(!touchContacts.has(ev.pointerId))return;
+  ev.preventDefault();
+  touchContacts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  const stage=q('#pnStage');
+  if(touchPinch&&touchContacts.size>=2) {
+    const [a,b]=[...touchContacts.values()];
+    const distance=Math.hypot(a.x-b.x,a.y-b.y);
+    if(!touchPinch.distance)return;
+    const next=clamp(Math.round(touchPinch.zoom*distance/touchPinch.distance),MIN_ZOOM,MAX_ZOOM);
+    if(next!==zoomPercent){zoomPercent=next;render();}
+    const rect=stage.getBoundingClientRect();
+    stage.scrollLeft=Math.max(0,touchPinch.anchorX*PAPER_WIDTH*zoomPercent/100-((a.x+b.x)/2-rect.left));
+    stage.scrollTop=Math.max(0,touchPinch.anchorY*PAPER_HEIGHT*zoomPercent/100-((a.y+b.y)/2-rect.top));
+  } else if(panDrag&&panDrag.pointerId===ev.pointerId) {
+    stage.scrollLeft=panDrag.left+panDrag.x-ev.clientX;
+    stage.scrollTop=panDrag.top+panDrag.y-ev.clientY;
+  }
+}
+function handleFingerUp(ev) {
+  if(!touchContacts.has(ev.pointerId))return;
+  touchContacts.delete(ev.pointerId);
+  touchLastAt=Date.now();touchPinch=null;panDrag=null;
+  if(touchContacts.size===1){
+    const [pointerId,p]=touchContacts.entries().next().value;
+    const stage=q('#pnStage');
+    panDrag={pointerId,x:p.x,y:p.y,left:stage.scrollLeft,top:stage.scrollTop};
+  }
+}
+function eraseAt(p) {
+  const objects=page().objects;
+  let removed=false;
+  const radius=(eraserSize/2)/PAPER_WIDTH;
+  for(let i=objects.length-1;i>=0;i--){
+    const obj=objects[i];
+    if(obj.type==='image')continue; // photos and the global background are always protected
+    const b=getObjectBounds(obj);
+    const yRadius=(eraserSize/2)/PAPER_HEIGHT;
+    if(p.x<b.x-radius||p.x>b.x+b.w+radius||p.y<b.y-yRadius||p.y>b.y+b.h+yRadius)continue;
+    if(obj.type==='stroke'&&obj.points?.length>1) {
+      const pieces=[];let segment=[];let cut=false;
+      const points=obj.points;
+      const penRadius=(Number(obj.width)||4)/2;
+      const threshold=Math.max(4,eraserSize/2+penRadius);
+      const addSample=pt=>{
+        const distance=Math.hypot((pt.x-p.x)*PAPER_WIDTH,(pt.y-p.y)*PAPER_HEIGHT);
+        if(distance<=threshold){
+          cut=true;if(segment.length>1)pieces.push(segment);
+          segment=[];return;
+        }
+        if(!segment.length||Math.hypot((pt.x-segment[segment.length-1].x)*PAPER_WIDTH,(pt.y-segment[segment.length-1].y)*PAPER_HEIGHT)>0.5)segment.push(pt);
+      };
+      addSample(points[0]);
+      for(let n=1;n<points.length;n++){
+        const a=points[n-1],b=points[n];
+        const distance=Math.hypot((b.x-a.x)*PAPER_WIDTH,(b.y-a.y)*PAPER_HEIGHT);
+        const steps=Math.max(1,Math.min(120,Math.ceil(distance/3)));
+        for(let k=1;k<=steps;k++){const t=k/steps;addSample({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});}
+      }
+      if(segment.length>1)pieces.push(segment);
+      if(!cut)continue;
+      if(!eraserActive?.changed){recordHistory();if(eraserActive)eraserActive.changed=true;}
+      objects.splice(i,1,...pieces.map((pts,index)=>({...obj,id:index===0?obj.id:id(),points:pts})));
+      removed=true;continue;
+    }
+    if(!eraserActive?.changed){recordHistory();if(eraserActive)eraserActive.changed=true;}
+    objects.splice(i,1);removed=true;
+  }
+  if(removed){refreshDirty();render();}
+}
 function onPointerDown(ev) {
   if(saving)return;
-  if(ev.pointerType==='mouse'&&ev.button!==0)return;
-  if(ev.pointerType==='touch'&&ev.isPrimary===false)return;
+  if(ev.pointerType==='touch'){handleFingerDown(ev);return;}
+  if(ev.pointerType==='mouse'&&(ev.button!==0||isTouchMouse(ev)))return;
+  if(ev.pointerType!=='mouse'&&ev.pointerType!=='pen')return;
   if(currentTool==='pan'){
     ev.preventDefault();
     const stage=q('#pnStage');
@@ -308,15 +432,16 @@ function onPointerDown(ev) {
     render();return;
   }
   if(currentTool==='eraser') {
-    const index=hit(p);
-    if(index>=0){recordHistory();page().objects.splice(index,1);refreshDirty();render();}
+    eraserActive={pointerId:ev.pointerId,changed:false};
+    eraseAt(p);
+    try{canvas.setPointerCapture(ev.pointerId);}catch(_){}
     return;
   }
   recordHistory();
   const penStyle=q('#pnPenStyle').value;
   const common={id:id(),color:color(),width:lineWidth(),
     penStyle:currentTool==='pen'?penStyle:'highlighter',
-    opacity:currentTool==='highlighter'?.35:currentTool==='pen'&&penStyle==='pencil'?.85:1};
+    opacity:Number(q('#pnOpacity').value)/100};
   let obj;
   if(currentTool==='pen'||currentTool==='highlighter')obj={...common,type:'stroke',points:[p]};
   else obj={...common,type:'shape',shape:currentTool,start:p,end:p};
@@ -327,24 +452,23 @@ function onPointerDown(ev) {
 }
 function onPointerMove(ev) {
   if(saving)return;
-  if(panDrag && panDrag.pointerId===ev.pointerId){
-    ev.preventDefault();
-    const stage=q('#pnStage');
+  if(ev.pointerType==='touch'){handleFingerMove(ev);return;}
+  if(panDrag&&panDrag.pointerId===ev.pointerId){
+    ev.preventDefault();const stage=q('#pnStage');
     stage.scrollLeft=panDrag.left+panDrag.x-ev.clientX;
-    stage.scrollTop=panDrag.top+panDrag.y-ev.clientY;
-    return;
+    stage.scrollTop=panDrag.top+panDrag.y-ev.clientY;return;
   }
   const p=pointerPoint(ev);if(!p)return;
-  if(stroke&&stroke.pointerId===ev.pointerId) {
+  if(eraserActive&&eraserActive.pointerId===ev.pointerId){ev.preventDefault();eraseAt(p);return;}
+  if(stroke&&stroke.pointerId===ev.pointerId){
     ev.preventDefault();
     if(stroke.obj.type==='stroke')stroke.obj.points.push(p);else stroke.obj.end=p;
     render();return;
   }
-  if(selectDrag && selectDrag.pointerId===ev.pointerId) {
+  if(selectDrag&&selectDrag.pointerId===ev.pointerId){
     ev.preventDefault();
     const dx=p.x-selectDrag.from.x,dy=p.y-selectDrag.from.y;
-    const obj=page().objects[selectDrag.index];
-    if(!obj)return;
+    const obj=page().objects[selectDrag.index];if(!obj)return;
     if(!selectDrag.changed){recordHistory();selectDrag.changed=true;}
     const initial=clone(selectDrag.initial);
     if(initial.type==='image') {
@@ -358,7 +482,9 @@ function onPointerMove(ev) {
   }
 }
 function onPointerUp(ev) {
+  if(ev.pointerType==='touch'){handleFingerUp(ev);return;}
   if(panDrag&&panDrag.pointerId===ev.pointerId)panDrag=null;
+  if(eraserActive&&eraserActive.pointerId===ev.pointerId)eraserActive=null;
   if(stroke&&stroke.pointerId===ev.pointerId){stroke=null;refreshDirty();render();}
   if(selectDrag&&selectDrag.pointerId===ev.pointerId){if(selectDrag.changed)refreshDirty();selectDrag=null;render();}
 }
@@ -434,34 +560,48 @@ function createUi() {
     </div>
     <div class="personal-note-toolbar-head"><button type="button" id="pnToggleTools">도구 접기 ▼</button><span class="personal-note-toolbar-status">선택 도구로 개별 객체를 이동할 수 있습니다.</span></div>
     <div class="personal-note-toolbar" id="pnTools" role="toolbar" aria-label="그림판 도구">
-      <button type="button" data-pn-tool="pen" aria-pressed="true" title="펜">✏</button>
-      <button type="button" data-pn-tool="highlighter" aria-pressed="false" title="형광펜">🖍</button>
-      <label title="기존 PDF·교재·서브노트 필기 도구와 같은 펜 유형">펜
-        <select id="pnPenStyle" aria-label="펜 종류">
-          <option value="pencil">연필</option><option value="ballpoint" selected>볼펜</option>
-          <option value="brush">붓펜</option><option value="fountain">만년필</option>
-        </select>
-      </label>
-      <button type="button" data-pn-tool="line" aria-pressed="false" title="직선">／</button>
-      <button type="button" data-pn-tool="arrow" aria-pressed="false" title="화살표">➜</button>
-      <button type="button" data-pn-tool="rect" aria-pressed="false" title="사각형">▭</button>
-      <button type="button" data-pn-tool="ellipse" aria-pressed="false" title="타원">⬭</button>
-      <label title="PDF/교재/서브노트와 동일한 도형 선택">도형
-        <select id="pnShape" aria-label="도형 종류">
-          <option value="arrow">➜ 화살표</option><option value="triangle">△ 삼각형</option>
-          <option value="rect">▭ 사각형</option><option value="square">□ 정사각형</option>
-          <option value="pentagon">⬠ 오각형</option><option value="hexagon">⬡ 육각형</option>
-          <option value="ellipse">⬭ 타원</option><option value="circle">○ 원</option>
-          <option value="diamond">◇ 마름모</option><option value="star">☆ 별</option>
-        </select>
-      </label>
+      <button type="button" data-pn-tool="pen" aria-pressed="true" title="선택한 펜으로 그리기">✏ 펜</button>
+      <select id="pnPenStyle" aria-label="펜 종류">
+        <option value="pencil">연필</option><option value="ballpoint" selected>볼펜</option>
+        <option value="brush">붓펜</option><option value="fountain">만년필</option>
+      </select>
+      <button type="button" data-pn-tool="highlighter" aria-pressed="false" title="형광펜">🖍 형광펜</button>
+      <button type="button" data-pn-tool="line" aria-pressed="false" title="도형 선택">◇ 도형</button>
+      <select id="pnShape" aria-label="도형 종류" hidden>
+        <option value="line">／ 직선</option><option value="arrow">➜ 화살표</option>
+        <option value="triangle">△ 삼각형</option><option value="rect">▭ 사각형</option>
+        <option value="square">□ 정사각형</option><option value="pentagon">⬠ 오각형</option>
+        <option value="hexagon">⬡ 육각형</option><option value="ellipse">⬭ 타원</option>
+        <option value="circle">○ 원</option><option value="diamond">◇ 마름모</option>
+        <option value="star">☆ 별</option>
+      </select>
       <button type="button" data-pn-tool="text" aria-pressed="false" title="글자">T</button>
       <button type="button" data-pn-tool="image" aria-pressed="false" title="사진 첨부·붙여넣기">▣</button>
       <button type="button" data-pn-tool="select" aria-pressed="false" title="객체 선택 및 이동">↖</button>
-      <button type="button" data-pn-tool="eraser" aria-pressed="false" title="객체 지우개">⌫</button>
+      <button type="button" data-pn-tool="eraser" aria-pressed="false" title="드래그하여 필기·도형·글자 지우기 (사진 보호)">⌫</button>
       <button type="button" data-pn-tool="pan" aria-pressed="false" title="화면 스크롤">✋</button>
-      <label title="펜 및 글자 색상">색 <input type="color" id="pnColor" value="#172033"></label>
-      <label title="도구 굵기">굵기 <select id="pnWidth"><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option><option value="12">12</option><option value="18">18</option></select></label>
+      <div class="pn-color-wrap">
+        <button type="button" id="pnPalette" aria-expanded="false" title="기존 필기 도구와 비슷한 색상 팔레트">🎨 색상 <span id="pnColorPreview" class="pn-color-preview"></span></button>
+        <div id="pnColorMenu" class="pn-color-menu" hidden>
+          <div class="pn-color-swatches" id="pnSwatches">
+            <button type="button" data-pn-color="#111827" style="background:#111827" aria-label="검정"></button>
+            <button type="button" data-pn-color="#2563eb" style="background:#2563eb" aria-label="파랑"></button>
+            <button type="button" data-pn-color="#dc2626" style="background:#dc2626" aria-label="빨강"></button>
+            <button type="button" data-pn-color="#16a34a" style="background:#16a34a" aria-label="초록"></button>
+            <button type="button" data-pn-color="#facc15" style="background:#facc15" aria-label="노랑"></button>
+            <button type="button" data-pn-color="#a855f7" style="background:#a855f7" aria-label="보라"></button>
+          </div>
+          <label>사용자 지정 <input type="color" id="pnColor" value="#2563eb"></label>
+        </div>
+      </div>
+      <label title="굵기 또는 지우개 크기"><span id="pnWidthLabel">굵기</span>
+        <select id="pnWidth" aria-label="굵기 또는 지우개 크기">
+          <option value="2">2</option><option value="4" selected>4</option><option value="8">8</option>
+          <option value="12">12</option><option value="18">18</option><option value="28">28</option>
+          <option value="36">36</option><option value="48">48</option>
+        </select>
+      </label>
+      <label title="불투명도">투명도 <input type="range" id="pnOpacity" min="10" max="100" step="5" value="100"><span id="pnOpacityValue">100%</span></label>
       <button type="button" id="pnUndo" title="실행 취소">↶</button><button type="button" id="pnRedo" title="다시 실행">↷</button>
       <button type="button" id="pnResizeImage" title="선택된 사진 크기 조절">사진 크기</button>
     </div>
@@ -497,6 +637,12 @@ function createUi() {
   });
   q('#pnTools').addEventListener('click',ev=>{const tool=ev.target.closest('[data-pn-tool]');if(tool)chooseTool(tool.dataset.pnTool);});
   q('#pnShape').addEventListener('change',ev=>chooseTool(ev.target.value));
+  q('#pnPenStyle').addEventListener('change',()=>chooseTool('pen'));
+  q('#pnPalette').addEventListener('click',()=>{const menu=q('#pnColorMenu');menu.hidden=!menu.hidden;if(!menu.hidden){const r=q('#pnPalette').getBoundingClientRect();menu.style.left=Math.max(4,Math.min(r.left,window.innerWidth-215))+'px';menu.style.top=Math.max(4,r.top-142)+'px';}q('#pnPalette').setAttribute('aria-expanded',String(!menu.hidden));});
+  q('#pnSwatches').addEventListener('click',ev=>{const b=ev.target.closest('[data-pn-color]');if(!b)return;q('#pnColor').value=b.dataset.pnColor;saveToolPreference();q('#pnColorPreview').style.backgroundColor=color();q('#pnColorMenu').hidden=true;q('#pnPalette').setAttribute('aria-expanded','false');});
+  q('#pnColor').addEventListener('input',()=>{saveToolPreference();q('#pnColorPreview').style.backgroundColor=color();});
+  q('#pnWidth').addEventListener('change',saveToolPreference);
+  q('#pnOpacity').addEventListener('input',()=>{q('#pnOpacityValue').textContent=q('#pnOpacity').value+'%';saveToolPreference();});
   q('#pnToggleTools').addEventListener('click',()=>{const t=q('#pnTools');t.hidden=!t.hidden;q('#pnToggleTools').textContent=t.hidden?'도구 펼치기 ▲':'도구 접기 ▼';});
   q('#pnZoomOut').addEventListener('click',()=>setZoom(zoomPercent-ZOOM_STEP));
   q('#pnZoomIn').addEventListener('click',()=>setZoom(zoomPercent+ZOOM_STEP));
@@ -526,6 +672,7 @@ function createUi() {
   canvas.addEventListener('pointermove',onPointerMove);
   canvas.addEventListener('pointerup',onPointerUp);
   canvas.addEventListener('pointercancel',onPointerUp);
+  restoreToolPreference();
   window.addEventListener('keydown',handleKeys,true);
   layer.addEventListener('paste',ev=>{
     if(!isOpen()||ev.target.closest('input,textarea,[contenteditable]'))return;
@@ -539,7 +686,7 @@ function createUi() {
 function close() {
   if(!popup)return;
   popup.hidden=true;stageObserver?.disconnect();stageObserver=null;window.removeEventListener('keydown',handleKeys,true);canvas=null;popup.remove();popup=null;current=null;
-  history=[];redo=[];stroke=null;panDrag=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;syncPending=false;imageCache.clear();
+  history=[];redo=[];stroke=null;panDrag=null;touchContacts.clear();touchPinch=null;eraserActive=null;selectDrag=null;selectedObjectIndex=-1;cloudMeta={};cloudCapability=false;syncPending=false;imageCache.clear();
   if(lastFocus?.isConnected)lastFocus.focus();
 }
 function cancel() {
