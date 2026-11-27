@@ -546,7 +546,7 @@ async function load(){
   db=await openDb();plans=await all(PLAN);
   if(!plans.some(p=>p.id==='pe141-100d-2026')){try{const r=await fetch('./study-plans/pe141-100days.json');if(r.ok){const p=normalise(await r.json());await put(PLAN,p);plans.push(p)}}catch(e){console.warn('Initial study plan unavailable',e)}}
   active=localStorage.getItem(PREF);if(!plans.find(p=>p.id===active))active=plans[0]?.id||'';
-  const p=plans.find(p=>p.id===active);dayKey=p?.days.some(d=>d.date===today())?today():(p?.days[0]?.date||today());loaded=true;
+  const p=plans.find(p=>p.id===active);dayKey=dayKey||(p?.days.some(d=>d.date===today())?today():(p?.days[0]?.date||today()));loaded=true;
  })();
  try{await loading}finally{loading=null}
 }
