@@ -425,6 +425,9 @@ async function applyLocked(db,snapshotId,options,transport,explicitApproval=fals
       for(const p of newProgress)tx.objectStore('progress').put(p);
       for(const m of metadata)tx.objectStore('syncMeta').put(m);
       for(const op of pendingAcked)tx.objectStore('pendingOps').delete(op);
+      const receiptCollisions=beforeWrite.syncConflicts.filter(isReceiptRestoreCollision);
+      archiveReceiptRows(tx,receiptCollisions);
+      for(const c of receiptCollisions)tx.objectStore('syncConflicts').delete(c.id);
       for(const c of conflictRows)tx.objectStore('syncConflicts').put(c);
       const conflictsCount=preview.conflicts.length;const pendingUnmatched=pendingRows.filter(x=>!pendingAcked.includes(x.id));
       const complete=!conflictsCount&&!pendingUnmatched.length &&
@@ -453,16 +456,63 @@ async function cancel(db,snapshotId){
  if(snap.state==='SYNC_READY')throw Error('완료된 동기화는 자동 롤백하지 않습니다.');
  return putState(db,snap,'LOCAL_ONLY',{cancelledAt:now()});
 }
+// Confirmation receipts are device-local, not learning data. Old backup restores
+// accidentally treated differences in these two timestamp-only records as conflicts.
+const RECEIPT_KEYS=new Set(['lastPlanSyncAt','lastProgressSyncAt']);
+const validReceiptTime=t=>typeof t==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(t)&&Number.isFinite(Date.parse(t))&&new Date(t).toISOString()===t;
+function isReceiptRestoreCollision(row){
+ if(!row||row.kind!=='restore'||row.store!=='syncMeta'||row.reason!=='RESTORE_COLLISION'||!RECEIPT_KEYS.has(row.key))return false;
+ if(typeof row.id!=='string'||!/^restore:[a-f0-9]{32}:syncMeta:(lastPlanSyncAt|lastProgressSyncAt)$/.test(row.id)||!row.id.endsWith(':'+row.key)||!validReceiptTime(row.at))return false;
+ if(Object.keys(row).sort().join(',')!=='at,backup,id,key,kind,local,reason,store')return false;
+ const receipt=r=>r&&Object.keys(r).sort().join(',')==='at,key'&&r.key===row.key&&validReceiptTime(r.at);
+ return Boolean(receipt(row.local)&&receipt(row.backup)&&row.local.at!==row.backup.at);
+}
+function archiveReceiptRows(tx,rows){
+ if(!rows.length)return;
+ // Preserve original collision evidence before removing it from the active queue.
+ // A failed archive aborts the same transaction; no conflict evidence is lost.
+ tx.objectStore(SNAP).add({id:'receipt-collision-archive:'+id(),state:'RECEIPT_COLLISIONS_ARCHIVED',createdAt:now(),records:copy(rows)});
+}
+function archiveReceiptConflicts(db){
+ guard();
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction([SNAP,'syncMeta','syncConflicts'],'readwrite'),conflicts=tx.objectStore('syncConflicts');
+  let archived=0,reason=null;
+  tx.oncomplete=()=>resolve(archived);
+  tx.onerror=()=>reject(reason||tx.error||Error('receipt archive failed'));
+  tx.onabort=()=>reject(reason||tx.error||Error('receipt archive aborted'));
+  const req=conflicts.getAll();
+  req.onsuccess=()=>{
+   const rows=req.result.filter(isReceiptRestoreCollision);
+   if(!rows.length)return;
+   const meta=tx.objectStore('syncMeta').get('migration'),snapshots=tx.objectStore(SNAP).getAll();let ready=0;
+   const apply=()=>{
+    if(++ready!==2)return;
+    try{
+     if(meta.result?.state!=='ready')return;
+     // Do not invalidate a backup hash or an ongoing, explicitly approved migration.
+     const latest=snapshots.result.filter(x=>typeof x.id==='string'&&x.id.startsWith('migration:')).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))||String(b.id).localeCompare(String(a.id)))[0];
+     if(latest&&['BACKUP_PREPARED','BACKED_UP','REVIEW_REQUIRED','UPLOADING','PENDING_RETRY'].includes(latest.state))return;
+     archiveReceiptRows(tx,rows);
+     for(const row of rows)conflicts.delete(row.id);
+     archived=rows.length;
+    }catch(error){reason=error;tx.abort();}
+   };
+   meta.onsuccess=apply;snapshots.onsuccess=apply;
+  };
+ });
+}
 async function restore(db,blob,confirmed){
  guard();if(confirmed!==true)throw Error('로컬 복원에 대한 명시적 동의가 필요합니다.');
  const v=await verifyBackup(blob),data=blob.data;
  const before=await readAll(db);
  const maps=Object.fromEntries(ORDER.map(k=>[k,new Map(before[k].map(r=>[r[KEY[k]],r]))]));
- const additions={},conflicts=[];
+ const additions={},conflicts=[],receiptArchives=[];
  for(const store of ORDER){
   additions[store]=[];
   for(const row of data[store]){
-   if(store==='syncMeta'&&(/^(?:migration$|cursor:|plan:|lastSuccess)/.test(row.key)))continue;
+   if(store==='syncMeta'&&(/^(?:migration$|cursor:|plan:|lastSuccess)/.test(row.key)||RECEIPT_KEYS.has(row.key)))continue;
+   if(store==='syncConflicts'&&isReceiptRestoreCollision(row)){receiptArchives.push(row);continue;}
    const existing=maps[store].get(row[KEY[store]]);
    if(!existing)additions[store].push(copy(row));
    else if(stable(existing)!==stable(row))conflicts.push({id:'restore:'+id()+':'+store+':'+row[KEY[store]],kind:'restore',key:row[KEY[store]],store,
@@ -471,7 +521,8 @@ async function restore(db,blob,confirmed){
  }
  // Entire local-only restore is one atomic transaction. Existing records NEVER overwritten.
  await new Promise((resolve,reject)=>{
-  const tx=db.transaction(ORDER,'readwrite');
+  const tx=db.transaction([...ORDER,SNAP],'readwrite');
+  archiveReceiptRows(tx,receiptArchives);
   for(const store of ORDER)for(const row of additions[store])tx.objectStore(store).add(row);
   for(const row of conflicts)tx.objectStore('syncConflicts').put(row);
   tx.objectStore('syncMeta').put({key:'migration',state:'required',reason:'restore-requires-review',updatedAt:now()});
@@ -480,7 +531,7 @@ async function restore(db,blob,confirmed){
  return {restored:Object.fromEntries(ORDER.map(k=>[k,additions[k].length])),conflicts:conflicts.length,backupHash:v.bundleHash};
 }
 const api={FORMAT,STATE,backup,verifyBackup,downloadBackup,storeBackup,confirmBackup,compare,apply,cancel,restore,state,readAll,
- additive,mergeAdditions,remoteData};
+ additive,mergeAdditions,remoteData,isReceiptRestoreCollision,archiveReceiptConflicts};
 root.PEPlannerMigration=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
