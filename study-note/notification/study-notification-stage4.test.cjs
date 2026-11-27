@@ -69,6 +69,35 @@ assert.equal(armed,false);assert.equal(calls,1);
 assert.equal(call('test',{expectedVersion:0,confirm:true}).reason,'test-already-attempted');assert.equal(calls,1);
 assert.equal(call('snapshot').testReady,false);assert.equal(call('history',{date:'2026-11-27'}).total,0);
 assert.throws(()=>h.dispatch('test',{verified:true,ownerId:owner},{confirm:true,expectedVersion:0}),/authenticated/);
+// Dedicated workbook generation switch with complete original archive retained.
+const books=new Map(),privateProps=new Map(),masterId='synthetic-master-00000000000',initialId='synthetic-private-0000000000';
+const headers=['transactionId','index','count','key','payloadJson','sha256'];let lockHeld=false,serial=0;
+function book(id){
+ let tab='NotificationJournal',data=[headers.slice()],max=1000;
+ const sheet={setName:n=>{tab=n;},getLastColumn:()=>6,getLastRow:()=>data.length,getMaxRows:()=>max,insertRowsAfter:(_last,n)=>{max+=n;},
+  getRange(start,col,count,width){assert.equal(col,1);assert.equal(width,6);return {getValues:()=>copy(data.slice(start-1,start-1+count)),setValues:rs=>rs.forEach((row,j)=>{data[start-1+j]=copy(row);})};}};
+ const b={getId:()=>id,getName:()=>'PeExamStudyNotificationPrivate',getSheets:()=>[sheet],getSheetByName:n=>n===tab?sheet:null,data:()=>copy(data)};books.set(id,b);return b;
+}
+const source=book(initialId);
+const p={getProperty:k=>privateProps.get(k)||null,setProperty:(k,v)=>{privateProps.set(k,v);}};
+privateProps.set('PE_NOTIFICATION_PROJECT_MODE','DEDICATED_NOTIFICATION');privateProps.set('PE_NOTIFICATION_PRIVATE_STORE_ID',initialId);
+const gs={Utilities:{DigestAlgorithm:{SHA_256:'sha'},Charset:{UTF_8:'utf8'},computeDigest:(_a,v)=>[...Buffer.from(sha(v),'hex')],getUuid:()=>crypto.randomUUID(),newBlob:s=>({getBytes:()=>[...Buffer.from(s)]})},
+ SpreadsheetApp:{openById:id=>{assert.ok(books.has(id));return books.get(id);},create:()=>book('synthetic-candidate-'+String(++serial).padStart(20,'0')),flush:()=>{}},
+ LockService:{getScriptLock:()=>({tryLock(){if(lockHeld)return false;lockHeld=true;return true;},releaseLock(){lockHeld=false;}})}};
+vm.createContext(gs);vm.runInContext(fs.readFileSync(path.join(__dirname,'study-notification-gas-store.gs'),'utf8'),gs);
+const gasStore=gs.StudyNotificationGasStore,st=gasStore.create(()=>{assert.equal(lockHeld,true);return gasStore.activeId(p,masterId);});
+st.exclusive(tx=>{tx.commit([{key:'settings|synthetic|',value:{version:1}}]);tx.commit([{key:'settings|synthetic|',value:{version:2}}]);tx.commit([{key:'job|synthetic|x',value:{status:'unknown'}}]);});
+const before=source.data();
+privateProps.set('PE_NOTIFICATION_RELEASE_APPROVED','YES');assert.throws(()=>gasStore.compactDisabledProject(p,masterId),/disabled/);
+privateProps.set('PE_NOTIFICATION_RELEASE_APPROVED','NO');
+const compact=gasStore.compactDisabledProject(p,masterId);
+assert.equal(compact.switched,true);assert.equal(compact.beforeRows,3);assert.equal(compact.afterRows,2);
+assert.equal(JSON.stringify(source.data()),JSON.stringify(before));
+const manifest=JSON.parse(p.getProperty('PE_NOTIFICATION_STORE_MANIFEST'));
+assert.equal(manifest.archives[0].id,initialId);assert.notEqual(manifest.activeId,initialId);
+assert.equal(st.exclusive(tx=>tx.get('settings|synthetic|').version),2);
+assert.equal(st.exclusive(tx=>tx.get('job|synthetic|x').status),'unknown');
+assert.equal(lockHeld,false);
 // The callback must scrub the query before posting to the exact origin.
 const html=fs.readFileSync(path.join(__dirname,'kakao-callback.html'),'utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 let scrubbed=false,posted=0;
