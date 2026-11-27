@@ -87,8 +87,8 @@ assert(csrc.includes('if(!enabled())return'));
 assert(planner.includes("const result=await transport.get('studyPlans',{})"));
 assert(planner.includes('await connectProductionPlannerTransport()'));
 assert(planner.includes('loadStage5FirstMigrationAddon()'));
-assert(planner.includes("if(!client?.enabled()||document.getElementById('plannerFirstSyncWizard'))return;"));
-assert(planner.includes("if(!client?.enabled()||!window.PEPlannerSyncUX"));
+assert(planner.includes("if(!client?.enabled()||migrationAddonLoading||document.getElementById('plannerFirstSyncWizard'))return;"));
+assert(planner.includes("if(!client?.testEnabled()||!window.PEPlannerSyncUX"));
 assert(ui.includes('root.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT'));
 const oldLocation=globalThis.location,oldVerified=globalThis.PE_PLANNER_SYNC_SERVER_VERIFIED,
  oldTransport=globalThis.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT;
