@@ -127,7 +127,7 @@
           }
           let outcome='unknown',notAttempted=false;
           try{
-            const reply=deps.sendSelf(owner,r.value.message,deadline);
+            const reply=deps.sendSelf(owner,r.value.message,deadline,()=>canSend()&&eligibleTopic(job.topicId));
             // Only the trusted transport may certify that no message request was issued.
             notAttempted=reply?.notAttempted===true;
             if(!notAttempted)outcome=core.classifyKakaoOutcome(reply?.httpStatus,reply?.body);
