@@ -41,9 +41,10 @@
   const historySection=add(panel,'details');add(historySection,'summary','발송 이력 (일자별)');
   const historyDate=el('input');historyDate.type='date';historySection.append(row('조회 날짜',historyDate));
   const historyButton=add(historySection,'button','이력 조회');historyButton.type='button';
+  const todayButton=add(historySection,'button','오늘 미발송·확인 필요');todayButton.type='button';
   const historyNext=add(historySection,'button','다음 20건');historyNext.type='button';historyNext.disabled=true;
   const historyText=add(historySection,'pre','날짜를 선택하여 이력을 조회하세요.');
-  let historyOffset=null;
+  let historyOffset=null,historyScope='';
   container.append(panel);
   let snapshot=null,busy=false,dirty=false,stale=false,disposed=false;
   function settings(){
@@ -61,6 +62,7 @@
    buttons.preview.disabled=busy||!snapshot||stale||!hasPlan||typeof transport.preview!=='function';
    buttons.refresh.disabled=busy;
    historyButton.disabled=busy||!snapshot||typeof transport.history!=='function';
+   todayButton.disabled=historyButton.disabled||!snapshot?.date||!hasPlan;
    historyNext.disabled=historyButton.disabled||historyOffset===null;
    buttons.pause.disabled=busy||!snapshot||stale||snapshot.settings?.enabled!==true;
    buttons.connect.disabled=busy||!snapshot||stale||connected||typeof transport.begin!=='function';
@@ -138,17 +140,19 @@
    render(await transport.snapshot());
    state.textContent=r?.confirmed===true?'테스트 메시지 API 성공 응답 확인':r?.unknown===true?'테스트 발송 결과 불명 · 자동 재전송하지 않습니다.':'테스트 발송 미확인';
   });
-  const states={confirmed:'API 수락',pending:'미발송/부분 완료',unknown:'확인 필요',rejected:'거절'};
+  const states={confirmed:'API 수락',pending:'미발송/부분 완료',unknown:'확인 필요',rejected:'거절',unreserved:'예약 전 미발송','source-unavailable':'원문 누락/학습 제외','duplicate-held':'중복 방지 보류'};
   async function showHistory(offset){
    const date=historyDate.value;
    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('date required');
-   const r=await transport.history({date,offset,limit:20});
+   const r=await transport.history({date,offset,limit:20,...(historyScope?{scope:historyScope}:{})});
    if(r?.date!==date||!Array.isArray(r.rows)||r.rows.length>20||!Number.isSafeInteger(r.total))throw Error('history response invalid');
    historyOffset=Number.isSafeInteger(r.nextOffset)&&r.nextOffset>offset?r.nextOffset:null;
-   historyText.textContent=(r.total+'건 · '+date+'\n')+(r.rows.length?r.rows.map(j=>String(j.topicId)+' '+String(j.topicName)+' · '+(states[j.status]||'확인 필요')+' · '+j.confirmedParts+'/'+j.partCount+'편').join('\n'):'예약 이력 없음');
+   historyText.textContent=(r.total+'건 · '+date+'\n')+(r.rows.length?r.rows.map(j=>String(j.topicId)+' '+String(j.topicName)+' · '+(states[j.status]||'확인 필요')+(j.partCount?' · '+(j.confirmedParts??'—')+'/'+j.partCount+'편':'')+(j.heldDate?' · 기존 예약 '+j.heldDate:'')+(Array.isArray(j.reviewParts)&&j.reviewParts.length?' · 확인할 분할 '+j.reviewParts.map(p=>p.part+'('+states[p.state]+')').join(', '):'')).join('\n'):(historyScope?'오늘 미발송·확인 필요 토픽 없음':'예약 이력 없음'));
+   if(historyScope)historyText.textContent+='\n\n불명·거절은 카카오톡 나와의 채팅에서 직접 대조하세요. 자동 재전송이나 학습 완료 처리를 하지 않습니다.';
   }
-  historyDate.addEventListener('change',()=>{historyOffset=null;historyText.textContent='이력 조회를 선택하세요.';updateControls();});
-  historyButton.onclick=()=>perform(()=>showHistory(0));
+  historyDate.addEventListener('change',()=>{historyOffset=null;historyScope='';historyText.textContent='이력 조회를 선택하세요.';updateControls();});
+  historyButton.onclick=()=>perform(()=>{historyScope='';return showHistory(0);});
+  todayButton.onclick=()=>perform(()=>{historyScope='unconfirmed-today';historyDate.value=snapshot.date;return showHistory(0);});
   historyNext.onclick=()=>perform(()=>showHistory(historyOffset));
   updateControls();
   const loaded=perform(async()=>render(await transport.snapshot()));
