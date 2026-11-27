@@ -86,5 +86,24 @@ var StudyNotificationGasStore=(function(){
       }finally{lock.releaseLock();}
     }};
   }
-  return Object.freeze({create:create,replay:replay});
+  // Offline candidate only: produce a verified compacted journal, never write
+  // or delete the source. A future generation-switch procedure must lock,
+  // verify sourceHash, read back a separate candidate and retain rollback.
+  function buildCompaction(rows){
+    must(Array.isArray(rows)&&rows.length<=MAX_ROWS,'source capacity exceeded');
+    var state=replay(rows),sourceHash=sha(JSON.stringify(rows)),entries=Array.from(state.entries()).sort(function(a,b){return a[0]<b[0]?-1:a[0]>b[0]?1:0;});
+    var compacted=[];
+    for(var offset=0;offset<entries.length;offset+=MAX_BATCH){
+      var group=entries.slice(offset,offset+MAX_BATCH),id='txn-'+sha(sourceHash+':compact:'+offset);
+      group.forEach(function(pair,index){
+        var r=[id,index,group.length,pair[0],JSON.stringify(pair[1])];
+        compacted.push(r.concat([digest(r)]));
+      });
+    }
+    var verified=replay(compacted);
+    must(verified.size===state.size,'compacted key count mismatch');
+    state.forEach(function(v,k){must(verified.has(k)&&JSON.stringify(verified.get(k))===JSON.stringify(v),'compaction lost state');});
+    return {sourceHash:sourceHash,beforeRows:rows.length,afterRows:compacted.length,rows:compacted};
+  }
+  return Object.freeze({create:create,replay:replay,buildCompaction:buildCompaction});
 })();
