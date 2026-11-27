@@ -48,7 +48,7 @@ var StudyNotificationGasStore=(function(){
       var lock=LockService.getScriptLock();
       must(lock.tryLock(1000),'notification lock busy');
       try{
-        var sheet=open(privateId),last=sheet.getLastRow();
+        var sheet=open(typeof privateId==='function'?privateId():privateId),last=sheet.getLastRow();
         must(last>=1&&last<=MAX_ROWS+1,'journal capacity exceeded');
         var rows=last===1?[]:sheet.getRange(2,1,last-1,HEADER.length).getValues();
         var state=replay(rows);
@@ -105,5 +105,57 @@ var StudyNotificationGasStore=(function(){
     state.forEach(function(v,k){must(verified.has(k)&&JSON.stringify(verified.get(k))===JSON.stringify(v),'compaction lost state');});
     return {sourceHash:sourceHash,beforeRows:rows.length,afterRows:compacted.length,rows:compacted};
   }
-  return Object.freeze({create:create,replay:replay,buildCompaction:buildCompaction});
+  // Manual, separate generation maintenance. Archive the entire previous
+  // journal by retaining its original workbook; never truncate or delete it.
+  // Pointer and archive references are ONE property, switched under the same lock.
+  function manifest(props,masterId){
+    var raw=props.getProperty('PE_NOTIFICATION_STORE_MANIFEST');
+    var m=raw?JSON.parse(raw):{version:1,activeId:props.getProperty('PE_NOTIFICATION_PRIVATE_STORE_ID'),archives:[]};
+    var valid=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{20,}$/.test(id)&&id!==masterId;
+    must(typeof masterId==='string'&&masterId.length>=20&&m.version===1&&valid(m.activeId)&&Array.isArray(m.archives)&&m.archives.length<=20&&m.archives.every(a=>valid(a.id)&&/^[a-f0-9]{64}$/.test(a.sourceHash)),'invalid private store manifest');
+    var ids=[m.activeId].concat(m.archives.map(a=>a.id));
+    must(new Set(ids).size===ids.length,'duplicate store generation');
+    return {raw:raw,m:m};
+  }
+  function activeId(props,masterId){return manifest(props,masterId).m.activeId;}
+  function compactDisabledProject(props,masterId){
+    function disabled(){
+      return props.getProperty('PE_NOTIFICATION_PROJECT_MODE')==='DEDICATED_NOTIFICATION'&&
+       ['HTTP_APPROVED','RELEASE_APPROVED','SCHEDULER_APPROVED'].every(k=>props.getProperty('PE_NOTIFICATION_'+k)!=='YES');
+    }
+    must(disabled(),'compaction requires disabled dedicated project');
+    var lock=LockService.getScriptLock();must(lock.tryLock(1000),'notification lock busy');
+    try{
+      var previous=manifest(props,masterId),m=previous.m;
+      must(disabled()&&m.archives.length<20,'archive limit/activation blocked');
+      var source=open(m.activeId),last=source.getLastRow();
+      must(last>1&&last<=MAX_ROWS+1,'source generation empty or oversized');
+      var rows=source.getRange(2,1,last-1,HEADER.length).getValues(),comp=buildCompaction(rows);
+      if(comp.afterRows>=comp.beforeRows)return {ok:true,switched:false,beforeRows:comp.beforeRows,afterRows:comp.afterRows};
+      var ss=SpreadsheetApp.create(NAME),candidate=ss.getSheets()[0];
+      must(ss.getId()!==masterId&&ss.getId()!==m.activeId,'candidate identity invalid');
+      candidate.setName(TAB);candidate.getRange(1,1,1,HEADER.length).setValues([HEADER]);
+      var end=comp.rows.length+1;
+      if(end>candidate.getMaxRows())candidate.insertRowsAfter(candidate.getMaxRows(),end-candidate.getMaxRows());
+      for(var i=0;i<comp.rows.length;i+=500){
+        var batch=comp.rows.slice(i,i+500);
+        candidate.getRange(i+2,1,batch.length,HEADER.length).setValues(batch);
+      }
+      SpreadsheetApp.flush();
+      var readback=open(ss.getId());
+      must(readback.getLastRow()===end,'candidate row count mismatch');
+      var rr=readback.getRange(2,1,end-1,HEADER.length).getValues();
+      must(sha(JSON.stringify(rr))===sha(JSON.stringify(comp.rows)),'candidate readback mismatch');
+      replay(rr);
+      // Reconfirm source and pointer immediately before the generation switch.
+      must(disabled()&&manifest(props,masterId).raw===previous.raw&&activeId(props,masterId)===m.activeId&&source.getLastRow()===last&&sha(JSON.stringify(source.getRange(2,1,last-1,HEADER.length).getValues()))===comp.sourceHash,'source/pointer changed');
+      var next={version:1,activeId:ss.getId(),archives:m.archives.concat([{id:m.activeId,sourceHash:comp.sourceHash,archivedAt:new Date().toISOString(),rows:comp.beforeRows}])};
+      var json=JSON.stringify(next);
+      must(Utilities.newBlob(json).getBytes().length<=8500,'manifest capacity exceeded');
+      props.setProperty('PE_NOTIFICATION_STORE_MANIFEST',json);
+      must(props.getProperty('PE_NOTIFICATION_STORE_MANIFEST')===json,'manifest readback mismatch');
+      return {ok:true,switched:true,beforeRows:comp.beforeRows,afterRows:comp.afterRows,archives:next.archives.length};
+    }finally{lock.releaseLock();}
+  }
+  return Object.freeze({create:create,replay:replay,buildCompaction:buildCompaction,activeId:activeId,compactDisabledProject:compactDisabledProject});
 })();
