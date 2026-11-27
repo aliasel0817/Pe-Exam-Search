@@ -35,8 +35,15 @@
   const actions=add(panel,'div');actions.className='actions';
   const buttons={};for(const [k,name] of [['save','설정 저장'],['pause','자동 발송 중지'],['refresh','최신 설정 조회'],['preview','메시지 미리보기'],['connect','카카오 계정 연결'],['disconnect','계정 연결 해제'],['test','테스트 발송']]){const b=add(actions,'button',name);b.type='button';buttons[k]=b;}
   const summary=add(panel,'p','오늘의 발송 현황: 확인 중');
+  const next=add(panel,'p','다음 확인 예정: —');
   const progress=add(panel,'progress');progress.max=1;progress.value=0;progress.setAttribute('aria-label','오늘의 발송 진행률');
   const preview=add(panel,'pre','미리보기를 선택하면 분할 메시지를 확인할 수 있습니다.');
+  const historySection=add(panel,'details');add(historySection,'summary','발송 이력 (일자별)');
+  const historyDate=el('input');historyDate.type='date';historySection.append(row('조회 날짜',historyDate));
+  const historyButton=add(historySection,'button','이력 조회');historyButton.type='button';
+  const historyNext=add(historySection,'button','다음 20건');historyNext.type='button';historyNext.disabled=true;
+  const historyText=add(historySection,'pre','날짜를 선택하여 이력을 조회하세요.');
+  let historyOffset=null;
   container.append(panel);
   let snapshot=null,busy=false,dirty=false,stale=false,disposed=false;
   function settings(){
@@ -53,6 +60,8 @@
    buttons.save.disabled=busy||!snapshot||stale||!hasPlan||(enabled.checked&&!allow);
    buttons.preview.disabled=busy||!snapshot||stale||!hasPlan||typeof transport.preview!=='function';
    buttons.refresh.disabled=busy;
+   historyButton.disabled=busy||!snapshot||typeof transport.history!=='function';
+   historyNext.disabled=historyButton.disabled||historyOffset===null;
    buttons.pause.disabled=busy||!snapshot||stale||snapshot.settings?.enabled!==true;
    buttons.connect.disabled=busy||!snapshot||stale||connected||typeof transport.begin!=='function';
    buttons.disconnect.disabled=busy||!snapshot||stale||!connected||typeof transport.disconnect!=='function';
@@ -69,6 +78,8 @@
    for(const c of checks)c.checked=old.fields.includes(c.value);
    account.textContent='카카오 계정: '+(s.account?.connected===true?'연결됨'+(s.account.refreshExpired?' · 재인증 필요':''):'미연동');
    const stats=s.stats||{},total=Number(stats.assigned),done=Number(stats.confirmed);
+   if(typeof s.date==='string'&&!historyDate.value)historyDate.value=s.date;
+   next.textContent='다음 확인 예정: '+(Number.isSafeInteger(s.nextCheckAt)?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(s.nextCheckAt))+' 이후 (예상)':'—');
    progress.max=Number.isSafeInteger(total)&&total>0?total:1;
    progress.value=Number.isSafeInteger(done)&&done>=0?Math.min(done,progress.max):0;
    summary.textContent=Number.isSafeInteger(total)&&Number.isSafeInteger(done)?'오늘 배정 '+total+' · 발송 완료 '+done+' · 미발송 '+Math.max(0,total-done)+' · 확인 필요 '+(Number(stats.unknown)||0)+' · 거절 '+(Number(stats.rejected)||0):'오늘의 발송 현황: 실제 계획 확인 필요';
@@ -103,13 +114,19 @@
    if(!Array.isArray(res?.parts)||res.parts.some(p=>typeof p!=='string'||p.length>200))throw Error('preview response invalid');
    preview.textContent=res.parts.map((p,i)=>'['+(i+1)+'/'+res.parts.length+']\n'+p).join('\n\n');
   });
-  buttons.connect.onclick=()=>perform(async()=>{
-   const r=await transport.begin();
-   const url=new URL(r?.authorizationUrl||'');
-   if(url.origin!=='https://kauth.kakao.com'||url.pathname!=='/oauth/authorize')throw Error('authorization URL invalid');
-   if(typeof options.navigate!=='function')throw Error('OAuth callback not installed');
-   options.navigate(url.href);
-  });
+  buttons.connect.onclick=()=>{
+   if(busy||disposed)return;
+   if(typeof options.prepareAuthorization==='function'&&options.prepareAuthorization()!==true)return;
+   return perform(async()=>{
+    try{
+     const r=await transport.begin();
+     const url=new URL(r?.authorizationUrl||'');
+     if(url.origin!=='https://kauth.kakao.com'||url.pathname!=='/oauth/authorize')throw Error('authorization URL invalid');
+     if(typeof options.navigate!=='function')throw Error('OAuth callback not installed');
+     options.navigate(url.href);
+    }catch(e){options.cancelAuthorization?.();throw e;}
+   });
+  };
   buttons.disconnect.onclick=()=>perform(async()=>{
    if(typeof options.confirmDisconnect!=='function'||options.confirmDisconnect()!==true)return;
    const r=await transport.disconnect();render(await transport.snapshot());
@@ -120,9 +137,21 @@
    const r=await transport.test({expectedVersion:snapshot.settingsVersion});
    state.textContent=r?.confirmed===true?'테스트 메시지 API 성공 응답 확인':r?.unknown===true?'테스트 발송 결과 불명 · 자동 재전송하지 않습니다.':'테스트 발송 미확인';
   });
+  const states={confirmed:'API 수락',pending:'미발송/부분 완료',unknown:'확인 필요',rejected:'거절'};
+  async function showHistory(offset){
+   const date=historyDate.value;
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error('date required');
+   const r=await transport.history({date,offset,limit:20});
+   if(r?.date!==date||!Array.isArray(r.rows)||r.rows.length>20||!Number.isSafeInteger(r.total))throw Error('history response invalid');
+   historyOffset=Number.isSafeInteger(r.nextOffset)&&r.nextOffset>offset?r.nextOffset:null;
+   historyText.textContent=(r.total+'건 · '+date+'\n')+(r.rows.length?r.rows.map(j=>String(j.topicId)+' '+String(j.topicName)+' · '+(states[j.status]||'확인 필요')+' · '+j.confirmedParts+'/'+j.partCount+'편').join('\n'):'예약 이력 없음');
+  }
+  historyDate.addEventListener('change',()=>{historyOffset=null;historyText.textContent='이력 조회를 선택하세요.';updateControls();});
+  historyButton.onclick=()=>perform(()=>showHistory(0));
+  historyNext.onclick=()=>perform(()=>showHistory(historyOffset));
   updateControls();
   const loaded=perform(async()=>render(await transport.snapshot()));
-  return {loaded,unmount(){disposed=true;panel.remove();}};
+  return {loaded,reload:()=>perform(async()=>render(await transport.snapshot())),setMessage:value=>{if(!disposed)state.textContent=String(value);},unmount(){disposed=true;panel.remove();}};
  }
  return Object.freeze({mount,availablePlans,PLAN_NAME});
 });
