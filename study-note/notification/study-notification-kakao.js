@@ -53,11 +53,12 @@
   }
   const remaining=(b)=>b.dayCount<config.dailyBudget&&b.monthCount<config.monthlyBudget;
   // Debit every outbound API attempt before I/O; no refunds or automatic retry.
-  function call(v,url,method,params,access,deadline){
+  function call(v,url,method,params,access,deadline,guard){
    const n=clock(),b=budget(v,n);
    if(!remaining(b)||(deadline!=null&&n>=deadline))return {notAttempted:true};
    v.budget={...b,dayCount:b.dayCount+1,monthCount:b.monthCount+1,lastAt:n};
    write(v);
+   if((deadline!=null&&clock()>=deadline)||(guard&&guard()!==true))return {notAttempted:true};
    if(deadline!=null&&clock()>=deadline)return {notAttempted:true};
    const headers={};if(access)headers.Authorization='Bearer '+access;
    if(method==='POST')headers['Content-Type']='application/x-www-form-urlencoded;charset=utf-8';
@@ -134,8 +135,9 @@
    if(old.accessUntil>n+120000)return old;
    if(v.refreshAfter&&n<v.refreshAfter)return null;
    v.refreshAfter=n+600000;write(v);
-   const t=parseToken(tokenBody(v,{grant_type:'refresh_token',refresh_token:old.refreshToken}),old);
-   if(!t)return null;
+   const reply=tokenBody(v,{grant_type:'refresh_token',refresh_token:old.refreshToken});
+   const t=parseToken(reply,old);
+   if(!t){if(reply?.body?.error==='invalid_grant'){v.armed=false;v.token=null;write(v);}return null;}
    // Persist rotated refresh token BEFORE additional verification/network calls.
    // Keep sending disarmed if the identity check is interrupted or fails.
    const wasArmed=v.armed;v.armed=false;v.token=t;write(v);
@@ -147,17 +149,18 @@
    const v=read(),n=clock();
    return !!(v.armed&&v.token&&v.boundId&&v.token.refreshUntil>n&&windowOpen(n)&&remaining(budget(v,n)));
   }
-  function sendSelf(target,message,deadline){
-   lock();must(target===owner&&text(message,200)&&Number.isSafeInteger(deadline),'invalid self-message');
+  function sendSelf(target,message,deadline,guard){
+   lock();must(target===owner&&text(message,200)&&Number.isSafeInteger(deadline)&&typeof guard==='function','invalid self-message');
+   deadline=Math.min(deadline,Date.parse(keyDate(clock())+'T20:00:00+09:00'));
    const skip={notAttempted:true};
-   if(!ready(target)||clock()>=deadline)return skip;
+   if(!ready(target)||clock()>=deadline||guard()!==true)return skip;
    const v=read(),t=refresh(v);
    if(!t||!v.armed||deps.approved(owner)!==true)return skip;
    const wait=1000-(clock()-budget(v,clock()).lastAt);
    if(wait>0){if(clock()+wait>=deadline)return skip;deps.sleep(wait);}
-   if(!windowOpen(clock())||clock()>=deadline||deps.approved(owner)!==true)return skip;
+   if(!windowOpen(clock())||clock()>=deadline||deps.approved(owner)!==true||guard()!==true)return skip;
    const template={object_type:'text',text:message,link:{web_url:config.linkUrl,mobile_web_url:config.linkUrl},button_title:'학습노트 보기'};
-   const reply=call(v,SEND,'POST',{template_object:JSON.stringify(template)},t.accessToken,deadline);
+   const reply=call(v,SEND,'POST',{template_object:JSON.stringify(template)},t.accessToken,deadline,guard);
    if(reply?.notAttempted===true)return skip;
    const body=reply?.body;
    // Provider failures are never returned with token or raw error text.
