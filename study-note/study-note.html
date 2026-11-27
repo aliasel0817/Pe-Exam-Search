@@ -4932,6 +4932,7 @@ async function init() {
     setLearningSyncPhase('오프라인 · 변경 내용은 기기에 보관');
   });
   window.addEventListener('focus', () => scheduleLearningAutoSync('화면 복귀', 1000));
+  window.addEventListener('pe-planner-sync-changed',()=>scheduleLearningAutoSync('학습계획 변경 저장',900));
   setInterval(() => {
     if (!document.hidden && els.learningModal && !els.learningModal.classList.contains('hidden')) {
       scheduleLearningAutoSync('학습현황 최신 정보 확인', 0);
@@ -7265,11 +7266,11 @@ async function toggleFavorite() {
 }
 async function recordLearningResult(result) {
   if (!currentTopicId) return;
-  const id=currentTopicId;
+  const id=currentTopicId,captured=window.StudyPlanner?.captureContext?.(currentTopicId);
   try {
     const next=await updateLearningState(id,state=>window.PELearningSyncV2.progressPatch(state,result));
     if(window.StudyPlanner){
-      try{await StudyPlanner.record(id,result);}catch(error){
+      try{await StudyPlanner.record(id,result,captured);}catch(error){
         console.error(error);showToast('일반 학습기록은 저장했습니다. 회독별 진도 저장 상태를 확인해 주세요.');
       }
     }
@@ -7542,9 +7543,9 @@ function renderLearningSyncStatus(){
   const conflicts=rows.filter(r=>r.syncV2?.conflict);
   panel.classList.toggle('hidden',!conflicts.length);
   document.getElementById('learningSyncConflictsTitle').textContent='학습정보 충돌 '+conflicts.length+'건 · 양쪽 기록 비교';
-  if(!conflicts.length){host.replaceChildren();return;}
+  if(!conflicts.length){host.replaceChildren();host.dataset.stamp='';return;}
   // Do not regenerate expanded review rows or their buttons on every timer tick.
-  const stamp=JSON.stringify(conflicts.map(r=>[r.topicId,r.updatedAt,r.syncV2.conflict]));
+  const stamp=JSON.stringify(conflicts.map(r=>[r.topicId,r.updatedAt,r.revision,r.syncV2.conflict.at,r.syncV2.conflict.remote?.revision,r.syncV2.conflict.remote?.updatedAt]));
   if(host.dataset.stamp===stamp)return;
   host.dataset.stamp=stamp;host.replaceChildren();
   for(const row of conflicts.slice(0,30)){
@@ -15779,6 +15780,7 @@ if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
 <script src="./learning-sync-v2.js?v=20261127-1"></script>
+<script src="./study-planner-sync.js?v=20261127-learning-sync-v2"></script>
 <script src="./study-planner.js?v=20261127-learning-sync-v2"></script>
 <script src="./personal-note-cloud.js"></script>
 <script src="./personal-note.js"></script>
