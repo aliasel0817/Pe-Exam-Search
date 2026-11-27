@@ -46,8 +46,12 @@
   function snapshot(ctx){
    const p=plan(),r=service.readSettings(store,owner),account=provider.status(ctx),date=core.kst(deps.now()).date;
    const day=p?.days.find(d=>d.date===date),stats=service.status(store,owner,date,day||{round:null,ids:[]});
-   return {settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
-    account,releaseReady:approved(owner)&&account.connected&&!account.refreshExpired,
+   const ready=approved(owner)&&account.connected&&!account.refreshExpired;
+   const now=deps.now(),start=Date.parse(date+'T08:30:00+09:00'),end=Date.parse(date+'T20:00:00+09:00');
+   const candidate=Math.max(now,start,service.nextEligible(store,owner)||0);
+   const nextCheckAt=ready&&account.armed===true&&r.settings?.enabled===true&&day?.ids.length>stats.confirmed&&candidate<end?candidate:null;
+   return {nextCheckAt,settingsVersion:r.version,settings:r.settings,plans:p&&current(p)?[{id:p.id,name:p.name,rounds:p.rounds,verified:true}]:[],
+    account,releaseReady:ready,
     stats:p&&current(p)&&r.settings?.planId===id?{assigned:day?.ids.length||0,confirmed:stats.confirmed,pending:stats.pending,unknown:stats.unknown,rejected:stats.rejected}:null};
   }
   function save(ctx,data){
@@ -99,6 +103,7 @@
      case 'finish':return provider.finish(ctx,data);
      case 'confirm':return provider.confirm(ctx,data);
      case 'disconnect':return disconnect(ctx);
+     case 'history':return service.history(store,owner,data?.date,data?.offset??0,data?.limit??20);
      default:throw Error('unknown notification action');
     }
    });
