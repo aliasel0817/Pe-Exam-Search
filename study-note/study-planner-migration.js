@@ -1,4 +1,4 @@
-/* Stage 5 first-device migration (synthetic loopback ONLY, never live).
+/* First-device migration for verified signed production or synthetic test transport.
  * No implicit migration: verified full backup + explicit preview + approval required.
  * Existing plans/progress are not overwritten on any schedule/progress conflict.
  */
@@ -18,7 +18,7 @@ const id=()=>{
  const b=new Uint8Array(16);c.getRandomValues(b);return [...b].map(n=>n.toString(16).padStart(2,'0')).join('');
 };
 function guard(){
- if(!client()?.testEnabled?.())throw Error('격리 합성 시험 환경에서만 최초 통합을 사용할 수 있습니다.');
+ if(!client()?.enabled?.())throw Error('검증된 학습계획 서버 연결 및 신뢰기기 인증이 필요합니다.');
 }
 function validatePublic(value,depth=0){
  if(depth>100)throw Error('백업 객체 중첩 제한 초과');
@@ -216,7 +216,7 @@ async function compare(db,snapshotId,transport,basePlans=[]){
  if(!original||!['BACKED_UP','REVIEW_REQUIRED'].includes(original.state))throw Error('다운로드한 전체 백업을 먼저 검증해야 합니다.');
  const live=await readAll(db);
  if(await criticalHash(live)!==original.criticalHash)throw Error('백업 이후 변경된 데이터가 있습니다. 다시 백업하세요.');
- const upstream=await remoteData(transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT);
+ const upstream=await remoteData(transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT||root.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT);
  const localPlans=new Map(live.plans.map(p=>[p.id,p]));
  const base=new Map(basePlans.map(p=>[p.id,p]));
  const planActions=[],conflicts=[],progressActions=[];
@@ -279,14 +279,18 @@ async function uploadPlan(transport,action){
  return reply;
 }
 function snapshotLocalUnchanged(current,before){return stable(current)===stable(before);}
-async function apply(db,snapshotId,options,transport,explicitApproval=false){
+function apply(db,snapshotId,options,transport,explicitApproval=false){
+ const task=()=>applyLocked(db,snapshotId,options,transport,explicitApproval);
+ return root.navigator?.locks?.request?root.navigator.locks.request('pe-study-planner-sync-v1',{mode:'exclusive'},task):task();
+}
+async function applyLocked(db,snapshotId,options,transport,explicitApproval=false){
  guard();if(!root.navigator?.onLine)throw Error('오프라인: 승인된 작업은 기기에 유지됩니다.');
  let snap=await read(db,SNAP,snapshotId);const opt=choices(options);
  if(!snap?.fileConfirmedAt||!snap.preview||!['REVIEW_REQUIRED','PENDING_RETRY','UPLOADING'].includes(snap.state))throw Error('백업 검증·비교·사용자 승인 단계를 먼저 수행하세요.');
  const resuming=snap.state!=='REVIEW_REQUIRED';
  if(!resuming&&explicitApproval!==true)throw Error('미리보기와 백업을 확인한 사용자 승인 없이 최초 통합할 수 없습니다.');
  if(resuming&&(!snap.approvedAt||stable(opt)!==stable(snap.approval)))throw Error('승인된 기존 작업만 동일 조건으로 재개할 수 있습니다.');
- const preview=snap.preview,env=transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT;
+ const preview=snap.preview,env=transport||root.PE_PLANNER_SYNC_TEST_TRANSPORT||root.PE_PLANNER_SYNC_PRODUCTION_TRANSPORT;
  if(!Object.values(opt).some(Boolean))throw Error('최소 하나의 안전한 통합 작업을 선택하세요.');
  // Re-reading before the first write protects against other device changes since preview.
  const local=await readAll(db);
@@ -370,7 +374,7 @@ async function apply(db,snapshotId,options,transport,explicitApproval=false){
    if(a.kind==='conflict'){conflictRows.push({id:'migration:'+snap.id+':progress:'+a.key,kind:'progress',key:a.key,local:a.local,remote:a.remote,reason:'PROGRESS_DIVERGENCE',at:now()});continue;}
    if(a.kind==='same'){
     const server=remote.progress.get(a.planId)?.latest.get(a.key),prior=gm.get(a.key);
-    if(server&&prior&&prior.status===server.status&&!pendingRows.some(op=>op.kind==='progress'&&op.key===a.key)){
+    if(server&&prior&&prior.status===server.status){
      newProgress.push({...prior,serverSeq:server.serverSeq,serverRowRevision:server.rowRevision,dirty:false,pendingOpId:null});
     }
     continue;
@@ -388,8 +392,23 @@ async function apply(db,snapshotId,options,transport,explicitApproval=false){
   for(const [planId,mark] of Object.entries(remote.marks)){
    if(!plans.some(a=>a.planId===planId&&a.kind==='conflict'))metadata.push({key:'cursor:'+planId,seq:mark});
   }
-  const pendingAcked=pendingRows.filter(op=>op.kind==='progress'&&snap.journal.uploadedProgress[op.key]||
-   op.kind==='plan'&&snap.journal.uploadedPlans[op.planId]).map(op=>op.id);
+  // The complete approved original (including superseded operations) remains
+  // in the immutable backup. Only clear a queue for a key whose final local
+  // state was verified to match the remote server after the approved migration.
+  const verifiedPlans=new Set(plans.filter(a=>{
+   const server=remote.summaries.get(a.planId);
+   return a.kind!=='conflict'&&a.targetHash&&server?.activeHash===a.targetHash&&
+     (a.kind==='same'||enabledAction(a,opt));
+  }).map(a=>a.planId));
+  const verifiedProgress=new Set(progress.filter(a=>{
+   const server=remote.progress.get(a.planId)?.latest.get(a.key);
+   return verifiedPlans.has(a.planId)&&server&&a.kind!=='conflict'&&
+    (a.kind==='same'&&a.local?.status===server.status||
+     a.kind==='upload'&&opt.uploadProgress&&a.local?.status===server.status&&snap.journal.uploadedProgress[a.key]||
+     a.kind==='download'&&opt.downloadProgress);
+  }).map(a=>a.key));
+  const pendingAcked=pendingRows.filter(op=>op.kind==='progress'&&verifiedProgress.has(op.key)||
+   op.kind==='plan'&&verifiedPlans.has(op.planId)).map(op=>op.id);
   await new Promise((resolve,reject)=>{
    const names=['plans','progress','syncMeta','pendingOps','syncConflicts',SNAP],tx=db.transaction(names,'readwrite');
    const criticalAtWrite={},records=[],reason={error:null};
