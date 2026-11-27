@@ -3159,7 +3159,7 @@ button { -webkit-tap-highlight-color: transparent; }
       <div class="modal-head">
         <div>
           <h2 id="learningTitle">학습 현황</h2>
-          <p class="muted">학습상태는 기기에 즉시 저장되며, 동기화하면 Google Spreadsheet의 '학습정보' 시트와 맞춰집니다.</p>
+          <p class="muted">학습상태는 기기에 먼저 저장됩니다. 학습 화면을 열면 최신 서버 기록을 자동 확인하며, 상충된 기록은 자동 덮어쓰지 않습니다.</p>
         </div>
         <button id="closeLearningBtn" class="icon-btn" type="button" aria-label="학습 현황 닫기">✕</button>
       </div>
@@ -3170,6 +3170,11 @@ button { -webkit-tap-highlight-color: transparent; }
         <button id="resetAllLearningBtn" class="btn danger" type="button">전체 학습 초기화</button>
         <button id="syncLearningBtn" class="btn primary" type="button">↕ 학습정보 동기화</button>
       </div>
+      <p id="learningSyncLiveStatus" class="help-text" role="status" aria-live="polite">이 기기의 학습정보를 확인하고 있습니다.</p>
+      <details id="learningSyncConflicts" class="hidden" style="margin:6px 0 10px;min-width:0;border:1px solid var(--line);border-radius:8px;padding:8px;overflow-wrap:anywhere">
+        <summary id="learningSyncConflictsTitle">학습정보 충돌 확인</summary>
+        <div id="learningSyncConflictRows"></div>
+      </details>
 
       <div class="learning-stats">
         <div class="learning-stat"><span>학습대상</span><strong id="statTarget">0</strong></div>
@@ -4255,6 +4260,7 @@ function normalizeLearningState(raw = {}) {
     revision: toNumber(raw.revision, 0),
     lastMissedAt,
     dirty: Boolean(raw.dirty),
+    syncV2: raw.syncV2 && typeof raw.syncV2 === 'object' ? raw.syncV2 : undefined,
   };
 }
 
@@ -4294,14 +4300,15 @@ function serializeLearningState(state) {
   };
 }
 
-async function fetchLearningStates(apiUrl) {
+async function fetchLearningStates(apiUrl, { withVersion = false } = {}) {
   try {
     const url = await buildSignedGetUrl(apiUrl, 'learningStates', {});
     const response = await fetch(url, { method: 'GET', cache: 'no-store', redirect: 'follow' });
     if (!response.ok) throw new Error(`학습정보 조회 실패: HTTP ${response.status}`);
     const json = await response.json();
     if (!json || json.ok !== true) throw new Error(json?.message || '학습정보 응답이 올바르지 않습니다.');
-    return normalizeLearningDataset(json);
+    const rows = normalizeLearningDataset(json);
+    return withVersion ? { version: Number(json.learningSyncVersion || 0), rows } : rows;
   } catch (error) {
     if (isHardSecuritySessionError(error)) clearSecuritySession();
     throw error;
@@ -4571,7 +4578,7 @@ function compareTopics(a, b) {
 
 // Study Note application
 
-const APP_VERSION = '4.6.22-text-highlights';
+const APP_VERSION = '4.6.23-learning-safe-autosync';
 const HOME_TOPIC_ID = 'T0000';
 const QUESTION_LIST_URL = '../list.xlsx';
 const QUESTION_XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4860,6 +4867,9 @@ const ANNOTATION_HISTORY_LIMIT = 50;
 
 // 3단계 학습기능 상태값은 명시적으로 선언한다.
 let learningStateMap = new Map();
+let learningSyncReady = false, learningSyncTimer = null, learningSyncRun = null, learningSyncAgain = false;
+let learningSyncPhase = '', learningSyncLastSuccess = '', learningSyncLastAttempt = 0;
+let memoRenderedTopicId = '', memoRenderedValue = '';
 let recallMode = false;
 let learningView = 'plan';
 let learningPage = 1;
@@ -4912,11 +4922,22 @@ async function init() {
   window.addEventListener('online', () => {
     updateNetworkStatus();
     scheduleSecurityStateRefresh({ force: true, delayMs: 150 });
+    scheduleLearningAutoSync('인터넷 재연결', 700);
     refreshAnnotationCloudCapability({ force: true }).then(ready => {
       if (ready) scheduleAnnotationCloudSync({ delayMs: 1800 });
     });
   });
-  window.addEventListener('offline', updateNetworkStatus);
+  window.addEventListener('offline', () => {
+    updateNetworkStatus();
+    setLearningSyncPhase('오프라인 · 변경 내용은 기기에 보관');
+  });
+  window.addEventListener('focus', () => scheduleLearningAutoSync('화면 복귀', 1000));
+  window.addEventListener('pe-planner-sync-changed',()=>scheduleLearningAutoSync('학습계획 변경 저장',900));
+  setInterval(() => {
+    if (!document.hidden && els.learningModal && !els.learningModal.classList.contains('hidden')) {
+      scheduleLearningAutoSync('학습현황 최신 정보 확인', 0);
+    }
+  }, 60000);
   window.addEventListener('resize', () => { syncViewportMetrics(); schedulePdfViewerWidthFit(); });
   window.addEventListener('orientationchange', () => setTimeout(() => {
     syncViewportMetrics(); schedulePdfViewerWidthFit();
@@ -4929,6 +4950,7 @@ async function init() {
     else {
       scheduleSecurityStateRefresh({ force: false, delayMs: 250 });
       scheduleAnnotationCloudResumeSync();
+      scheduleLearningAutoSync('화면 복귀', 700);
     }
   });
   window.addEventListener('pagehide', flushPendingAnnotationSaves);
@@ -4951,6 +4973,9 @@ async function init() {
       if (ready) scheduleAnnotationCloudSync({ delayMs: 2200 });
     });
     learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
+    learningSyncLastSuccess = (await getAllMeta(db)).lastLearningSyncAt || '';
+    learningSyncReady = true;
+    setLearningSyncPhase(navigator.onLine ? '자동 동기화 대기' : '오프라인 · 변경 내용은 기기에 보관');
     recallMode = localStorage.getItem(RECALL_MODE_KEY) === '1';
     await renderMeta();
     scheduleSecurityStateRefresh({ force: false, delayMs: 350 });
@@ -4984,6 +5009,7 @@ async function init() {
   } else {
     showEmptyState();
   }
+  scheduleLearningAutoSync('앱 실행', 1200);
 }
 
 function bindElements() {
@@ -7210,98 +7236,61 @@ function localDateKey(value) {
   return `${y}-${m}-${d}`;
 }
 
-async function updateLearningState(topicId, patch, { trySync = true } = {}) {
-  if (!topicId) return null;
-  const current = getLearningState(topicId);
-  const next = normalizeLearningState({
-    ...current,
-    ...patch,
-    topicId,
-    updatedAt: new Date().toISOString(),
-    revision: Number(current.revision || 0) + 1,
-    dirty: true,
-  });
-  learningStateMap.set(topicId, next);
-  await putLearningState(db, next);
-  if (topicId === currentTopicId) renderCurrentLearningState();
+async function refreshLearningLocal({ render = true } = {}) {
+  learningStateMap = new Map((await getAllLearningStates(db)).map(state => [state.topicId, normalizeLearningState(state)]));
+  if (!render) return;
+  renderCurrentLearningState();
   const previousListScrollTop = els.topicList.scrollTop;
   renderTopicList();
   els.topicList.scrollTop = previousListScrollTop;
   if (!els.learningModal.classList.contains('hidden')) renderLearningDashboard();
-  if (trySync) syncSingleLearningState(next).catch(() => {});
+  renderLearningSyncStatus();
+}
+async function updateLearningState(topicId, patch, { trySync = true } = {}) {
+  if (!topicId) return null;
+  await ensureDatabaseReady();
+  if (!window.PELearningSyncV2) throw Error('학습정보 저장 모듈을 불러오지 못했습니다. 새로고침해 주세요.');
+  const next = await window.PELearningSyncV2.queue(db, topicId, patch);
+  await refreshLearningLocal();
+  if (trySync) scheduleLearningAutoSync('학습 변경 저장', 900);
   if (window.StudyPlanner) StudyPlanner.render().catch(console.error);
-  return next;
+  return normalizeLearningState(next);
 }
-
-async function markLearningStateClean(topicId, expectedUpdatedAt) {
-  const current = learningStateMap.get(topicId);
-  if (!current || current.updatedAt !== expectedUpdatedAt) return;
-  const cleanState = { ...current, dirty: false };
-  learningStateMap.set(topicId, cleanState);
-  await putLearningState(db, cleanState);
-}
-
-async function syncSingleLearningState(state) {
-  if (!navigator.onLine || !hasActiveSecuritySession()) return false;
-  const expectedUpdatedAt = state.updatedAt;
-  await sendMutation(getApiUrl(), {
-    action: 'saveLearningStates',
-    states: [serializeLearningState(state)],
-  });
-  await markLearningStateClean(state.topicId, expectedUpdatedAt);
-  return true;
-}
-
 async function toggleFavorite() {
   if (!currentTopicId) return;
-  const current = getLearningState(currentTopicId);
-  const next = await updateLearningState(currentTopicId, { favorite: !current.favorite });
-  showToast(next.favorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 해제했습니다.');
+  const id=currentTopicId;
+  try {
+    const next=await updateLearningState(id, state=>({favorite:state.favorite!=='Y'}));
+    showToast(next.favorite ? '즐겨찾기에 추가했습니다.' : '즐겨찾기에서 해제했습니다.');
+  } catch(error){showToast(error.message||'즐겨찾기 저장 실패');}
 }
-
 async function recordLearningResult(result) {
   if (!currentTopicId) return;
-
-  const current = getLearningState(currentTopicId);
-  const now = new Date().toISOString();
-  const todayKey = localDateKey();
-  const reviewedToday = Boolean(current.lastStudiedAt) && localDateKey(current.lastStudiedAt) === todayKey;
-  const missedToday = Boolean(current.lastMissedAt) && localDateKey(current.lastMissedAt) === todayKey;
-
-  const patch = {
-    // 기억함/다시보기는 현재 상태를 선택하는 기능이다.
-    studyStatus: result,
-    lastStudiedAt: now,
-    // 같은 날 같은 토픽은 복습횟수를 최대 1회만 증가시킨다.
-    reviewCount: Number(current.reviewCount || 0) + (reviewedToday ? 0 : 1),
-    // 미암기 역시 같은 날 같은 토픽은 최대 1회만 누적한다.
-    missCount: Number(current.missCount || 0) + (result === '미암기' && !missedToday ? 1 : 0),
-  };
-
-  if (result === '미암기') {
-    patch.lastMissedAt = now;
-  }
-
-  const next = await updateLearningState(currentTopicId, patch);
-  if (window.StudyPlanner) StudyPlanner.record(currentTopicId, result).catch(console.error);
-
-  if (result === '암기') {
-    showToast(reviewedToday
-      ? '오늘 복습은 이미 기록되어 현재 상태만 기억함으로 변경했습니다.'
-      : `기억함으로 기록했습니다. · 복습 ${next.reviewCount}회`);
-  } else {
-    showToast(reviewedToday && missedToday
-      ? '오늘 복습·미암기는 이미 기록되어 현재 상태만 다시보기로 변경했습니다.'
-      : `다시보기로 기록했습니다. · 복습 ${next.reviewCount}회 · 미암기 ${next.missCount}회`);
-  }
+  const id=currentTopicId,captured=window.StudyPlanner?.captureContext?.(currentTopicId);
+  try {
+    const next=await updateLearningState(id,state=>window.PELearningSyncV2.progressPatch(state,result));
+    if(window.StudyPlanner){
+      try{await StudyPlanner.record(id,result,captured);}catch(error){
+        console.error(error);showToast('일반 학습기록은 저장했습니다. 회독별 진도 저장 상태를 확인해 주세요.');
+      }
+    }
+    scheduleLearningAutoSync('회독 진도 저장', 900);
+    showToast(result==='암기'?'기억함으로 기록했습니다. · 복습 '+next.reviewCount+'회':
+      '다시보기로 기록했습니다. · 복습 '+next.reviewCount+'회 · 미암기 '+next.missCount+'회');
+  } catch(error){showToast(error.message||'학습기록 저장 실패');}
 }
 
 async function savePersonalMemo() {
   if (!currentTopicId) return;
-  const memo = els.personalMemoInput.value;
-  await updateLearningState(currentTopicId, { personalMemo: memo });
-  els.memoStatus.textContent = `저장 ${formatShortDateTime(new Date())}`;
-  showToast('개인메모를 저장했습니다.');
+  const id=currentTopicId,memo=els.personalMemoInput.value;
+  try{
+    await updateLearningState(id,{personalMemo:memo});
+    if(currentTopicId===id&&els.personalMemoInput.value===memo){
+      memoRenderedTopicId=id;memoRenderedValue=memo;
+      els.memoStatus.textContent='저장 '+formatShortDateTime(new Date());
+    }
+    showToast('개인메모를 기기에 저장했습니다.');
+  }catch(error){showToast(error.message||'개인메모 저장 실패');}
 }
 
 function renderCurrentLearningState() {
@@ -7315,8 +7304,14 @@ function renderCurrentLearningState() {
   els.recallToggleBtn.textContent = recallMode ? '◐ 회상 ON' : '◐ 회상 OFF';
   const last = state.lastStudiedAt ? ` · 최근 ${formatShortDateTime(state.lastStudiedAt)}` : '';
   els.learningSummary.textContent = `${state.studyStatus || '미학습'} · 복습 ${state.reviewCount || 0}회 · 미암기 ${state.missCount || 0}회${last}`;
-  els.personalMemoInput.value = state.personalMemo || '';
-  els.memoStatus.textContent = state.personalMemo ? `메모 저장됨 · ${formatShortDateTime(state.updatedAt)}` : '저장된 메모 없음';
+  const savedMemo=state.personalMemo||'';
+  // A foreground/periodic pull must not erase an unsaved textarea draft.
+  const editingDraft=memoRenderedTopicId===currentTopicId&&els.personalMemoInput.value!==memoRenderedValue&&els.personalMemoInput.value!==savedMemo;
+  if(!editingDraft){
+    els.personalMemoInput.value=savedMemo;
+    memoRenderedTopicId=currentTopicId;memoRenderedValue=savedMemo;
+    els.memoStatus.textContent=savedMemo ? '메모 저장됨 · '+formatShortDateTime(state.updatedAt) : '저장된 메모 없음';
+  }else els.memoStatus.textContent='저장하지 않은 메모 편집 내용 유지 중';
 }
 
 function toggleRecallMode() {
@@ -7343,6 +7338,8 @@ function revealRecallField(field) {
 function openLearningDashboard() {
   renderLearningDashboard();
   els.learningModal.classList.remove('hidden');
+  renderLearningSyncStatus();
+  if(learningSyncReady)syncLearningStates({manual:false,reason:'학습 화면 열기'}).catch(console.error);
 }
 
 function closeLearningDashboard() {
@@ -7371,7 +7368,6 @@ function setLearningPage(page) {
 }
 
 function renderLearningDashboard() {
-  if (learningView === 'plan') { StudyPlanner.render().catch(console.error); return; }
   if (window.StudyPlanner) StudyPlanner.render().catch(console.error);
   const targetTopics = allTopics.filter(topic => topic.studyTarget === 'Y');
   const states = learningStatesForExistingTopics();
@@ -7395,6 +7391,8 @@ function renderLearningDashboard() {
   const percent = targetTopics.length ? (studiedCount / targetTopics.length * 100) : 0;
   els.learningProgressFill.style.width = `${Math.min(100, percent).toFixed(1)}%`;
   els.learningProgressLabel.textContent = `진도 ${percent.toFixed(1)}% · ${studiedCount.toLocaleString()} / ${targetTopics.length.toLocaleString()}`;
+  renderLearningSyncStatus();
+  if(learningView==='plan')return;
 
   document.querySelectorAll('[data-learning-view]').forEach(button => {
     button.classList.toggle('active', button.dataset.learningView === learningView);
@@ -7443,11 +7441,7 @@ function renderLearningDashboard() {
     });
   }
 
-  getAllMeta(db).then(meta => {
-    els.learningSyncLabel.textContent = meta.lastLearningSyncAt
-      ? `마지막 학습정보 동기화: ${formatDateTime(meta.lastLearningSyncAt)}`
-      : '학습정보 동기화 이력 없음';
-  });
+  renderLearningSyncStatus();
 }
 
 function navigateToLearningTopic(topicId) {
@@ -7478,19 +7472,7 @@ function learningProgressIsSet(state) {
   );
 }
 
-function buildResetLearningState(state, updatedAt) {
-  return normalizeLearningState({
-    ...state,
-    studyStatus: '미학습',
-    lastStudiedAt: '',
-    reviewCount: 0,
-    missCount: 0,
-    lastMissedAt: '',
-    updatedAt,
-    revision: Number(state.revision || 0) + 1,
-    dirty: true,
-  });
-}
+const LEARNING_RESET_PATCH={studyStatus:'미학습',lastStudiedAt:'',reviewCount:0,missCount:0,lastMissedAt:''};
 
 async function resetCurrentLearningProgress() {
   if (!currentTopicId) return showToast('현재 토픽이 없습니다.');
@@ -7518,132 +7500,154 @@ async function resetCurrentLearningProgress() {
   showToast(`${currentTopicId} 학습기록을 초기화했습니다.`);
 }
 
-// Clear only favorite flags; preserve study progress, notes and timestamps.
-function buildResetFavoriteState(state, updatedAt) {
-  return normalizeLearningState({
-    ...state,
-    favorite: false,
-    updatedAt,
-    revision: Number(state.revision || 0) + 1,
-    dirty: true,
-  });
+// Bulk resets are explicit local field patches, not whole stale row snapshots.
+async function resetLearningBatch(kind) {
+  const button=kind==='favorite'?els.resetFavoritesBtn:els.resetAllLearningBtn;
+  try{
+    await ensureDatabaseReady();await refreshLearningLocal({render:false});
+    const rows=[...learningStateMap.values()].filter(s=>kind==='favorite'?s.favorite:learningProgressIsSet(s));
+    if(!rows.length)return showToast(kind==='favorite'?'해제할 즐겨찾기가 없습니다.':'초기화할 학습기록이 없습니다.');
+    const message=kind==='favorite'?'즐겨찾기 '+rows.length+'개를 해제할까요? 학습기록과 개인메모는 유지합니다.':
+      '이 기기에 기록된 '+rows.length+'개 토픽의 학습상태·복습횟수·미암기횟수·학습일시를 초기화할까요? 즐겨찾기와 개인메모는 유지합니다.';
+    if(!window.confirm(message+'\n\n동기화 과정에서 다른 기기의 상충된 변경은 자동 덮어쓰지 않습니다.'))return;
+    button.disabled=true;
+    await window.PELearningSyncV2.queueBatch(db,rows.map(row=>({topicId:row.topicId,patch:kind==='favorite'?{favorite:false}:LEARNING_RESET_PATCH})));
+    await refreshLearningLocal();
+    showToast('이 기기 '+rows.length+'건 변경 저장 · 서버 동기화 대기');
+    scheduleLearningAutoSync('학습기록 초기화',0);
+  }catch(error){console.error(error);showToast(error.message||'학습기록 초기화 실패');}
+  finally{button.disabled=false;}
 }
+async function resetAllFavorites(){return resetLearningBatch('favorite');}
+async function resetAllLearningProgress(){return resetLearningBatch('progress');}
 
-async function resetAllFavorites() {
-  // Include favorites for inactive topics as well as currently studied topics.
-  const favorites = [...learningStateMap.values()].filter(state => state.favorite);
-  if (!favorites.length) return showToast('해제할 즐겨찾기가 없습니다.');
-
-  const confirmed = window.confirm(
-    `즐겨찾기한 ${favorites.length.toLocaleString()}개 토픽의 즐겨찾기를 모두 해제할까요?\n\n` +
-    '즐겨찾기 표시만 해제하고 암기/미암기, 복습횟수, 미암기횟수, 학습일시 및 개인메모는 유지됩니다.\n' +
-    '동기화된 즐겨찾기도 학습정보 동기화 시 해제됩니다.'
-  );
-  if (!confirmed) return;
-
-  els.resetFavoritesBtn.disabled = true;
-  try {
-    const updatedAt = new Date().toISOString();
-    const resetStates = favorites.map(state => buildResetFavoriteState(state, updatedAt));
-
-    // Persist first: a storage failure must not clear in-memory favorites.
-    await putLearningStates(db, resetStates);
-    for (const state of resetStates) learningStateMap.set(state.topicId, state);
-
-    renderCurrentLearningState();
-    const previousScrollTop = els.topicList.scrollTop;
-    renderTopicList();
-    els.topicList.scrollTop = previousScrollTop;
-    renderLearningDashboard();
-
-    if (navigator.onLine && hasActiveSecuritySession()) {
-      showToast(`즐겨찾기 ${resetStates.length.toLocaleString()}건 해제 · 학습정보 동기화 중`);
-      await syncLearningStates();
-    } else {
-      showToast(`즐겨찾기 ${resetStates.length.toLocaleString()}건을 로컬에서 해제했습니다. 나중에 학습정보를 동기화해 주세요.`);
-    }
-  } catch (error) {
-    console.error(error);
-    showToast('즐겨찾기 초기화에 실패했습니다. 다시 시도해 주세요.');
-  } finally {
-    els.resetFavoritesBtn.disabled = false;
-  }
+function setLearningSyncPhase(message) {
+  learningSyncPhase=message;renderLearningSyncStatus();
 }
-
-async function resetAllLearningProgress() {
-  const statesToReset = [...learningStateMap.values()].filter(learningProgressIsSet);
-  if (!statesToReset.length) {
-    return showToast('초기화할 학습기록이 없습니다.');
-  }
-
-  const confirmed = window.confirm(
-    `전체 ${statesToReset.length.toLocaleString()}개 토픽의 학습 진행기록을 초기화할까요?\n\n` +
-    '초기화: 암기/미암기, 복습횟수, 미암기횟수, 최근학습일시\n' +
-    '유지: 즐겨찾기, 개인메모\n\n' +
-    'Google Spreadsheet에 동기화된 학습기록도 다음 동기화 시 초기화됩니다.'
-  );
-  if (!confirmed) return;
-
-  const updatedAt = new Date().toISOString();
-  const resetStates = statesToReset.map(state => buildResetLearningState(state, updatedAt));
-
-  for (const state of resetStates) learningStateMap.set(state.topicId, state);
-  await putLearningStates(db, resetStates);
-
-  renderCurrentLearningState();
-  renderTopicList();
-  renderLearningDashboard();
-
-  const canSyncNow = navigator.onLine && hasActiveSecuritySession();
-  if (canSyncNow) {
-    showToast(`전체 학습기록 ${resetStates.length.toLocaleString()}건 초기화 · 서버 동기화 중`);
-    try {
-      await syncLearningStates();
-    } catch (error) {
-      console.error(error);
-      showToast('로컬 초기화는 완료됐으며 서버 동기화는 나중에 다시 시도할 수 있습니다.');
-    }
-  } else {
-    showToast(`전체 학습기록 ${resetStates.length.toLocaleString()}건을 로컬에서 초기화했습니다. 나중에 학습정보 동기화를 실행해 주세요.`);
-  }
+function learningSyncTransport(){
+  const api=getApiUrl();
+  return {get:()=>fetchLearningStates(api,{withVersion:true}),
+    post:data=>sendMutation(api,{action:'saveLearningStates',...data})};
 }
-
-async function syncLearningStates() {
-  if (!navigator.onLine) return showToast('오프라인 상태에서는 학습정보를 동기화할 수 없습니다.');
-  if (!await ensureActiveSecuritySession()) return showToast('학습정보 서버 동기화는 신뢰기기 인증 후 사용할 수 있습니다.');
-
-  setLoading(true, '학습정보를 동기화하는 중...');
-  try {
-    const dirtyStates = [...learningStateMap.values()].filter(state => state.dirty);
-    for (let i = 0; i < dirtyStates.length; i += 50) {
-      const batch = dirtyStates.slice(i, i + 50);
-      await sendMutation(getApiUrl(), {
-        action: 'saveLearningStates',
-        states: batch.map(serializeLearningState),
-      });
-      for (const state of batch) await markLearningStateClean(state.topicId, state.updatedAt);
+function renderLearningSyncStatus(){
+  const status=document.getElementById('learningSyncLiveStatus');
+  const rows=[...learningStateMap.values()];
+  const counts=window.PELearningSyncV2?.statusOf(rows)||{pending:rows.filter(r=>r.dirty).length,conflicts:0};
+  const last=learningSyncLastSuccess?'마지막 전체 일반학습 동기화: '+formatDateTime(learningSyncLastSuccess):'일반 학습정보 동기화 이력 없음';
+  const detail=(learningSyncPhase||'자동 동기화 대기')+' · 미전송 '+counts.pending+'건 · 충돌 '+counts.conflicts+'건';
+  if(status)status.textContent=detail;
+  if(els.learningSyncLabel)els.learningSyncLabel.textContent=last;
+  if(els.syncLearningBtn)els.syncLearningBtn.disabled=Boolean(learningSyncRun);
+  const panel=document.getElementById('learningSyncConflicts'),host=document.getElementById('learningSyncConflictRows');
+  if(!panel||!host)return;
+  const conflicts=rows.filter(r=>r.syncV2?.conflict);
+  panel.classList.toggle('hidden',!conflicts.length);
+  document.getElementById('learningSyncConflictsTitle').textContent='학습정보 충돌 '+conflicts.length+'건 · 양쪽 기록 비교';
+  if(!conflicts.length){host.replaceChildren();host.dataset.stamp='';return;}
+  // Do not regenerate expanded review rows or their buttons on every timer tick.
+  const stamp=JSON.stringify(conflicts.map(r=>[r.topicId,r.updatedAt,r.revision,r.syncV2.conflict.at,r.syncV2.conflict.remote?.revision,r.syncV2.conflict.remote?.updatedAt]));
+  if(host.dataset.stamp===stamp)return;
+  host.dataset.stamp=stamp;host.replaceChildren();
+  for(const row of conflicts.slice(0,30)){
+    const id=row.topicId,conflict=row.syncV2.conflict,local=window.PELearningSyncV2.snapshot(row),remote=conflict.remote;
+    const box=document.createElement('details');box.style.cssText='margin:6px 0;padding:6px;border:1px solid var(--line);border-radius:7px;min-width:0';
+    const title=document.createElement('summary');title.textContent=id+' · '+(allTopics.find(t=>t.topicId===id)?.topicName||'토픽 확인 필요');box.append(title);
+    const reason=document.createElement('p');reason.className='help-text';reason.textContent=conflict.reason+' ['+(conflict.groups||[]).join(', ')+']';box.append(reason);
+    const describe=s=>s?('상태 '+s.studyStatus+' · 복습 '+s.reviewCount+'회 · 미암기 '+s.missCount+'회 · 즐겨찾기 '+s.favorite+'\n최근 학습 '+(s.lastStudiedAt||'-')+'\n개인메모: '+(s.personalMemo||'(없음)')):'서버 기록 없음';
+    for(const [label,value] of [['이 기기',local],['서버',remote]]){
+      const p=document.createElement('div');p.className='help-text';p.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;margin:6px 0';
+      p.textContent=label+'\n'+describe(value);box.append(p);
     }
-
-    const remoteStates = await fetchLearningStates(getApiUrl());
-    for (const remote of remoteStates) {
-      const local = learningStateMap.get(remote.topicId);
-      if (local?.dirty) continue;
-      if (!local || String(remote.updatedAt) >= String(local.updatedAt || '')) {
-        learningStateMap.set(remote.topicId, remote);
-        await putLearningState(db, remote);
+    for(const [choice,label] of [['server','서버 기록 사용'],['local','기기 기록으로 저장']]){
+      const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=label;
+      b.disabled=choice==='local'&&!allTopics.some(t=>t.topicId===id);
+      b.addEventListener('click',async()=>{
+        if(!window.confirm(id+'의 '+label+'을 선택할까요? 선택하지 않은 기록은 이 기기의 복구용 사본으로 보관합니다.'))return;
+        b.disabled=true;
+        try{
+          if(learningSyncRun)await learningSyncRun;
+          if(!navigator.onLine||!await ensureActiveSecuritySession())throw Error('인터넷 연결 및 신뢰기기 인증이 필요합니다.');
+          await window.PELearningSyncV2.resolveConflict(db,id,choice,remote,learningSyncTransport(),local);
+          await refreshLearningLocal();scheduleLearningAutoSync('충돌 확인 완료',0);
+        }catch(error){showToast(error.message||'충돌 확인 실패');}finally{b.disabled=false;}
+      });box.append(b);
+    }
+    host.append(box);
+  }
+  if(conflicts.length>30){const p=document.createElement('p');p.className='help-text';p.textContent='먼저 표시된 30건을 확인하면 다음 충돌 기록을 확인할 수 있습니다.';host.append(p);}
+}
+function scheduleLearningAutoSync(reason='자동 확인',delay=900){
+  if(!learningSyncReady)return;
+  if(!navigator.onLine){setLearningSyncPhase('오프라인 · 변경 내용은 기기에 보관');return;}
+  if(learningSyncRun){
+    if(/저장|초기화|충돌/.test(reason))learningSyncAgain=true;
+    return;
+  }
+  const isEdit=/저장|초기화|충돌/.test(reason);
+  if(!isEdit&&reason!=='인터넷 재연결'&&Date.now()-learningSyncLastAttempt<15000)return;
+  if(learningSyncTimer)clearTimeout(learningSyncTimer);
+  learningSyncTimer=setTimeout(()=>{
+    learningSyncTimer=null;
+    syncLearningStates({manual:false,reason}).catch(console.error);
+  },delay);
+}
+async function syncLearningStates(options={}){
+  const manual=options.manual!==false;
+  if(learningSyncRun)return learningSyncRun;
+  if(!learningSyncReady){
+    if(manual)showToast('학습정보 준비 중입니다. 잠시 후 다시 확인해 주세요.');
+    return {state:'not-ready'};
+  }
+  if(learningSyncTimer){clearTimeout(learningSyncTimer);learningSyncTimer=null;}
+  if(!navigator.onLine){
+    setLearningSyncPhase('오프라인 · 변경 내용은 기기에 보관');
+    if(manual)showToast('오프라인 상태에서는 동기화할 수 없습니다.');
+    return {state:'offline'};
+  }
+  learningSyncLastAttempt=Date.now();
+  learningSyncRun=(async()=>{
+    let general={state:'error'},planner={state:'disabled'};
+    try{
+      if(!await ensureActiveSecuritySession({openModal:manual})){
+        setLearningSyncPhase('신뢰기기 인증 필요 · 변경 내용은 기기에 보관');
+        return {state:'auth-required'};
       }
+      if(!window.PELearningSyncV2)throw Error('학습정보 동기화 모듈을 불러오지 못했습니다.');
+      setLearningSyncPhase('최신 학습정보 동기화 중');
+      try{
+        general=await window.PELearningSyncV2.sync(db,learningSyncTransport(),setLearningSyncPhase);
+        await refreshLearningLocal();
+        if(general.state==='synced'){
+          learningSyncLastSuccess=general.at;
+          await setMeta(db,'lastLearningSyncAt',general.at);
+        }
+        window.PEPlannerSyncUX?.setLegacyStatus?.({state:general.state==='synced'?'confirmed':'partial',at:general.at,pending:general.pending,conflicts:general.conflicts});
+      }catch(error){
+        console.error(error);general={state:'error',message:error.message||String(error)};
+        window.PEPlannerSyncUX?.setLegacyStatus?.({state:'error'});
+        await refreshLearningLocal().catch(console.error);
+      }
+      // The independent planner must not mask the result of general learning.
+      if(window.StudyPlanner&&!window.PEPlannerSyncClient?.testEnabled?.()){
+        setLearningSyncPhase('학습계획·회독 진도 확인 중');
+        try{planner=await StudyPlanner.sync();}catch(error){planner={state:'error',message:error.message||String(error)};console.error(error);}
+      }
+      const base=general.state==='synced'?'일반 학습정보 동기화 완료':general.state==='partial'?'일반 학습정보 부분 동기화 · 보류 기록 확인':'일반 학습정보 동기화 실패 · '+(general.message||'서버 확인 필요');
+      const planText={synced:'계획·회독 진도 완료',partial:'계획·회독 진도 일부 보류','migration-required':'계획·진도 최초 통합 필요',disabled:'계획·진도 서버 연결 확인 필요',offline:'계획·진도 오프라인',error:'계획·진도 오류 · '+(planner.message||'다시 확인 필요')}[planner.state]||'계획·진도 확인 필요';
+      setLearningSyncPhase(base+' / '+planText);
+      if(manual)showToast(base+' · '+planText);
+      return {state:general.state,general,planner};
+    }catch(error){
+      console.error(error);setLearningSyncPhase('동기화 실패 · '+(error.message||String(error)));
+      if(manual)showToast(error.message||'학습정보 동기화 실패');
+      return {state:'error',message:error.message||String(error)};
     }
-    const syncAt = new Date().toISOString();
-    await setMeta(db, 'lastLearningSyncAt', syncAt);
-    renderCurrentLearningState();
-    renderTopicList();
-    renderLearningDashboard();
-    showToast(`학습정보 동기화 완료 · ${remoteStates.length.toLocaleString()}건`);
-  } catch (error) {
-    console.error(error);
-    showToast(error.message || '학습정보 동기화에 실패했습니다.');
-  } finally {
-    setLoading(false);
+  })();
+  renderLearningSyncStatus();
+  try{return await learningSyncRun;}
+  finally{
+    learningSyncRun=null;renderLearningSyncStatus();
+    if(learningSyncAgain){learningSyncAgain=false;scheduleLearningAutoSync('미전송 변경 저장',1200);}
   }
 }
 
@@ -15775,7 +15779,9 @@ if (typeof M6_DEV_ENABLED !== 'undefined' && M6_DEV_ENABLED) {
 }
 </script>
 <script src="./tts/natural-tts.js?v=e7338b33"></script>
-<script src="./study-planner.js?v=20261023-4-compact-help"></script>
+<script src="./learning-sync-v2.js?v=20261127-1"></script>
+<script src="./study-planner-sync.js?v=20261127-learning-sync-v2"></script>
+<script src="./study-planner.js?v=20261127-learning-sync-v2"></script>
 <script src="./personal-note-cloud.js"></script>
 <script src="./personal-note.js"></script>
 <script src="./text-highlight-core.js?v=20261126-1"></script>

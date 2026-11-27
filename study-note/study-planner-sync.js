@@ -1,6 +1,5 @@
-/* Stage 4 cross-device planner sync candidate.
- * Default OFF, loopback synthetic transport ONLY; no production API requests.
- * Stage 5 must approve first migration before server writes or local merges.
+/* Cross-device planner sync. Signed production is enabled only after a verified handshake.
+ * First migration must be approved before regular server writes or local merges.
  */
 (function (root) {
 'use strict';
@@ -128,6 +127,7 @@ function productionEnabled(){
   Boolean(transport&&typeof transport.get==='function'&&typeof transport.post==='function');
 }
 function enabled(){return Boolean(testEnabled()||productionEnabled());}
+function notifyChange(value){if(typeof root.dispatchEvent==='function'&&typeof root.Event==='function')root.dispatchEvent(new root.Event('pe-planner-sync-changed'));return value;}
 async function queuePlan(db,plan,expectedJson){
  const copy=clone(plan),id=operationId();
  return transaction(db,[STORES.plan,STORES.outbox],'readwrite',(tx,finish)=>{
@@ -139,38 +139,38 @@ async function queuePlan(db,plan,expectedJson){
    pending.put({id,kind:'plan',planId:plan.id,plan:copy,createdAt:now(),state:'pending',attempted:false});
    finish(copy);
   };
- });
+ }).then(notifyChange);
 }
-async function queueProgress(db,row){
- const id=operationId(),copy=clone(row);
- return transaction(db,[STORES.progress,STORES.outbox],'readwrite',(tx,finish)=>{
-  const prog=tx.objectStore(STORES.progress),pending=tx.objectStore(STORES.outbox);
-  const req=prog.get(copy.key);req.onsuccess=()=>{
-   const prev=req.result||{};
-   const next={...prev,...copy,dirty:true,pendingOpId:id,serverRowRevision:Number(prev.serverRowRevision||0),serverSeq:Number(prev.serverSeq||0)};
-   prog.put(next);
-   pending.put({id,kind:'progress',key:copy.key,planId:copy.planId,date:copy.date,topicId:copy.topicId,
-    status:copy.status,clientAt:copy.updatedAt||now(),createdAt:now(),state:'pending',attempted:false});
-   finish(next);
-  };
- });
-}
-function queueProgressBatch(db,rows){
- const copy=rows.map(clone);
+function queueProgressRows(db,input){
+ const copies=input.map(clone);
  return transaction(db,[STORES.progress,STORES.outbox],'readwrite',(tx,finish)=>{
   const ps=tx.objectStore(STORES.progress),pending=tx.objectStore(STORES.outbox);
-  copy.forEach(row=>{
-   const id=operationId(),r=ps.get(row.key);
-   r.onsuccess=()=>{
-    const prev=r.result||{},next={...prev,...row,dirty:true,pendingOpId:id,
+  const pr=ps.getAll(),oq=pending.getAll();let complete=0;
+  const ready=()=>{
+   if(++complete!==2)return;
+   const rows=new Map(pr.result.map(r=>[r.key,r])),ops=new Map(oq.result.map(o=>[o.id,o])),out=[];
+   for(const row of copies){
+    const prev=rows.get(row.key)||{};
+    if(prev.key&&prev.dirty&&prev.status===row.status){out.push(prev);continue;}
+    // Retain attempted and conflicted operations. Only a never-sent intermediate
+    // state can be superseded by a newer choice on this same device.
+    for(const op of ops.values())if(op.kind==='progress'&&op.key===row.key&&!op.attempted&&op.state!=='conflict'){
+     pending.delete(op.id);ops.delete(op.id);
+    }
+    const id=operationId(),next={...prev,...row,dirty:true,pendingOpId:id,
      serverRowRevision:Number(prev.serverRowRevision||0),serverSeq:Number(prev.serverSeq||0)};
-    ps.put(next);
-    pending.put({id,kind:'progress',key:row.key,planId:row.planId,date:row.date,topicId:row.topicId,
-     status:row.status,clientAt:row.updatedAt||now(),createdAt:now(),state:'pending',attempted:false});
-   };
-  });finish(copy.length);
- });
+    const op={id,kind:'progress',key:row.key,planId:row.planId,date:row.date,topicId:row.topicId,
+     status:row.status,clientAt:row.updatedAt||now(),createdAt:now(),state:'pending',attempted:false,
+     reassert:Boolean(prev.key&&!prev.dirty&&prev.status===row.status),baseRowRevision:Number(prev.serverRowRevision||0)};
+    ps.put(next);pending.put(op);rows.set(row.key,next);ops.set(id,op);out.push(next);
+   }
+   finish(out);
+  };
+  pr.onsuccess=ready;oq.onsuccess=ready;
+ }).then(notifyChange);
 }
+async function queueProgress(db,row){return (await queueProgressRows(db,[row]))[0];}
+async function queueProgressBatch(db,rows){return (await queueProgressRows(db,rows)).length;}
 async function migration(db){return (await get(db,STORES.meta,'migration'))||{key:'migration',state:'required'};}
 async function status(db){
  const q=await all(db,STORES.outbox),conflicts=await all(db,STORES.conflict),m=await migration(db);
@@ -240,11 +240,19 @@ async function importRemotePlan(db,transport,summary,local,pendingPlanIds){
   }
  }
  const parsed=await loadSchedule(transport,summary);
- await transaction(db,[STORES.plan,STORES.meta],'readwrite',tx=>{
-  tx.objectStore(STORES.plan).put(parsed);
-  tx.objectStore(STORES.meta).put({key:'plan:'+summary.planId,hash:summary.activeHash,revision:summary.activeRevision});
+ return transaction(db,[STORES.plan,STORES.meta,STORES.outbox],'readwrite',(tx,finish)=>{
+  const ps=tx.objectStore(STORES.plan),p=ps.get(summary.planId),q=tx.objectStore(STORES.outbox).getAll();let ready=0;
+  const apply=()=>{
+   if(++ready!==2)return;
+   if(JSON.stringify(p.result||null)!==JSON.stringify(local||null)||
+     q.result.some(op=>op.kind==='plan'&&op.planId===summary.planId)){
+    finish('pending');return;
+   }
+   ps.put(parsed);tx.objectStore(STORES.meta).put({key:'plan:'+summary.planId,hash:summary.activeHash,revision:summary.activeRevision});
+   finish('downloaded');
+  };
+  p.onsuccess=apply;q.onsuccess=apply;
  });
- return 'downloaded';
 }
 async function pullProgress(db,transport,planId){
  const cursor=await metadata(db,'cursor',planId),start=Number(cursor?.seq||0);
@@ -263,36 +271,94 @@ async function pullProgress(db,transport,planId){
   if(i===1999)throw Error('진도 페이지 제한 초과');
  }
  if(!events.length){await setMetadata(db,'cursor',planId,{seq:high??start});return 0;}
- const pending=new Set((await all(db,STORES.outbox)).filter(x=>x.kind==='progress').map(x=>x.key));
- await transaction(db,[STORES.progress,STORES.meta],'readwrite',tx=>{
-  const ps=tx.objectStore(STORES.progress);
-  for(const e of events){
-   if(!isDate(e.date)||!/^T\d{4}$/.test(e.topicId)||!['done','miss','todo'].includes(e.status))throw Error('서버 진도 항목 오류');
-   const key=planId+'|'+e.date+'|'+e.topicId;
-   if(pending.has(key))continue;
-   const r=ps.get(key);r.onsuccess=()=>{
-    const prev=r.result||{};
-    if(Number(prev.serverSeq||0)>e.serverSeq)return;
-    ps.put({...prev,key,planId,date:e.date,topicId:e.topicId,status:e.status,
-     updatedAt:e.serverAt,serverSeq:e.serverSeq,serverRowRevision:e.rowRevision,dirty:false,pendingOpId:null});
-   };
-  }
-  tx.objectStore(STORES.meta).put({key:'cursor:'+planId,seq:high});
+ for(const e of events)if(!isDate(e.date)||!/^T\d{4}$/.test(e.topicId)||
+  !['done','miss','todo'].includes(e.status)||!Number.isInteger(e.rowRevision)||e.rowRevision<1)
+  throw Error('서버 진도 항목 오류');
+ await transaction(db,[STORES.progress,STORES.meta,STORES.outbox,STORES.conflict],'readwrite',(tx,finish)=>{
+  const ps=tx.objectStore(STORES.progress),qs=tx.objectStore(STORES.outbox),cs=tx.objectStore(STORES.conflict);
+  const a=ps.getAll(),b=qs.getAll(),c=tx.objectStore(STORES.meta).get('cursor:'+planId);let complete=0;
+  const apply=()=>{
+   if(++complete!==3)return;
+   if(Number(c.result?.seq||0)!==start){tx.abort();return;}
+   const local=new Map(a.result.map(r=>[r.key,r])),ops=new Map(b.result.map(o=>[o.id,o]));
+   const byKey=new Map();
+   for(const op of ops.values())if(op.kind==='progress'){
+    if(!byKey.has(op.key))byKey.set(op.key,[]);
+    byKey.get(op.key).push(op);
+   }
+   const remove=op=>{qs.delete(op.id);ops.delete(op.id);};
+   for(const e of events){
+    const key=planId+'|'+e.date+'|'+e.topicId,prev=local.get(key)||{};
+    if(Number(prev.serverSeq||0)>e.serverSeq)continue;
+    const pending=(byKey.get(key)||[]).filter(op=>ops.has(op.id));
+    const own=pending.find(op=>op.id===e.operationId);
+    const cloud={key,planId,date:e.date,topicId:e.topicId,status:e.status,updatedAt:e.serverAt,
+     serverSeq:e.serverSeq,serverRowRevision:e.rowRevision,dirty:false,pendingOpId:null};
+    let next;
+    if(own){
+     remove(own);
+     const remaining=pending.filter(op=>op.id!==own.id);
+     const latest=prev.pendingOpId===own.id;
+     if(latest&&!remaining.length){
+      next={...prev,...cloud};cs.delete('progress:'+key);
+     }else next={...prev,serverSeq:e.serverSeq,serverRowRevision:e.rowRevision,dirty:true};
+    }else if(pending.length||prev.dirty){
+     if(Number(prev.serverRowRevision||0)>=e.rowRevision)continue;
+     if(pending.length&&pending.every(op=>!op.attempted&&op.state!=='conflict')&&prev.status===e.status){
+      for(const op of pending)remove(op);
+      next={...prev,...cloud};cs.delete('progress:'+key);
+     }else{
+      // Preserve both sides before advancing the cursor. The pending operation
+      // keeps its original CAS base and is never retried over this conflict.
+      cs.put({id:'progress:'+key,kind:'progress',key,local:clone(prev),remote:clone(cloud),
+       details:{code:'REMOTE_PROGRESS_CHANGED',local:clone(prev),remote:clone(cloud)},at:now()});
+      for(const op of pending){const held={...op,state:'conflict'};qs.put(held);ops.set(op.id,held);}
+      next={...prev,dirty:true};
+     }
+    }else next={...prev,...cloud};
+    ps.put(next);local.set(key,next);
+   }
+   tx.objectStore(STORES.meta).put({key:'cursor:'+planId,seq:high});finish(events.length);
+  };
+  a.onsuccess=apply;b.onsuccess=apply;c.onsuccess=apply;
  });
  return events.length;
 }
+async function claimProgressOperation(db,id,planId){
+ return transaction(db,[STORES.progress,STORES.outbox,STORES.meta,STORES.conflict],'readwrite',(tx,finish)=>{
+  const out=tx.objectStore(STORES.outbox),r=out.get(id);
+  r.onsuccess=()=>{
+   const op=r.result;if(!op||op.state==='conflict'){finish(null);return;}
+   const a=tx.objectStore(STORES.progress).get(op.key),b=tx.objectStore(STORES.meta).get('plan:'+planId),
+    c=tx.objectStore(STORES.conflict).get('progress:'+op.key);let ready=0;
+   const apply=()=>{
+    if(++ready!==3)return;
+    if(c.result){finish(null);return;}
+    if(!b.result?.revision){tx.abort();return;}
+    // The just-completed remote pull proved this unchanged status. Suppress a
+    // redundant event only now, not at click time (the device could be stale).
+    if(op.reassert&&!op.attempted&&op.baseRowRevision>0&&
+       Number(a.result?.serverRowRevision||0)===op.baseRowRevision&&a.result?.status===op.status&&a.result?.pendingOpId===op.id){
+      tx.objectStore(STORES.progress).put({...a.result,dirty:false,pendingOpId:null});out.delete(op.id);finish(null);return;
+    }
+    const expected=op.attempted?op.expectedRowRevision:Number(a.result?.serverRowRevision||0);
+    const base=op.attempted?op.planRevisionAtWrite:Number(b.result.revision);
+    const claimed={...op,attempted:true,expectedRowRevision:expected,planRevisionAtWrite:base};
+    out.put(claimed);finish(claimed);
+   };
+   a.onsuccess=apply;b.onsuccess=apply;c.onsuccess=apply;
+  };
+ });
+}
 async function pushProgress(db,transport,planId){
  const allOps=(await all(db,STORES.outbox)).filter(o=>o.kind==='progress'&&o.planId===planId&&o.state!=='conflict').sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
+ const blocked=new Set((await all(db,STORES.conflict)).filter(c=>c.kind==='progress').map(c=>c.key));
  let applied=0,conflicts=0;
- for(const op of allOps){
-  const state=await get(db,STORES.progress,op.key);
-  const meta=await metadata(db,'plan',planId);
-  if(!meta?.revision)throw Error('서버 학습계획 버전을 확인할 수 없습니다.');
-  const expected=op.attempted?op.expectedRowRevision:Number(state?.serverRowRevision||0);
-  const base=op.attempted?op.planRevisionAtWrite:Number(meta.revision);
+ for(const queued of allOps){
+  if(blocked.has(queued.key))continue;
+  const op=await claimProgressOperation(db,queued.id,planId);if(!op)continue;
   const data={operationId:op.id,planId,date:op.date,topicId:op.topicId,status:op.status,
-   expectedRowRevision:expected,planRevisionAtWrite:base,clientAt:op.clientAt};
-  await save(db,STORES.outbox,{...op,attempted:true,expectedRowRevision:expected,planRevisionAtWrite:base});
+   expectedRowRevision:op.expectedRowRevision,planRevisionAtWrite:op.planRevisionAtWrite,clientAt:op.clientAt};
   const res=await transport.post('saveStudyProgress',{changes:[data]});
   if(!res?.ok)throw Error('진도 업로드 응답 오류');
   const ack=(res.applied||[]).concat(res.duplicate||[]).find(x=>x.operationId===op.id);
@@ -302,8 +368,9 @@ async function pushProgress(db,transport,planId){
     r.onsuccess=()=>{
      if(!r.result)return;
      const prev=r.result,latest=prev.pendingOpId===op.id;
+     if(Number(prev.serverSeq||0)>Number(ack.serverSeq))return;
      store.put({...prev,serverRowRevision:Number(ack.rowRevision),serverSeq:Number(ack.serverSeq),
-      dirty:!latest, pendingOpId:latest?null:prev.pendingOpId});
+      dirty:!latest,pendingOpId:latest?null:prev.pendingOpId});
     };
     tx.objectStore(STORES.outbox).delete(op.id);
    });
@@ -311,8 +378,9 @@ async function pushProgress(db,transport,planId){
   }
   const conflict=(res.conflicts||[]).find(x=>x.operationId===op.id);
   if(!conflict)throw Error('진도 요청 결과를 알 수 없습니다.');
-  await markConflict(db,'progress',op.key,conflict,op.id);
-  conflicts++;
+  const local=await get(db,STORES.progress,op.key);
+  await markConflict(db,'progress',op.key,{...conflict,local},op.id);
+  blocked.add(op.key);conflicts++;
  }
  return {applied,conflicts};
 }
@@ -327,20 +395,23 @@ async function runSync(db,transport){
  const list=await transport.get('studyPlans',{});
  if(!list?.ok||list.plannerSyncVersion!==VERSION||!Array.isArray(list.plans))throw Error('격리 서버 동기화 버전 불일치');
  const remote=new Map(list.plans.map(x=>[x.planId,x])),pending=await all(db,STORES.outbox);
- let byPlan=new Set(pending.filter(x=>x.kind==='plan'&&x.state!=='conflict').map(x=>x.planId));
+ const blockedPlans=new Set((await all(db,STORES.conflict)).filter(x=>x.kind==='plan').map(x=>x.key));
+ let byPlan=new Set(pending.filter(x=>x.kind==='plan').map(x=>x.planId));
  for(const op of pending.filter(x=>x.kind==='plan'&&x.state!=='conflict').sort((a,b)=>a.createdAt.localeCompare(b.createdAt))){
+  if(blockedPlans.has(op.planId))continue;
   const s=await uploadPlan(db,transport,op,remote.get(op.planId));
-  if(s==='conflict'){result.conflicts++;continue;}
+  if(s==='conflict'){result.conflicts++;blockedPlans.add(op.planId);continue;}
   remote.set(op.planId,{...remote.get(op.planId),planId:op.planId,
    activeRevision:s.activeRevision,activeHash:s.activeHash});result.plansUploaded++;
  }
- byPlan=new Set((await all(db,STORES.outbox)).filter(x=>x.kind==='plan'&&x.state!=='conflict').map(x=>x.planId));
+ byPlan=new Set([...(await all(db,STORES.outbox)).filter(x=>x.kind==='plan').map(x=>x.planId),...blockedPlans]);
  const local=new Map((await all(db,STORES.plan)).map(x=>[x.id,x]));
  for(const info of remote.values()){
   if(!info?.activeRevision)continue;
   const state=await importRemotePlan(db,transport,info,local.get(info.planId),byPlan);
   if(state==='downloaded')result.plansDownloaded++;
-  if(state==='conflict')result.conflicts++;
+  if(state==='conflict'){result.conflicts++;byPlan.add(info.planId);}
+  if(state==='pending')byPlan.add(info.planId);
  }
  for(const info of remote.values()){
   if(!info?.activeRevision||byPlan.has(info.planId))continue;
@@ -364,7 +435,8 @@ async function runSync(db,transport){
 }
 async function sync(db,transport){
  if(activeSync)return activeSync;
- activeSync=runSync(db,transport);
+ const task=()=>runSync(db,transport);
+ activeSync=root.navigator?.locks?.request?root.navigator.locks.request('pe-study-planner-sync-v1',{mode:'exclusive'},task):task();
  try{return await activeSync;}finally{activeSync=null;}
 }
 function makeSignedTransport({apiUrl,buildSignedGetUrl,sendSecureMutation,fetchImpl}){

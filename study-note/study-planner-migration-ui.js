@@ -1,16 +1,17 @@
-/* Stage 5 first-sync wizard, visible only on loopback/synthetic transport. */
+/* First-sync wizard for a verified planner transport; no automatic migration. */
 (function(root){
 'use strict';
 const $=id=>document.getElementById(id);
 function mount({db,onApplied,transport}){
  const api=root.PEPlannerMigration,client=root.PEPlannerSyncClient;
- if(!api||!client?.testEnabled?.())return null;
+ if(!api||!client?.enabled?.())return null;
+ const production=Boolean(client.productionEnabled?.());
  if($('plannerFirstSyncWizard'))return $('plannerFirstSyncWizard');
  const parent=$('plannerManagement');if(!parent)return null;
  const section=document.createElement('section');section.id='plannerFirstSyncWizard';section.className='planner-migrate-section';
  section.innerHTML=[
- '<h4>⑥ 모든 기기 학습기록 최초 통합 — 격리 시험</h4>',
- '<p class="planner-help">실사용 MASTER·운영 서버와 연결하지 않습니다. <strong>현재 기기 전체 백업 파일을 내려받은 후 다시 선택하여 확인</strong>해야 최초 통합을 진행할 수 있습니다. 완료·다시보기와 다른 날짜의 회독은 각각 독립된 기록이며, 충돌은 자동으로 덮어쓰지 않습니다.</p>',
+ '<h4>⑥ 모든 기기 학습기록 최초 통합'+(production?'':' — 격리 시험')+'</h4>',
+ '<p class="planner-help">'+(production?'Google 클라우드의 학습계획·회독 진도 영역과 연결합니다. MASTER 원문은 수정하지 않습니다. ':'실사용 MASTER·운영 서버와 연결하지 않습니다. ')+'<strong>현재 기기 전체 백업 파일을 내려받은 후 다시 선택하여 확인</strong>해야 최초 통합을 진행할 수 있습니다. 완료·다시보기와 다른 날짜의 회독은 각각 독립된 기록이며, 충돌은 자동으로 덮어쓰지 않습니다.</p>',
  '<ol id="plannerMigSteps" class="planner-migrate-steps" aria-label="기기별 최초 동기화 7단계">',
  '<li>전체 계획·진도 백업</li><li>저장한 JSON 재선택·SHA-256 확인</li>',
  '<li>서버 일정·진도 읽기</li><li>병합 미리보기·충돌 확인</li>',
@@ -97,7 +98,7 @@ function mount({db,onApplied,transport}){
   if(s){phase=s.state;verified=Boolean(s.fileConfirmedAt);if(s.preview){preview=s.preview;showPreview(preview);}}
  }
  function withBusy(task){return async e=>{
-  if(busy)return;busy=true;update();say('격리된 합성 데이터를 안전하게 처리 중입니다.');
+  if(busy)return;busy=true;update();say(production?'검증된 운영 학습계획·진도 데이터를 안전하게 처리 중입니다.':'격리된 합성 데이터를 안전하게 처리 중입니다.');
   try{await task(e)}catch(ex){
    console.error('Stage5 migration',ex);
    const guide=root.PEPlannerSyncUX?.classifyError?.(ex)||'백업과 미전송 기록을 보존한 상태로 다시 확인하세요.';
@@ -130,16 +131,16 @@ function mount({db,onApplied,transport}){
  });
  $('plannerMigCompare').onclick=withBusy(async()=>{
   const stage=await api.state(db);if(!['backed_up','review_required'].includes(stage.state))throw Error('다운로드한 백업 파일을 실제로 재선택·확인해야 합니다.');
-  let base=[];try{const r=await fetch('./study-plans/pe141-100days.json',{cache:'no-store'});if(r.ok){const p=await r.json();if(p?.id&&Array.isArray(p.days))base=[p];}}catch(_){}
+  let base=[];try{const r=await fetch('./study-plans/pe141-100days.json',{cache:'no-store'});if(r.ok){const p=await r.json();if(p?.id&&Array.isArray(p.days))base=[p];else if(p?.meta&&Array.isArray(p.days)){base=[{id:'pe141-100d-2026',name:p.meta.plan||'제141회 정보관리기술사 100일 5회독',start:p.meta.start,end:p.meta.end,rounds:p.meta.rounds||5,groups:p.groups||{},days:p.days.map(d=>({date:d.date,round:d.round,ids:d.topics.map(t=>t.id),groups:d.topics.map(t=>t.group)}))}];}}}catch(_){}
   preview=await api.compare(db,snapId,ownTransport(),base);
   showPreview(preview);say('충돌은 보류합니다. ④ 안전한 통합 항목을 확인하세요.');
  });
  $('plannerMigApprove').onclick=withBusy(async()=>{
   if(!preview)throw Error('비교 미리보기가 필요합니다.');
   const opts=selection();if(!Object.values(opts).some(Boolean))throw Error('통합할 항목을 선택하세요.');
-  if(!root.confirm('백업 파일을 실제로 저장하고 검증했습니까?\n미리보기에 나타난 충돌 없는 선택 항목만 격리 서버로 통합할까요?')){say('취소됨: 기존 기기 기록 유지');return;}
+  if(!root.confirm('백업 파일을 실제로 저장하고 검증했습니까?\n미리보기에 나타난 충돌 없는 선택 항목만 '+(production?'운영 Google 클라우드':'격리 서버')+'로 통합할까요?')){say('취소됨: 기존 기기 기록 유지');return;}
   const result=await api.apply(db,snapId,opts,ownTransport(),true);
-  say(result.ready?'첫 통합 검증 완료 · 이 합성 기기의 동기화 준비됨':'부분 통합 완료 · 충돌과 미선택 항목 보존');
+  say(result.ready?'첫 통합 검증 완료 · 이 기기의 자동 동기화 준비됨':'부분 통합 완료 · 충돌과 미선택 항목 보존');
   if(typeof onApplied==='function')await onApplied(result);
  });
  $('plannerMigRetry').onclick=withBusy(async()=>{

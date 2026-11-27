@@ -1,5 +1,5 @@
 /* Stage 6 status / guidance UX. Presentation only.
- * Server writes remain disabled unless Stage4 testEnabled() passes (loopback + synthetic).
+ * Production status is shown only after the authenticated planner handshake.
  * No LIVE MASTER or existing learning DB modifications.
  */
 (function(root){
@@ -48,7 +48,7 @@ function formatSyncStatus(backend,legacy){
  const legacyStatus=legacy?.state||'not-run';
  const legacyLabel={
   confirmed: '서버 기록 확인 · '+localTime(legacy?.at),
-  pending:'서버 확인 전 · 진행 중',unverified:'실행 후 서버 성공 기록 미확인',
+  pending:'서버 확인 전 · 진행 중',partial:'일부 보류 · 미전송 '+Number(legacy?.pending||0)+'건 / 충돌 '+Number(legacy?.conflicts||0)+'건',unverified:'실행 후 서버 성공 기록 미확인',
   'auth-required':'신뢰기기 인증 필요',offline:'오프라인 · 서버 미확인',
   error:'동기화 오류 · 서버 미확인','not-run':'이번 세션 확인 결과 없음'
  }[legacyStatus]||'서버 확인 결과 없음';
@@ -143,7 +143,8 @@ function publish({backend={},legacy=lastLegacy,plannerResult=null}={}){
  else if(backend?.migration!=='ready')summary='기기별 전체 백업·최초 통합 전 · 로컬 기록 보존';
  else if(value.totalConflicts)summary='충돌 '+value.totalConflicts+'건 확인 필요 · 자동 덮어쓰기 없음';
  else if(value.totalPending)summary='미전송 '+value.totalPending+'건 · 로컬에 보관';
- else if(plannerResult?.state==='synced')summary='격리 합성 서버의 학습계획·회독 진도 응답 확인';
+ else if(plannerResult?.state==='error')summary='학습계획·회독 진도 동기화 실패 · 기록 보존';
+ else if(plannerResult?.state==='synced'||backend?.lastSuccess)summary='학습계획·회독 진도 서버 확인 완료';
  else summary='서버 동기화 대기 · 기록은 이 기기에 보관';
  const prior=backend?.lastSuccess&&iso(backend.lastSuccess)?' · 계획·진도 마지막 확인 '+localTime(backend.lastSuccess):'';
  label.textContent=summary+prior+(value.totalPending?' · 미전송 '+value.totalPending+'건':'');
@@ -155,13 +156,13 @@ function publish({backend={},legacy=lastLegacy,plannerResult=null}={}){
  if(intro)intro.textContent=!backend?.enabled
   ?'현재 운영 서비스에서는 학습계획·회독별 진도가 각 기기별로 저장됩니다. 다른 기기로 자동 공유되지 않습니다. JSON 백업은 독립 안전장치입니다.'
   :backend?.migration!=='ready'
-   ?'격리 합성 시험 모드 · 기기별 전체 JSON 백업·해시 확인·사용자 승인이 끝나기 전에는 다른 기기로 통합되지 않습니다.'
+   ?'기기별 전체 JSON 백업·해시 확인·사용자 승인이 끝나기 전에는 다른 기기로 통합되지 않습니다.'
    :root.navigator?.onLine===false
-    ?'격리 합성 시험 모드 · 오프라인 변경은 기기에 저장됩니다. 다시 연결해 서버 확인을 완료해야 다른 기기에 반영됩니다.'
-    :'격리 합성 시험 모드 · 백업·최초 통합 승인 후 검증된 계획·진도만 시험 기기 간 공유할 수 있습니다. 운영 서비스 동기화는 아직 활성화하지 않았습니다.';
+    ?'오프라인 변경은 기기에 저장됩니다. 다시 연결해 서버 확인을 완료해야 다른 기기에 반영됩니다.'
+    :'백업·최초 통합 승인 후 검증된 학습계획과 진도를 신뢰기기 사이에서 공유합니다.';
  $('plannerSyncGuide').textContent=!backend?.enabled?'서버 기능이 비활성화되어 다른 기기와 계획·진도가 공유되지 않습니다. JSON을 별도로 백업하세요.':
   !ready?'최초 기기별 원본 백업·검증이 필요합니다. 검증 전 업로드·다운로드는 차단됩니다.':
-  '오프라인 변경은 기기에 저장하며, 명시적 동기화 후 서버 확정 응답을 확인해야 공유됩니다. JSON 백업은 별도 안전장치입니다.';
+  '오프라인 변경은 기기에 저장하며, 자동 또는 수동 동기화로 서버 확정 응답을 확인합니다. JSON 백업은 별도 안전장치입니다.';
  return value;
 }
 async function syncCombined({legacy,planner,getStatus,refresh}){
@@ -182,7 +183,8 @@ async function syncCombined({legacy,planner,getStatus,refresh}){
  return {legacy:lastLegacy,planner:plannerResult,display:result};
 }
 function legacyResult(){return {...lastLegacy};}
-const api={mount,formatSyncStatus,areaFromCounts,classifyError,readLegacyMeta,syncLegacySafely,syncCombined,publish,legacyResult,localTime};
+function setLegacyStatus(status){lastLegacy={...status};}
+const api={mount,formatSyncStatus,areaFromCounts,classifyError,readLegacyMeta,syncLegacySafely,syncCombined,publish,legacyResult,setLegacyStatus,localTime};
 root.PEPlannerSyncUX=api;
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

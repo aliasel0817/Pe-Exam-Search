@@ -1,5 +1,5 @@
 // Study planner additive rollout; keep existing shell caching semantics.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-22-text-highlights-20261126';
+const CACHE_NAME = 'pe-study-note-shell-v4-6-23-learning-safe-autosync-20261127';
 const APP_SHELL = [
   './study-note.html',
   './image-upload-optimizer.js',
@@ -12,6 +12,7 @@ const APP_SHELL = [
   './text-highlight.css',
   './assets/personal-note-answer-sheet-a4.svg',
   './manifest.webmanifest',
+  './learning-sync-v2.js',
   './study-planner.js',
   './study-planner-sync.js',
   './study-planner-sync-ux.js',
@@ -50,15 +51,16 @@ self.addEventListener('fetch', event => {
   const isPlannerAsset = ['/study-planner.js','/study-planner-sync.js','/study-planner-sync-ux.js',
     '/study-planner-migration.js','/study-planner-migration-ui.js',
     '/study-plans/pe141-100days.json'].some(asset => url.pathname.endsWith(asset));
+  const isLearningSyncAsset = url.pathname.endsWith('/learning-sync-v2.js');
   const isImageOptimizerAsset = url.pathname.endsWith('/image-upload-optimizer.js');
   const isPersonalNoteAsset = ['/personal-note.js','/personal-note.css','/personal-note-cloud.js']
     .some(asset => url.pathname.endsWith(asset));
   const isTextHighlightAsset = ['/text-highlight-core.js','/text-highlight-storage.js','/text-highlights.js','/text-highlight.css']
     .some(asset => url.pathname.endsWith(asset));
-  if (!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isImageOptimizerAsset && !isPersonalNoteAsset && !isTextHighlightAsset) return;
+  if (!isStudyNoteHtml && !isManifest && !isPlannerAsset && !isLearningSyncAsset && !isImageOptimizerAsset && !isPersonalNoteAsset && !isTextHighlightAsset) return;
 
   // HTML은 network-first: GitHub에 새 버전을 올리면 다음 접속/새로고침에서 우선 최신 파일을 사용한다.
-  if (isStudyNoteHtml || isPlannerAsset || isImageOptimizerAsset || isPersonalNoteAsset || isTextHighlightAsset) {
+  if (isStudyNoteHtml || isPlannerAsset || isLearningSyncAsset || isImageOptimizerAsset || isPersonalNoteAsset || isTextHighlightAsset) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
         .then(response => {
