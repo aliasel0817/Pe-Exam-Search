@@ -172,8 +172,10 @@ function queueBatch(db,items){
    if(favoriteChanged&&!raw?.syncV2?.favoriteLane&&!pendingLegacyFavorite(raw)){
     // No remote query during the click: retain the observed value and defer
     // establishment of an unknown base to a signed server read.
-    if(!raw)raw=rowFrom(blank(id),{known:true,base:null,attempt:null,conflict:null},false);
+    const newLocal=!raw;
+    if(newLocal)raw=rowFrom(blank(id),{known:true,base:null,attempt:null,conflict:null},false);
     raw=adoptFavorite(raw,null,false);
+    if(newLocal){raw.syncV2.favoriteLane.known=false;raw.syncV2.favoriteLane.observed='N';}
    }
    const meta=metaFor(raw,id);
    const lane=meta.favoriteLane;
@@ -427,12 +429,21 @@ async function favoritePass(db,transport,onPhase,first){
  }
  if(sent.size){latest=await getVerified(transport);await reconcileFavorites(db,latest.rows);}
  const status=favoriteStatusOf(await readRows(db));
- return {latest,result:{...status,state:status.pending||status.conflicts||status.unverified?'partial':'synced',applied,at:now()}};
+ const server=[...remoteMap(latest.rows).values()].filter(row=>row.favorite==='Y').length;
+ return {latest,result:{...status,server,state:status.pending||status.conflicts||status.unverified?'partial':'synced',applied,at:now()}};
 }
 let activeSync=null;
 async function run(db,transport,onPhase,onFavorite){
- const favorite=await favoritePass(db,transport,onPhase);
+ let favorite;
+ try{favorite=await favoritePass(db,transport,onPhase);}
+ catch(error){
+  // Preserve the immutable pending favorite operation; do not let a failed
+  // favorite POST prevent unrelated general learning reads/saves.
+  const status=favoriteStatusOf(await readRows(db));
+  favorite={latest:null,result:{...status,state:'error',message:error.message||String(error),at:now()}};
+ }
  await onFavorite?.(favorite.result);
+ if(!favorite.latest)favorite.latest=await getVerified(transport);
  // General learning uses the same verified snapshot but does not send
  // favorite changes. Its conflicts or failures cannot undo favorite ACKs.
  await reconcile(db,favorite.latest.rows);
@@ -453,7 +464,7 @@ async function run(db,transport,onPhase,onFavorite){
  }
  const rows=await readRows(db),status=statusOf(rows),fav=favoriteStatusOf(rows);
  return {...status,state:status.pending?'partial':'synced',applied,received:rows.length,at:now(),
-  favorite:{...favorite.result,...fav,state:fav.pending||fav.conflicts||fav.unverified?'partial':'synced'}};
+  favorite:{...favorite.result,...fav,state:favorite.result.state==='error'?'error':fav.pending||fav.conflicts||fav.unverified?'partial':'synced'}};
 }
 function withBrowserLock(task){
  return root.navigator?.locks?.request
