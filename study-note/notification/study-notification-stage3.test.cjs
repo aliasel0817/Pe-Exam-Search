@@ -85,6 +85,13 @@ assert.equal(svc.runTick(store,config.ownerId,dep).attempted,0);
 assert.equal(svc.status(store,config.ownerId,'2026-11-27').pending,1);
 eligible=false;now+=300000;svc.runTick(store,config.ownerId,dep);assert.equal(count,1);
 assert.equal(svc.status(store,config.ownerId,'2026-11-27').unknown,0);
+// A quota debit can make the provider not-ready exactly at its last allowed
+// attempt. The final guard still verifies only the slot/plan/topic identity.
+now+=300000;eligible=true;let readyAfterDebit=true;
+const lastAttempt=svc.runTick(store,config.ownerId,{...dep,ready:()=>readyAfterDebit,sendSelf:(_id,_msg,_deadline,guard)=>{readyAfterDebit=false;assert.equal(guard(),true);return {httpStatus:200,body:{result_code:0}};}});
+assert.equal(lastAttempt.attempted,1);
+assert.equal(svc.status(store,config.ownerId,'2026-11-27',{round:1,ids:[]}).confirmed,0);
+assert.equal(svc.status(store,config.ownerId,'2026-11-27',{round:1,ids:['T0001']}).confirmed,1);
 // Exact plan name and cloud verification, never fallback to another schedule.
 assert.deepEqual(panel.availablePlans({plans:[{id:'wrong',name:panel.PLAN_NAME,rounds:5,verified:true},{id:'local',name:panel.PLAN_NAME,rounds:3,verified:false},{id:'right',name:panel.PLAN_NAME,rounds:3,verified:true}]}).map(p=>p.id),['right']);
 // Host verifies the signed-context adapter instead of trusting request payloads.
