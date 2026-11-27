@@ -228,7 +228,7 @@ async function prepared(db,srv,base=[]){
  assert.equal(cancelServer.calls,beforeCancel);assert.equal((await mig.state(cancelDb)).state,'local_only');
  // Outside the synthetic loopback gate everything is blocked.
  globalThis.PE_PLANNER_SYNC_TEST_ENABLED=false;
- await assert.rejects(mig.backup(cancelDb),/격리/);
+ await assert.rejects(mig.backup(cancelDb),/검증된 학습계획 서버 연결/);
  assert.deepEqual([...names].sort(),['plans','progress','syncMeta','pendingOps','syncConflicts','preSyncSnapshots'].sort());
  console.log('STAGE5_MIGRATION_PASS',JSON.stringify({verifiedBackup:true,tamperRejected:true,firstSyncBlockedWithoutProof:true,
   remoteImport:true,progressConflictHeld:true,localRestoreNeverOverwrites:true,threeWayAdditive:true,
