@@ -16004,9 +16004,9 @@ if (typeof M4_REFERENCE_DEV_ENABLED !== 'undefined' && M4_REFERENCE_DEV_ENABLED)
     });
   }
   function loadAssets(){
-    if(!assets)assets=loadScript('./notification/study-notification-core.js?v=stage4-20261127','StudyNotificationCore')
-      .then(()=>loadScript('./notification/study-notification-panel.js?v=stage4-20261127','StudyNotificationPanel'))
-      .then(()=>loadScript('./notification/study-notification-client.js?v=stage4-20261127','StudyNotificationClient'))
+    if(!assets)assets=loadScript('./notification/study-notification-core.js?v=stage5-20261127','StudyNotificationCore')
+      .then(()=>loadScript('./notification/study-notification-panel.js?v=stage5-20261127','StudyNotificationPanel'))
+      .then(()=>loadScript('./notification/study-notification-client.js?v=stage5-20261127','StudyNotificationClient'))
       .catch(error=>{assets=null;throw error;});
     return assets;
   }
