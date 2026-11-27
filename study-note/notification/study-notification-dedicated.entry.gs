@@ -54,24 +54,26 @@ var PN4Dedicated=(function(){
   if(n.minute<510||n.minute>=1200)return {reason:'outside-window'};
   return host(c,null).host.tick();
  }
- function initializeJournal(){
-  const c=cfg();
-  must(c.p.getProperty('PE_NOTIFICATION_HTTP_APPROVED')!=='YES'&&c.p.getProperty('PE_NOTIFICATION_RELEASE_APPROVED')!=='YES'&&c.p.getProperty('PE_NOTIFICATION_SCHEDULER_APPROVED')!=='YES','initialization requires disabled project');
-  const lock=LockService.getScriptLock();must(lock.tryLock(1000),'notification lock busy');
-  try{
-   must(!c.p.getProperty('PE_NOTIFICATION_PRIVATE_STORE_ID')&&!c.p.getProperty('PE_NOTIFICATION_STORE_MANIFEST'),'private journal already configured; never replace');
-   const ss=SpreadsheetApp.create('PeExamStudyNotificationPrivate');
-   const sh=ss.getSheets()[0];sh.setName('NotificationJournal');
-   const header=['transactionId','index','count','key','payloadJson','sha256'];
-   sh.getRange(1,1,1,header.length).setValues([header]);SpreadsheetApp.flush();
-   must(ss.getId()!==c.p.getProperty('PE_NOTIFICATION_MASTER_ID')&&JSON.stringify(sh.getRange(1,1,1,header.length).getValues()[0])===JSON.stringify(header),'private initialization verification failed');
-   c.p.setProperty('PE_NOTIFICATION_PRIVATE_STORE_ID',ss.getId());
-   must(c.p.getProperty('PE_NOTIFICATION_PRIVATE_STORE_ID')===ss.getId(),'private journal ID not saved');
-   return {ok:true,privateStoreCreated:true};
-  }finally{lock.releaseLock();}
+ // Editor-only read-only preflight. The actual private workbook is created
+ // separately and must be explicitly adopted; never create a duplicate.
+ function preflight(){
+  const p=PropertiesService.getScriptProperties(),get=k=>StudyNotificationRelayGas.requireProp(p,k);
+  must(p.getProperty('PE_NOTIFICATION_PROJECT_MODE')==='DEDICATED_NOTIFICATION','dedicated project required');
+  must(['HTTP_APPROVED','RELEASE_APPROVED','SCHEDULER_APPROVED','TEST_APPROVED'].every(k=>p.getProperty('PE_NOTIFICATION_'+k)==='NO'),'explicit disabled flags required');
+  must(ScriptApp.getScriptId()===get('EXPECTED_SCRIPT_ID'),'script project mismatch');
+  const master=get('MASTER_ID'),target=get('PRIVATE_STORE_ID');
+  must(master!==target&&/^[A-Za-z0-9_-]{20,}$/.test(master)&&/^[A-Za-z0-9_-]{20,}$/.test(target),'distinct explicit spreadsheet IDs required');
+  must(!p.getProperty('PE_NOTIFICATION_STORE_MANIFEST'),'existing generation manifest requires review');
+  const source=SpreadsheetApp.openById(master);
+  must(source.getName()==='topic_study_data'&&source.getSheetByName('암기장')&&source.getSheetByName('학습계획')&&source.getSheetByName('학습계획일정'),'MASTER identity mismatch');
+  const store=StudyNotificationGasStore.create(()=>StudyNotificationGasStore.activeId(p,master));
+  const result=store.exclusive(tx=>({ok:true,projectVerified:true,masterReadOnly:true,privateJournalVerified:true,recordCount:tx.list('').length,allSendFlagsDisabled:true}));
+  // Only non-sensitive status. No secret, account or user study content logged.
+  console.log(JSON.stringify(result));return result;
  }
+ function initializeJournal(){return preflight();}
  function compact(){const c=cfg();return StudyNotificationGasStore.compactDisabledProject(c.p,c.get('MASTER_ID'));}
- return Object.freeze({post,tick,initializeJournal,compact});
+ return Object.freeze({post,tick,initializeJournal,preflight,compact});
 })();
 function doPost(e){return PN4Dedicated.post(e);}
 function doGet(){return ContentService.createTextOutput('{"ok":false}').setMimeType(ContentService.MimeType.JSON);}
@@ -80,3 +82,5 @@ function notificationScheduledTick(){return PN4Dedicated.tick();}
 function initializeNotificationPrivateJournal(){return PN4Dedicated.initializeJournal();}
 
 function compactNotificationPrivateJournal(){return PN4Dedicated.compact();}
+
+function notificationStagingPreflight(){return PN4Dedicated.preflight();}
