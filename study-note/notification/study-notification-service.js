@@ -102,10 +102,11 @@
       if(!fresh.inWindow||fresh.date!==slot.date||fresh.index!==slot.index)return {...result,reason:'slot-expired'};
       tx.commit([patch(slotKey(owner),{claimedKey:proposal.slotKey,nextEligibleAt:now+settings.intervalMinutes*60000,settingsVersion:record.version})]);
       let processed=0,stop=false;
-      function canSend(){
+      function stillCurrent(){
         const n=core.slotAt(deps.now(),settings.intervalMinutes);
-        return n.inWindow&&n.date===slot.date&&n.index===slot.index&&deps.ready(owner)===true&&deps.isPlanCurrent(owner,plan)===true;
+        return n.inWindow&&n.date===slot.date&&n.index===slot.index&&deps.isPlanCurrent(owner,plan)===true;
       }
+      function canSend(){return stillCurrent()&&deps.ready(owner)===true;}
       function eligibleTopic(id){
         if(typeof deps.isTopicEligible==='function')return deps.isTopicEligible(owner,id)===true;
         return deps.loadTopic(owner,id)?.topicId===id;
@@ -127,7 +128,7 @@
           }
           let outcome='unknown',notAttempted=false;
           try{
-            const reply=deps.sendSelf(owner,r.value.message,deadline,()=>canSend()&&eligibleTopic(job.topicId));
+            const reply=deps.sendSelf(owner,r.value.message,deadline,()=>stillCurrent()&&eligibleTopic(job.topicId));
             // Only the trusted transport may certify that no message request was issued.
             notAttempted=reply?.notAttempted===true;
             if(!notAttempted)outcome=core.classifyKakaoOutcome(reply?.httpStatus,reply?.body);
@@ -157,13 +158,14 @@
       return {...result,reason:'processed',capacityRisk:proposal.capacityRisk===true};
     });
   }
-  function status(store,owner,date){
+  function status(store,owner,date,assignment){
     checkOwner(owner);
     must(typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date),'date required');
     return store.exclusive(tx=>{
       const s=tx.get(settingsKey(owner)),planId=s?.settings?.planId;
       const result={settingsVersion:s?.version||0,planId:planId||null,date,reserved:0,confirmed:0,pending:0,rejected:0,unknown:0};
-      for(const j of listJobs(tx,owner).filter(j=>j.planId===planId&&j.date===date)){
+      const allowed=assignment?new Set(assignment.ids):null;
+      for(const j of listJobs(tx,owner).filter(j=>j.planId===planId&&j.date===date&&(!allowed||(j.round===assignment.round&&allowed.has(j.topicId))))){
         const states=readParts(tx,j).map(r=>r.value.state);
         const state=states.some(x=>x==='unknown'||x==='sending')?'unknown':states.includes('rejected')?'rejected':states.every(x=>x==='confirmed')?'confirmed':'pending';
         result.reserved++;result[state]++;
