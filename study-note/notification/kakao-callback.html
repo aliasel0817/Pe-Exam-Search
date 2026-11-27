@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>카카오 학습 알림 연결</title></head>
+<body><h1>카카오 계정 연결</h1><p id="status">기존 학습노트에서 연결 결과를 확인하세요.</p>
+<script>
+(function(){
+ 'use strict';
+ const origin='https://aliasel0817.github.io';
+ const q=new URLSearchParams(location.search),code=q.get('code'),state=q.get('state'),error=q.get('error');
+ // Remove sensitive query from current history and never store it or load other resources.
+ try{history.replaceState(null,'',location.pathname);}catch(_){document.getElementById('status').textContent='연결을 완료할 수 없습니다. 창을 닫고 다시 시도하세요.';return;}
+ const valid=location.origin===origin&&window.opener&&typeof state==='string'&&/^[a-f0-9]{64}$/.test(state)&&q.getAll('state').length===1&&
+ ((typeof code==='string'&&code.length>0&&code.length<=2000&&!error&&q.getAll('code').length===1)||
+  (typeof error==='string'&&error.length>0&&error.length<=100&&!code&&q.getAll('error').length===1));
+ if(!valid){document.getElementById('status').textContent='원래 학습노트에서 다시 계정 연결을 시작해 주세요.';return;}
+ window.opener.postMessage({type:'pe-notification-oauth-v1',state,code:code||null,error:error||null},origin);
+})();
+</script></body></html>

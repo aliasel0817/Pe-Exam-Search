@@ -1,5 +1,5 @@
 // Study planner additive rollout; keep existing shell caching semantics.
-const CACHE_NAME = 'pe-study-note-shell-v4-6-24-favorite-priority-sync-20261127';
+const CACHE_NAME = 'pe-study-note-shell-v4-6-24-notification-candidate-20261127';
 const APP_SHELL = [
   './study-note.html',
   './image-upload-optimizer.js',
@@ -45,6 +45,9 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  // Notification settings require the live authenticated server. Never cache
+  // OAuth callback queries or notification modules, including future shell additions.
+  if (url.pathname.includes('/notification/')) return;
 
   const isStudyNoteHtml = url.pathname.endsWith('/study-note.html');
   const isManifest = url.pathname.endsWith('/manifest.webmanifest');
