@@ -160,7 +160,7 @@
    if(wait>0){if(clock()+wait>=deadline)return skip;deps.sleep(wait);}
    if(!windowOpen(clock())||clock()>=deadline||deps.approved(owner)!==true||guard()!==true)return skip;
    const template={object_type:'text',text:message,link:{web_url:config.linkUrl,mobile_web_url:config.linkUrl},button_title:'학습노트 보기'};
-   const reply=call(v,SEND,'POST',{template_object:JSON.stringify(template)},t.accessToken,deadline,guard);
+   const reply=call(v,SEND,'POST',{template_object:JSON.stringify(template)},t.accessToken,deadline,()=>deps.approved(owner)===true&&windowOpen(clock())&&guard()===true);
    if(reply?.notAttempted===true)return skip;
    const body=reply?.body;
    // Provider failures are never returned with token or raw error text.
