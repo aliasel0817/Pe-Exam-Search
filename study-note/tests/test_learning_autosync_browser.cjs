@@ -77,8 +77,46 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   assert.equal(cloud.get('T0001').favorite,'N');
   await b.page.waitForFunction(()=>!learningSyncRun&&document.getElementById('learningSyncLiveStatus').textContent.includes('일반 학습정보 동기화 완료'),{timeout:20000});
   await open(a);assert.equal((await read(a,'T0001')).favorite,false);
+  // Actual favorite button, independent manual sync and list count (including
+  // a non-study-target topic). A long planner request must not block favorites.
+  const setupTopics=page=>page.evaluate(()=>{
+   allTopics=[{topicId:'T0001',topicName:'Synthetic favorite',studyTarget:'N',domain:'SW',categoryCode:'G01'},
+     {topicId:'T0002',topicName:'Legacy favorite',studyTarget:'Y',domain:'SW',categoryCode:'G01'}];
+   currentTopicId='T0001';renderCurrentLearningState();renderLearningDashboard();
+  });
+  await setupTopics(a.page);await setupTopics(b.page);
+  await a.page.evaluate(()=>{StudyPlanner.sync=()=>new Promise(resolve=>{window.__finishSlowPlanner=resolve;});});
+  await open(a);
+  await a.page.waitForFunction(()=>Boolean(plannerSyncRun)&&!learningSyncRun,{timeout:10000});
+  await a.page.evaluate(()=>document.getElementById('favoriteBtn').click());
+  for(let i=0;i<100&&cloud.get('T0001').favorite!=='Y';i++)await sleep(100);
+  assert.equal(cloud.get('T0001').favorite,'Y');
+  assert.equal(await a.page.evaluate(()=>Boolean(plannerSyncRun)),true,'slow planner must not be a favorite lock');
+  await b.page.evaluate(()=>document.getElementById('favoriteSyncBtn').click());
+  await b.page.waitForFunction(()=>!learningSyncRun&&document.getElementById('favoriteSyncStatus').textContent.includes('동기화 완료'),{timeout:20000});
+  assert.equal((await read(b,'T0001')).favorite,true);
+  await b.page.evaluate(()=>document.querySelector('[data-learning-view="favorite"]').click());
+  await b.page.waitForFunction(()=>document.querySelectorAll('[data-learning-topic-id]').length===1);
+  assert.equal(await b.page.$eval('#statFavorite',el=>el.textContent),'1');
+  assert((await b.page.$eval('#favoriteSyncStatus',el=>el.textContent)).includes('서버 1개 / 이 기기 목록 1개'));
+  // Legacy local-only favorite is shown, not uploaded until explicit confirmation.
+  cloud.set('T0002',{topicId:'T0002',favorite:'N',studyStatus:'미학습',personalMemo:'protected server memo',
+    lastStudiedAt:'',reviewCount:0,missCount:0,updatedAt:'2026-11-27T00:00:00.000Z',revision:1,lastMissedAt:''});
+  await b.page.evaluate(async()=>{await putLearningState(db,{...PELearningSyncV2.blank('T0002'),favorite:true,
+   personalMemo:'old device memo',revision:0,dirty:false});await refreshLearningLocal();});
+  await b.page.evaluate(()=>document.getElementById('favoriteSyncBtn').click());
+  await b.page.waitForFunction(()=>!learningSyncRun&&!document.getElementById('favoriteSyncConflicts').classList.contains('hidden'),{timeout:20000});
+  assert.equal(cloud.get('T0002').favorite,'N');
+  b.page.on('dialog',dialog=>dialog.accept());
+  await b.page.evaluate(()=>document.querySelector('#favoriteSyncConflictRows button').click());
+  for(let i=0;i<100&&cloud.get('T0002').favorite!=='Y';i++)await sleep(100);
+  assert.equal(cloud.get('T0002').favorite,'Y');
+  assert.equal(cloud.get('T0002').personalMemo,'protected server memo');
+  await b.page.waitForFunction(()=>!learningSyncRun&&document.getElementById('favoriteSyncConflicts').classList.contains('hidden'),{timeout:20000});
+  assert.equal(await b.page.$eval('#statFavorite',el=>el.textContent),'2');
+  await a.page.evaluate(()=>{StudyPlanner.sync=async()=>({state:'migration-required'});window.__finishSlowPlanner?.({state:'migration-required'});});
   assert.deepEqual(errors,[]);
   await a.context.close();await b.context.close();
-  console.log('LEARNING_AUTOSYNC_CHROMIUM_PASS '+JSON.stringify({contexts:2,entryPull:true,editUpload:true,otherDevicePull:true,unsavedMemoProtected:true,offlineReconnect:true,pageErrors:errors.length,blockedExternalRequests:blockedExternal,liveRequests:0}));
+  console.log('LEARNING_AUTOSYNC_CHROMIUM_PASS '+JSON.stringify({contexts:2,entryPull:true,editUpload:true,otherDevicePull:true,unsavedMemoProtected:true,offlineReconnect:true,actualFavoriteButton:true,favoriteOnlyButton:true,independentSlowPlanner:true,favoriteCountIncludesNonStudyTargets:true,legacyFavoriteUiImport:true,pageErrors:errors.length,blockedExternalRequests:blockedExternal,liveRequests:0}));
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
