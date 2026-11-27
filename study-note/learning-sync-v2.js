@@ -432,7 +432,7 @@ async function favoritePass(db,transport,onPhase,first){
 let activeSync=null;
 async function run(db,transport,onPhase,onFavorite){
  const favorite=await favoritePass(db,transport,onPhase);
- onFavorite?.(favorite.result);
+ await onFavorite?.(favorite.result);
  // General learning uses the same verified snapshot but does not send
  // favorite changes. Its conflicts or failures cannot undo favorite ACKs.
  await reconcile(db,favorite.latest.rows);
