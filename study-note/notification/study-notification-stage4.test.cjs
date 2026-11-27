@@ -22,13 +22,15 @@ assert.equal(typeof inert.doPost,'function');assert.equal(typeof inert.notificat
 assert.equal(typeof inert.compactNotificationPrivateJournal,'function');
 const fake="function doPost(e){ const verified = validateSignedMutation_(envelope, ['ACTIVE']); if(false){} else if (action === 'renamedevice') result = renameSecurityDevice_(payload, authContext); }";
 assert.throws(()=>builder.patchMain(fake,'a'.repeat(64)),/hash/);
-assert.ok(builder.patchMain(fake,sha(fake)).includes('PN4_verifiedNotificationPost_(action, verified)'));
+assert.ok(builder.patchMain(fake,sha(fake)).includes('PN4_verifiedNotificationPost_(action, verified, envelope)'));
 assert.throws(()=>builder.patchMain(fake.replace('renamedevice','different'),sha(fake.replace('renamedevice','different'))),/structure/);
 // Mock existing ACTIVE verifier output and actual relay helpers.
 const props=new Map([['PE_NOTIFICATION_BRIDGE_ENABLED','YES'],['PE_NOTIFICATION_OWNER_ID',owner],['PE_NOTIFICATION_OWNER_GOOGLE_SUB','synthetic-google-sub'],['PE_NOTIFICATION_RELAY_SECRET','a'.repeat(64)],['PE_NOTIFICATION_RELAY_URL','https://script.google.com/macros/s/SYNTHETIC/exec'],['device-key','synthetic-key']]);
 const gasMac=(text,key)=>crypto.createHmac('sha256',key).update(text).digest('hex');
 let fetches=0,reply=null;
-const gas={PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null})},
+let bridgeLocked=false;
+const gas={PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v)})},
+ LockService:{getScriptLock:()=>({tryLock(){if(bridgeLocked)return false;bridgeLocked=true;return true;},releaseLock(){bridgeLocked=false;}})},
  Utilities:{Charset:{UTF_8:'utf8'},computeHmacSha256Signature:(v,k)=>[...Buffer.from(gasMac(v,k),'hex')],getUuid:()=>crypto.randomUUID(),newBlob:s=>({getBytes:()=>[...Buffer.from(s)]})},
  securityDeviceKeyPropertyName_:()=> 'device-key',
  UrlFetchApp:{fetch(url,options){
@@ -47,8 +49,12 @@ const verified={auth:{status:'ACTIVE',deviceId:'synthetic-device',googleSub:'syn
 assert.throws(()=>gas.PN4_verifiedNotificationPost_('notificationSnapshot',{...verified,auth:{...verified.auth,status:'PENDING'}}));
 assert.throws(()=>gas.PN4_verifiedNotificationPost_('notificationSnapshot',{...verified,auth:{...verified.auth,googleSub:'other'}}));
 assert.equal(fetches,0);
-assert.equal(gas.PN4_verifiedNotificationPost_('notificationSnapshot',verified).notificationResult.settingsVersion,0);
+const envelope={auth:{deviceId:verified.auth.deviceId,timestamp:String(Date.now()),nonce:'synthetic-nonce-0000000001'}};
+assert.equal(gas.PN4_verifiedNotificationPost_('notificationSnapshot',verified,envelope).notificationResult.settingsVersion,0);
 assert.equal(fetches,2);
+assert.throws(()=>gas.PN4_verifiedNotificationPost_('notificationSnapshot',verified,envelope));assert.equal(fetches,2);
+assert.equal(bridgeLocked,false);
+assert.throws(()=>gas.PN4_verifiedNotificationPost_('notificationSnapshot',verified,{auth:{...envelope.auth,timestamp:String(Date.now()-301000),nonce:'synthetic-nonce-0000000002'}}));assert.equal(fetches,2);
 props.set('PE_NOTIFICATION_BRIDGE_ENABLED','NO');assert.throws(()=>gas.PN4_verifiedNotificationPost_('notificationSnapshot',verified));assert.equal(fetches,2);
 // Test host: no auto-arm; fixed test authorization, durable once/day and history.
 const rows=new Map(),store={exclusive:f=>f({get:k=>rows.has(k)?copy(rows.get(k)):null,list:p=>[...rows].filter(([k])=>k.startsWith(p)).map(([key,value])=>({key,value:copy(value)})),commit:cs=>cs.forEach(c=>rows.set(c.key,copy(c.value)))})};
