@@ -188,8 +188,46 @@
       return {date,total:jobs.length,rows,nextOffset:offset+rows.length<jobs.length?offset+rows.length:null};
     });
   }
+  // Read-only current-day view, including never-reserved assignments. The
+  // delivery ledger remains authoritative; unknown/rejected are never retried.
+  function unconfirmedToday(store,owner,plan,date,offset=0,limit=20,lookup){
+    checkOwner(owner);
+    must(plan?.verified===true&&plan.rounds===3&&typeof plan.id==='string','verified assignment required');
+    must(Number.isSafeInteger(offset)&&offset>=0&&Number.isSafeInteger(limit)&&limit>=1&&limit<=25,'invalid history page');
+    const day=plan.days.find(d=>d.date===date);
+    if(!day)return {date,total:0,rows:[],nextOffset:null,scope:'unconfirmed-today'};
+    must(Array.isArray(day.ids)&&new Set(day.ids).size===day.ids.length,'invalid assignment');
+    return store.exclusive(tx=>{
+      const prior=new Map(),current=new Map();
+      for(const j of listJobs(tx,owner)){
+        if(j.planId!==plan.id)continue;
+        if(j.date===date)current.set(j.topicId,j);
+        else if(j.round===day.round)prior.set(j.topicId,j);
+      }
+      const remaining=[];
+      for(const topicId of day.ids){
+        const j=current.get(topicId),old=prior.get(topicId);
+        if(j&&j.round===day.round){
+          const parts=readParts(tx,j),states=parts.map(r=>r.value.state);
+          const status=states.some(s=>s==='unknown'||s==='sending')?'unknown':states.includes('rejected')?'rejected':states.every(s=>s==='confirmed')?'confirmed':'pending';
+          if(status!=='confirmed')remaining.push({topicId,topicName:j.topicName||topicId,round:day.round,date,status,partCount:j.partCount,confirmedParts:states.filter(s=>s==='confirmed').length,reviewParts:parts.filter(r=>['sending','unknown','rejected'].includes(r.value.state)).slice(0,20).map(r=>({part:r.value.part,state:r.value.state==='sending'?'unknown':r.value.state}))});
+        }else if(j||old){
+          // Preserve existing day/round dedupe even after reassignment.
+          const held=j||old;remaining.push({topicId,topicName:held.topicName||topicId,round:day.round,date,status:'duplicate-held',heldDate:held.date,partCount:held.partCount,confirmedParts:null});
+        }else remaining.push({topicId,round:day.round,date,status:'unreserved',partCount:0,confirmedParts:0});
+      }
+      const rows=remaining.slice(offset,offset+limit).map(row=>{
+        if(!row.topicName){
+          const topic=typeof lookup==='function'?lookup(row.topicId):null;
+          return {...row,topicName:topic?.topicId===row.topicId?topic.topicName:row.topicId,status:topic?'unreserved':'source-unavailable'};
+        }
+        return row;
+      });
+      return {date,total:remaining.length,rows,nextOffset:offset+rows.length<remaining.length?offset+rows.length:null,scope:'unconfirmed-today'};
+    });
+  }
   function nextEligible(store,owner){
     checkOwner(owner);return store.exclusive(tx=>tx.get(slotKey(owner))?.nextEligibleAt||null);
   }
-  return Object.freeze({saveSettings,readSettings,runTick,status,history,nextEligible});
+  return Object.freeze({saveSettings,readSettings,runTick,status,history,unconfirmedToday,nextEligible});
 });
