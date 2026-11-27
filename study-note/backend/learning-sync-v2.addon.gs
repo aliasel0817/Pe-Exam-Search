@@ -1,7 +1,9 @@
 /* Learning sync v2: signed route, field-group compare-and-merge under ScriptLock.
- * No MASTER changes, new sheets or columns. Never accept legacy whole-row writes.
+ * No MASTER changes or new sheets. Learning-state column K stores per-row
+ * revision/receipt metadata atomically with A:J. Reject legacy whole-row writes.
  * Ambiguous concurrent progress or deleted remote records are held, not overwritten.
  */
+const LS2_META_HEADER_ = '학습동기화메타V2';
 const LS2_GROUPS_ = Object.freeze({
   favorite: ['favorite'],
   personalMemo: ['personalMemo'],
@@ -36,7 +38,8 @@ function LS2_fromRow_(row) {
     studyStatus:clean_(row[2])||'미학습',personalMemo:row[3]==null?'':String(row[3]),
     lastStudiedAt:learningTimestampText_(row[4]),reviewCount:Number(row[5])||0,
     missCount:Number(row[6])||0,updatedAt:learningTimestampText_(row[7]),
-    revision:Number(row[8])||0,lastMissedAt:learningTimestampText_(row[9])});
+    revision:Number(row[8])||0,lastMissedAt:learningTimestampText_(row[9]) ||
+      (clean_(row[2])==='미암기'?learningTimestampText_(row[4]):'')});
 }
 function LS2_same_(a,b,keys) { return keys.every(k=>a[k]===b[k]); }
 function LS2_day_(value) {
@@ -78,20 +81,54 @@ function LS2_mergeProgress_(base,current,desired) {
   return {...latest,reviewCount:base.reviewCount+2,missCount:base.missCount+a.missed+b.missed,
     lastMissedAt:LS2_latest_(current.lastMissedAt,desired.lastMissedAt)};
 }
-function LS2_apply_(existing,change,at) {
+function LS2_hash_(value) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, JSON.stringify(value), Utilities.Charset.UTF_8)
+    .map(n=>((n+256)%256).toString(16).padStart(2,'0')).join('');
+}
+function LS2_stateEqual_(a,b) {
+  return Boolean(a&&b)&&a.topicId===b.topicId&&a.revision===b.revision&&a.updatedAt===b.updatedAt&&
+    Object.values(LS2_GROUPS_).every(keys=>LS2_same_(a,b,keys));
+}
+function LS2_meta_(raw,current) {
+  const fresh=()=>({version:2,groups:Object.fromEntries(Object.keys(LS2_GROUPS_).map(k=>[k,current?.revision||0])),
+    resetRevision:0,receipts:[],stateHash:current?LS2_hash_(current):null});
+  if(!raw)return {meta:fresh(),external:false};
+  let meta;
+  try{meta=JSON.parse(String(raw));}catch(_){throw Error('학습정보 동기화 메타데이터 손상: '+current?.topicId);}
+  if(meta?.version!==2||!meta.groups||!Array.isArray(meta.receipts)||meta.receipts.length>48||
+    !Number.isSafeInteger(meta.resetRevision)||meta.resetRevision<0||
+    Object.keys(LS2_GROUPS_).some(k=>!Number.isSafeInteger(meta.groups[k])||meta.groups[k]<0)||
+    meta.receipts.some(r=>!r||typeof r.id!=='string'||!/^([a-f0-9]{64})$/.test(r.hash)))throw Error('학습정보 동기화 메타데이터 형식 오류: '+current?.topicId);
+  if(current && meta.stateHash===LS2_hash_(current) &&
+    Object.values(meta.groups).every(v=>v<=current.revision)&&meta.resetRevision<=current.revision)return {meta,external:false};
+  // A direct spreadsheet edit/old restore bypassed the protocol. Only a caller
+  // who has explicitly seen the exact current state may establish a new base.
+  const replacement=fresh();replacement.receipts=meta.receipts;replacement.resetRevision=current?.revision||0;
+  return {meta:replacement,external:true};
+}
+function LS2_apply_(existing,change,at,previousMeta) {
   const desired=LS2_snapshot_(change.desired);
   if(desired.topicId!==change.topicId)throw Error('학습정보 통합ID 불일치');
   const base=change.base===null?LS2_blank_(desired.topicId):LS2_snapshot_(change.base);
   if(base.topicId!==desired.topicId)throw Error('학습정보 기준 통합ID 불일치');
   if(change.base!==null&&!existing)return {topicId:desired.topicId,status:'conflict',groups:['remote-missing'],state:null};
   const current=existing||LS2_blank_(desired.topicId);
-  if(existing && base.revision>current.revision)return {topicId:desired.topicId,status:'conflict',groups:['revision'],state:existing};
+  const info=previousMeta||LS2_meta_(null,existing),meta=info.meta;
+  const operationHash=LS2_hash_([change.topicId,change.base===null?null:base,desired]);
+  const receipt=meta.receipts.find(r=>r.id===change.operationId);
+  if(receipt){
+    if(receipt.hash!==operationHash)throw Error('동일 작업 ID에 다른 학습정보가 전송되었습니다.');
+    return {topicId:desired.topicId,status:'unchanged',groups:[],state:existing||null,duplicate:true};
+  }
+  if(existing && (base.revision>current.revision ||
+    (change.base!==null&&base.revision===current.revision&&!LS2_stateEqual_(base,current)) ||
+    (info.external&&!LS2_stateEqual_(base,current))))return {topicId:desired.topicId,status:'conflict',groups:['revision'],state:existing};
   const next={...current},conflicts=[];
   for(const [group,keys] of Object.entries(LS2_GROUPS_)){
     if(LS2_same_(base,desired,keys)||LS2_same_(current,desired,keys))continue;
     let source=null;
-    if(LS2_same_(current,base,keys))source=desired;
-    else if(group==='progress'){
+    if(LS2_same_(current,base,keys) && meta.groups[group]<=base.revision)source=desired;
+    else if(group==='progress' && meta.resetRevision<=base.revision && !info.external){
       if(LS2_duplicateProgress_(current,desired)){
         source={...current,lastStudiedAt:LS2_latest_(current.lastStudiedAt,desired.lastStudiedAt),
           lastMissedAt:LS2_latest_(current.lastMissedAt,desired.lastMissedAt)};
@@ -105,7 +142,14 @@ function LS2_apply_(existing,change,at) {
     return {topicId:desired.topicId,status:'unchanged',groups:[],state:existing||null};
   }
   next.updatedAt=at;next.revision=current.revision+1;
-  return {topicId:desired.topicId,status:'applied',groups:[],state:next};
+  const nextMeta={version:2,groups:{...meta.groups},resetRevision:meta.resetRevision,
+    receipts:meta.receipts.concat([{id:change.operationId,hash:operationHash}]).slice(-48),stateHash:LS2_hash_(next)};
+  for(const [group,keys] of Object.entries(LS2_GROUPS_)){
+    if(!LS2_same_(current,next,keys))nextMeta.groups[group]=next.revision;
+  }
+  if(next.reviewCount<current.reviewCount||next.missCount<current.missCount||
+    (next.studyStatus==='미학습'&&current.studyStatus!=='미학습'))nextMeta.resetRevision=next.revision;
+  return {topicId:desired.topicId,status:'applied',groups:[],state:next,meta:nextMeta};
 }
 function LS2_saveLearningChanges_(payload) {
   if(payload.protocolVersion!==2)throw Error('학습노트 최신 버전으로 새로고침 후 동기화해 주세요. 이전 방식의 전체 덮어쓰기는 차단되었습니다.');
@@ -125,7 +169,16 @@ function LS2_saveLearningChanges_(payload) {
   try{
     const sheet=ensureLearningSheet_(),{sheet:topicSheet}=getStudySheet_(),table=readTable_(topicSheet);
     const valid=new Set(table.rows.map(row=>clean_(row[table.headerIndex['통합ID']])).filter(Boolean));
-    const last=sheet.getLastRow(),rows=last>=2?sheet.getRange(2,1,last-1,LEARNING_HEADERS.length).getValues():[];
+    const last=sheet.getLastRow();
+    if(sheet.getMaxColumns()<11)throw Error('학습정보 동기화 메타데이터 열을 확보할 수 없습니다.');
+    const header=sheet.getRange(1,11).getDisplayValue(),headerFormula=sheet.getRange(1,11).getFormula();
+    if(headerFormula||(header&&header!==LS2_META_HEADER_))throw Error('학습정보 K열에 기존 데이터가 있어 자동으로 수정하지 않습니다.');
+    const rows=last>=2?sheet.getRange(2,1,last-1,11).getValues():[];
+    if(!header&&last>=2){
+      const formulas=sheet.getRange(2,11,last-1,1).getFormulas();
+      if(rows.some((row,i)=>row[10]!==''&&row[10]!=null||Boolean(formulas[i]?.[0])))
+        throw Error('학습정보 K열에 기존 데이터가 있어 자동으로 수정하지 않습니다.');
+    }
     const byId=new Map();
     rows.forEach((row,index)=>{
       const id=clean_(row[0]);if(!id)return;
@@ -139,20 +192,27 @@ function LS2_saveLearningChanges_(payload) {
         prepared.push({result:{topicId:change.topicId,status:'conflict',groups:['topic-missing'],state:entry?LS2_fromRow_(entry.row):null}});
         continue;
       }
-      const result=LS2_apply_(entry?LS2_fromRow_(entry.row):null,change,at);
+      const current=entry?LS2_fromRow_(entry.row):null;
+      const result=LS2_apply_(current,change,at,LS2_meta_(entry?.row[10]||null,current));
       prepared.push({result,index:result.status==='applied'?(entry?entry.index:nextIndex++):null});
     }
     // All rows are validated first. Each row is written only if changed, with its
     // server-assigned revision. Partial transmission can be safely compared again.
+    if(!header&&prepared.some(item=>item.index!==null&&item.index!==undefined)){
+      sheet.getRange(1,11).setValue(LS2_META_HEADER_);
+    }
     for(const item of prepared)if(item.index!==null&&item.index!==undefined){
-      const values=learningStateToRow_(item.result.state);
+      const values=learningStateToRow_(item.result.state).concat(JSON.stringify(item.result.meta));
       // Sheets treats leading "=" as a formula. Store arbitrary personal notes as text.
       if(typeof values[3]==='string'&&/^[=']/.test(values[3]))values[3]="'"+values[3];
       if(item.index>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),item.index-sheet.getMaxRows());
-      sheet.getRange(item.index,1,1,LEARNING_HEADERS.length).setValues([values]);
+      sheet.getRange(item.index,1,1,11).setValues([values]);
     }
     SpreadsheetApp.flush();
-    const results=prepared.map((item,i)=>({...item.result,operationId:changes[i].operationId}));
+    const results=prepared.map((item,i)=>{
+      const {meta,...receipt}=item.result;
+      return {...receipt,operationId:changes[i].operationId};
+    });
     return {action:'saveLearningStates',learningSyncVersion:2,savedCount:results.filter(x=>x.status==='applied').length,results};
   }finally{lock.releaseLock();}
 }
