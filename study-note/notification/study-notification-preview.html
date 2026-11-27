@@ -9,7 +9,7 @@
 const core=StudyNotificationCore,panel=StudyNotificationPanel;
 const p={id:'synthetic-three-rounds',name:panel.PLAN_NAME,rounds:3,verified:true};
 const copy=v=>JSON.parse(JSON.stringify(v));
-let current={settingsVersion:0,settings:null,plans:[p],account:{connected:false,armed:false},releaseReady:false,stats:{assigned:150,confirmed:0,unknown:0,rejected:0}};
+let current={date:'2026-11-27',settingsVersion:0,settings:null,plans:[p],account:{connected:false,armed:false},releaseReady:false,stats:{assigned:150,confirmed:0,unknown:0,rejected:0}};
 const transport={
  snapshot:async()=>copy(current),
  save:async request=>{
@@ -19,6 +19,7 @@ const transport={
   current.settingsVersion++;current.settings=settings;
   return {ok:true};
  },
+ history:async d=>({date:d.date,total:d.scope==='unconfirmed-today'?2:0,rows:d.scope==='unconfirmed-today'?[{topicId:'T0001',topicName:'합성 미발송 토픽',status:'unreserved',partCount:0,confirmedParts:0},{topicId:'T0002',topicName:'합성 확인 필요 토픽',status:'unknown',partCount:2,confirmedParts:1,reviewParts:[{part:2,state:'unknown'}]}]:[],nextOffset:null}),
  preview:async settings=>({parts:core.prepareTopic({topicId:'T0001',topicName:'합성 토픽',concept:'개발용 개념 예시입니다. 실제 학습 원문이 아닙니다.',keywords:'예시 키워드',mnemonic:'예시 암기법'},settings).parts.map(x=>x.message)})
 };
 const mounted=panel.mount(document.getElementById('demo'),transport,core,{demo:true,confirmDiscard:()=>true});
@@ -40,6 +41,11 @@ async function qa(){
   await click('최신 설정 조회');
   must(button('설정 저장').disabled&&!button('자동 발송 중지').disabled);
   await click('자동 발송 중지');must(current.settings.enabled===false);
+  current={...current,plans:[p]};
+  await click('최신 설정 조회');
+  document.querySelector('details').open=true;
+  await click('오늘 미발송·확인 필요');
+  must([...document.querySelectorAll('pre')].some(e=>e.textContent.includes('합성 확인 필요 토픽')&&e.textContent.includes('자동 재전송')));
   must(document.documentElement.scrollWidth<=window.innerWidth);
   document.getElementById('qa-result').textContent='PASS_BROWSER_QA viewport='+window.innerWidth+' scroll='+document.documentElement.scrollWidth;
  }catch(_){document.getElementById('qa-result').textContent='FAIL_BROWSER_QA';}
