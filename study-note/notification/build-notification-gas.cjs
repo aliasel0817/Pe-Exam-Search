@@ -13,7 +13,7 @@ function patchMain(source,approvedSha){
  if(source.split(validation).length!==2||source.split(anchor).length!==2||source.indexOf(validation)>=source.indexOf(anchor)||source.includes('PN4_verifiedNotificationPost_'))throw Error('Current host structure requires manual review');
  // Existing auth and signed poll flow remain in place. The exact live host,
  // verified owner/session accessor and audit/poll behavior require review.
- return source.replace(anchor,anchor+"\n      else if (typeof PN4_isNotificationPost_ === 'function' && PN4_isNotificationPost_(action)) result = PN4_verifiedNotificationPost_(action, verified);");
+ return source.replace(anchor,anchor+"\n      else if (typeof PN4_isNotificationPost_ === 'function' && PN4_isNotificationPost_(action)) result = PN4_verifiedNotificationPost_(action, verified, envelope);");
 }
 function build(outDir,mainPath,approvedSha){
  if(fs.existsSync(outDir))throw Error('New output directory required');
